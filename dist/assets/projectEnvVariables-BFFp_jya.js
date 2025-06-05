@@ -1,1 +1,0 @@
-const _={VITE_REACT_API_URL:"${VITE_REACT_API_URL}"},E=()=>({envVariables:{VITE_REACT_API_URL:_.VITE_REACT_API_URL.includes("VITE")?"https://api.cmms.widatra.com:8181/api":_.VITE_REACT_API_URL}});export{E as g};
