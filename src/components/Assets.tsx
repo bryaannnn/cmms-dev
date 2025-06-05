@@ -29,7 +29,7 @@ import {
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../routes/AuthContext";
 import logoWida from "../assets/logo-wida.png";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 type AssetStatus = "running" | "maintenance" | "breakdown" | "idle";
 type AssetType = "mechanical" | "electrical" | "vehicle" | "building";
@@ -58,19 +58,24 @@ interface NavItemProps {
 const NavItem: React.FC<NavItemProps> = ({ icon, text, to, expanded }) => {
   const navigate = useNavigate();
   const location = useLocation();
-
   const active = location.pathname === to;
 
   return (
-    <button
+    <motion.button
       onClick={() => navigate(to)}
-      className={`w-full text-left flex items-center p-2 rounded-lg transition-colors duration-200
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+      className={`w-full text-left flex items-center p-2 rounded-lg transition-all duration-200
         ${active ? "bg-blue-50 text-blue-700 font-semibold" : "hover:bg-blue-50 text-gray-700"}
       `}
     >
       <span className="text-xl">{icon}</span>
-      {expanded && <span className="ml-3 text-base">{text}</span>}
-    </button>
+      {expanded && (
+        <motion.span initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.2 }} className="ml-3 text-base">
+          {text}
+        </motion.span>
+      )}
+    </motion.button>
   );
 };
 
@@ -78,16 +83,20 @@ const StatCard: React.FC<{ title: string; value: string; change: string; icon: R
   const isPositive = change.startsWith("+");
 
   return (
-    <div className="bg-white rounded-xl shadow-sm p-5 transition-transform duration-200 hover:scale-[1.02] border border-blue-100">
+    <motion.div whileHover={{ y: -5, boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)" }} transition={{ type: "spring", stiffness: 300 }} className="bg-white rounded-xl shadow-sm p-5 border border-blue-100 cursor-pointer">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm font-medium text-gray-600">{title}</p>
           <p className="text-3xl font-extrabold mt-1 text-gray-900">{value}</p>
         </div>
-        <div className="p-3 rounded-full bg-blue-50 text-blue-600 text-2xl">{icon}</div>
+        <motion.div whileHover={{ rotate: 10, scale: 1.1 }} className="p-3 rounded-full bg-blue-50 text-blue-600 text-2xl">
+          {icon}
+        </motion.div>
       </div>
-      <p className={`mt-3 text-sm font-medium ${isPositive ? "text-green-600" : "text-red-600"}`}>{change} from last month</p>
-    </div>
+      <motion.p animate={{ x: isPositive ? [0, 2, 0] : [0, -2, 0] }} transition={{ repeat: Infinity, duration: 2 }} className={`mt-3 text-sm font-medium ${isPositive ? "text-green-600" : "text-red-600"}`}>
+        {change} from last month
+      </motion.p>
+    </motion.div>
   );
 };
 
@@ -102,17 +111,17 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-auto p-6 transform transition-all duration-300 scale-100 opacity-100">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+      <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-auto p-6">
         <div className="flex justify-between items-center border-b pb-3 mb-4 border-blue-100">
           <h3 className="text-2xl font-bold text-gray-900">{title}</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">
+          <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">
             <FiX />
-          </button>
+          </motion.button>
         </div>
         <div>{children}</div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 
@@ -158,13 +167,28 @@ const AddAssetForm: React.FC<AddAssetFormProps> = ({ onAddAsset }) => {
         <label htmlFor="name" className="block text-sm font-medium text-gray-700">
           Asset Name
         </label>
-        <input type="text" id="name" name="name" value={formData.name} onChange={handleChange} required className="mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500" />
+        <input
+          type="text"
+          id="name"
+          name="name"
+          value={formData.name}
+          onChange={handleChange}
+          required
+          className="mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+        />
       </div>
       <div>
         <label htmlFor="type" className="block text-sm font-medium text-gray-700">
           Asset Type
         </label>
-        <select id="type" name="type" value={formData.type} onChange={handleChange} required className="mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500">
+        <select
+          id="type"
+          name="type"
+          value={formData.type}
+          onChange={handleChange}
+          required
+          className="mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+        >
           <option value="mechanical">Mechanical</option>
           <option value="electrical">Electrical</option>
           <option value="vehicle">Vehicle</option>
@@ -175,13 +199,29 @@ const AddAssetForm: React.FC<AddAssetFormProps> = ({ onAddAsset }) => {
         <label htmlFor="make" className="block text-sm font-medium text-gray-700">
           Make
         </label>
-        <input type="text" id="make" name="make" value={formData.make} onChange={handleChange} required className="mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500" />
+        <input
+          type="text"
+          id="make"
+          name="make"
+          value={formData.make}
+          onChange={handleChange}
+          required
+          className="mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+        />
       </div>
       <div>
         <label htmlFor="model" className="block text-sm font-medium text-gray-700">
           Model
         </label>
-        <input type="text" id="model" name="model" value={formData.model} onChange={handleChange} required className="mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500" />
+        <input
+          type="text"
+          id="model"
+          name="model"
+          value={formData.model}
+          onChange={handleChange}
+          required
+          className="mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+        />
       </div>
       <div>
         <label htmlFor="location" className="block text-sm font-medium text-gray-700">
@@ -194,7 +234,7 @@ const AddAssetForm: React.FC<AddAssetFormProps> = ({ onAddAsset }) => {
           value={formData.location}
           onChange={handleChange}
           required
-          className="mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500"
+          className="mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
         />
       </div>
       <div>
@@ -207,7 +247,7 @@ const AddAssetForm: React.FC<AddAssetFormProps> = ({ onAddAsset }) => {
           name="lastMaintenance"
           value={formData.lastMaintenance}
           onChange={handleChange}
-          className="mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500"
+          className="mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
         />
       </div>
       <div>
@@ -220,16 +260,18 @@ const AddAssetForm: React.FC<AddAssetFormProps> = ({ onAddAsset }) => {
           name="nextMaintenance"
           value={formData.nextMaintenance}
           onChange={handleChange}
-          className="mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500"
+          className="mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
         />
       </div>
       <div className="flex justify-end space-x-3 mt-6">
-        <button
+        <motion.button
           type="submit"
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
           className="inline-flex items-center px-5 py-2.5 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
         >
           Add Asset
-        </button>
+        </motion.button>
       </div>
     </form>
   );
@@ -270,7 +312,7 @@ const AssetDetailsForm: React.FC<AssetDetailsFormProps> = ({ asset, isEditing, o
         <label htmlFor="detail-id" className="block text-sm font-medium text-gray-700">
           Asset ID
         </label>
-        <input type="text" id="detail-id" value={formData.id} readOnly className="mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-blue-50 cursor-not-allowed" />
+        <input type="text" id="detail-id" value={formData.id} readOnly className="mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-blue-50 cursor-not-allowed transition-all duration-200" />
       </div>
       <div>
         <label htmlFor="detail-name" className="block text-sm font-medium text-gray-700">
@@ -284,7 +326,7 @@ const AssetDetailsForm: React.FC<AssetDetailsFormProps> = ({ asset, isEditing, o
           onChange={handleChange}
           readOnly={!isEditing}
           required
-          className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
+          className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
         />
       </div>
       <div>
@@ -298,7 +340,7 @@ const AssetDetailsForm: React.FC<AssetDetailsFormProps> = ({ asset, isEditing, o
           onChange={handleChange}
           disabled={!isEditing}
           required
-          className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
+          className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
         >
           <option value="mechanical">Mechanical</option>
           <option value="electrical">Electrical</option>
@@ -318,7 +360,7 @@ const AssetDetailsForm: React.FC<AssetDetailsFormProps> = ({ asset, isEditing, o
           onChange={handleChange}
           readOnly={!isEditing}
           required
-          className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
+          className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
         />
       </div>
       <div>
@@ -333,7 +375,7 @@ const AssetDetailsForm: React.FC<AssetDetailsFormProps> = ({ asset, isEditing, o
           onChange={handleChange}
           readOnly={!isEditing}
           required
-          className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
+          className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
         />
       </div>
       <div>
@@ -347,7 +389,7 @@ const AssetDetailsForm: React.FC<AssetDetailsFormProps> = ({ asset, isEditing, o
           onChange={handleChange}
           disabled={!isEditing}
           required
-          className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
+          className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
         >
           <option value="running">Running</option>
           <option value="maintenance">Maintenance</option>
@@ -366,7 +408,7 @@ const AssetDetailsForm: React.FC<AssetDetailsFormProps> = ({ asset, isEditing, o
           value={formData.lastMaintenance}
           onChange={handleChange}
           readOnly={!isEditing}
-          className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
+          className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
         />
       </div>
       <div>
@@ -380,7 +422,7 @@ const AssetDetailsForm: React.FC<AssetDetailsFormProps> = ({ asset, isEditing, o
           value={formData.nextMaintenance}
           onChange={handleChange}
           readOnly={!isEditing}
-          className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
+          className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
         />
       </div>
       <div>
@@ -395,7 +437,7 @@ const AssetDetailsForm: React.FC<AssetDetailsFormProps> = ({ asset, isEditing, o
           onChange={handleChange}
           readOnly={!isEditing}
           required
-          className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
+          className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
         />
       </div>
       <div>
@@ -409,7 +451,7 @@ const AssetDetailsForm: React.FC<AssetDetailsFormProps> = ({ asset, isEditing, o
           value={formData.workOrders}
           onChange={handleChange}
           readOnly={!isEditing}
-          className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
+          className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
         />
       </div>
       <div>
@@ -425,25 +467,29 @@ const AssetDetailsForm: React.FC<AssetDetailsFormProps> = ({ asset, isEditing, o
           readOnly={!isEditing}
           min="0"
           max="100"
-          className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
+          className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
         />
       </div>
 
       <div className="flex justify-end space-x-3 mt-6">
-        <button
+        <motion.button
           type="button"
           onClick={onCancel}
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
           className="inline-flex items-center px-5 py-2.5 border border-blue-200 text-base font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
         >
           {isEditing ? "Cancel" : "Close"}
-        </button>
+        </motion.button>
         {isEditing && (
-          <button
+          <motion.button
             type="submit"
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
             className="inline-flex items-center px-5 py-2.5 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
           >
             Save Changes
-          </button>
+          </motion.button>
         )}
       </div>
     </form>
@@ -472,6 +518,19 @@ const AssetsDashboard: React.FC = () => {
   const [data, setData] = useState(null);
   const navigate = useNavigate();
   const [hasInteracted, setHasInteracted] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+      if (window.innerWidth < 768) {
+        setSidebarOpen(false);
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const [assets, setAssets] = useState<Asset[]>([
     {
@@ -708,119 +767,153 @@ const AssetsDashboard: React.FC = () => {
   return (
     <div className="flex h-screen font-sans bg-gray-50 text-gray-900">
       {/* Sidebar */}
-      <motion.div animate={{ width: sidebarOpen ? 256 : 80 }} transition={hasInteracted ? { duration: 0.4, ease: "easeInOut" } : { duration: 0 }} className="bg-white border-r border-blue-100 flex flex-col shadow-md overflow-hidden">
-        <div className="p-4 flex items-center justify-between border-b border-blue-100">
-          {sidebarOpen ? (
-            <>
-              <div className="rounded-lg flex items-center space-x-3">
-                <img src={logoWida} alt="Logo Wida" className="h-10 w-auto" />
-                <h1 className="text-sm font-bold text-blue-800">CMS DASHBOARD</h1>
+      <AnimatePresence>
+        {(!isMobile || sidebarOpen) && (
+          <motion.div
+            initial={{ width: isMobile ? 0 : sidebarOpen ? 256 : 80 }}
+            animate={{
+              width: isMobile ? (sidebarOpen ? 256 : 0) : sidebarOpen ? 256 : 80,
+            }}
+            exit={{ width: 0 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className={`bg-white border-r border-blue-100 flex flex-col shadow-md overflow-hidden ${isMobile ? "fixed z-50 h-full" : ""}`}
+          >
+            <div className="p-4 flex items-center justify-between border-b border-blue-100">
+              {sidebarOpen ? (
+                <>
+                  <div className="rounded-lg flex items-center space-x-3">
+                    <img src={logoWida} alt="Logo Wida" className="h-10 w-auto" />
+                    <h1 className="text-sm font-bold text-blue-800">CMMS</h1>
+                  </div>
+                </>
+              ) : (
+                <img src={logoWida} alt="Logo Wida" className="h-6 w-auto" />
+              )}
+
+              <button onClick={toggleSidebar} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200" aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}>
+                {sidebarOpen ? <FiChevronLeft className="text-xl" /> : <FiChevronRight className="text-xl" />}
+              </button>
+            </div>
+
+            <nav className="flex-1 p-4 space-y-2 overflow-y-auto custom-scrollbar">
+              <NavItem icon={<FiHome />} text="Dashboard" to="/dashboard" expanded={sidebarOpen} />
+              <NavItem icon={<FiPackage />} text="Assets" to="/assets" expanded={sidebarOpen} />
+              <NavItem icon={<FiClipboard />} text="Work Orders" to="/workorders" expanded={sidebarOpen} />
+              <NavItem icon={<FiDatabase />} text="Inventory" to="/inventory" expanded={sidebarOpen} />
+              <NavItem icon={<FiBarChart2 />} text="Reports" to="/reports" expanded={sidebarOpen} />
+              <NavItem icon={<FiUsers />} text="Team" to="/team" expanded={sidebarOpen} />
+              <NavItem icon={<FiSettings />} text="Settings" to="/settings" expanded={sidebarOpen} />
+            </nav>
+
+            <div className="p-4 border-t border-blue-100">
+              <div className="flex items-center space-x-3">
+                <img src="https://placehold.co/40x40/0078D7/FFFFFF?text=AD" alt="User Avatar" className="w-10 h-10 rounded-full border-2 border-blue-500" />
+                {sidebarOpen && (
+                  <div>
+                    <p className="font-medium text-gray-900">{user?.name}</p>
+                    <p className="text-sm text-gray-600">User</p>
+                  </div>
+                )}
               </div>
-            </>
-          ) : (
-            <img src={logoWida} alt="Logo Wida" className="h-6 w-auto" />
-          )}
-
-          <button onClick={toggleSidebar} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200" aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}>
-            {sidebarOpen ? <FiChevronLeft className="text-xl" /> : <FiChevronRight className="text-xl" />}
-          </button>
-        </div>
-
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto custom-scrollbar">
-          <NavItem icon={<FiHome />} text="Dashboard" to="/dashboard" expanded={sidebarOpen} />
-          <NavItem icon={<FiPackage />} text="Assets" to="/assets" expanded={sidebarOpen} />
-          <NavItem icon={<FiClipboard />} text="Work Orders" to="/workorders" expanded={sidebarOpen} />
-          <NavItem icon={<FiDatabase />} text="Inventory" to="/inventory" expanded={sidebarOpen} />
-          <NavItem icon={<FiBarChart2 />} text="Reports" to="/reports" expanded={sidebarOpen} />
-          <NavItem icon={<FiUsers />} text="Team" to="/team" expanded={sidebarOpen} />
-          <NavItem icon={<FiSettings />} text="Settings" to="/settings" expanded={sidebarOpen} />
-        </nav>
-
-        <div className="p-4 border-t border-blue-100">
-          <div className="flex items-center space-x-3">
-            <img src="https://placehold.co/40x40/0078D7/FFFFFF?text=AD" alt="User Avatar" className="w-10 h-10 rounded-full border-2 border-blue-500" />
-            {sidebarOpen && (
-              <div>
-                <p className="font-medium text-gray-900">{user?.name}</p>
-                <p className="text-sm text-gray-600">User</p>
-              </div>
-            )}
-          </div>
-          {sidebarOpen && (
-            <button onClick={() => navigate("/logout")} className="mt-4 w-full flex items-center justify-center space-x-2 text-red-600 hover:bg-red-50 p-2 rounded-lg transition-colors duration-200 font-medium">
-              <FiLogOut className="text-xl" />
-              <span>Logout</span>
-            </button>
-          )}
-        </div>
-      </motion.div>
+              {sidebarOpen && (
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => navigate("/logout")}
+                  className="mt-4 w-full flex items-center justify-center space-x-2 text-red-600 hover:bg-red-50 p-2 rounded-lg transition-colors duration-200 font-medium"
+                >
+                  <FiLogOut className="text-xl" />
+                  <span>Logout</span>
+                </motion.button>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top Navigation */}
         <header className="bg-white border-b border-blue-100 p-4 flex items-center justify-between shadow-sm">
           <div className="flex items-center space-x-3">
+            {isMobile && (
+              <motion.button onClick={toggleSidebar} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
+                <FiChevronRight className="text-xl" />
+              </motion.button>
+            )}
             <FiPackage className="text-2xl text-blue-600" />
-            <h2 className="text-2xl font-semibold text-blue-600">Assets</h2>
+            <h2 className="text-xl md:text-2xl font-semibold text-blue-600">Assets</h2>
           </div>
 
           <div className="flex items-center space-x-4">
-            <button onClick={() => setDarkMode(!darkMode)} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200" aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}>
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setDarkMode(!darkMode)}
+              className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200"
+              aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
+            >
               {darkMode ? <FiSun className="text-yellow-400 text-xl" /> : <FiMoon className="text-xl" />}
-            </button>
+            </motion.button>
 
-            <button onClick={handleNotifications} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200 relative" aria-label="Notifications">
+            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={handleNotifications} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200 relative" aria-label="Notifications">
               <FiBell className="text-xl" />
               <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></span>
-            </button>
+            </motion.button>
 
-            <div className="flex items-center space-x-2 cursor-pointer p-2 rounded-lg hover:bg-blue-50 transition-colors duration-200">
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="flex items-center space-x-2 cursor-pointer p-2 rounded-lg hover:bg-blue-50 transition-colors duration-200">
               <img src="https://placehold.co/32x32/0078D7/FFFFFF?text=AD" alt="User Avatar" className="w-8 h-8 rounded-full border border-blue-200" />
               <span className="font-medium text-gray-900 hidden sm:inline">{user?.name}</span>
               <FiChevronDown className="text-gray-500" />
-            </div>
+            </motion.div>
           </div>
         </header>
 
         {/* Content Area */}
-        <main className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar">
           {/* Header and Actions */}
-          <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
+          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Assets Overview</h1>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Assets Overview</h1>
               <p className="text-gray-600 mt-1">Manage and monitor your physical assets efficiently</p>
             </div>
 
             <div className="flex flex-wrap gap-3">
-              <button
+              <motion.button
                 onClick={() => setShowAddAssetModal(true)}
-                className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                whileHover={{ scale: 1.05, boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)" }}
+                whileTap={{ scale: 0.95 }}
+                className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md"
               >
                 <FiPlus className="text-lg" />
                 <span className="font-semibold">Add Asset</span>
-              </button>
+              </motion.button>
 
-              <button
+              <motion.button
                 onClick={handleImport}
-                className="flex items-center space-x-2 bg-white border border-blue-200 text-gray-800 px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                whileHover={{ scale: 1.05, boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)" }}
+                whileTap={{ scale: 0.95 }}
+                className="flex items-center space-x-2 bg-white border border-blue-200 text-gray-800 px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md"
               >
                 <FiUpload className="text-lg" />
                 <span className="font-semibold">Import</span>
-              </button>
+              </motion.button>
 
-              <button
+              <motion.button
                 onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                className="flex items-center space-x-2 bg-white border border-blue-200 text-gray-800 px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                whileHover={{ scale: 1.05, boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)" }}
+                whileTap={{ scale: 0.95 }}
+                className="flex items-center space-x-2 bg-white border border-blue-200 text-gray-800 px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md"
               >
                 <FiFilter className="text-lg" />
                 <span className="font-semibold">Filters</span>
                 {showAdvancedFilters ? <FiChevronUp /> : <FiChevronDown />}
-              </button>
+              </motion.button>
             </div>
-          </div>
+          </motion.div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
             <StatCard title="Total Assets" value={assets.length.toString()} change="+12%" icon={<FiPackage />} />
             <StatCard title="Active Assets" value={assets.filter((a) => a.status === "running").length.toString()} change="+5%" icon={<FiCheckCircle />} />
             <StatCard title="In Maintenance" value={assets.filter((a) => a.status === "maintenance").length.toString()} change="-2%" icon={<FiTool />} />
@@ -828,59 +921,67 @@ const AssetsDashboard: React.FC = () => {
           </div>
 
           {/* Search and Filters */}
-          <div className="mb-6 bg-white rounded-xl shadow-sm p-6 border border-blue-100">
+          <motion.div layout className="mb-6 bg-white rounded-xl shadow-sm p-4 md:p-6 border border-blue-100">
             <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-4 md:space-y-0">
               <div className="flex-1 relative">
                 <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
                 <input
                   type="text"
                   placeholder="Search assets by name, ID, or location..."
-                  className="w-full pl-12 pr-4 py-3 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-base transition-colors duration-200"
+                  className="w-full pl-12 pr-4 py-3 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-base transition-all duration-200"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
 
-              {showAdvancedFilters && (
-                <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 w-full md:w-auto transition-all duration-300 ease-in-out">
-                  <select
-                    className="border border-blue-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-base appearance-none bg-no-repeat bg-right-12 bg-center-y"
-                    style={{
-                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
-                      backgroundSize: "1.2rem",
-                    }}
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value as AssetStatus | "all")}
+              <AnimatePresence>
+                {showAdvancedFilters && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 w-full md:w-auto"
                   >
-                    <option value="all">All Statuses</option>
-                    <option value="running">Running</option>
-                    <option value="maintenance">Maintenance</option>
-                    <option value="breakdown">Breakdown</option>
-                    <option value="idle">Idle</option>
-                  </select>
+                    <select
+                      className="border border-blue-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-base appearance-none bg-no-repeat bg-right-12 bg-center-y transition-all duration-200"
+                      style={{
+                        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+                        backgroundSize: "1.2rem",
+                      }}
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value as AssetStatus | "all")}
+                    >
+                      <option value="all">All Statuses</option>
+                      <option value="running">Running</option>
+                      <option value="maintenance">Maintenance</option>
+                      <option value="breakdown">Breakdown</option>
+                      <option value="idle">Idle</option>
+                    </select>
 
-                  <select
-                    className="border border-blue-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-base appearance-none bg-no-repeat bg-right-12 bg-center-y"
-                    style={{
-                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
-                      backgroundSize: "1.2rem",
-                    }}
-                    value={typeFilter}
-                    onChange={(e) => setTypeFilter(e.target.value as AssetType | "all")}
-                  >
-                    <option value="all">All Types</option>
-                    <option value="mechanical">Mechanical</option>
-                    <option value="electrical">Electrical</option>
-                    <option value="vehicle">Vehicle</option>
-                    <option value="building">Building</option>
-                  </select>
-                </div>
-              )}
+                    <select
+                      className="border border-blue-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-base appearance-none bg-no-repeat bg-right-12 bg-center-y transition-all duration-200"
+                      style={{
+                        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+                        backgroundSize: "1.2rem",
+                      }}
+                      value={typeFilter}
+                      onChange={(e) => setTypeFilter(e.target.value as AssetType | "all")}
+                    >
+                      <option value="all">All Types</option>
+                      <option value="mechanical">Mechanical</option>
+                      <option value="electrical">Electrical</option>
+                      <option value="vehicle">Vehicle</option>
+                      <option value="building">Building</option>
+                    </select>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
-          </div>
+          </motion.div>
 
           {/* Assets Table */}
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-blue-100">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="bg-white rounded-xl shadow-sm overflow-hidden border border-blue-100">
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-blue-100">
                 <thead className="bg-blue-50">
@@ -897,7 +998,14 @@ const AssetsDashboard: React.FC = () => {
                 <tbody className="bg-white divide-y divide-blue-100">
                   {currentAssets.length > 0 ? (
                     currentAssets.map((asset) => (
-                      <tr key={asset.id} className="hover:bg-blue-50 transition-colors duration-150">
+                      <motion.tr
+                        key={asset.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.2 }}
+                        whileHover={{ backgroundColor: "rgba(239, 246, 255, 1)" }}
+                        className="transition-colors duration-150"
+                      >
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="flex-shrink-0 h-12 w-12 rounded-full bg-blue-50 flex items-center justify-center text-2xl">{getTypeIcon(asset.type)}</div>
@@ -914,12 +1022,19 @@ const AssetsDashboard: React.FC = () => {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full ${getStatusColor(asset.status)} text-white shadow-sm`}>{asset.status.charAt(0).toUpperCase() + asset.status.slice(1)}</span>
+                          <motion.span whileHover={{ scale: 1.05 }} className={`px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full ${getStatusColor(asset.status)} text-white shadow-sm`}>
+                            {asset.status.charAt(0).toUpperCase() + asset.status.slice(1)}
+                          </motion.span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="w-24 h-2.5 bg-blue-100 rounded-full mr-2">
-                              <div className={`h-2.5 rounded-full transition-all duration-500 ease-out ${asset.health > 70 ? "bg-green-500" : asset.health > 40 ? "bg-yellow-500" : "bg-red-500"}`} style={{ width: `${asset.health}%` }}></div>
+                              <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: `${asset.health}%` }}
+                                transition={{ duration: 0.8, type: "spring" }}
+                                className={`h-2.5 rounded-full ${asset.health > 70 ? "bg-green-500" : asset.health > 40 ? "bg-yellow-500" : "bg-red-500"}`}
+                              />
                             </div>
                             <span className="text-sm font-medium text-gray-900">{asset.health}%</span>
                           </div>
@@ -931,16 +1046,28 @@ const AssetsDashboard: React.FC = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <button onClick={() => openAssetDetails(asset, false)} className="text-blue-600 hover:text-blue-800 mr-3 transition-colors duration-200 flex items-center space-x-1" title="View Details">
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => openAssetDetails(asset, false)}
+                            className="text-blue-600 hover:text-blue-800 mr-3 transition-colors duration-200 flex items-center space-x-1"
+                            title="View Details"
+                          >
                             <FiEye className="text-lg" />
                             <span>View</span>
-                          </button>
-                          <button onClick={() => openAssetDetails(asset, true)} className="text-gray-600 hover:text-gray-800 transition-colors duration-200 flex items-center space-x-1" title="Edit Asset">
+                          </motion.button>
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => openAssetDetails(asset, true)}
+                            className="text-gray-600 hover:text-gray-800 transition-colors duration-200 flex items-center space-x-1"
+                            title="Edit Asset"
+                          >
                             <FiEdit className="text-lg" />
                             <span>Edit</span>
-                          </button>
+                          </motion.button>
                         </td>
-                      </tr>
+                      </motion.tr>
                     ))
                   ) : (
                     <tr>
@@ -952,43 +1079,49 @@ const AssetsDashboard: React.FC = () => {
                 </tbody>
               </table>
             </div>
-          </div>
+          </motion.div>
 
           {/* Pagination */}
           {filteredAssets.length > assetsPerPage && (
-            <div className="mt-8 flex flex-col sm:flex-row sm:items-center sm:justify-between">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="mt-8 flex flex-col sm:flex-row sm:items-center sm:justify-between">
               <div className="text-sm text-gray-600 mb-4 sm:mb-0">
                 Showing <span className="font-semibold">{indexOfFirstAsset + 1}</span> to <span className="font-semibold">{Math.min(indexOfLastAsset, filteredAssets.length)}</span> of{" "}
                 <span className="font-semibold">{filteredAssets.length}</span> results
               </div>
               <div className="flex space-x-2">
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                   onClick={() => paginate(currentPage - 1)}
                   disabled={currentPage === 1}
                   className="px-4 py-2 border border-blue-200 rounded-lg bg-white text-gray-700 hover:bg-blue-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                 >
                   Previous
-                </button>
+                </motion.button>
                 {Array.from({ length: totalPages }, (_, i) => (
-                  <button
+                  <motion.button
                     key={i + 1}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={() => paginate(i + 1)}
                     className={`px-4 py-2 rounded-lg transition-colors duration-200 shadow-sm
                       ${currentPage === i + 1 ? "bg-blue-600 text-white shadow-md" : "bg-white text-gray-700 hover:bg-blue-50 border border-blue-200"}
                     `}
                   >
                     {i + 1}
-                  </button>
+                  </motion.button>
                 ))}
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                   onClick={() => paginate(currentPage + 1)}
                   disabled={currentPage === totalPages}
                   className="px-4 py-2 border border-blue-200 rounded-lg bg-white text-gray-700 hover:bg-blue-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                 >
                   Next
-                </button>
+                </motion.button>
               </div>
-            </div>
+            </motion.div>
           )}
         </main>
       </div>
