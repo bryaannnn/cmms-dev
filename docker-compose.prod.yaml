@@ -1,0 +1,14 @@
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+      args:
+      - VITE_REACT_API_URL=${VITE_REACT_API_URL}
+    image: cmms-frontend-prod
+    ports:
+      - "8082:80"
+    environment:
+      - VITE_REACT_API_URL=${VITE_REACT_API_URL}
+    restart: always
