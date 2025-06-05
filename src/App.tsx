@@ -17,14 +17,13 @@ function App() {
       <Route path="/register" element={<RegisterForm />} />
       <Route path="/login" element={<LoginForm />} />
       <Route path="/assets" element={<Assets />} />
-      <Route path="/dashboard" element={<Dashboard />} />
-     
+
       <Route element={<ProtectedRoute />}>
-        
+        <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/" element={<Dashboard />} />
       </Route>
 
-       <Route path="/terms" element={<TermsAndConditions />} />
+      <Route path="/terms" element={<TermsAndConditions />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/privacy-policy" element={<PrivacyPolicy />} />
       <Route path="/logout" element={<Logout />} />
