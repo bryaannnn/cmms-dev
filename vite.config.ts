@@ -10,29 +10,28 @@ export default defineConfig(({ mode }) => {
     envPrefix: "VITE_",
     build: {
       outDir: "dist",
-      sourcemap: mode !== 'production',
+      sourcemap: mode !== "production",
       //env.VITE_GENERATE_SOURCEMAP === "true",
       rollupOptions: {
         output: {
           format: "es",
           globals: {
             react: "React",
-            "react-dom": "ReactDOM"
+            "react-dom": "ReactDOM",
           },
-          manualChunks(id: any){
-              if(/projectEnvVariables.ts/.test(id))
-                return "projectEnvVariables";
-          }
-        }
-      }
+          manualChunks(id: any) {
+            if (/projectEnvVariables.ts/.test(id)) return "projectEnvVariables";
+          },
+        },
+      },
     },
     base: "/",
     server: {
-      host: '0.0.0.0',
+      host: "0.0.0.0",
       port: 8082,
       proxy: {
         "/api": {
-          target: "http://192.168.254.211:8080",
+          target: "http://api.cmms.widatra.com:8181",
           changeOrigin: true,
         },
       },
