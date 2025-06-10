@@ -30,6 +30,8 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../routes/AuthContext";
 import logoWida from "../assets/logo-wida.png";
 import { motion, AnimatePresence } from "framer-motion";
+import logoMaintify2 from "../assets/logo_maintify2.svg";
+import logomaintify from "../assets/logo_maintify_title.svg";
 
 type AssetStatus = "running" | "maintenance" | "breakdown" | "idle";
 type AssetType = "mechanical" | "electrical" | "vehicle" | "building";
@@ -783,7 +785,7 @@ const AssetsDashboard: React.FC = () => {
                 <>
                   <div className="rounded-lg flex items-center space-x-3">
                     <img src={logoWida} alt="Logo Wida" className="h-10 w-auto" />
-                    <h1 className="text-sm font-bold text-blue-800">CMMS</h1>
+                    <p className="text-blue-600 font-bold">CMMS</p>
                   </div>
                 </>
               ) : (
