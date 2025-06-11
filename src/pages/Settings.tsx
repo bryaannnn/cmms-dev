@@ -327,11 +327,11 @@ const SettingsPage: React.FC = () => {
                         <div className="space-y-4">
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                            <input type="text" name="name" value={formData.name} onChange={handleInputChange} className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
+                            <input type="text" name="name" value={user?.name} onChange={handleInputChange} className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
                           </div>
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                            <input type="email" name="email" value={formData.email} onChange={handleInputChange} className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
+                            <input type="email" name="email" value={user?.email} onChange={handleInputChange} className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
                           </div>
                         </div>
                         <div className="flex justify-end space-x-3 mt-6">
@@ -345,8 +345,8 @@ const SettingsPage: React.FC = () => {
                       </>
                     ) : (
                       <>
-                        <SettingItem label="Name" value={formData.name} onEdit={() => setIsEditing(true)} />
-                        <SettingItem label="Email" value={formData.email} onEdit={() => setIsEditing(true)} />
+                        <SettingItem label="Name" value={user?.name} onEdit={() => setIsEditing(true)} />
+                        <SettingItem label="Email" value={user?.email} onEdit={() => setIsEditing(true)} />
                         <SettingItem label="Role" value="Administrator" editable={false} />
                         <SettingItem label="Member since" value="January 15, 2022" editable={false} />
                       </>
