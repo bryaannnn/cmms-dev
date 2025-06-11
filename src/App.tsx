@@ -22,16 +22,16 @@ function App() {
     <Routes>
       <Route path="/register" element={<RegisterForm />} />
       <Route path="/login" element={<LoginForm />} />
-      <Route path="/settings" element={<SettingsPage />} />
-      <Route path="/dashboard" element={<Dashboard />} />
-      <Route path="/workorders" element={<WorkOrdersDashboard />} />
-      <Route path="/inventory" element={<InventoryDashboard />} />
-      <Route path="/assets" element={<Assets />} />
-      <Route path="/reports" element={<ReportsDashboard />} />
-      <Route path="/team" element={<TeamDashboard />} />
 
       <Route element={<ProtectedRoute />}>
         <Route path="/" element={<Dashboard />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/workorders" element={<WorkOrdersDashboard />} />
+        <Route path="/inventory" element={<InventoryDashboard />} />
+        <Route path="/assets" element={<Assets />} />
+        <Route path="/reports" element={<ReportsDashboard />} />
+        <Route path="/team" element={<TeamDashboard />} />
+        <Route path="/settings" element={<SettingsPage />} />
       </Route>
 
       <Route path="/terms" element={<TermsAndConditions />} />
