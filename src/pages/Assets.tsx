@@ -30,8 +30,6 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../routes/AuthContext";
 import logoWida from "../assets/logo-wida.png";
 import { motion, AnimatePresence } from "framer-motion";
-import logoMaintify2 from "../assets/logo_maintify2.svg";
-import logomaintify from "../assets/logo_maintify_title.svg";
 
 type AssetStatus = "running" | "maintenance" | "breakdown" | "idle";
 type AssetType = "mechanical" | "electrical" | "vehicle" | "building";

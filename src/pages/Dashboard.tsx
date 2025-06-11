@@ -24,8 +24,6 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../routes/AuthContext";
 import logoWida from "../assets/logo-wida.png";
 import { motion, AnimatePresence } from "framer-motion";
-import logoMaintify2 from "../assets/logo_maintify2.svg";
-import logomaintify from "../assets/logo_maintify_title.svg";
 
 interface NavItemProps {
   icon: React.ReactNode;
@@ -227,7 +225,7 @@ const Dashboard: React.FC = () => {
                   </div>
                 </>
               ) : (
-                <img src={logomaintify} alt="Logo Wida" className="h-6 w-auto" />
+                <img src={logoWida} alt="Logo Wida" className="h-6 w-auto" />
               )}
 
               <button onClick={toggleSidebar} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200" aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}>

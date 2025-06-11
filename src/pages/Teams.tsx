@@ -34,8 +34,6 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../routes/AuthContext";
 import logoWida from "../assets/logo-wida.png";
 import { motion, AnimatePresence } from "framer-motion";
-import logoMaintify2 from "../assets/logo_maintify2.svg";
-import logomaintify from "../assets/logo_maintify_title.svg";
 
 type TeamsStatus = "Active" | "On Leave";
 
@@ -99,6 +97,7 @@ const TeamDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState("all");
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedDepartment, setSelectedDepartment] = useState("all");
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [newUser, setNewUser] = useState({
     name: "",
@@ -243,8 +242,12 @@ const TeamDashboard: React.FC = () => {
 
   const filteredMembers = teamMembers.filter((member) => {
     const matchesSearch = member.name.toLowerCase().includes(searchTerm.toLowerCase()) || member.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesTab = activeTab === "all" || (activeTab === "active" && member.status === "Active") || (activeTab === "on leave" && member.status === "On Leave") || (activeTab === "facility management" && member.status === "Facility Management");
-    return matchesSearch && matchesTab;
+
+    const matchesTab = activeTab === "all" || (activeTab === "active" && member.status === "Active") || (activeTab === "on leave" && member.status === "On Leave");
+
+    const matchesDepartment = selectedDepartment === "all" || member.department.toLowerCase() === selectedDepartment.toLowerCase();
+
+    return matchesSearch && matchesTab && matchesDepartment;
   });
 
   const departments = [...new Set(teamMembers.map((member) => member.department))];
@@ -252,7 +255,7 @@ const TeamDashboard: React.FC = () => {
 
   return (
     <div className="flex h-screen font-sans bg-gray-50 text-gray-900">
-      {/* Sidebar - Same as before */}
+      {/* Sidebar */}
       <AnimatePresence>
         {(!isMobile || sidebarOpen) && (
           <motion.div
@@ -273,7 +276,7 @@ const TeamDashboard: React.FC = () => {
                   </div>
                 </>
               ) : (
-                <img src={logomaintify} alt="Logo Wida" className="h-6 w-auto" />
+                <img src={logoWida} alt="Logo Wida" className="h-6 w-auto" />
               )}
 
               <button onClick={toggleSidebar} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200" aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}>
@@ -404,10 +407,13 @@ const TeamDashboard: React.FC = () => {
 
               <div className="flex items-center gap-2">
                 <FiUsers className="text-gray-400" />
-                <select className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" value={activeTab} onChange={(e) => setActiveTab(e.target.value)}>
+                <select className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" value={selectedDepartment} onChange={(e) => setSelectedDepartment(e.target.value)}>
                   <option value="all">All Departments</option>
                   <option value="facility management">Facility Management</option>
-                  
+                  <option value="electrical">Electrical</option>
+                  <option value="mechanical">Mechanical</option>
+                  <option value="hvac">HVAC</option>
+                  <option value="logistics">Logistics</option>
                 </select>
               </div>
             </div>

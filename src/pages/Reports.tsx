@@ -42,8 +42,6 @@ import logoWida from "../assets/logo-wida.png";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bar, Pie, Line } from "react-chartjs-2";
 import { Chart, registerables } from "chart.js";
-import logoMaintify2 from "../assets/logo_maintify2.svg";
-import logomaintify from "../assets/logo_maintify_title.svg";
 
 Chart.register(...registerables);
 
@@ -649,7 +647,7 @@ const ReportsDashboard: React.FC = () => {
                   </div>
                 </>
               ) : (
-                <img src={logomaintify} alt="Logo Wida" className="h-6 w-auto" />
+                <img src={logoWida} alt="Logo Wida" className="h-6 w-auto" />
               )}
 
               <button onClick={toggleSidebar} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200" aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}>
