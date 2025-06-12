@@ -17,6 +17,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   isLoggingOut: boolean;
   fetchWithAuth: (url: string, options?: RequestInit) => Promise<any>;
+  getMesin: (name: string) => Promise<any>
 }
 
 const projectEnvVariables = getProjectEnvVariables();
@@ -26,6 +27,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [mesinList, setMesinList] = useState([]);
+  const [selectedMesin, setSelectedMesin] = useState('');
   const navigate = useNavigate();
 
   const isAuthenticated = !!token;
@@ -157,6 +160,37 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }, 100);
     }
   };
+
+  const getMesin = async (name: string = "") => {
+  try {
+    const url = new URL(`http://192.168.254.211/api/mesin`);
+
+    if (name) {
+      url.searchParams.append("name", name);
+    }
+
+    const response = await fetch(url.toString(), {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`, 
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Gagal mengambil data mesin");
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Error mengambil data mesin:", error);
+    throw error;
+  }
+};
+
+
   return (
     <AuthContext.Provider
       value={{
@@ -168,6 +202,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         logout,
         isLoggingOut,
         fetchWithAuth,
+        getMesin,
       }}
     >
       {children}
