@@ -31,7 +31,7 @@ export default defineConfig(({ mode }) => {
       port: 8082,
       proxy: {
         "/api": {
-          target: "http://api.cmms.widatra.com:8181",
+          target: "http://192.168.254.211:8080",
           changeOrigin: true,
         },
       },

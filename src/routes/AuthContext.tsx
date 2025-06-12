@@ -17,7 +17,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   isLoggingOut: boolean;
   fetchWithAuth: (url: string, options?: RequestInit) => Promise<any>;
-  getMesin: (name: string) => Promise<any>
+  getMesin: (name: string) => Promise<any>;
 }
 
 const projectEnvVariables = getProjectEnvVariables();
@@ -28,7 +28,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [token, setToken] = useState<string | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [mesinList, setMesinList] = useState([]);
-  const [selectedMesin, setSelectedMesin] = useState('');
+  const [selectedMesin, setSelectedMesin] = useState("");
   const navigate = useNavigate();
 
   const isAuthenticated = !!token;
@@ -71,40 +71,38 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const register = async (name: string, email: string, password: string) => {
-  try {
-    const response = await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, password }),
-    });
+    try {
+      const response = await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password }),
+      });
 
-    const contentType = response.headers.get('content-type');
-    if (!contentType?.includes('application/json')) {
-      const text = await response.text();
-      throw new Error(`Expected JSON but got: ${text.substring(0, 50)}...`);
+      const contentType = response.headers.get("content-type");
+      if (!contentType?.includes("application/json")) {
+        const text = await response.text();
+        throw new Error(`Expected JSON but got: ${text.substring(0, 50)}...`);
+      }
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Registration failed");
+      }
+
+      setToken(data.token);
+      setUser(data.user);
+
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+      navigate("/dashboard");
+
+      return data;
+    } catch (error) {
+      console.error("Registration error:", error);
+      throw error;
     }
-
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.message || 'Registration failed');
-    }
-
-    setToken(data.token);
-    setUser(data.user);
-
-
-    localStorage.setItem('token', data.token);
-    localStorage.setItem('user', JSON.stringify(data.user));
-    navigate('/dashboard');
-    
-    return data;
-  } catch (error) {
-    console.error('Registration error:', error);
-    throw error; 
-  }
-};
-
+  };
 
   const login = async (email: string, password: string) => {
     try {
@@ -154,7 +152,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setToken(null);
       setUser(null);
       setIsLoggingOut(false);
-  
+
       setTimeout(() => {
         navigate("/login");
       }, 100);
@@ -162,34 +160,33 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const getMesin = async (name: string = "") => {
-  try {
-    const url = new URL(`http://192.168.254.211/api/mesin`);
+    try {
+      const url = new URL(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/mesin`);
 
-    if (name) {
-      url.searchParams.append("name", name);
+      if (name) {
+        url.searchParams.append("name", name);
+      }
+
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        headers: {  
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Gagal mengambil data mesin");
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("Error mengambil data mesin:", error);
+      throw error;
     }
-
-    const response = await fetch(url.toString(), {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`, 
-        "Content-Type": "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || "Gagal mengambil data mesin");
-    }
-
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error("Error mengambil data mesin:", error);
-    throw error;
-  }
-};
-
+  };
 
   return (
     <AuthContext.Provider
