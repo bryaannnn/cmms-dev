@@ -40,6 +40,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../routes/AuthContext";
 import logoWida from "../assets/logo-wida.png";
 import { motion, AnimatePresence } from "framer-motion";
+import FormMesin from "@/component/MachineHistory/FormMesin";
 
 type WorkOrderStatus = "pending" | "in-progress" | "completed" | "cancelled" | "on-hold" | "approved" | "rejected";
 type WorkOrderPriority = "low" | "medium" | "high" | "critical";
@@ -75,6 +76,7 @@ interface WorkOrder {
   approvalNotes: string[];
   escalationLevel: number;
 
+  // Machine History specific fields
   date: string;
   shift: string;
   group: string;
@@ -124,6 +126,7 @@ interface WorkOrderDetailsFormProps {
   onCancel: () => void;
   onComplete: (workOrder: WorkOrder) => void;
   onPrint: (workOrder: WorkOrder) => void;
+  onDelete: (id: string) => void;
 }
 
 interface ModalProps {
@@ -203,423 +206,12 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
   );
 };
 
-const AddWorkOrderForm: React.FC<AddWorkOrderFormProps> = ({ onAddWorkOrder }) => {
-  const { getMesin } = useAuth();
-  const [mesinList, setMesinList] = useState([]);
-  const [formData, setFormData] = useState<Omit<WorkOrder, "id" | "checklistItems" | "notes" | "completedAt" | "actualHours" | "cost" | "approvalNotes" | "escalationLevel">>({
-    title: "",
-    description: "",
-    type: "preventive",
-    status: "pending",
-    priority: "medium",
-    assignedTo: "",
-    assignedToAvatar: "",
-    createdBy: "System Admin",
-    createdAt: new Date().toISOString().split("T")[0],
-    dueDate: "",
-    assetId: "",
-    assetName: "",
-    assetType: "",
-    estimatedHours: 0,
-    section: "production",
-    subSection: "",
-    requester: "",
-    requesterDepartment: "",
-    approvalStatus: "pending",
-    date: "",
-    shift: "",
-    group: "",
-    stopJam: "",
-    stopMenit: "",
-    startJam: "",
-    startMenit: "",
-    stopTime: "",
-    unit: "",
-    mesin: "",
-    runningHour: "",
-    itemTrouble: "",
-    jenisGangguan: "",
-    bentukTindakan: "",
-    perbaikanPerawatan: "",
-    rootCause: "",
-    jenisAktivitas: "",
-    kegiatan: "",
-    kodePart: "",
-    sparePart: "",
-    idPart: "",
-    jumlah: "",
-    unitSparePart: "",
-  });
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-
-    if (name === "assignedTo") {
-      const avatarMap: Record<string, string> = {
-        "John Doe": "https://placehold.co/40x40/0078D7/FFFFFF?text=JD",
-        "Jane Smith": "https://placehold.co/40x40/0078D7/FFFFFF?text=JS",
-        "Robert Johnson": "https://placehold.co/40x40/0078D7/FFFFFF?text=RJ",
-        "Emily Davis": "https://placehold.co/40x40/0078D7/FFFFFF?text=ED",
-        "Michael Brown": "https://placehold.co/40x40/0078D7/FFFFFF?text=MB",
-      };
-      setFormData((prev) => ({
-        ...prev,
-        assignedToAvatar: avatarMap[value] || "https://placehold.co/40x40/0078D7/FFFFFF?text=US",
-      }));
-    }
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onAddWorkOrder(formData);
-    setFormData({
-      title: "",
-      description: "",
-      type: "preventive",
-      status: "pending",
-      priority: "medium",
-      assignedTo: "",
-      assignedToAvatar: "",
-      createdBy: "System Admin",
-      createdAt: new Date().toISOString().split("T")[0],
-      dueDate: "",
-      assetId: "",
-      assetName: "",
-      assetType: "",
-      estimatedHours: 0,
-      section: "production",
-      subSection: "",
-      requester: "",
-      requesterDepartment: "",
-      approvalStatus: "pending",
-
-      date: "",
-      shift: "",
-      group: "",
-      stopJam: "",
-      stopMenit: "",
-      startJam: "",
-      startMenit: "",
-      stopTime: "",
-      unit: "",
-      mesin: "",
-      runningHour: "",
-      itemTrouble: "",
-      jenisGangguan: "",
-      bentukTindakan: "",
-      perbaikanPerawatan: "",
-      rootCause: "",
-      jenisAktivitas: "",
-      kegiatan: "",
-      kodePart: "",
-      sparePart: "",
-      idPart: "",
-      jumlah: "",
-      unitSparePart: "",
-    });
-  };
-
-  const handleClear = () => {
-    console.log("Filters cleared");
-  };
-
-  useEffect(() => {
-    const fetchMesin = async () => {
-      try {
-        const data = await getMesin("nama");
-        setMesinList(data);
-      } catch (error) {
-        console.error("Gagal mengambil data mesin:", error);
-      }
-    };
-
-    fetchMesin();
-  }, []);
-
-  return (
-    <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md">
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Date (dd/mm/yyyy)</label>
-            <input type="date" name="date" value={formData.date} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Shift</label>
-            <select name="shift" value={formData.shift} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-              <option value="">Select Shift</option>
-              <option value="1">Shift 1</option>
-              <option value="2">Shift 2</option>
-              <option value="3">Shift 3</option>
-              <option value="off">OFF</option>
-              <option value="ns">NS</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Group</label>
-            <select name="group" value={formData.group} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-              <option value="">Select Group</option>
-              <option value="A">Group A</option>
-              <option value="B">Group B</option>
-              <option value="C">Group C</option>
-              <option value="D">Group D</option>
-              <option value="off">OFF</option>
-              <option value="ns">NS</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="border-t border-gray-200 pt-4">
-          <h2 className="text-lg text-blue-600 font-semibold text-center mb-4 flex items-center justify-center">
-            <FiClock className="mr-2 text-blue-600" /> STOP
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Jam</label>
-              <input name="stopJam" value={formData.stopJam} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Menit</label>
-              <input name="stopMenit" value={formData.stopMenit} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
-            </div>
-          </div>
-        </div>
-
-        <div className="pt-4">
-          <h2 className="text-lg font-semibold text-blue-600 text-center mb-4 flex items-center justify-center">
-            <FiCheck className="mr-2 text-blue-600" /> START
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Jam</label>
-              <input name="startJam" value={formData.startJam} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Menit</label>
-              <input name="startMenit" value={formData.startMenit} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
-            </div>
-          </div>
-        </div>
-
-        <div className="border-t border-gray-200 pt-4">
-          <label className="block text-sm font-medium text-gray-700">Stop Time</label>
-          <select name="stopTime" value={formData.stopTime} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-            <option value="">Select Stop Time</option>
-            <option value="PM">PM</option>
-            <option value="Harmonisasi">Harmonisasi</option>
-            <option value="CIP">CIP</option>
-            <option value="Unplanned">Unplanned</option>
-            <option value="Standby">Standby</option>
-          </select>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Unit</label>
-            <select name="unit" value={formData.unit} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-              <option value="">Select Unit</option>
-              <option value="WF1U1">WF1U1</option>
-              <option value="WF1U3">WF1U3</option>
-              <option value="WF2U1">WF2U1</option>
-              <option value="WF2U2">WF2U2</option>
-              <option value="Lain Lain">Lain Lain</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Mesin</label>
-            <select name="mesin" value={formData.mesin} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-              <option value="">Select Mesin</option>
-              {mesinList.map((mesin: any) => (
-                <option key={mesin} value={mesin}>
-                  {mesin}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Running Hour</label>
-          <input
-            type="text"
-            name="runningHour"
-            value={formData.runningHour}
-            onChange={handleChange}
-            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Item Trouble</label>
-          <select name="itemTrouble" value={formData.itemTrouble} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-            <option value="">Select Item Trouble</option>
-            <option value="PM">PM</option>
-            <option value="Harmonisasi">Harmonisasi</option>
-            <option value="CIP">CIP</option>
-            <option value="Unplanned">Unplanned</option>
-            <option value="Standby">Standby</option>
-          </select>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Jenis Gangguan/Kerusakan</label>
-            <textarea
-              name="jenisGangguan"
-              value={formData.jenisGangguan}
-              onChange={handleChange}
-              rows={3}
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Bentuk Tindakan</label>
-            <textarea
-              name="bentukTindakan"
-              value={formData.bentukTindakan}
-              onChange={handleChange}
-              rows={3}
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Root Cause</label>
-          <textarea
-            name="rootCause"
-            value={formData.rootCause}
-            onChange={handleChange}
-            rows={3}
-            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-          />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Jenis Aktifitas</label>
-            <select
-              name="jenisAktivitas"
-              value={formData.jenisAktivitas}
-              onChange={handleChange}
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">Select Aktifitas</option>
-              <option value="Perbaikan">Perbaikan</option>
-              <option value="Perawatan">Perawatan</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Kegiatan</label>
-            <select name="kegiatan" value={formData.kegiatan} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-              <option value="">Select Kegiatan</option>
-              <option value="Replace With Old Part">Replace With New Part</option>
-              <option value="Replace With Old Part">Replace With Old Part</option>
-              <option value="Cleaning">Cleaning</option>
-              <option value="Check">Check</option>
-              <option value="Tightening">Tightening</option>
-              <option value="Improvement">Improvemenet</option>
-              <option value="Modification">Modification</option>
-              <option value="Calibration">Calibration</option>
-              <option value="Repair by Vendor">Repair by Vendor</option>
-              <option value="Monitoring">Monitoring</option>
-              <option value="Greasing">Greasing</option>
-              <option value="Reset">Reset</option>
-              <option value="Fine Tune">Fine Tune</option>
-              <option value="Repair Offline Part">Repair Offline Part</option>
-              <option value="Trouble Shooting">Trouble Shooting</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="border-t border-gray-200 pt-4">
-          <h2 className="text-lg text-blue-600 font-semibold mb-4 flex items-center">
-            <FiTool className="mr-2 text-blue-600" /> Spare Parts Information
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Kode Part</label>
-              <input
-                type="text"
-                name="kodePart"
-                value={formData.kodePart}
-                onChange={handleChange}
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Spare Part</label>
-              <input
-                type="text"
-                name="sparePart"
-                value={formData.sparePart}
-                onChange={handleChange}
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">ID Part</label>
-              <input
-                type="text"
-                name="idPart"
-                value={formData.idPart}
-                onChange={handleChange}
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Jumlah</label>
-              <input name="jumlah" value={formData.jumlah} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
-            </div>
-          </div>
-          <div className="mt-4">
-            <label className="block text-sm font-medium text-gray-700">Unit</label>
-            <select
-              name="unitSparePart"
-              value={formData.unitSparePart}
-              onChange={handleChange}
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">Select Unit</option>
-              <option value="PCS">PCS</option>
-              <option value="UNIT">UNIT</option>
-              <option value="M">M</option>
-              <option value="L">L</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="flex justify-between border-t border-gray-200 pt-6">
-          <motion.button
-            type="button"
-            onClick={handleClear}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          >
-            <FiTrash2 className="mr-2" /> Clear Data
-          </motion.button>
-
-          <motion.button
-            type="submit"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          >
-            <FiSave className="mr-2" /> Save Kronik
-          </motion.button>
-        </div>
-      </form>
-    </div>
-  );
-};
-
-const WorkOrderDetailsForm: React.FC<WorkOrderDetailsFormProps> = ({ workOrder, isEditing, onSave, onCancel, onComplete, onPrint }) => {
+const WorkOrderDetailsForm: React.FC<WorkOrderDetailsFormProps> = ({ workOrder, isEditing, onSave, onCancel, onComplete, onPrint, onDelete }) => {
   const [formData, setFormData] = useState<WorkOrder>(workOrder);
   const [newChecklistItem, setNewChecklistItem] = useState("");
   const [newNote, setNewNote] = useState("");
   const [newApprovalNote, setNewApprovalNote] = useState("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     setFormData(workOrder);
@@ -725,6 +317,12 @@ const WorkOrderDetailsForm: React.FC<WorkOrderDetailsFormProps> = ({ workOrder, 
     setNewApprovalNote("");
   };
 
+  const handleDelete = () => {
+    onDelete(formData.id);
+    setShowDeleteConfirm(false);
+    onCancel();
+  };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -757,392 +355,226 @@ const WorkOrderDetailsForm: React.FC<WorkOrderDetailsFormProps> = ({ workOrder, 
           </select>
         </div>
       </div>
-      <div>
-        <label htmlFor="detail-title" className="block text-sm font-medium text-gray-700">
-          Title
-        </label>
-        <input
-          type="text"
-          id="detail-title"
-          name="title"
-          value={formData.title}
-          onChange={handleChange}
-          readOnly={!isEditing}
-          required
-          className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
-        />
-      </div>
-      <div>
-        <label htmlFor="detail-description" className="block text-sm font-medium text-gray-700">
-          Description
-        </label>
-        <textarea
-          id="detail-description"
-          name="description"
-          value={formData.description}
-          onChange={handleChange}
-          readOnly={!isEditing}
-          rows={3}
-          className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
-        />
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label htmlFor="detail-type" className="block text-sm font-medium text-gray-700">
-            Type
-          </label>
-          <select
-            id="detail-type"
-            name="type"
-            value={formData.type}
-            onChange={handleChange}
-            disabled={!isEditing}
-            required
-            className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
-          >
-            <option value="preventive">Preventive Maintenance</option>
-            <option value="corrective">Corrective Maintenance</option>
-            <option value="inspection">Inspection</option>
-            <option value="emergency">Emergency Repair</option>
-            <option value="calibration">Calibration</option>
-          </select>
-        </div>
-        <div>
-          <label htmlFor="detail-priority" className="block text-sm font-medium text-gray-700">
-            Priority
-          </label>
-          <select
-            id="detail-priority"
-            name="priority"
-            value={formData.priority}
-            onChange={handleChange}
-            disabled={!isEditing}
-            required
-            className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
-          >
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-            <option value="critical">Critical</option>
-          </select>
-        </div>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label htmlFor="detail-section" className="block text-sm font-medium text-gray-700">
-            Section
-          </label>
-          <select
-            id="detail-section"
-            name="section"
-            value={formData.section}
-            onChange={handleChange}
-            disabled={!isEditing}
-            className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
-          >
-            <option value="production">Production</option>
-            <option value="facilities">Facilities</option>
-            <option value="utilities">Utilities</option>
-            <option value="lab">Laboratory</option>
-            <option value="warehouse">Warehouse</option>
-          </select>
-        </div>
-        <div>
-          <label htmlFor="detail-subSection" className="block text-sm font-medium text-gray-700">
-            Sub-Section
-          </label>
-          <input
-            type="text"
-            id="detail-subSection"
-            name="subSection"
-            value={formData.subSection}
-            onChange={handleChange}
-            readOnly={!isEditing}
-            className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
-          />
-        </div>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label htmlFor="detail-requester" className="block text-sm font-medium text-gray-700">
-            Requester
-          </label>
-          <input
-            type="text"
-            id="detail-requester"
-            name="requester"
-            value={formData.requester}
-            onChange={handleChange}
-            readOnly={!isEditing}
-            className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
-          />
-        </div>
-        <div>
-          <label htmlFor="detail-requesterDepartment" className="block text-sm font-medium text-gray-700">
-            Requester Department
-          </label>
-          <input
-            type="text"
-            id="detail-requesterDepartment"
-            name="requesterDepartment"
-            value={formData.requesterDepartment}
-            onChange={handleChange}
-            readOnly={!isEditing}
-            className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
-          />
-        </div>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label htmlFor="detail-assignedTo" className="block text-sm font-medium text-gray-700">
-            Assigned To
-          </label>
-          <select
-            id="detail-assignedTo"
-            name="assignedTo"
-            value={formData.assignedTo}
-            onChange={handleChange}
-            disabled={!isEditing}
-            required
-            className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
-          >
-            <option value="John Doe">John Doe</option>
-            <option value="Jane Smith">Jane Smith</option>
-            <option value="Robert Johnson">Robert Johnson</option>
-            <option value="Emily Davis">Emily Davis</option>
-            <option value="Michael Brown">Michael Brown</option>
-          </select>
-        </div>
-        <div>
-          <label htmlFor="detail-createdBy" className="block text-sm font-medium text-gray-700">
-            Created By
-          </label>
-          <input
-            type="text"
-            id="detail-createdBy"
-            name="createdBy"
-            value={formData.createdBy}
-            onChange={handleChange}
-            readOnly
-            className="mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-blue-50 cursor-not-allowed transition-all duration-200"
-          />
-        </div>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label htmlFor="detail-createdAt" className="block text-sm font-medium text-gray-700">
-            Created At
-          </label>
-          <input
-            type="date"
-            id="detail-createdAt"
-            name="createdAt"
-            value={formData.createdAt}
-            onChange={handleChange}
-            readOnly
-            className="mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-blue-50 cursor-not-allowed transition-all duration-200"
-          />
-        </div>
-        <div>
-          <label htmlFor="detail-dueDate" className="block text-sm font-medium text-gray-700">
-            Due Date
-          </label>
-          <input
-            type="date"
-            id="detail-dueDate"
-            name="dueDate"
-            value={formData.dueDate}
-            onChange={handleChange}
-            readOnly={!isEditing}
-            className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
-          />
-        </div>
-      </div>
-      {formData.completedAt && (
-        <div>
-          <label htmlFor="detail-completedAt" className="block text-sm font-medium text-gray-700">
-            Completed At
-          </label>
-          <input
-            type="date"
-            id="detail-completedAt"
-            name="completedAt"
-            value={formData.completedAt}
-            onChange={handleChange}
-            readOnly
-            className="mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-blue-50 cursor-not-allowed transition-all duration-200"
-          />
-        </div>
-      )}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label htmlFor="detail-assetId" className="block text-sm font-medium text-gray-700">
-            Asset ID
-          </label>
-          <input
-            type="text"
-            id="detail-assetId"
-            name="assetId"
-            value={formData.assetId}
-            onChange={handleChange}
-            readOnly={!isEditing}
-            className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
-          />
-        </div>
-        <div>
-          <label htmlFor="detail-assetName" className="block text-sm font-medium text-gray-700">
-            Asset Name
-          </label>
-          <input
-            type="text"
-            id="detail-assetName"
-            name="assetName"
-            value={formData.assetName}
-            onChange={handleChange}
-            readOnly={!isEditing}
-            className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
-          />
-        </div>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label htmlFor="detail-estimatedHours" className="block text-sm font-medium text-gray-700">
-            Estimated Hours
-          </label>
-          <input
-            type="number"
-            id="detail-estimatedHours"
-            name="estimatedHours"
-            value={formData.estimatedHours}
-            onChange={handleChange}
-            readOnly={!isEditing}
-            min="0"
-            step="0.5"
-            className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
-          />
-        </div>
-        <div>
-          <label htmlFor="detail-actualHours" className="block text-sm font-medium text-gray-700">
-            Actual Hours
-          </label>
-          <input
-            type="number"
-            id="detail-actualHours"
-            name="actualHours"
-            value={formData.actualHours || ""}
-            onChange={handleChange}
-            readOnly={!isEditing}
-            min="0"
-            step="0.5"
-            className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
-          />
-        </div>
-      </div>
-      <div>
-        <label htmlFor="detail-cost" className="block text-sm font-medium text-gray-700">
-          Cost ($)
-        </label>
-        <input
-          type="number"
-          id="detail-cost"
-          name="cost"
-          value={formData.cost || ""}
-          onChange={handleChange}
-          readOnly={!isEditing}
-          min="0"
-          step="0.01"
-          className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Checklist Items</label>
-        <div className="space-y-2">
-          {formData.checklistItems.map((item) => (
-            <div key={item.id} className="flex items-center">
-              <input type="checkbox" id={`checklist-${item.id}`} checked={item.completed} onChange={() => handleChecklistToggle(item.id)} disabled={!isEditing} className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-blue-200 rounded" />
-              <label htmlFor={`checklist-${item.id}`} className={`ml-2 ${item.completed ? "line-through text-gray-500" : "text-gray-700"}`}>
-                {item.task}
-              </label>
-              {isEditing && (
-                <button type="button" onClick={() => handleRemoveChecklistItem(item.id)} className="ml-auto text-red-500 hover:text-red-700">
-                  <FiX />
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-        {isEditing && (
-          <div className="mt-2 flex">
+
+      {/* Machine History Specific Fields */}
+      <div className="border-t border-gray-200 pt-4">
+        <h3 className="text-lg font-medium text-blue-600 mb-4">Machine History Details</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label htmlFor="detail-date" className="block text-sm font-medium text-gray-700">
+              Date
+            </label>
+            <input
+              type="date"
+              id="detail-date"
+              name="date"
+              value={formData.date}
+              onChange={handleChange}
+              readOnly={!isEditing}
+              className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
+            />
+          </div>
+          <div>
+            <label htmlFor="detail-shift" className="block text-sm font-medium text-gray-700">
+              Shift
+            </label>
             <input
               type="text"
-              value={newChecklistItem}
-              onChange={(e) => setNewChecklistItem(e.target.value)}
-              placeholder="Add new checklist item"
-              className="flex-1 border border-blue-200 rounded-l-md p-2 focus:ring-blue-500 focus:border-blue-500"
+              id="detail-shift"
+              name="shift"
+              value={formData.shift}
+              onChange={handleChange}
+              readOnly={!isEditing}
+              className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
             />
-            <button type="button" onClick={handleAddChecklistItem} className="bg-blue-600 text-white px-3 rounded-r-md hover:bg-blue-700">
-              Add
-            </button>
           </div>
-        )}
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
-        <div className="space-y-3">
-          {formData.notes.map((note: string, index: number) => (
-            <div key={index} className="bg-blue-50 p-3 rounded-lg relative">
-              <p className="text-gray-700">{note}</p>
-              {isEditing && (
-                <button type="button" onClick={() => handleRemoveNote(index)} className="absolute top-2 right-2 text-red-500 hover:text-red-700">
-                  <FiX />
-                </button>
-              )}
-            </div>
-          ))}
         </div>
-        <div className="mt-2 flex">
-          <textarea value={newNote} onChange={(e) => setNewNote(e.target.value)} placeholder="Add new note" rows={2} className="flex-1 border border-blue-200 rounded-l-md p-2 focus:ring-blue-500 focus:border-blue-500" />
-          <button type="button" onClick={handleAddNote} className="bg-blue-600 text-white px-3 rounded-r-md hover:bg-blue-700">
-            Add
-          </button>
-        </div>
-      </div>
-      {formData.approvalStatus !== "approved" && (
-        <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-          <h3 className="text-lg font-medium text-yellow-800 mb-2">Approval Required</h3>
-          <div className="space-y-3">
-            {formData.approvalNotes.map((note: string, index: number) => (
-              <div key={index} className="bg-white p-3 rounded-md border border-yellow-100">
-                <p className="text-yellow-700">{note}</p>
-              </div>
-            ))}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+          <div>
+            <label htmlFor="detail-unit" className="block text-sm font-medium text-gray-700">
+              Unit
+            </label>
+            <input
+              type="text"
+              id="detail-unit"
+              name="unit"
+              value={formData.unit}
+              onChange={handleChange}
+              readOnly={!isEditing}
+              className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
+            />
           </div>
-          {isEditing && (
-            <>
-              <textarea
-                value={newApprovalNote}
-                onChange={(e) => setNewApprovalNote(e.target.value)}
-                placeholder="Add approval notes..."
-                rows={2}
-                className="mt-3 block w-full border border-yellow-300 rounded-md p-2 focus:ring-yellow-500 focus:border-yellow-500"
+          <div>
+            <label htmlFor="detail-mesin" className="block text-sm font-medium text-gray-700">
+              Mesin
+            </label>
+            <input
+              type="text"
+              id="detail-mesin"
+              name="mesin"
+              value={formData.mesin}
+              onChange={handleChange}
+              readOnly={!isEditing}
+              className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
+            />
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <label htmlFor="detail-jenisGangguan" className="block text-sm font-medium text-gray-700">
+            Jenis Gangguan/Kerusakan
+          </label>
+          <textarea
+            id="detail-jenisGangguan"
+            name="jenisGangguan"
+            value={formData.jenisGangguan}
+            onChange={handleChange}
+            readOnly={!isEditing}
+            rows={3}
+            className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
+          />
+        </div>
+
+        <div className="mt-4">
+          <label htmlFor="detail-bentukTindakan" className="block text-sm font-medium text-gray-700">
+            Bentuk Tindakan
+          </label>
+          <textarea
+            id="detail-bentukTindakan"
+            name="bentukTindakan"
+            value={formData.bentukTindakan}
+            onChange={handleChange}
+            readOnly={!isEditing}
+            rows={3}
+            className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
+          />
+        </div>
+
+        <div className="mt-4">
+          <label htmlFor="detail-rootCause" className="block text-sm font-medium text-gray-700">
+            Root Cause
+          </label>
+          <textarea
+            id="detail-rootCause"
+            name="rootCause"
+            value={formData.rootCause}
+            onChange={handleChange}
+            readOnly={!isEditing}
+            rows={3}
+            className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+          <div>
+            <label htmlFor="detail-jenisAktivitas" className="block text-sm font-medium text-gray-700">
+              Jenis Aktivitas
+            </label>
+            <input
+              type="text"
+              id="detail-jenisAktivitas"
+              name="jenisAktivitas"
+              value={formData.jenisAktivitas}
+              onChange={handleChange}
+              readOnly={!isEditing}
+              className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
+            />
+          </div>
+          <div>
+            <label htmlFor="detail-kegiatan" className="block text-sm font-medium text-gray-700">
+              Kegiatan
+            </label>
+            <input
+              type="text"
+              id="detail-kegiatan"
+              name="kegiatan"
+              value={formData.kegiatan}
+              onChange={handleChange}
+              readOnly={!isEditing}
+              className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
+            />
+          </div>
+        </div>
+
+        {/* Spare Parts Information */}
+        <div className="border-t border-gray-200 pt-4 mt-4">
+          <h4 className="text-md font-medium text-blue-600 mb-4">Spare Parts Information</h4>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <label htmlFor="detail-kodePart" className="block text-sm font-medium text-gray-700">
+                Kode Part
+              </label>
+              <input
+                type="text"
+                id="detail-kodePart"
+                name="kodePart"
+                value={formData.kodePart}
+                onChange={handleChange}
+                readOnly={!isEditing}
+                className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
               />
-              <div className="flex space-x-3 mt-3">
-                <button type="button" onClick={handleApprove} className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700">
-                  <FiCheck className="mr-2" /> Approve
-                </button>
-                <button type="button" onClick={handleReject} className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700">
-                  <FiXCircle className="mr-2" /> Reject
-                </button>
-                <button type="button" onClick={handleEscalate} className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-purple-600 hover:bg-purple-700">
-                  Escalate
-                </button>
-              </div>
-            </>
-          )}
+            </div>
+            <div>
+              <label htmlFor="detail-sparePart" className="block text-sm font-medium text-gray-700">
+                Spare Part
+              </label>
+              <input
+                type="text"
+                id="detail-sparePart"
+                name="sparePart"
+                value={formData.sparePart}
+                onChange={handleChange}
+                readOnly={!isEditing}
+                className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
+              />
+            </div>
+            <div>
+              <label htmlFor="detail-jumlah" className="block text-sm font-medium text-gray-700">
+                Jumlah
+              </label>
+              <input
+                type="text"
+                id="detail-jumlah"
+                name="jumlah"
+                value={formData.jumlah}
+                onChange={handleChange}
+                readOnly={!isEditing}
+                className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
+              />
+            </div>
+            <div>
+              <label htmlFor="detail-unitSparePart" className="block text-sm font-medium text-gray-700">
+                Unit
+              </label>
+              <input
+                type="text"
+                id="detail-unitSparePart"
+                name="unitSparePart"
+                value={formData.unitSparePart}
+                onChange={handleChange}
+                readOnly={!isEditing}
+                className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
+              />
+            </div>
+          </div>
         </div>
-      )}
+      </div>
+
       <div className="flex justify-between space-x-3 mt-6">
         <div className="flex space-x-3">
+          {isEditing && (
+            <motion.button
+              type="button"
+              onClick={() => setShowDeleteConfirm(true)}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              className="inline-flex items-center px-5 py-2.5 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
+            >
+              <FiTrash2 className="mr-2" />
+              Delete
+            </motion.button>
+          )}
           {formData.status !== "completed" && formData.approvalStatus === "approved" && (
             <motion.button
               type="button"
@@ -1188,6 +620,30 @@ const WorkOrderDetailsForm: React.FC<WorkOrderDetailsFormProps> = ({ workOrder, 
           )}
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Confirm Deletion</h3>
+            <p className="text-gray-700 mb-6">Are you sure you want to delete this work order? This action cannot be undone.</p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </form>
   );
 };
@@ -1212,98 +668,11 @@ const WorkOrdersDashboard: React.FC = () => {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [workOrdersPerPage] = useState(5);
-  const { user, fetchWithAuth } = useAuth();
-  const [data, setData] = useState(null);
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const [hasInteracted, setHasInteracted] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
-  const { getMesin } = useAuth();
-
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
-      if (window.innerWidth < 768) {
-        setSidebarOpen(false);
-      }
-    };
-
-    const ambilMesin = async () => {
-      try {
-        const data = await getMesin("Mesin A");
-        console.log("Data Mesin:", data);
-      } catch (err) {
-        const error = err as Error;
-        console.error("Gagal ambil mesin:", error.message);
-      }
-    };
-
-    ambilMesin();
-
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  const [workOrders, setWorkOrders] = useState<WorkOrder[]>([
-  {
-    id: "TD-WO-001",
-    title: "HVAC System Calibration",
-    description: "Quarterly calibration for HVAC system in Production Area",
-    type: "calibration",
-    status: "in-progress",
-    priority: "medium",
-    assignedTo: "John Doe",
-    assignedToAvatar: "https://placehold.co/40x40/0078D7/FFFFFF?text=JD",
-    createdBy: "Production Manager",
-    createdAt: "2023-10-01",
-    dueDate: "2023-10-15",
-    completedAt: "",
-    assetId: "AST-001",
-    assetName: "HVAC System",
-    assetType: "mechanical",
-    estimatedHours: 4,
-    actualHours: 2,
-    cost: 0,
-    checklistItems: [
-      { id: "1", task: "Check calibration standards", completed: true },
-      { id: "2", task: "Adjust temperature sensors", completed: true },
-      { id: "3", task: "Verify airflow measurements", completed: false },
-    ],
-    notes: ["Calibration kit #45 used"],
-    section: "production",
-    subSection: "Area 2",
-    requester: "Sarah Johnson",
-    requesterDepartment: "Production",
-    approvalStatus: "approved",
-    approvalNotes: ["Approved by Supervisor on 10/02/2023"],
-    escalationLevel: 0,
-    // Add the missing properties
-    date: "2023-10-01",
-    shift: "1",
-    group: "A",
-    stopJam: "10",
-    stopMenit: "30",
-    startJam: "11",
-    startMenit: "00",
-    stopTime: "PM",
-    unit: "WF1U1",
-    mesin: "HVAC System",
-    runningHour: "1200",
-    itemTrouble: "Calibration",
-    jenisGangguan: "Temperature sensor drift",
-    bentukTindakan: "Calibration adjustment",
-    perbaikanPerawatan: "Calibration",
-    rootCause: "Sensor drift over time",
-    jenisAktivitas: "Perawatan",
-    kegiatan: "Calibration",
-    kodePart: "CAL-001",
-    sparePart: "Calibration Kit",
-    idPart: "CAL-KIT-45",
-    jumlah: "1",
-    unitSparePart: "PCS"  
-  },
-  // Continue for all other work orders
-]);
+  const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
 
   const handleNotifications = () => {
     alert("Showing notifications...");
@@ -1400,17 +769,24 @@ const WorkOrdersDashboard: React.FC = () => {
     setIsEditing(false);
   };
 
+  const handleDeleteWorkOrder = (id: string) => {
+    setWorkOrders(workOrders.filter((wo) => wo.id !== id));
+  };
+
   const handlePrintWorkOrder = (workOrder: WorkOrder) => {
     alert(`Printing work order ${workOrder.id}`);
   };
 
   const toggleSidebar = () => {
-    setHasInteracted(true);
     setSidebarOpen((prev) => !prev);
   };
 
   const filteredWorkOrders = workOrders.filter((wo) => {
-    const matchesSearch = wo.title.toLowerCase().includes(searchQuery.toLowerCase()) || wo.id.toLowerCase().includes(searchQuery.toLowerCase()) || wo.description.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch =
+      wo.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      wo.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      wo.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      wo.mesin.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === "all" || wo.status === statusFilter;
     const matchesPriority = priorityFilter === "all" || wo.priority === priorityFilter;
     const matchesType = typeFilter === "all" || wo.type === typeFilter;
@@ -1430,6 +806,18 @@ const WorkOrdersDashboard: React.FC = () => {
     setCurrentPage(1);
     localStorage.setItem("sidebarOpen", JSON.stringify(sidebarOpen));
   }, [searchQuery, statusFilter, priorityFilter, typeFilter, sectionFilter, sidebarOpen]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+      if (window.innerWidth < 768) {
+        setSidebarOpen(false);
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   return (
     <div className="flex h-screen font-sans bg-gray-50 text-gray-900">
@@ -1530,17 +918,17 @@ const WorkOrdersDashboard: React.FC = () => {
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Machine History System</h1>
-              <p className="text-gray-600 mt-1">Create, track and manage all maintenance work orders</p>
+              <p className="text-gray-600 mt-1">Track and manage all machine maintenance history</p>
             </div>
             <div className="flex flex-wrap gap-3">
               <motion.button
-                onClick={() => setShowAddWorkOrderModal(true)}
+                onClick={() => navigate("/machinehistory/input")}
                 whileHover={{ scale: 1.05, boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)" }}
                 whileTap={{ scale: 0.95 }}
                 className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md"
               >
                 <FiPlus className="text-lg" />
-                <span className="font-semibold">Create Work Order</span>
+                <span className="font-semibold">Create New Record</span>
               </motion.button>
               <motion.button
                 onClick={handleImport}
@@ -1565,7 +953,7 @@ const WorkOrdersDashboard: React.FC = () => {
           </motion.div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
-            <StatCard title="Total Work Orders" value={workOrders.length.toString()} change="+15%" icon={<FiClipboard />} />
+            <StatCard title="Total Records" value={workOrders.length.toString()} change="+15%" icon={<FiClipboard />} />
             <StatCard title="Completed" value={workOrders.filter((wo) => wo.status === "completed").length.toString()} change="+8%" icon={<FiCheckCircle />} />
             <StatCard title="In Progress" value={workOrders.filter((wo) => wo.status === "in-progress").length.toString()} change="-3%" icon={<FiClock />} />
             <StatCard title="Pending Approval" value={workOrders.filter((wo) => wo.approvalStatus === "pending").length.toString()} change="+2" icon={<FiAlertTriangle />} />
@@ -1577,7 +965,7 @@ const WorkOrdersDashboard: React.FC = () => {
                 <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
                 <input
                   type="text"
-                  placeholder="Search work orders by title, ID, or description..."
+                  placeholder="Search records by machine, ID, or description..."
                   className="w-full pl-12 pr-4 py-3 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-base transition-all duration-200"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -1668,12 +1056,13 @@ const WorkOrdersDashboard: React.FC = () => {
               <table className="min-w-full divide-y divide-blue-100">
                 <thead className="bg-blue-50">
                   <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Work Order</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Type</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Priority</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ID</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Date</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Machine</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Unit</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Shift/Group</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Issue</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Section</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Due Date</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
@@ -1689,34 +1078,24 @@ const WorkOrdersDashboard: React.FC = () => {
                         className="transition-colors duration-150"
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="flex-shrink-0 h-12 w-12 rounded-full bg-blue-50 flex items-center justify-center text-2xl">
-                              <FiClipboard className="text-blue-600" />
-                            </div>
-                            <div className="ml-4">
-                              <div className="text-base font-medium text-gray-900">{workOrder.title}</div>
-                              <div className="text-sm text-gray-600">{workOrder.id}</div>
-                              {workOrder.assetName && (
-                                <div className="text-xs text-gray-500 mt-1">
-                                  Asset: {workOrder.assetName} ({workOrder.assetId})
-                                </div>
-                              )}
-                            </div>
-                          </div>
+                          <div className="text-sm font-medium text-gray-900">{workOrder.id}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm capitalize text-gray-900">
-                            {workOrder.type
-                              .split("-")
-                              .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-                              .join(" ")}
-                          </div>
+                          <div className="text-sm text-gray-900">{new Date(workOrder.date).toLocaleDateString()}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            {getPriorityIcon(workOrder.priority)}
-                            <span className={`ml-2 px-2 py-1 text-xs font-bold rounded-full ${getPriorityColor(workOrder.priority)}`}>{workOrder.priority.charAt(0).toUpperCase() + workOrder.priority.slice(1)}</span>
+                          <div className="text-sm font-medium text-gray-900">{workOrder.mesin}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{workOrder.unit}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            Shift {workOrder.shift} / Group {workOrder.group}
                           </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm text-gray-900 line-clamp-2">{workOrder.jenisGangguan}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <motion.span whileHover={{ scale: 1.05 }} className={`px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full ${getStatusColor(workOrder.status)} text-white shadow-sm`}>
@@ -1725,19 +1104,6 @@ const WorkOrdersDashboard: React.FC = () => {
                               .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
                               .join(" ")}
                           </motion.span>
-                          {workOrder.approvalStatus === "pending" && <div className="text-xs text-yellow-600 mt-1">Pending Approval</div>}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm capitalize text-gray-900">
-                            {workOrder.section.charAt(0).toUpperCase() + workOrder.section.slice(1)}
-                            {workOrder.subSection && <div className="text-xs text-gray-500">({workOrder.subSection})</div>}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{new Date(workOrder.dueDate).toLocaleDateString()}</div>
-                          <div className={`text-xs ${new Date(workOrder.dueDate) < new Date() && workOrder.status !== "completed" ? "text-red-600" : "text-gray-500"}`}>
-                            {new Date(workOrder.dueDate) < new Date() && workOrder.status !== "completed" ? "Overdue" : ""}
-                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <motion.button
@@ -1755,7 +1121,7 @@ const WorkOrdersDashboard: React.FC = () => {
                             whileTap={{ scale: 0.95 }}
                             onClick={() => openWorkOrderDetails(workOrder, true)}
                             className="text-gray-600 hover:text-gray-800 transition-colors duration-200 flex items-center space-x-1"
-                            title="Edit Work Order"
+                            title="Edit Record"
                           >
                             <FiEdit className="text-lg" />
                             <span>Edit</span>
@@ -1765,8 +1131,8 @@ const WorkOrdersDashboard: React.FC = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={7} className="px-6 py-10 text-center text-gray-600 text-lg">
-                        No work orders found matching your criteria.
+                      <td colSpan={8} className="px-6 py-10 text-center text-gray-600 text-lg">
+                        No machine history records found matching your criteria.
                       </td>
                     </tr>
                   )}
@@ -1819,10 +1185,6 @@ const WorkOrdersDashboard: React.FC = () => {
         </main>
       </div>
 
-      <Modal isOpen={showAddWorkOrderModal} onClose={() => setShowAddWorkOrderModal(false)} title="Create Machine History System">
-        <AddWorkOrderForm onAddWorkOrder={handleAddWorkOrder} />
-      </Modal>
-
       {selectedWorkOrder && (
         <Modal
           isOpen={showWorkOrderDetailsModal}
@@ -1831,7 +1193,7 @@ const WorkOrdersDashboard: React.FC = () => {
             setSelectedWorkOrder(null);
             setIsEditing(false);
           }}
-          title={isEditing ? "Edit Work Order" : "Work Order Details"}
+          title={isEditing ? "Edit Machine History Record" : "Machine History Details"}
         >
           <WorkOrderDetailsForm
             workOrder={selectedWorkOrder}
@@ -1844,6 +1206,7 @@ const WorkOrdersDashboard: React.FC = () => {
             }}
             onComplete={handleCompleteWorkOrder}
             onPrint={handlePrintWorkOrder}
+            onDelete={handleDeleteWorkOrder}
           />
         </Modal>
       )}

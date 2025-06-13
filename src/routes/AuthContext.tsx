@@ -8,6 +8,39 @@ interface User {
   email: string;
 }
 
+interface Mesin {
+  id: string;
+  name: string;
+}
+
+interface MachineHistoryFormData {
+  date: string;
+  shift: string;
+  group: string;
+  stopJam: number;
+  stopMenit: number;
+  startJam: number;
+  startMenit: number;
+  stopTime: string;
+  unit: string;
+  mesin: string;
+  runningHour: number;
+  itemTrouble: string;
+  jenisGangguan: string;
+  bentukTindakan: string;
+  perbaikanPerawatan: string;
+  rootCause: string;
+  jenisAktivitas: string;
+  kegiatan: string;
+  kodePart: string;
+  sparePart: string;
+  idPart: string;
+  jumlah: number;
+  unitSparePart: string;
+}
+
+export type { User };
+
 interface AuthContextType {
   user: User | null;
   token: string | null;
@@ -17,7 +50,8 @@ interface AuthContextType {
   logout: () => Promise<void>;
   isLoggingOut: boolean;
   fetchWithAuth: (url: string, options?: RequestInit) => Promise<any>;
-  getMesin: (name: string) => Promise<any>;
+  getMesin: (field: string) => Promise<string[]>;
+  submitMachineHistory: (data: MachineHistoryFormData) => Promise<any>;
 }
 
 const projectEnvVariables = getProjectEnvVariables();
@@ -159,31 +193,39 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const getMesin = async (name: string = "") => {
+  const getMesin = async (): Promise<string[]> => {
     try {
-      const url = new URL(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/mesin`);
-
-      if (name) {
-        url.searchParams.append("name", name);
+      const response = await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/mesin`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+      const data: Mesin[] = await response.json();
+      return data.map((item) => item.name);
+    } catch (error) {
+      console.error("Gagal mengambil data mesin:", error);
+      throw error;
+    }
+  };
 
-      const response = await fetch(url.toString(), {
-        method: "GET",
-        headers: {  
-          Authorization: `Bearer ${token}`,
+  const submitMachineHistory = async (data: MachineHistoryFormData) => {
+    try {
+      const response = await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/machinehistory`, {
+        method: "POST",
+        headers: {
           "Content-Type": "application/json",
         },
+        body: JSON.stringify(data),
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Gagal mengambil data mesin");
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Gagal menyimpan data dengan status: ${response.status}`);
       }
 
-      const data = await response.json();
-      return data;
+      const responseData = await response.json();
+      return responseData;
     } catch (error) {
-      console.error("Error mengambil data mesin:", error);
+      console.error("Gagal menyimpan data history mesin:", error);
       throw error;
     }
   };
@@ -200,6 +242,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         isLoggingOut,
         fetchWithAuth,
         getMesin,
+        submitMachineHistory,
       }}
     >
       {children}

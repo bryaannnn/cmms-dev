@@ -25,6 +25,8 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../routes/AuthContext";
 import logoWida from "../assets/logo-wida.png";
 import { motion, AnimatePresence } from "framer-motion";
+import type { User } from "../routes/AuthContext";
+
 
 interface NavItemProps {
   icon: React.ReactNode;
@@ -86,7 +88,7 @@ const Dashboard: React.FC = () => {
   });
   const [currentPage, setCurrentPage] = useState(1);
   const { user, fetchWithAuth } = useAuth();
-  const [data, setData] = useState(null);
+  const [data, setData] = useState<User | null>(null);
   const navigate = useNavigate();
   const [hasInteracted, setHasInteracted] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -184,6 +186,17 @@ const Dashboard: React.FC = () => {
   };
 
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
+
+  // useEffect(() => {
+  //   setCurrentPage(1);
+
+  //   if (user) {
+  //     setData(user);
+  //   }
+
+  //   document.documentElement.classList.toggle("dark", darkMode);
+  //   localStorage.setItem("sidebarOpen", JSON.stringify(sidebarOpen));
+  // }, [sidebarOpen, darkMode, user]);
 
   useEffect(() => {
     setCurrentPage(1);
