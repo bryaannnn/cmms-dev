@@ -1,19 +1,19 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { getProjectEnvVariables } from "../shared/projectEnvVariables";
 
-interface User {
+export interface User {
   id: string;
   name: string;
   email: string;
 }
 
-interface Mesin {
+export interface Mesin {
   id: string;
   name: string;
 }
 
-interface MachineHistoryFormData {
+export interface MachineHistoryFormData {
   date: string;
   shift: string;
   group: string;
@@ -39,8 +39,6 @@ interface MachineHistoryFormData {
   unitSparePart: string;
 }
 
-export type { User };
-
 interface AuthContextType {
   user: User | null;
   token: string | null;
@@ -50,7 +48,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   isLoggingOut: boolean;
   fetchWithAuth: (url: string, options?: RequestInit) => Promise<any>;
-  getMesin: (field: string) => Promise<string[]>;
+  getMesin: () => Promise<Mesin[]>;
   submitMachineHistory: (data: MachineHistoryFormData) => Promise<any>;
 }
 
@@ -61,174 +59,202 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [mesinList, setMesinList] = useState([]);
-  const [selectedMesin, setSelectedMesin] = useState("");
   const navigate = useNavigate();
 
-  const isAuthenticated = !!token;
+  const isAuthenticated = !!user;
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    const user = localStorage.getItem("user");
+    const storedToken = localStorage.getItem("token");
+    const storedUser = localStorage.getItem("user");
 
-    if (token && user) {
-      setToken(token);
-      setUser(JSON.parse(user));
+    if (storedToken && storedUser) {
+      setToken(storedToken);
+      try {
+        setUser(JSON.parse(storedUser));
+      } catch (e) {
+        console.error("Failed to parse user from localStorage", e);
+        localStorage.removeItem("user");
+        localStorage.removeItem("token");
+        setUser(null);
+        setToken(null);
+      }
     }
   }, []);
 
-  const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
-    const authToken = token || localStorage.getItem("token");
-    if (!authToken) throw new Error("No authentication token found");
+  const fetchWithAuth = useCallback(
+    async (url: string, options: RequestInit = {}) => {
+      const authToken = token || localStorage.getItem("token");
 
-    const fullUrl = `${projectEnvVariables.envVariables.VITE_REACT_API_URL}${url}`;
-    const response = await fetch(fullUrl, {
-      ...options,
-      headers: {
-        Authorization: `Bearer ${authToken}`,
+      const headers: Record<string, string> = {
         "Content-Type": "application/json",
-        ...options.headers,
-      },
-    });
+        ...(options.headers as Record<string, string>), 
+      };
 
-    if (response.status === 401) {
-      await logout();
-      throw new Error("Session expired. Please login again.");
-    }
+      if (authToken) {
+        headers.Authorization = `Bearer ${authToken}`; 
+      }
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || "Request failed");
-    }
+      const fullUrl = `${projectEnvVariables.envVariables.VITE_REACT_API_URL}${url}`;
 
-    return response.json();
-  };
+      const fetchOptions: RequestInit = {
+        ...options,
+        credentials: "include",
+        headers: headers, 
+      };
+
+      const response = await fetch(fullUrl, fetchOptions);
+
+      if (response.status === 401) {
+        try {
+          await logout();
+        } catch (logoutError) {
+          console.error("Error during automatic logout after 401:", logoutError);
+        }
+        throw new Error("Sesi berakhir. Silakan login kembali.");
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Permintaan gagal dengan status: ${response.status}`);
+      }
+
+      return response.json();
+    },
+    [token, user, navigate]
+  );
 
   const register = async (name: string, email: string, password: string) => {
     try {
+      await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/sanctum/csrf-cookie`, { credentials: "include" });
+
       const response = await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/register`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({ name, email, password }),
       });
 
       const contentType = response.headers.get("content-type");
       if (!contentType?.includes("application/json")) {
         const text = await response.text();
-        throw new Error(`Expected JSON but got: ${text.substring(0, 50)}...`);
+        throw new Error(`Expected JSON but got: ${text.substring(0, Math.min(text.length, 50))}...`);
       }
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "Registration failed");
+        throw new Error(data.message || "Pendaftaran gagal");
       }
 
-      setToken(data.token);
+      if (data.token) {
+        setToken(data.token);
+        localStorage.setItem("token", data.token);
+      }
       setUser(data.user);
-
-      localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
-      navigate("/dashboard");
 
-      return data;
+      navigate("/dashboard");
     } catch (error) {
-      console.error("Registration error:", error);
+      console.error("Error pendaftaran:", error);
       throw error;
     }
   };
 
   const login = async (email: string, password: string) => {
     try {
+      await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/sanctum/csrf-cookie`, {
+        method: "GET",
+        credentials: "include",
+      });
+
       const response = await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/login`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({ email, password }),
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Login failed");
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Login gagal");
       }
 
       const data = await response.json();
-      localStorage.setItem("token", data.token);
+
+      if (data.token) {
+        localStorage.setItem("token", data.token);
+        setToken(data.token);
+      }
+
       localStorage.setItem("user", JSON.stringify(data.user));
-      setToken(data.token);
       setUser(data.user);
 
       navigate("/dashboard");
-      return data;
     } catch (error) {
-      console.error("Login error:", error);
+      console.error("Error login:", error);
       throw error;
     }
   };
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     setIsLoggingOut(true);
     try {
-      if (token) {
+      if (user || token) {
+        const logoutHeaders: HeadersInit = {
+          "Content-Type": "application/json",
+        };
+        if (token) {
+          (logoutHeaders as Record<string, string>).Authorization = `Bearer ${token}`;
+        }
+
         await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/logout`, {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
+          credentials: "include",
+          headers: logoutHeaders,
         });
       }
     } catch (error) {
-      console.error("Logout API error:", error);
+      console.error("Error API logout:", error);
     } finally {
-      console.log("Removing token and user from localStorage...");
+      console.log("Menghapus token dan user dari localStorage...");
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       setToken(null);
       setUser(null);
       setIsLoggingOut(false);
-
-      setTimeout(() => {
-        navigate("/login");
-      }, 100);
+      navigate("/login");
     }
-  };
+  }, [token, user, navigate]);
 
-  const getMesin = async (): Promise<string[]> => {
+  const getMesin = useCallback(async (): Promise<Mesin[]> => {
     try {
-      const response = await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/mesin`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data: Mesin[] = await response.json();
-      return data.map((item) => item.name);
+      const data: Mesin[] = await fetchWithAuth("/mesin");
+      return data;
     } catch (error) {
       console.error("Gagal mengambil data mesin:", error);
       throw error;
     }
-  };
+  }, [fetchWithAuth]);
 
-  const submitMachineHistory = async (data: MachineHistoryFormData) => {
-    try {
-      const response = await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/machinehistory`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Gagal menyimpan data dengan status: ${response.status}`);
+  const submitMachineHistory = useCallback(
+    async (data: MachineHistoryFormData) => {
+      try {
+        const responseData = await fetchWithAuth("/machinehistory", {
+          method: "POST",
+          body: JSON.stringify(data),
+        });
+        return responseData;
+      } catch (error) {
+        console.error("Gagal menyimpan data history mesin:", error);
+        throw error;
       }
-
-      const responseData = await response.json();
-      return responseData;
-    } catch (error) {
-      console.error("Gagal menyimpan data history mesin:", error);
-      throw error;
-    }
-  };
+    },
+    [fetchWithAuth]
+  );
 
   return (
     <AuthContext.Provider

@@ -1,39 +1,13 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { FiSave, FiTrash2, FiX, FiClock, FiCheck, FiTool, FiChevronDown } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../routes/AuthContext";
+import { useAuth, MachineHistoryFormData, Mesin } from "../../routes/AuthContext";
 import { motion } from "framer-motion";
-
-interface MachineHistoryFormData {
-  date: string;
-  shift: string;
-  group: string;
-  stopJam: number;
-  stopMenit: number;
-  startJam: number;
-  startMenit: number;
-  stopTime: string;
-  unit: string;
-  mesin: string;
-  runningHour: number;
-  itemTrouble: string;
-  jenisGangguan: string;
-  bentukTindakan: string;
-  perbaikanPerawatan: string;
-  rootCause: string;
-  jenisAktivitas: string;
-  kegiatan: string;
-  kodePart: string;
-  sparePart: string;
-  idPart: string;
-  jumlah: number;
-  unitSparePart: string;
-}
 
 const FormMesin: React.FC = () => {
   const { getMesin, submitMachineHistory } = useAuth();
   const navigate = useNavigate();
-  const [mesinList, setMesinList] = useState<string[]>([]);
+  const [mesinList, setMesinList] = useState<Mesin[]>([]); 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -67,20 +41,16 @@ const FormMesin: React.FC = () => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
 
-    // KELOMPOKKAN FIELD YANG BUTUH KONVERSI KE NUMBER
     const numericFields = ["stopJam", "stopMenit", "startJam", "startMenit", "runningHour", "jumlah"];
 
     if (numericFields.includes(name)) {
-      // Untuk runningHour, gunakan parseFloat (mungkin desimal)
-      // Untuk lainnya (jam, menit, jumlah), gunakan parseInt (bilangan bulat)
       const numValue = name === "runningHour" ? parseFloat(value) : parseInt(value, 10);
-      setFormData((prev) => ({
+      setFormData((prev: MachineHistoryFormData) => ({ // <-- Tambahkan tipe 'MachineHistoryFormData' di sini
         ...prev,
-        [name]: isNaN(numValue) ? 0 : numValue, // Jika NaN (bukan angka), set ke 0
+        [name]: isNaN(numValue) ? 0 : numValue,
       }));
     } else {
-      // Untuk field lain (string), simpan langsung
-      setFormData((prev) => ({ ...prev, [name]: value }));
+      setFormData((prev: MachineHistoryFormData) => ({ ...prev, [name]: value })); // <-- Dan di sini
     }
   };
 
@@ -92,7 +62,6 @@ const FormMesin: React.FC = () => {
 
     const dataToSend: MachineHistoryFormData = {
       ...formData,
-      // perbaikanPerawatan harus diisi, jika tidak ada inputnya
       perbaikanPerawatan: formData.jenisAktivitas === "Perbaikan" ? "Perbaikan" : "Perawatan",
     };
 
@@ -100,9 +69,7 @@ const FormMesin: React.FC = () => {
       await submitMachineHistory(dataToSend);
       setSuccess("Data history mesin berhasil disimpan!");
       handleClear();
-      setTimeout(() => {
-        navigate("/machinehistory");
-      }, 2000);
+      navigate("/machinehistory");
     } catch (err: any) {
       setError(err.message || "Gagal menyimpan data history mesin. Silakan coba lagi.");
       console.error("Submission error:", err);
@@ -111,7 +78,7 @@ const FormMesin: React.FC = () => {
     }
   };
 
-  const handleClear = () => {
+  const handleClear = useCallback(() => {
     setFormData({
       date: "",
       shift: "",
@@ -120,7 +87,7 @@ const FormMesin: React.FC = () => {
       stopMenit: 0,
       startJam: 0,
       startMenit: 0,
-      stopTime: "", // <-- Kembali ke string
+      stopTime: "",
       unit: "",
       mesin: "",
       runningHour: 0,
@@ -139,26 +106,21 @@ const FormMesin: React.FC = () => {
     });
     setError(null);
     setSuccess(null);
-  };
+  }, []);
 
   useEffect(() => {
-    const fetchMesin = async () => {
+    const fetchMesinData = async () => {
       try {
-        // Asumsikan getMesin di AuthContext mengembalikan string[] atau MesinItem[]
-        // Jika mengembalikan MesinItem[] dan Anda hanya butuh nama, lakukan map seperti sebelumnya:
-        // const data = await getMesin(); // tanpa argumen 'nama' jika tidak digunakan di getMesin
-        // setMesinList(data.map((item: any) => item.nama));
-
-        // Jika getMesin sudah mengembalikan string[] seperti yang Anda harapkan
-        const data = await getMesin("nama"); // Argumen "nama" ini tidak dipakai di getMesin yang Anda tunjukkan sebelumnya.
-        // Jika getMesin di AuthContext tidak memakainya, Anda bisa menghapusnya.
+        // Panggil getMesin tanpa argumen, sesuai definisi baru di AuthContext
+        const data = await getMesin();
         setMesinList(data);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Gagal mengambil data mesin:", error);
+        setError(error.message || "Gagal memuat daftar mesin.");
       }
     };
 
-    fetchMesin();
+    fetchMesinData();
   }, [getMesin]);
 
   return (
@@ -168,8 +130,7 @@ const FormMesin: React.FC = () => {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 flex items-center">
-              <FiTool className="mr-3 text-blue-600" />
-              Machine History Form
+              <FiTool className="mr-3 text-blue-600" /> Machine History Form
             </h1>
             <p className="text-gray-600 mt-1">Record maintenance activities and machine issues</p>
           </div>
@@ -263,8 +224,6 @@ const FormMesin: React.FC = () => {
                     value={formData.stopJam}
                     onChange={handleChange}
                     placeholder="e.g., 08"
-                    min="0"
-                    max="23"
                     className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                     required
                   />
@@ -277,8 +236,6 @@ const FormMesin: React.FC = () => {
                     value={formData.stopMenit}
                     onChange={handleChange}
                     placeholder="e.g., 30"
-                    min="0"
-                    max="59"
                     className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                     required
                   />
@@ -314,8 +271,6 @@ const FormMesin: React.FC = () => {
                     value={formData.startJam}
                     onChange={handleChange}
                     placeholder="e.g., 09"
-                    min="0"
-                    max="23"
                     className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                     required
                   />
@@ -328,8 +283,6 @@ const FormMesin: React.FC = () => {
                     value={formData.startMenit}
                     onChange={handleChange}
                     placeholder="e.g., 15"
-                    min="0"
-                    max="59"
                     className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                     required
                   />
@@ -362,10 +315,10 @@ const FormMesin: React.FC = () => {
                   <div className="relative">
                     <select name="mesin" value={formData.mesin} onChange={handleChange} className="w-full p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white" required>
                       <option value="">Select Machine</option>
-                      <option value="WF1U3">WF1U3</option>
-                      {mesinList.map((mesin: string) => (
-                        <option key={mesin} value={mesin}>
-                          {mesin}
+                      {/* Loop mesinList dari API, HAPUS OPSI MANUAL WF1U3 */}
+                      {mesinList.map((mesinItem: Mesin) => (
+                        <option key={mesinItem.id} value={mesinItem.name}>
+                          {mesinItem.name}
                         </option>
                       ))}
                     </select>
@@ -376,8 +329,8 @@ const FormMesin: React.FC = () => {
               <div className="mt-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Running Hours</label>
                 <input
-                  type="number" 
-                  step="0.01" 
+                  type="number"
+                  step="0.01"
                   name="runningHour"
                   value={formData.runningHour}
                   onChange={handleChange}
