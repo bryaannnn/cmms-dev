@@ -129,7 +129,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       const response = await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/register`, {
         method: "POST",
-        credentials: "include",
         headers: {
           "Content-Type": "application/json",
         },
@@ -166,12 +165,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/sanctum/csrf-cookie`, {
         method: "GET",
-        credentials: "include",
       });
 
       const response = await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/login`, {
         method: "POST",
-        credentials: "include",
         headers: {
           "Content-Type": "application/json",
         },
@@ -213,7 +210,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/logout`, {
           method: "POST",
-          credentials: "include",
           headers: logoutHeaders,
         });
       }
