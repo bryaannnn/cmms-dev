@@ -1,16 +1,40 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { FiSave, FiTrash2, FiX, FiClock, FiCheck, FiTool, FiChevronDown } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
-import { useAuth, MachineHistoryFormData, Mesin } from "../../routes/AuthContext";
+import {
+  useAuth,
+  MachineHistoryFormData,
+  Mesin,
+  Shift,
+  Group,
+  StopTime,
+  Unit,
+  ItemTrouble,
+  JenisAktivitas,
+  Kegiatan,
+  UnitSparePart,
+  AllMasterData,
+} from "../../routes/AuthContext";
 import { motion } from "framer-motion";
 
 const FormMesin: React.FC = () => {
-  const { getMesin, submitMachineHistory } = useAuth();
+  const {
+    getAllMasterData, 
+    submitMachineHistory,
+  } = useAuth();
   const navigate = useNavigate();
-  const [mesinList, setMesinList] = useState<Mesin[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [mesinList, setMesinList] = useState<Mesin[]>([]);
+  const [shiftList, setShiftList] = useState<Shift[]>([]);
+  const [groupList, setGroupList] = useState<Group[]>([]);
+  const [stopTimeList, setStopTimeList] = useState<StopTime[]>([]);
+  const [unitList, setUnitList] = useState<Unit[]>([]);
+  const [itemTroubleList, setItemTroubleList] = useState<ItemTrouble[]>([]);
+  const [jenisAktivitasList, setJenisAktivitasList] = useState<JenisAktivitas[]>([]);
+  const [kegiatanList, setKegiatanList] = useState<Kegiatan[]>([]);
+  const [unitSparePartList, setUnitSparePartList] = useState<UnitSparePart[]>([]);
 
   const [formData, setFormData] = useState<MachineHistoryFormData>({
     date: "",
@@ -46,12 +70,11 @@ const FormMesin: React.FC = () => {
     if (numericFields.includes(name)) {
       const numValue = name === "runningHour" ? parseFloat(value) : parseInt(value, 10);
       setFormData((prev: MachineHistoryFormData) => ({
-        // <-- Tambahkan tipe 'MachineHistoryFormData' di sini
         ...prev,
         [name]: isNaN(numValue) ? 0 : numValue,
       }));
     } else {
-      setFormData((prev: MachineHistoryFormData) => ({ ...prev, [name]: value })); // <-- Dan di sini
+      setFormData((prev: MachineHistoryFormData) => ({ ...prev, [name]: value }));
     }
   };
 
@@ -67,7 +90,7 @@ const FormMesin: React.FC = () => {
     };
 
     try {
-      await submitMachineHistory(dataToSend);
+      await submitMachineHistory(dataToSend); 
       setSuccess("Data history mesin berhasil disimpan!");
       handleClear();
       navigate("/machinehistory");
@@ -110,18 +133,26 @@ const FormMesin: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const fetchMesinData = async () => {
+    const fetchAllMasterData = async () => {
       try {
-        const data = await getMesin();
-        setMesinList(data);
+        const data: AllMasterData = await getAllMasterData(); 
+        setMesinList(data.mesin || []);
+        setShiftList(data.shifts || []);
+        setGroupList(data.groups || []);
+        setStopTimeList(data.stoptimes || []);
+        setUnitList(data.units || []);
+        setItemTroubleList(data.itemtroubles || []);
+        setJenisAktivitasList(data.jenisaktivitas || []);
+        setKegiatanList(data.kegiatans || []);
+        setUnitSparePartList(data.unitspareparts || []);
       } catch (error: any) {
-        console.error("Gagal mengambil data mesin:", error);
-        setError(error.message || "Gagal memuat daftar mesin.");
+        console.error("Gagal mengambil semua data master:", error);
+        setError(error.message || "Gagal memuat daftar data master.");
       }
     };
 
-    fetchMesinData();
-  }, [getMesin]);
+    fetchAllMasterData();
+  }, [getAllMasterData]); 
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
@@ -165,7 +196,7 @@ const FormMesin: React.FC = () => {
           </div>
         )}
 
-        {/* Form Container */}
+        {/* Form Container (Sama seperti sebelumnya, hanya bagian dropdown yang menggunakan state baru) */}
         <div className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200">
           <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-6">
             {/* General Information Section */}
@@ -183,11 +214,11 @@ const FormMesin: React.FC = () => {
                   <div className="relative">
                     <select name="shift" value={formData.shift} onChange={handleChange} className="w-full p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white" required>
                       <option value="">Select Shift</option>
-                      <option value="1">Shift 1</option>
-                      <option value="2">Shift 2</option>
-                      <option value="3">Shift 3</option>
-                      <option value="off">OFF</option>
-                      <option value="ns">NS</option>
+                      {shiftList.map((shift) => (
+                        <option key={shift.id} value={shift.name}>
+                          {shift.name}
+                        </option>
+                      ))}
                     </select>
                     <FiChevronDown className="absolute right-3 top-3.5 text-gray-400" />
                   </div>
@@ -197,12 +228,11 @@ const FormMesin: React.FC = () => {
                   <div className="relative">
                     <select name="group" value={formData.group} onChange={handleChange} className="w-full p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white" required>
                       <option value="">Select Group</option>
-                      <option value="A">Group A</option>
-                      <option value="B">Group B</option>
-                      <option value="C">Group C</option>
-                      <option value="D">Group D</option>
-                      <option value="off">OFF</option>
-                      <option value="ns">NS</option>
+                      {groupList.map((group) => (
+                        <option key={group.id} value={group.name}>
+                          {group.name}
+                        </option>
+                      ))}
                     </select>
                     <FiChevronDown className="absolute right-3 top-3.5 text-gray-400" />
                   </div>
@@ -238,18 +268,18 @@ const FormMesin: React.FC = () => {
                 <div className="relative">
                   <select name="stopTime" value={formData.stopTime} onChange={handleChange} className="w-full p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white" required>
                     <option value="">Select Stop Type</option>
-                    <option value="PM">PM (Preventive Maintenance)</option>
-                    <option value="Harmonisasi">Harmonisasi</option>
-                    <option value="CIP">CIP (Clean-in-Place)</option>
-                    <option value="Unplanned">Unplanned</option>
-                    <option value="Standby">Standby</option>
+                    {stopTimeList.map((stopTime) => (
+                      <option key={stopTime.id} value={stopTime.name}>
+                        {stopTime.name}
+                      </option>
+                    ))}
                   </select>
                   <FiChevronDown className="absolute right-3 top-3.5 text-gray-400" />
                 </div>
               </div>
             </div>
 
-            {/* Start Time Section */}
+            {/* Start Time Section (doesn't have FK to a list) */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <FiCheck className="mr-2 text-green-500" /> Start Time
@@ -285,11 +315,11 @@ const FormMesin: React.FC = () => {
                   <div className="relative">
                     <select name="unit" value={formData.unit} onChange={handleChange} className="w-full p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white" required>
                       <option value="">Select Unit</option>
-                      <option value="WF1U1">WF1U1</option>
-                      <option value="WF1U3">WF1U3</option>
-                      <option value="WF2U1">WF2U1</option>
-                      <option value="WF2U2">WF2U2</option>
-                      <option value="Lain Lain">Lain Lain</option>
+                      {unitList.map((unit) => (
+                        <option key={unit.id} value={unit.name}>
+                          {unit.name}
+                        </option>
+                      ))}
                     </select>
                     <FiChevronDown className="absolute right-3 top-3.5 text-gray-400" />
                   </div>
@@ -299,7 +329,6 @@ const FormMesin: React.FC = () => {
                   <div className="relative">
                     <select name="mesin" value={formData.mesin} onChange={handleChange} className="w-full p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white" required>
                       <option value="">Select Machine</option>
-                      {/* Loop mesinList dari API, HAPUS OPSI MANUAL WF1U3 */}
                       {mesinList.map((mesinItem: Mesin) => (
                         <option key={mesinItem.id} value={mesinItem.name}>
                           {mesinItem.name}
@@ -335,11 +364,11 @@ const FormMesin: React.FC = () => {
                 <div className="relative">
                   <select name="itemTrouble" value={formData.itemTrouble} onChange={handleChange} className="w-full p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white" required>
                     <option value="">Select Item Trouble</option>
-                    <option value="PM">PM (Preventive Maintenance)</option>
-                    <option value="Harmonisasi">Harmonisasi</option>
-                    <option value="CIP">CIP (Clean-in-Place)</option>
-                    <option value="Unplanned">Unplanned</option>
-                    <option value="Standby">Standby</option>
+                    {itemTroubleList.map((itemTrouble) => (
+                      <option key={itemTrouble.id} value={itemTrouble.name}>
+                        {itemTrouble.name}
+                      </option>
+                    ))}
                   </select>
                   <FiChevronDown className="absolute right-3 top-3.5 text-gray-400" />
                 </div>
@@ -403,8 +432,11 @@ const FormMesin: React.FC = () => {
                       required
                     >
                       <option value="">Select Activity Type</option>
-                      <option value="Perbaikan">Repair</option>
-                      <option value="Perawatan">Maintenance</option>
+                      {jenisAktivitasList.map((aktivitas) => (
+                        <option key={aktivitas.id} value={aktivitas.name}>
+                          {aktivitas.name}
+                        </option>
+                      ))}
                     </select>
                     <FiChevronDown className="absolute right-3 top-3.5 text-gray-400" />
                   </div>
@@ -414,21 +446,11 @@ const FormMesin: React.FC = () => {
                   <div className="relative">
                     <select name="kegiatan" value={formData.kegiatan} onChange={handleChange} className="w-full p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white" required>
                       <option value="">Select Activity</option>
-                      <option value="Replace With New Part">Replace With New Part</option>
-                      <option value="Replace With Old Part">Replace With Old Part</option>
-                      <option value="Cleaning">Cleaning</option>
-                      <option value="Check">Check</option>
-                      <option value="Tightening">Tightening</option>
-                      <option value="Improvement">Improvement</option>
-                      <option value="Modification">Modification</option>
-                      <option value="Calibration">Calibration</option>
-                      <option value="Repair by Vendor">Repair by Vendor</option>
-                      <option value="Monitoring">Monitoring</option>
-                      <option value="Greasing">Greasing</option>
-                      <option value="Reset">Reset</option>
-                      <option value="Fine Tune">Fine Tune</option>
-                      <option value="Repair Offline Part">Repair Offline Part</option>
-                      <option value="Trouble Shooting">Trouble Shooting</option>
+                      {kegiatanList.map((kegiatan) => (
+                        <option key={kegiatan.id} value={kegiatan.name}>
+                          {kegiatan.name}
+                        </option>
+                      ))}
                     </select>
                     <FiChevronDown className="absolute right-3 top-3.5 text-gray-400" />
                   </div>
@@ -464,10 +486,11 @@ const FormMesin: React.FC = () => {
                 <div className="relative">
                   <select name="unitSparePart" value={formData.unitSparePart} onChange={handleChange} className="w-full p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white">
                     <option value="">Select Unit</option>
-                    <option value="PCS">PCS (Pieces)</option>
-                    <option value="UNIT">UNIT</option>
-                    <option value="M">M (Meter)</option>
-                    <option value="L">L (Liter)</option>
+                    {unitSparePartList.map((unitSP) => (
+                      <option key={unitSP.id} value={unitSP.name}>
+                        {unitSP.name}
+                      </option>
+                    ))}
                   </select>
                   <FiChevronDown className="absolute right-3 top-3.5 text-gray-400" />
                 </div>

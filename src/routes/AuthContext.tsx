@@ -2,18 +2,70 @@ import { createContext, useContext, useState, useEffect, useCallback } from "rea
 import { useNavigate } from "react-router-dom";
 import { getProjectEnvVariables } from "../shared/projectEnvVariables";
 
-export interface User { 
+export interface User {
   id: string;
   name: string;
   email: string;
 }
 
-export interface Mesin { 
+export interface Mesin {
   id: string;
   name: string;
 }
 
-export interface MachineHistoryFormData { 
+export interface Shift {
+  id: string;
+  name: string;
+}
+
+export interface Group {
+  id: string;
+  name: string;
+}
+
+export interface StopTime {
+  id: string;
+  name: string;
+}
+
+export interface Unit {
+  id: string;
+  name: string;
+}
+
+export interface ItemTrouble {
+  id: string;
+  name: string;
+}
+
+export interface JenisAktivitas {
+  id: string;
+  name: string;
+}
+
+export interface Kegiatan {
+  id: string;
+  name: string;
+}
+
+export interface UnitSparePart {
+  id: string;
+  name: string;
+}
+
+export interface AllMasterData {
+  mesin: Mesin[];
+  shifts: Shift[];
+  groups: Group[];
+  stoptimes: StopTime[];
+  units: Unit[];
+  itemtroubles: ItemTrouble[];
+  jenisaktivitas: JenisAktivitas[];
+  kegiatans: Kegiatan[];
+  unitspareparts: UnitSparePart[];
+}
+
+export interface MachineHistoryFormData {
   date: string;
   shift: string;
   group: string;
@@ -48,7 +100,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   isLoggingOut: boolean;
   fetchWithAuth: (url: string, options?: RequestInit) => Promise<any>;
-  getMesin: () => Promise<Mesin[]>;
+  getAllMasterData: () => Promise<AllMasterData>;
   submitMachineHistory: (data: MachineHistoryFormData) => Promise<any>;
 }
 
@@ -81,43 +133,46 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, []);
 
-  const fetchWithAuth = useCallback(async (url: string, options: RequestInit = {}) => {
-    const authToken = token || localStorage.getItem("token");
+  const fetchWithAuth = useCallback(
+    async (url: string, options: RequestInit = {}) => {
+      const authToken = token || localStorage.getItem("token");
 
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      ...(options.headers as Record<string, string>),
-    };
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        ...(options.headers as Record<string, string>),
+      };
 
-    if (authToken) {
-      headers.Authorization = `Bearer ${authToken}`; 
-    }
-
-    const fullUrl = `${projectEnvVariables.envVariables.VITE_REACT_API_URL}${url}`;
-
-    const fetchOptions: RequestInit = {
-      ...options,
-      headers: headers,
-    };
-
-    const response = await fetch(fullUrl, fetchOptions);
-
-    if (response.status === 401) {
-      try {
-        await logout();
-      } catch (logoutError) {
-        console.error("Error during automatic logout after 401:", logoutError);
+      if (authToken) {
+        headers.Authorization = `Bearer ${authToken}`;
       }
-      throw new Error("Sesi berakhir. Silakan login kembali.");
-    }
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || `Permintaan gagal dengan status: ${response.status}`);
-    }
+      const fullUrl = `${projectEnvVariables.envVariables.VITE_REACT_API_URL}${url}`;
 
-    return response.json();
-  }, [token, navigate, user]); 
+      const fetchOptions: RequestInit = {
+        ...options,
+        headers: headers,
+      };
+
+      const response = await fetch(fullUrl, fetchOptions);
+
+      if (response.status === 401) {
+        try {
+          await logout();
+        } catch (logoutError) {
+          console.error("Error during automatic logout after 401:", logoutError);
+        }
+        throw new Error("Sesi berakhir. Silakan login kembali.");
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Permintaan gagal dengan status: ${response.status}`);
+      }
+
+      return response.json();
+    },
+    [token, navigate, user]
+  );
 
   const register = async (name: string, email: string, password: string) => {
     try {
@@ -150,7 +205,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       } else {
         throw new Error("Token atau data user tidak diterima setelah pendaftaran.");
       }
-
     } catch (error) {
       console.error("Error pendaftaran:", error);
       throw error;
@@ -183,7 +237,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       } else {
         throw new Error("Token atau data user tidak diterima setelah login.");
       }
-
     } catch (error) {
       console.error("Error login:", error);
       throw error;
@@ -196,7 +249,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (token) {
         const logoutHeaders: Record<string, string> = {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`, 
+          Authorization: `Bearer ${token}`,
         };
 
         await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/logout`, {
@@ -207,7 +260,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (error) {
       console.error("Error API logout:", error);
     } finally {
-      console.log("Menghapus token dan user dari localStorage...");
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       setToken(null);
@@ -217,28 +269,31 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [token, navigate]);
 
-  const getMesin = useCallback(async (): Promise<Mesin[]> => {
+  const getAllMasterData = useCallback(async (): Promise<AllMasterData> => {
     try {
-      const data: Mesin[] = await fetchWithAuth("/mesin");
+      const data: AllMasterData = await fetchWithAuth("/mhs");
       return data;
     } catch (error) {
-      console.error("Gagal mengambil data mesin:", error);
+      console.error("Gagal mengambil semua data master dari /mhs:", error);
       throw error;
     }
   }, [fetchWithAuth]);
 
-  const submitMachineHistory = useCallback(async (data: MachineHistoryFormData) => {
-    try {
-      const responseData = await fetchWithAuth("/machinehistory", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
-      return responseData;
-    } catch (error) {
-      console.error("Gagal menyimpan data history mesin:", error);
-      throw error;
-    }
-  }, [fetchWithAuth]);
+  const submitMachineHistory = useCallback(
+    async (data: MachineHistoryFormData) => {
+      try {
+        const responseData = await fetchWithAuth("/mhs", {
+          method: "POST",
+          body: JSON.stringify(data),
+        });
+        return responseData;
+      } catch (error) {
+        console.error("Gagal menyimpan data history mesin:", error);
+        throw error;
+      }
+    },
+    [fetchWithAuth]
+  );
 
   return (
     <AuthContext.Provider
@@ -251,7 +306,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         logout,
         isLoggingOut,
         fetchWithAuth,
-        getMesin,
+        getAllMasterData,
         submitMachineHistory,
       }}
     >
