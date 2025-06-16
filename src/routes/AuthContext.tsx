@@ -2,18 +2,18 @@ import { createContext, useContext, useState, useEffect, useCallback } from "rea
 import { useNavigate } from "react-router-dom";
 import { getProjectEnvVariables } from "../shared/projectEnvVariables";
 
-export interface User {
+export interface User { 
   id: string;
   name: string;
   email: string;
 }
 
-export interface Mesin {
+export interface Mesin { 
   id: string;
   name: string;
 }
 
-export interface MachineHistoryFormData {
+export interface MachineHistoryFormData { 
   date: string;
   shift: string;
   group: string;
@@ -61,7 +61,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const navigate = useNavigate();
 
-  const isAuthenticated = !!user;
+  const isAuthenticated = !!token;
 
   useEffect(() => {
     const storedToken = localStorage.getItem("token");
@@ -81,52 +81,46 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, []);
 
-  const fetchWithAuth = useCallback(
-    async (url: string, options: RequestInit = {}) => {
-      const authToken = token || localStorage.getItem("token");
+  const fetchWithAuth = useCallback(async (url: string, options: RequestInit = {}) => {
+    const authToken = token || localStorage.getItem("token");
 
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-        ...(options.headers as Record<string, string>), 
-      };
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...(options.headers as Record<string, string>),
+    };
 
-      if (authToken) {
-        headers.Authorization = `Bearer ${authToken}`; 
+    if (authToken) {
+      headers.Authorization = `Bearer ${authToken}`; 
+    }
+
+    const fullUrl = `${projectEnvVariables.envVariables.VITE_REACT_API_URL}${url}`;
+
+    const fetchOptions: RequestInit = {
+      ...options,
+      headers: headers,
+    };
+
+    const response = await fetch(fullUrl, fetchOptions);
+
+    if (response.status === 401) {
+      try {
+        await logout();
+      } catch (logoutError) {
+        console.error("Error during automatic logout after 401:", logoutError);
       }
+      throw new Error("Sesi berakhir. Silakan login kembali.");
+    }
 
-      const fullUrl = `${projectEnvVariables.envVariables.VITE_REACT_API_URL}${url}`;
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || `Permintaan gagal dengan status: ${response.status}`);
+    }
 
-      const fetchOptions: RequestInit = {
-        ...options,
-        credentials: "include",
-        headers: headers, 
-      };
-
-      const response = await fetch(fullUrl, fetchOptions);
-
-      if (response.status === 401) {
-        try {
-          await logout();
-        } catch (logoutError) {
-          console.error("Error during automatic logout after 401:", logoutError);
-        }
-        throw new Error("Sesi berakhir. Silakan login kembali.");
-      }
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Permintaan gagal dengan status: ${response.status}`);
-      }
-
-      return response.json();
-    },
-    [token, user, navigate]
-  );
+    return response.json();
+  }, [token, navigate, user]); 
 
   const register = async (name: string, email: string, password: string) => {
     try {
-      await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/sanctum/csrf-cookie`, { credentials: "include" });
-
       const response = await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/register`, {
         method: "POST",
         headers: {
@@ -147,14 +141,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         throw new Error(data.message || "Pendaftaran gagal");
       }
 
-      if (data.token) {
+      if (data.token && data.user) {
         setToken(data.token);
         localStorage.setItem("token", data.token);
+        setUser(data.user);
+        localStorage.setItem("user", JSON.stringify(data.user));
+        navigate("/dashboard");
+      } else {
+        throw new Error("Token atau data user tidak diterima setelah pendaftaran.");
       }
-      setUser(data.user);
-      localStorage.setItem("user", JSON.stringify(data.user));
 
-      navigate("/dashboard");
     } catch (error) {
       console.error("Error pendaftaran:", error);
       throw error;
@@ -163,10 +159,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const login = async (email: string, password: string) => {
     try {
-      await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/sanctum/csrf-cookie`, {
-        method: "GET",
-      });
-
       const response = await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/login`, {
         method: "POST",
         headers: {
@@ -182,15 +174,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       const data = await response.json();
 
-      if (data.token) {
+      if (data.token && data.user) {
         localStorage.setItem("token", data.token);
         setToken(data.token);
+        localStorage.setItem("user", JSON.stringify(data.user));
+        setUser(data.user);
+        navigate("/dashboard");
+      } else {
+        throw new Error("Token atau data user tidak diterima setelah login.");
       }
 
-      localStorage.setItem("user", JSON.stringify(data.user));
-      setUser(data.user);
-
-      navigate("/dashboard");
     } catch (error) {
       console.error("Error login:", error);
       throw error;
@@ -200,13 +193,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const logout = useCallback(async () => {
     setIsLoggingOut(true);
     try {
-      if (user || token) {
-        const logoutHeaders: HeadersInit = {
+      if (token) {
+        const logoutHeaders: Record<string, string> = {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`, 
         };
-        if (token) {
-          (logoutHeaders as Record<string, string>).Authorization = `Bearer ${token}`;
-        }
 
         await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/logout`, {
           method: "POST",
@@ -224,7 +215,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setIsLoggingOut(false);
       navigate("/login");
     }
-  }, [token, user, navigate]);
+  }, [token, navigate]);
 
   const getMesin = useCallback(async (): Promise<Mesin[]> => {
     try {
@@ -236,21 +227,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [fetchWithAuth]);
 
-  const submitMachineHistory = useCallback(
-    async (data: MachineHistoryFormData) => {
-      try {
-        const responseData = await fetchWithAuth("/machinehistory", {
-          method: "POST",
-          body: JSON.stringify(data),
-        });
-        return responseData;
-      } catch (error) {
-        console.error("Gagal menyimpan data history mesin:", error);
-        throw error;
-      }
-    },
-    [fetchWithAuth]
-  );
+  const submitMachineHistory = useCallback(async (data: MachineHistoryFormData) => {
+    try {
+      const responseData = await fetchWithAuth("/machinehistory", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+      return responseData;
+    } catch (error) {
+      console.error("Gagal menyimpan data history mesin:", error);
+      throw error;
+    }
+  }, [fetchWithAuth]);
 
   return (
     <AuthContext.Provider

@@ -7,7 +7,7 @@ import { motion } from "framer-motion";
 const FormMesin: React.FC = () => {
   const { getMesin, submitMachineHistory } = useAuth();
   const navigate = useNavigate();
-  const [mesinList, setMesinList] = useState<Mesin[]>([]); 
+  const [mesinList, setMesinList] = useState<Mesin[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -45,7 +45,8 @@ const FormMesin: React.FC = () => {
 
     if (numericFields.includes(name)) {
       const numValue = name === "runningHour" ? parseFloat(value) : parseInt(value, 10);
-      setFormData((prev: MachineHistoryFormData) => ({ // <-- Tambahkan tipe 'MachineHistoryFormData' di sini
+      setFormData((prev: MachineHistoryFormData) => ({
+        // <-- Tambahkan tipe 'MachineHistoryFormData' di sini
         ...prev,
         [name]: isNaN(numValue) ? 0 : numValue,
       }));
@@ -111,7 +112,6 @@ const FormMesin: React.FC = () => {
   useEffect(() => {
     const fetchMesinData = async () => {
       try {
-        // Panggil getMesin tanpa argumen, sesuai definisi baru di AuthContext
         const data = await getMesin();
         setMesinList(data);
       } catch (error: any) {
@@ -218,15 +218,7 @@ const FormMesin: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Hour (HH)</label>
-                  <input
-                    type="number"
-                    name="stopJam"
-                    value={formData.stopJam}
-                    onChange={handleChange}
-                    placeholder="e.g., 08"
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                    required
-                  />
+                  <input type="number" name="stopJam" value={formData.stopJam} onChange={handleChange} placeholder="e.g., 08" className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Minute (MM)</label>
@@ -265,15 +257,7 @@ const FormMesin: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Hour (HH)</label>
-                  <input
-                    type="number"
-                    name="startJam"
-                    value={formData.startJam}
-                    onChange={handleChange}
-                    placeholder="e.g., 09"
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                    required
-                  />
+                  <input type="number" name="startJam" value={formData.startJam} onChange={handleChange} placeholder="e.g., 09" className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Minute (MM)</label>
