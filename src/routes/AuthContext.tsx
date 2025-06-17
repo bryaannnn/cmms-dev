@@ -92,7 +92,7 @@ export interface MachineHistoryFormData {
 }
 
 export interface MachineHistoryRecord extends MachineHistoryFormData {
-  id: string; 
+  id: string;
 }
 
 interface AuthContextType {
@@ -277,7 +277,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [token, navigate]);
 
-
   const getAllMasterData = useCallback(async (): Promise<AllMasterData> => {
     try {
       const [mesins, groups, shifts, units, unitspareparts, itemtroubles, jenisaktivitas, kegiatans, stoptimes] = await Promise.all([
@@ -287,9 +286,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         fetchWithAuth("/unit"),
         fetchWithAuth("/unitsp"),
         fetchWithAuth("/itemtrouble"),
-        fetchWithAuth("/jenisaktifitas"), 
+        fetchWithAuth("/jenisaktifitas"),
         fetchWithAuth("/kegiatan"),
-        fetchWithAuth("/stoptime"),
+        fetchWithAuth("/stoptimes"),
       ]);
 
       return {
