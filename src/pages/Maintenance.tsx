@@ -76,7 +76,6 @@ interface WorkOrder {
   approvalNotes: string[];
   escalationLevel: number;
 
-  // Machine History specific fields
   date: string;
   shift: string;
   group: string;

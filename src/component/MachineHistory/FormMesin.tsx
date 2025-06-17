@@ -1,31 +1,16 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { FiSave, FiTrash2, FiX, FiClock, FiCheck, FiTool, FiChevronDown } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
-import {
-  useAuth,
-  MachineHistoryFormData,
-  Mesin,
-  Shift,
-  Group,
-  StopTime,
-  Unit,
-  ItemTrouble,
-  JenisAktivitas,
-  Kegiatan,
-  UnitSparePart,
-  AllMasterData,
-} from "../../routes/AuthContext";
+import { useAuth, MachineHistoryFormData, Mesin, Shift, Group, StopTime, Unit, ItemTrouble, JenisAktivitas, Kegiatan, UnitSparePart, AllMasterData } from "../../routes/AuthContext";
 import { motion } from "framer-motion";
 
 const FormMesin: React.FC = () => {
-  const {
-    getAllMasterData, 
-    submitMachineHistory,
-  } = useAuth();
+  const { getAllMasterData, submitMachineHistory } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
   const [mesinList, setMesinList] = useState<Mesin[]>([]);
   const [shiftList, setShiftList] = useState<Shift[]>([]);
   const [groupList, setGroupList] = useState<Group[]>([]);
@@ -65,17 +50,40 @@ const FormMesin: React.FC = () => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
 
-    const numericFields = ["stopJam", "stopMenit", "startJam", "startMenit", "runningHour", "jumlah"];
+    setFormData((prev: MachineHistoryFormData) => {
+      let newValue: string | number = value;
 
-    if (numericFields.includes(name)) {
-      const numValue = name === "runningHour" ? parseFloat(value) : parseInt(value, 10);
-      setFormData((prev: MachineHistoryFormData) => ({
-        ...prev,
-        [name]: isNaN(numValue) ? 0 : numValue,
-      }));
-    } else {
-      setFormData((prev: MachineHistoryFormData) => ({ ...prev, [name]: value }));
+      if (name === "stopJam" || name === "startJam") {
+        let numValue = parseInt(value, 10);
+        newValue = isNaN(numValue) ? 0 : Math.max(0, Math.min(23, numValue));
+      } else if (name === "stopMenit" || name === "startMenit") {
+        let numValue = parseInt(value, 10);
+        newValue = isNaN(numValue) ? 0 : Math.max(0, Math.min(59, numValue));
+      } else if (name === "runningHour") {
+        const cleanedValue = value.replace(/\./g, "");
+        const parsedValue = parseInt(cleanedValue, 10);
+        newValue = isNaN(parsedValue) ? 0 : Math.max(0, parsedValue);
+      } else if (name === "jumlah") {
+        const cleanedValue = value.replace(",", ".");
+        const parsedValue = parseFloat(cleanedValue);
+        newValue = isNaN(parsedValue) ? 0 : Math.max(0, parsedValue);
+      } else {
+        newValue = value;
+      }
+
+      return { ...prev, [name]: newValue };
+    });
+  };
+
+  const formatNumberWithDot = (num: number | string): string => {
+    const numericValue = typeof num === "string" ? parseFloat(num.replace(",", ".")) : num;
+    if (isNaN(numericValue) || numericValue === null) return "";
+
+    if (Number.isInteger(numericValue)) {
+      return numericValue.toLocaleString("id-ID").replace(/,/g, ".");
     }
+
+    return numericValue.toString().replace(".", ",");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -87,10 +95,12 @@ const FormMesin: React.FC = () => {
     const dataToSend: MachineHistoryFormData = {
       ...formData,
       perbaikanPerawatan: formData.jenisAktivitas === "Perbaikan" ? "Perbaikan" : "Perawatan",
+      runningHour: parseInt(String(formData.runningHour).replace(/\./g, ""), 10) || 0,
+      jumlah: parseFloat(String(formData.jumlah).replace(",", ".")) || 0,
     };
 
     try {
-      await submitMachineHistory(dataToSend); 
+      await submitMachineHistory(dataToSend);
       setSuccess("Data history mesin berhasil disimpan!");
       handleClear();
       navigate("/machinehistory");
@@ -135,7 +145,7 @@ const FormMesin: React.FC = () => {
   useEffect(() => {
     const fetchAllMasterData = async () => {
       try {
-        const data: AllMasterData = await getAllMasterData(); 
+        const data: AllMasterData = await getAllMasterData();
         setMesinList(data.mesin || []);
         setShiftList(data.shifts || []);
         setGroupList(data.groups || []);
@@ -152,7 +162,7 @@ const FormMesin: React.FC = () => {
     };
 
     fetchAllMasterData();
-  }, [getAllMasterData]); 
+  }, [getAllMasterData]);
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
@@ -196,7 +206,7 @@ const FormMesin: React.FC = () => {
           </div>
         )}
 
-        {/* Form Container (Sama seperti sebelumnya, hanya bagian dropdown yang menggunakan state baru) */}
+        {/* Form Container */}
         <div className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200">
           <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-6">
             {/* General Information Section */}
@@ -240,7 +250,7 @@ const FormMesin: React.FC = () => {
               </div>
             </div>
 
-            {/* Stop Time Section */}
+            {/* Stop Time */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <FiClock className="mr-2 text-red-500" /> Stop Time
@@ -248,17 +258,29 @@ const FormMesin: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Hour (HH)</label>
-                  <input type="number" name="stopJam" value={formData.stopJam} onChange={handleChange} placeholder="e.g., 08" className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required />
+                  <input
+                    type="number"
+                    name="stopJam"
+                    value={formData.stopJam.toString().padStart(2, "0")}
+                    onChange={handleChange}
+                    placeholder="e.g., 08"
+                    min="0"
+                    max="23"
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button"
+                    required
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Minute (MM)</label>
                   <input
                     type="number"
                     name="stopMenit"
-                    value={formData.stopMenit}
+                    value={formData.stopMenit.toString().padStart(2, "0")}
                     onChange={handleChange}
                     placeholder="e.g., 30"
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    min="0"
+                    max="59"
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button"
                     required
                   />
                 </div>
@@ -279,7 +301,7 @@ const FormMesin: React.FC = () => {
               </div>
             </div>
 
-            {/* Start Time Section (doesn't have FK to a list) */}
+            {/* Start Time */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <FiCheck className="mr-2 text-green-500" /> Start Time
@@ -287,17 +309,29 @@ const FormMesin: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Hour (HH)</label>
-                  <input type="number" name="startJam" value={formData.startJam} onChange={handleChange} placeholder="e.g., 09" className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required />
+                  <input
+                    type="number"
+                    name="startJam"
+                    value={formData.startJam.toString().padStart(2, "0")}
+                    onChange={handleChange}
+                    placeholder="e.g., 09"
+                    min="0"
+                    max="23"
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button"
+                    required
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Minute (MM)</label>
                   <input
                     type="number"
                     name="startMenit"
-                    value={formData.startMenit}
+                    value={formData.startMenit.toString().padStart(2, "0")}
                     onChange={handleChange}
                     placeholder="e.g., 15"
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    min="0"
+                    max="59"
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button"
                     required
                   />
                 </div>
@@ -343,11 +377,10 @@ const FormMesin: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Running Hours</label>
                 <input
                   type="number"
-                  step="0.01"
                   name="runningHour"
-                  value={formData.runningHour}
+                  value={formatNumberWithDot(formData.runningHour)}
                   onChange={handleChange}
-                  placeholder="e.g., 12345.67"
+                  placeholder="e.g., 15.000"
                   className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                   required
                 />
@@ -478,7 +511,16 @@ const FormMesin: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
-                  <input type="number" name="jumlah" value={formData.jumlah} onChange={handleChange} placeholder="e.g., 5" min="0" className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" />
+                  <input
+                    type="number"
+                    step="any"
+                    name="jumlah"
+                    value={formData.jumlah.toString().replace(".", ",")}
+                    onChange={handleChange}
+                    placeholder="e.g., 5,5"
+                    min="0"
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 no-spin-button"
+                  />
                 </div>
               </div>
               <div className="mt-4">
