@@ -91,6 +91,10 @@ export interface MachineHistoryFormData {
   unitSparePart: string;
 }
 
+export interface MachineHistoryRecord extends MachineHistoryFormData {
+  id: string; 
+}
+
 interface AuthContextType {
   user: User | null;
   token: string | null;
@@ -102,6 +106,10 @@ interface AuthContextType {
   fetchWithAuth: (url: string, options?: RequestInit) => Promise<any>;
   getAllMasterData: () => Promise<AllMasterData>;
   submitMachineHistory: (data: MachineHistoryFormData) => Promise<any>;
+  getMachineHistories: () => Promise<MachineHistoryRecord[]>;
+  getMachineHistoryById: (id: string) => Promise<MachineHistoryRecord | null>;
+  updateMachineHistory: (id: string, data: Partial<MachineHistoryFormData>) => Promise<any>;
+  deleteMachineHistory: (id: string) => Promise<any>;
 }
 
 const projectEnvVariables = getProjectEnvVariables();
@@ -269,12 +277,34 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [token, navigate]);
 
+
   const getAllMasterData = useCallback(async (): Promise<AllMasterData> => {
     try {
-      const data: AllMasterData = await fetchWithAuth("/mhs");
-      return data;
+      const [mesins, groups, shifts, units, unitspareparts, itemtroubles, jenisaktivitas, kegiatans, stoptimes] = await Promise.all([
+        fetchWithAuth("/mesin"),
+        fetchWithAuth("/group"),
+        fetchWithAuth("/shift"),
+        fetchWithAuth("/unit"),
+        fetchWithAuth("/unitsp"),
+        fetchWithAuth("/itemtrouble"),
+        fetchWithAuth("/jenisaktifitas"), 
+        fetchWithAuth("/kegiatan"),
+        fetchWithAuth("/stoptime"),
+      ]);
+
+      return {
+        mesin: mesins,
+        shifts: shifts,
+        groups: groups,
+        stoptimes: stoptimes,
+        units: units,
+        itemtroubles: itemtroubles,
+        jenisaktivitas: jenisaktivitas,
+        kegiatans: kegiatans,
+        unitspareparts: unitspareparts,
+      };
     } catch (error) {
-      console.error("Gagal mengambil semua data master dari /mhs:", error);
+      console.error("Gagal mengambil semua data master:", error);
       throw error;
     }
   }, [fetchWithAuth]);
@@ -295,6 +325,60 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     [fetchWithAuth]
   );
 
+  const getMachineHistories = useCallback(async (): Promise<MachineHistoryRecord[]> => {
+    try {
+      const data = await fetchWithAuth("/mhs");
+      return data as MachineHistoryRecord[];
+    } catch (error) {
+      console.error("Gagal mengambil daftar history mesin:", error);
+      throw error;
+    }
+  }, [fetchWithAuth]);
+
+  const getMachineHistoryById = useCallback(
+    async (id: string): Promise<MachineHistoryRecord | null> => {
+      try {
+        const data = await fetchWithAuth(`/mhs/${id}`);
+        return data as MachineHistoryRecord;
+      } catch (error) {
+        console.error(`Gagal mengambil history mesin dengan ID ${id}:`, error);
+        throw error;
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const updateMachineHistory = useCallback(
+    async (id: string, data: Partial<MachineHistoryFormData>): Promise<any> => {
+      try {
+        const responseData = await fetchWithAuth(`/mhs/${id}`, {
+          method: "PUT",
+          body: JSON.stringify(data),
+        });
+        return responseData;
+      } catch (error) {
+        console.error(`Gagal mengupdate history mesin dengan ID ${id}:`, error);
+        throw error;
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const deleteMachineHistory = useCallback(
+    async (id: string): Promise<any> => {
+      try {
+        const responseData = await fetchWithAuth(`/mhs/${id}`, {
+          method: "DELETE",
+        });
+        return responseData;
+      } catch (error) {
+        console.error(`Gagal menghapus history mesin dengan ID ${id}:`, error);
+        throw error;
+      }
+    },
+    [fetchWithAuth]
+  );
+
   return (
     <AuthContext.Provider
       value={{
@@ -308,6 +392,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         fetchWithAuth,
         getAllMasterData,
         submitMachineHistory,
+        getMachineHistories,
+        getMachineHistoryById,
+        updateMachineHistory,
+        deleteMachineHistory,
       }}
     >
       {children}

@@ -82,7 +82,6 @@ const FormMesin: React.FC = () => {
     if (Number.isInteger(numericValue)) {
       return numericValue.toLocaleString("id-ID").replace(/,/g, ".");
     }
-
     return numericValue.toString().replace(".", ",");
   };
 
@@ -226,6 +225,7 @@ const FormMesin: React.FC = () => {
                       <option value="">Select Shift</option>
                       {shiftList.map((shift) => (
                         <option key={shift.id} value={shift.name}>
+                          {" "}
                           {shift.name}
                         </option>
                       ))}
@@ -240,6 +240,7 @@ const FormMesin: React.FC = () => {
                       <option value="">Select Group</option>
                       {groupList.map((group) => (
                         <option key={group.id} value={group.name}>
+                          {" "}
                           {group.name}
                         </option>
                       ))}
@@ -250,7 +251,7 @@ const FormMesin: React.FC = () => {
               </div>
             </div>
 
-            {/* Stop Time */}
+            {/* Stop Time Section */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <FiClock className="mr-2 text-red-500" /> Stop Time
@@ -292,6 +293,7 @@ const FormMesin: React.FC = () => {
                     <option value="">Select Stop Type</option>
                     {stopTimeList.map((stopTime) => (
                       <option key={stopTime.id} value={stopTime.name}>
+                        {" "}
                         {stopTime.name}
                       </option>
                     ))}
@@ -301,7 +303,7 @@ const FormMesin: React.FC = () => {
               </div>
             </div>
 
-            {/* Start Time */}
+            {/* Start Time Section */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <FiCheck className="mr-2 text-green-500" /> Start Time
@@ -351,6 +353,7 @@ const FormMesin: React.FC = () => {
                       <option value="">Select Unit</option>
                       {unitList.map((unit) => (
                         <option key={unit.id} value={unit.name}>
+                          {" "}
                           {unit.name}
                         </option>
                       ))}
@@ -362,9 +365,12 @@ const FormMesin: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Machine</label>
                   <div className="relative">
                     <select name="mesin" value={formData.mesin} onChange={handleChange} className="w-full p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white" required>
-                      <option value="">Select Machine</option>
+                      <option key="default-machine" value="">
+                        Select Machine
+                      </option>
                       {mesinList.map((mesinItem: Mesin) => (
                         <option key={mesinItem.id} value={mesinItem.name}>
+                          {" "}
                           {mesinItem.name}
                         </option>
                       ))}
@@ -376,7 +382,7 @@ const FormMesin: React.FC = () => {
               <div className="mt-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Running Hours</label>
                 <input
-                  type="number"
+                  type="text"
                   name="runningHour"
                   value={formatNumberWithDot(formData.runningHour)}
                   onChange={handleChange}
@@ -399,6 +405,7 @@ const FormMesin: React.FC = () => {
                     <option value="">Select Item Trouble</option>
                     {itemTroubleList.map((itemTrouble) => (
                       <option key={itemTrouble.id} value={itemTrouble.name}>
+                        {" "}
                         {itemTrouble.name}
                       </option>
                     ))}
@@ -467,6 +474,7 @@ const FormMesin: React.FC = () => {
                       <option value="">Select Activity Type</option>
                       {jenisAktivitasList.map((aktivitas) => (
                         <option key={aktivitas.id} value={aktivitas.name}>
+                          {" "}
                           {aktivitas.name}
                         </option>
                       ))}
@@ -481,6 +489,7 @@ const FormMesin: React.FC = () => {
                       <option value="">Select Activity</option>
                       {kegiatanList.map((kegiatan) => (
                         <option key={kegiatan.id} value={kegiatan.name}>
+                          {" "}
                           {kegiatan.name}
                         </option>
                       ))}
@@ -530,6 +539,7 @@ const FormMesin: React.FC = () => {
                     <option value="">Select Unit</option>
                     {unitSparePartList.map((unitSP) => (
                       <option key={unitSP.id} value={unitSP.name}>
+                        {" "}
                         {unitSP.name}
                       </option>
                     ))}
