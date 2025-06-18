@@ -835,7 +835,6 @@ const MachineHistoryDashboard: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-700">Machine</label>
                 <input type="text" value={editingRecord.mesin} onChange={(e) => setEditingRecord({ ...editingRecord, mesin: e.target.value })} className="w-full p-2 border rounded" required />
               </div>
-              {/* Add all other fields similarly */}
             </div>
             <div className="flex justify-end space-x-3">
               <button type="button" onClick={() => setShowEditModal(false)} className="px-4 py-2 border rounded hover:bg-gray-100 transition-colors">
@@ -868,4 +867,3 @@ const MachineHistoryDashboard: React.FC = () => {
 };
 
 export default MachineHistoryDashboard;
-  

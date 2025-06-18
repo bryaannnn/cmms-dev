@@ -13,7 +13,7 @@ import InventoryDashboard from "./pages/Inventory";
 import ReportsDashboard from "./pages/Reports";
 import TeamDashboard from "./pages/Teams";
 import SettingsPage from "./pages/Settings";
-import MaintenanceLogBook from "./pages/Maintenance";
+import MachineHistoryDashboard from "./pages/Maintenance";
 import FormMesin from "./component/MachineHistory/FormMesin";
 
 // const envVariables = getProjectEnvVariables();
@@ -28,7 +28,7 @@ function App() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/workorders" element={<WorkOrdersDashboard />} />
-        <Route path="/machinehistory" element={<MaintenanceLogBook />} />
+        <Route path="/machinehistory" element={<MachineHistoryDashboard />} />
         <Route path="/machinehistory/input" element={<FormMesin />} />
         <Route path="/inventory" element={<InventoryDashboard />} />
         <Route path="/assets" element={<Assets />} />
