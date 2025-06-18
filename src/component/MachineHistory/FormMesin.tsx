@@ -22,7 +22,7 @@ const FormMesin: React.FC = () => {
   const [unitSparePartList, setUnitSparePartList] = useState<UnitSparePart[]>([]);
 
   const [formData, setFormData] = useState<MachineHistoryFormData>({
-    date: "",
+    date: new Date().toISOString().split("T")[0],
     shift: "",
     group: "",
     stopJam: 0,
@@ -47,43 +47,37 @@ const FormMesin: React.FC = () => {
     unitSparePart: "",
   });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
 
     setFormData((prev: MachineHistoryFormData) => {
-      let newValue: string | number = value;
+      let newValue: string | number;
 
-      if (name === "stopJam" || name === "startJam") {
+      if (["stopJam", "startJam"].includes(name)) {
         let numValue = parseInt(value, 10);
         newValue = isNaN(numValue) ? 0 : Math.max(0, Math.min(23, numValue));
-      } else if (name === "stopMenit" || name === "startMenit") {
+      } else if (["stopMenit", "startMenit"].includes(name)) {
         let numValue = parseInt(value, 10);
         newValue = isNaN(numValue) ? 0 : Math.max(0, Math.min(59, numValue));
       } else if (name === "runningHour") {
-        const cleanedValue = value.replace(/\./g, "");
+        const cleanedValue = value.replace(/[^\d]/g, "");
         const parsedValue = parseInt(cleanedValue, 10);
         newValue = isNaN(parsedValue) ? 0 : Math.max(0, parsedValue);
       } else if (name === "jumlah") {
-        const cleanedValue = value.replace(",", ".");
-        const parsedValue = parseFloat(cleanedValue);
+        const parsedValue = parseInt(value, 10);
         newValue = isNaN(parsedValue) ? 0 : Math.max(0, parsedValue);
       } else {
         newValue = value;
       }
-
       return { ...prev, [name]: newValue };
     });
-  };
+  }, []);
 
-  const formatNumberWithDot = (num: number | string): string => {
+  const formatNumberWithDot = useCallback((num: number | string): string => {
     const numericValue = typeof num === "string" ? parseFloat(num.replace(",", ".")) : num;
-    if (isNaN(numericValue) || numericValue === null) return "";
-
-    if (Number.isInteger(numericValue)) {
-      return numericValue.toLocaleString("id-ID").replace(/,/g, ".");
-    }
-    return numericValue.toString().replace(".", ",");
-  };
+    if (isNaN(numericValue) || numericValue === null || numericValue === undefined) return "";
+    return numericValue.toLocaleString("id-ID", { useGrouping: true }).replace(/,/g, ".");
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,7 +89,7 @@ const FormMesin: React.FC = () => {
       ...formData,
       perbaikanPerawatan: formData.jenisAktivitas === "Perbaikan" ? "Perbaikan" : "Perawatan",
       runningHour: parseInt(String(formData.runningHour).replace(/\./g, ""), 10) || 0,
-      jumlah: parseFloat(String(formData.jumlah).replace(",", ".")) || 0,
+      jumlah: typeof formData.jumlah === "string" ? parseInt(formData.jumlah, 10) || 0 : formData.jumlah,
     };
 
     try {
@@ -113,7 +107,7 @@ const FormMesin: React.FC = () => {
 
   const handleClear = useCallback(() => {
     setFormData({
-      date: "",
+      date: new Date().toISOString().split("T")[0],
       shift: "",
       group: "",
       stopJam: 0,
@@ -159,14 +153,12 @@ const FormMesin: React.FC = () => {
         setError(error.message || "Gagal memuat daftar data master.");
       }
     };
-
     fetchAllMasterData();
   }, [getAllMasterData]);
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
       <div className="max-w-6xl mx-auto">
-        {/* Header Section */}
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 flex items-center">
@@ -185,7 +177,6 @@ const FormMesin: React.FC = () => {
           </motion.button>
         </div>
 
-        {/* Notifikasi Status */}
         {loading && (
           <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded relative mb-4" role="alert">
             <strong className="font-bold">Processing!</strong>
@@ -205,27 +196,37 @@ const FormMesin: React.FC = () => {
           </div>
         )}
 
-        {/* Form Container */}
         <div className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200">
           <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-6">
-            {/* General Information Section */}
+            {/* General Information */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <FiClock className="mr-2 text-blue-500" /> General Information
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                  <input type="date" name="date" value={formData.date} onChange={handleChange} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150" required />
+                  <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">
+                    Date
+                  </label>
+                  <input
+                    type="date"
+                    name="date"
+                    id="date"
+                    value={formData.date}
+                    onChange={handleChange}
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150"
+                    required
+                  />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Shift</label>
+                  <label htmlFor="shift" className="block text-sm font-medium text-gray-700 mb-1">
+                    Shift
+                  </label>
                   <div className="relative">
-                    <select name="shift" value={formData.shift} onChange={handleChange} className="w-full p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white" required>
+                    <select name="shift" id="shift" value={formData.shift} onChange={handleChange} className="w-full p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white" required>
                       <option value="">Select Shift</option>
                       {shiftList.map((shift) => (
-                        <option key={shift.id} value={shift.name}>
-                          {" "}
+                        <option key={shift.id} value={shift.id}>
                           {shift.name}
                         </option>
                       ))}
@@ -234,13 +235,14 @@ const FormMesin: React.FC = () => {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Group</label>
+                  <label htmlFor="group" className="block text-sm font-medium text-gray-700 mb-1">
+                    Group
+                  </label>
                   <div className="relative">
-                    <select name="group" value={formData.group} onChange={handleChange} className="w-full p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white" required>
+                    <select name="group" id="group" value={formData.group} onChange={handleChange} className="w-full p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white" required>
                       <option value="">Select Group</option>
                       {groupList.map((group) => (
-                        <option key={group.id} value={group.name}>
-                          {" "}
+                        <option key={group.id} value={group.id}>
                           {group.name}
                         </option>
                       ))}
@@ -251,18 +253,21 @@ const FormMesin: React.FC = () => {
               </div>
             </div>
 
-            {/* Stop Time Section */}
+            {/* Stop Time */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <FiClock className="mr-2 text-red-500" /> Stop Time
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Hour (HH)</label>
+                  <label htmlFor="stopJam" className="block text-sm font-medium text-gray-700 mb-1">
+                    Hour (HH)
+                  </label>
                   <input
                     type="number"
                     name="stopJam"
-                    value={formData.stopJam.toString().padStart(2, "0")}
+                    id="stopJam"
+                    value={formData.stopJam}
                     onChange={handleChange}
                     placeholder="e.g., 08"
                     min="0"
@@ -272,11 +277,14 @@ const FormMesin: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Minute (MM)</label>
+                  <label htmlFor="stopMenit" className="block text-sm font-medium text-gray-700 mb-1">
+                    Minute (MM)
+                  </label>
                   <input
                     type="number"
                     name="stopMenit"
-                    value={formData.stopMenit.toString().padStart(2, "0")}
+                    id="stopMenit"
+                    value={formData.stopMenit}
                     onChange={handleChange}
                     placeholder="e.g., 30"
                     min="0"
@@ -287,13 +295,21 @@ const FormMesin: React.FC = () => {
                 </div>
               </div>
               <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Stop Type</label>
+                <label htmlFor="stopTime" className="block text-sm font-medium text-gray-700 mb-1">
+                  Stop Type
+                </label>
                 <div className="relative">
-                  <select name="stopTime" value={formData.stopTime} onChange={handleChange} className="w-full p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white" required>
+                  <select
+                    name="stopTime"
+                    id="stopTime"
+                    value={formData.stopTime}
+                    onChange={handleChange}
+                    className="w-full p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white"
+                    required
+                  >
                     <option value="">Select Stop Type</option>
                     {stopTimeList.map((stopTime) => (
-                      <option key={stopTime.id} value={stopTime.name}>
-                        {" "}
+                      <option key={stopTime.id} value={stopTime.id}>
                         {stopTime.name}
                       </option>
                     ))}
@@ -303,18 +319,21 @@ const FormMesin: React.FC = () => {
               </div>
             </div>
 
-            {/* Start Time Section */}
+            {/* Start Time */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <FiCheck className="mr-2 text-green-500" /> Start Time
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Hour (HH)</label>
+                  <label htmlFor="startJam" className="block text-sm font-medium text-gray-700 mb-1">
+                    Hour (HH)
+                  </label>
                   <input
                     type="number"
                     name="startJam"
-                    value={formData.startJam.toString().padStart(2, "0")}
+                    id="startJam"
+                    value={formData.startJam}
                     onChange={handleChange}
                     placeholder="e.g., 09"
                     min="0"
@@ -324,11 +343,14 @@ const FormMesin: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Minute (MM)</label>
+                  <label htmlFor="startMenit" className="block text-sm font-medium text-gray-700 mb-1">
+                    Minute (MM)
+                  </label>
                   <input
                     type="number"
                     name="startMenit"
-                    value={formData.startMenit.toString().padStart(2, "0")}
+                    id="startMenit"
+                    value={formData.startMenit}
                     onChange={handleChange}
                     placeholder="e.g., 15"
                     min="0"
@@ -340,20 +362,21 @@ const FormMesin: React.FC = () => {
               </div>
             </div>
 
-            {/* Machine Details Section */}
+            {/* Machine Details */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <FiTool className="mr-2 text-blue-500" /> Machine Details
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Unit</label>
+                  <label htmlFor="unit" className="block text-sm font-medium text-gray-700 mb-1">
+                    Unit
+                  </label>
                   <div className="relative">
-                    <select name="unit" value={formData.unit} onChange={handleChange} className="w-full p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white" required>
+                    <select name="unit" id="unit" value={formData.unit} onChange={handleChange} className="w-full p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white" required>
                       <option value="">Select Unit</option>
                       {unitList.map((unit) => (
-                        <option key={unit.id} value={unit.name}>
-                          {" "}
+                        <option key={unit.id} value={unit.id}>
                           {unit.name}
                         </option>
                       ))}
@@ -362,15 +385,16 @@ const FormMesin: React.FC = () => {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Machine</label>
+                  <label htmlFor="mesin" className="block text-sm font-medium text-gray-700 mb-1">
+                    Machine
+                  </label>
                   <div className="relative">
-                    <select name="mesin" value={formData.mesin} onChange={handleChange} className="w-full p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white" required>
+                    <select name="mesin" id="mesin" value={formData.mesin} onChange={handleChange} className="w-full p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white" required>
                       <option key="default-machine" value="">
                         Select Machine
                       </option>
                       {mesinList.map((mesinItem: Mesin) => (
-                        <option key={mesinItem.id} value={mesinItem.name}>
-                          {" "}
+                        <option key={mesinItem.id} value={mesinItem.id}>
                           {mesinItem.name}
                         </option>
                       ))}
@@ -380,10 +404,13 @@ const FormMesin: React.FC = () => {
                 </div>
               </div>
               <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Running Hours</label>
+                <label htmlFor="runningHour" className="block text-sm font-medium text-gray-700 mb-1">
+                  Running Hours
+                </label>
                 <input
                   type="text"
                   name="runningHour"
+                  id="runningHour"
                   value={formatNumberWithDot(formData.runningHour)}
                   onChange={handleChange}
                   placeholder="e.g., 15.000"
@@ -393,19 +420,27 @@ const FormMesin: React.FC = () => {
               </div>
             </div>
 
-            {/* Problem & Action Section */}
+            {/* Problem & Action */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <FiTool className="mr-2 text-yellow-500" /> Problem & Action
               </h2>
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Item Trouble</label>
+                <label htmlFor="itemTrouble" className="block text-sm font-medium text-gray-700 mb-1">
+                  Item Trouble
+                </label>
                 <div className="relative">
-                  <select name="itemTrouble" value={formData.itemTrouble} onChange={handleChange} className="w-full p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white" required>
+                  <select
+                    name="itemTrouble"
+                    id="itemTrouble"
+                    value={formData.itemTrouble}
+                    onChange={handleChange}
+                    className="w-full p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white"
+                    required
+                  >
                     <option value="">Select Item Trouble</option>
                     {itemTroubleList.map((itemTrouble) => (
-                      <option key={itemTrouble.id} value={itemTrouble.name}>
-                        {" "}
+                      <option key={itemTrouble.id} value={itemTrouble.id}>
                         {itemTrouble.name}
                       </option>
                     ))}
@@ -416,9 +451,12 @@ const FormMesin: React.FC = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Issue Description</label>
+                  <label htmlFor="jenisGangguan" className="block text-sm font-medium text-gray-700 mb-1">
+                    Issue Description
+                  </label>
                   <textarea
                     name="jenisGangguan"
+                    id="jenisGangguan"
                     value={formData.jenisGangguan}
                     onChange={handleChange}
                     rows={3}
@@ -428,9 +466,12 @@ const FormMesin: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Action Taken</label>
+                  <label htmlFor="bentukTindakan" className="block text-sm font-medium text-gray-700 mb-1">
+                    Action Taken
+                  </label>
                   <textarea
                     name="bentukTindakan"
+                    id="bentukTindakan"
                     value={formData.bentukTindakan}
                     onChange={handleChange}
                     rows={3}
@@ -442,9 +483,12 @@ const FormMesin: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Root Cause</label>
+                <label htmlFor="rootCause" className="block text-sm font-medium text-gray-700 mb-1">
+                  Root Cause
+                </label>
                 <textarea
                   name="rootCause"
+                  id="rootCause"
                   value={formData.rootCause}
                   onChange={handleChange}
                   rows={3}
@@ -455,17 +499,20 @@ const FormMesin: React.FC = () => {
               </div>
             </div>
 
-            {/* Activity Details Section */}
+            {/* Activity Details */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <FiCheck className="mr-2 text-purple-500" /> Activity Details
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Activity Type</label>
+                  <label htmlFor="jenisAktivitas" className="block text-sm font-medium text-gray-700 mb-1">
+                    Activity Type
+                  </label>
                   <div className="relative">
                     <select
                       name="jenisAktivitas"
+                      id="jenisAktivitas"
                       value={formData.jenisAktivitas}
                       onChange={handleChange}
                       className="w-full p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white"
@@ -473,8 +520,7 @@ const FormMesin: React.FC = () => {
                     >
                       <option value="">Select Activity Type</option>
                       {jenisAktivitasList.map((aktivitas) => (
-                        <option key={aktivitas.id} value={aktivitas.name}>
-                          {" "}
+                        <option key={aktivitas.id} value={aktivitas.id}>
                           {aktivitas.name}
                         </option>
                       ))}
@@ -483,13 +529,21 @@ const FormMesin: React.FC = () => {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Specific Activity</label>
+                  <label htmlFor="kegiatan" className="block text-sm font-medium text-gray-700 mb-1">
+                    Specific Activity
+                  </label>
                   <div className="relative">
-                    <select name="kegiatan" value={formData.kegiatan} onChange={handleChange} className="w-full p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white" required>
+                    <select
+                      name="kegiatan"
+                      id="kegiatan"
+                      value={formData.kegiatan}
+                      onChange={handleChange}
+                      className="w-full p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white"
+                      required
+                    >
                       <option value="">Select Activity</option>
                       {kegiatanList.map((kegiatan) => (
-                        <option key={kegiatan.id} value={kegiatan.name}>
-                          {" "}
+                        <option key={kegiatan.id} value={kegiatan.id}>
                           {kegiatan.name}
                         </option>
                       ))}
@@ -500,46 +554,89 @@ const FormMesin: React.FC = () => {
               </div>
             </div>
 
-            {/* Spare Parts Section */}
+            {/* Spare Parts  */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                <FiTool className="mr-2 text-indigo-500" /> Spare Parts (Optional)
+                <FiTool className="mr-2 text-indigo-500" /> Spare Parts
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Part Code</label>
-                  <input type="text" name="kodePart" value={formData.kodePart} onChange={handleChange} placeholder="e.g., KODE123" className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" />
+                  <label htmlFor="kodePart" className="block text-sm font-medium text-gray-700 mb-1">
+                    Part Code
+                  </label>
+                  <input
+                    type="text"
+                    name="kodePart"
+                    id="kodePart"
+                    value={formData.kodePart}
+                    onChange={handleChange}
+                    placeholder="e.g., KODE123"
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Part Name</label>
-                  <input type="text" name="sparePart" value={formData.sparePart} onChange={handleChange} placeholder="e.g., Bearing XYZ" className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" />
+                  <label htmlFor="sparePart" className="block text-sm font-medium text-gray-700 mb-1">
+                    Part Name
+                  </label>
+                  <input
+                    type="text"
+                    name="sparePart"
+                    id="sparePart"
+                    value={formData.sparePart}
+                    onChange={handleChange}
+                    placeholder="e.g., Bearing XYZ"
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Part ID</label>
-                  <input type="text" name="idPart" value={formData.idPart} onChange={handleChange} placeholder="e.g., ID456" className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" />
+                  <label htmlFor="idPart" className="block text-sm font-medium text-gray-700 mb-1">
+                    Part ID
+                  </label>
+                  <input
+                    type="text"
+                    name="idPart"
+                    id="idPart"
+                    value={formData.idPart}
+                    onChange={handleChange}
+                    placeholder="e.g., ID456"
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                  <label htmlFor="jumlah" className="block text-sm font-medium text-gray-700 mb-1">
+                    Quantity
+                  </label>
                   <input
                     type="number"
-                    step="any"
                     name="jumlah"
-                    value={formData.jumlah.toString().replace(".", ",")}
+                    id="jumlah"
+                    value={formData.jumlah}
                     onChange={handleChange}
-                    placeholder="e.g., 5,5"
+                    placeholder="e.g., 5"
                     min="0"
                     className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 no-spin-button"
+                    required
                   />
                 </div>
               </div>
               <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Unit</label>
+                <label htmlFor="unitSparePart" className="block text-sm font-medium text-gray-700 mb-1">
+                  Unit
+                </label>
                 <div className="relative">
-                  <select name="unitSparePart" value={formData.unitSparePart} onChange={handleChange} className="w-full p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white">
+                  <select
+                    name="unitSparePart"
+                    id="unitSparePart"
+                    value={formData.unitSparePart}
+                    onChange={handleChange}
+                    className="w-full p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white"
+                  >
                     <option value="">Select Unit</option>
                     {unitSparePartList.map((unitSP) => (
-                      <option key={unitSP.id} value={unitSP.name}>
-                        {" "}
+                      <option key={unitSP.id} value={unitSP.id}>
                         {unitSP.name}
                       </option>
                     ))}
@@ -549,7 +646,7 @@ const FormMesin: React.FC = () => {
               </div>
             </div>
 
-            {/* Form Actions */}
+            {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row justify-end gap-4 pt-6 border-t border-gray-200">
               <motion.button
                 type="button"

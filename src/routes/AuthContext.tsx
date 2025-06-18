@@ -54,7 +54,7 @@ export interface UnitSparePart {
 }
 
 export interface AllMasterData {
-  mesin: Mesin[];
+  mesin: Mesin[]; 
   shifts: Shift[];
   groups: Group[];
   stoptimes: StopTime[];
@@ -67,22 +67,22 @@ export interface AllMasterData {
 
 export interface MachineHistoryFormData {
   date: string;
-  shift: string;
+  shift: string; 
   group: string;
   stopJam: number;
   stopMenit: number;
   startJam: number;
   startMenit: number;
-  stopTime: string;
-  unit: string;
-  mesin: string;
+  stopTime: string; 
+  unit: string; 
+  mesin: string; 
   runningHour: number;
   itemTrouble: string;
   jenisGangguan: string;
   bentukTindakan: string;
   perbaikanPerawatan: string;
   rootCause: string;
-  jenisAktivitas: string;
+  jenisAktivitas: string; 
   kegiatan: string;
   kodePart: string;
   sparePart: string;
