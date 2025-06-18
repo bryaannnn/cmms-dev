@@ -54,7 +54,7 @@ export interface UnitSparePart {
 }
 
 export interface AllMasterData {
-  mesin: Mesin[]; 
+  mesin: Mesin[];
   shifts: Shift[];
   groups: Group[];
   stoptimes: StopTime[];
@@ -67,22 +67,22 @@ export interface AllMasterData {
 
 export interface MachineHistoryFormData {
   date: string;
-  shift: string; 
+  shift: string;
   group: string;
   stopJam?: number | null;
   stopMenit?: number | null;
   startJam?: number | null;
   startMenit?: number | null;
-  stopTime: string; 
-  unit: string; 
-  mesin: string; 
+  stopTime: string;
+  unit: string;
+  mesin: string;
   runningHour: number;
   itemTrouble: string;
   jenisGangguan: string;
   bentukTindakan: string;
   perbaikanPerawatan: string;
   rootCause: string;
-  jenisAktivitas: string; 
+  jenisAktivitas: string;
   kegiatan: string;
   kodePart: string;
   sparePart: string;
@@ -326,11 +326,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const getMachineHistories = useCallback(async (): Promise<MachineHistoryRecord[]> => {
     try {
-      const data = await fetchWithAuth("/mhs");
-      return data as MachineHistoryRecord[];
+      const response = await fetchWithAuth("/mhs");
+      if (!Array.isArray(response)) {
+        console.error("Data yang diterima bukan array:", response);
+        return []; 
+      }
+      return response as MachineHistoryRecord[];
     } catch (error) {
       console.error("Gagal mengambil daftar history mesin:", error);
-      throw error;
+      return [];
     }
   }, [fetchWithAuth]);
 

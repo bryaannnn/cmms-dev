@@ -752,7 +752,7 @@
 
         const fetchData = async () => {
           try {
-            const result = await fetchWithAuth("/api/protected-data");
+            const result = await fetchWithAuth("/protected-data");
             setData(result);
           } catch (error) {
             console.error("Failed to fetch data:", error);

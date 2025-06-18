@@ -328,14 +328,30 @@ const MachineHistoryDashboard: React.FC = () => {
       try {
         setLoading(true);
         const data = await getMachineHistories();
+
+        if (!Array.isArray(data)) {
+          throw new Error("Invalid data format: expected array");
+        }
+
         setRecords(data);
         const uniqueMachines = Array.from(new Set(data.map((r) => r.mesin))).map((id) => ({ id, name: id }));
         setMachines(uniqueMachines);
-
         setError(null);
       } catch (err) {
         console.error("Failed to fetch machine histories:", err);
-        setError("Failed to load machine history data. Please try again.");
+        let errorMessage = "Failed to load machine history data. Please try again.";
+
+        if (err instanceof Error) {
+          if (err.message.includes("401")) {
+            errorMessage = "Session expired. Please login again.";
+          } else if (err.message.includes("Invalid data format")) {
+            errorMessage = "Server returned invalid data format. Please contact support.";
+          }
+        }
+
+        setError(errorMessage);
+        setRecords([]);
+        setMachines([]);
       } finally {
         setLoading(false);
       }
