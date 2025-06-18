@@ -25,10 +25,10 @@ const FormMesin: React.FC = () => {
     date: new Date().toISOString().split("T")[0],
     shift: "",
     group: "",
-    stopJam: 0,
-    stopMenit: 0,
-    startJam: 0,
-    startMenit: 0,
+    stopJam: null,
+    stopMenit: null,
+    startJam: null,
+    startMenit: null,
     stopTime: "",
     unit: "",
     mesin: "",
@@ -50,33 +50,48 @@ const FormMesin: React.FC = () => {
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
 
-    setFormData((prev: MachineHistoryFormData) => {
-      let newValue: string | number;
-
+    setFormData((prev) => {
       if (["stopJam", "startJam"].includes(name)) {
-        let numValue = parseInt(value, 10);
-        newValue = isNaN(numValue) ? 0 : Math.max(0, Math.min(23, numValue));
-      } else if (["stopMenit", "startMenit"].includes(name)) {
-        let numValue = parseInt(value, 10);
-        newValue = isNaN(numValue) ? 0 : Math.max(0, Math.min(59, numValue));
-      } else if (name === "runningHour") {
         const cleanedValue = value.replace(/[^\d]/g, "");
-        const parsedValue = parseInt(cleanedValue, 10);
-        newValue = isNaN(parsedValue) ? 0 : Math.max(0, parsedValue);
-      } else if (name === "jumlah") {
-        const parsedValue = parseInt(value, 10);
-        newValue = isNaN(parsedValue) ? 0 : Math.max(0, parsedValue);
-      } else {
-        newValue = value;
+        return {
+          ...prev,
+          [name]: cleanedValue === "" ? null : parseInt(cleanedValue, 10),
+        };
       }
-      return { ...prev, [name]: newValue };
+
+      if (["stopMenit", "startMenit"].includes(name)) {
+        const cleanedValue = value.replace(/[^\d]/g, "");
+        const numValue = parseInt(cleanedValue, 10);
+        return {
+          ...prev,
+          [name]: cleanedValue === "" ? null : Math.max(0, Math.min(59, isNaN(numValue) ? 0 : numValue)),
+        };
+      }
+
+      if (name === "runningHour" || name === "jumlah") {
+        return {
+          ...prev,
+          [name]: value.replace(/[^\d.]/g, ""),
+        };
+      }
+
+      return {
+        ...prev,
+        [name]: value,
+      };
     });
   }, []);
 
   const formatNumberWithDot = useCallback((num: number | string): string => {
-    const numericValue = typeof num === "string" ? parseFloat(num.replace(",", ".")) : num;
-    if (isNaN(numericValue) || numericValue === null || numericValue === undefined) return "";
-    return numericValue.toLocaleString("id-ID", { useGrouping: true }).replace(/,/g, ".");
+    if (typeof num === "string") {
+      const cleanedString = num.replace(/[^\d]/g, "");
+      const numericValue = parseInt(cleanedString, 10);
+      if (isNaN(numericValue)) return "";
+      return numericValue.toLocaleString("id-ID").replace(/,/g, ".");
+    }
+
+    if (isNaN(num) || num === null || num === undefined) return "";
+    return num.toLocaleString("id-ID").replace(/,/g, ".");
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -88,8 +103,12 @@ const FormMesin: React.FC = () => {
     const dataToSend: MachineHistoryFormData = {
       ...formData,
       perbaikanPerawatan: formData.jenisAktivitas === "Perbaikan" ? "Perbaikan" : "Perawatan",
-      runningHour: parseInt(String(formData.runningHour).replace(/\./g, ""), 10) || 0,
-      jumlah: typeof formData.jumlah === "string" ? parseInt(formData.jumlah, 10) || 0 : formData.jumlah,
+      runningHour: formData.runningHour ? parseInt(String(formData.runningHour).replace(/\./g, ""), 10) : 0,
+      jumlah: formData.jumlah ? parseInt(String(formData.jumlah).replace(/\./g, ""), 10) : 0,
+      stopJam: formData.stopJam ?? null,
+      stopMenit: formData.stopMenit ?? null,
+      startJam: formData.startJam ?? null,
+      startMenit: formData.startMenit ?? null,
     };
 
     try {
@@ -264,14 +283,12 @@ const FormMesin: React.FC = () => {
                     Hour (HH)
                   </label>
                   <input
-                    type="number"
+                    type="text"
                     name="stopJam"
                     id="stopJam"
-                    value={formData.stopJam}
+                    value={formData.stopJam === null ? "" : String(formData.stopJam)}
                     onChange={handleChange}
-                    placeholder="e.g., 08"
-                    min="0"
-                    max="23"
+                    placeholder="e.g., 09 (leave empty if not applicable)"
                     className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button"
                     required
                   />
@@ -281,14 +298,12 @@ const FormMesin: React.FC = () => {
                     Minute (MM)
                   </label>
                   <input
-                    type="number"
+                    type="text"
                     name="stopMenit"
                     id="stopMenit"
-                    value={formData.stopMenit}
+                    value={String(formData.stopMenit)}
                     onChange={handleChange}
                     placeholder="e.g., 30"
-                    min="0"
-                    max="59"
                     className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button"
                     required
                   />
@@ -330,14 +345,12 @@ const FormMesin: React.FC = () => {
                     Hour (HH)
                   </label>
                   <input
-                    type="number"
+                    type="text"
                     name="startJam"
                     id="startJam"
-                    value={formData.startJam}
+                    value={formData.stopJam === null ? "" : String(formData.stopJam)}
                     onChange={handleChange}
-                    placeholder="e.g., 09"
-                    min="0"
-                    max="23"
+                    placeholder="e.g., 09 (leave empty if not applicable)"
                     className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button"
                     required
                   />
@@ -347,14 +360,12 @@ const FormMesin: React.FC = () => {
                     Minute (MM)
                   </label>
                   <input
-                    type="number"
+                    type="text"
                     name="startMenit"
                     id="startMenit"
-                    value={formData.startMenit}
+                    value={String(formData.startMenit)}
                     onChange={handleChange}
                     placeholder="e.g., 15"
-                    min="0"
-                    max="59"
                     className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button"
                     required
                   />
@@ -554,7 +565,7 @@ const FormMesin: React.FC = () => {
               </div>
             </div>
 
-            {/* Spare Parts  */}
+            {/* Spare Parts */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <FiTool className="mr-2 text-indigo-500" /> Spare Parts
@@ -610,13 +621,12 @@ const FormMesin: React.FC = () => {
                     Quantity
                   </label>
                   <input
-                    type="number"
+                    type="text"
                     name="jumlah"
                     id="jumlah"
-                    value={formData.jumlah}
+                    value={formatNumberWithDot(formData.jumlah)}
                     onChange={handleChange}
                     placeholder="e.g., 5"
-                    min="0"
                     className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 no-spin-button"
                     required
                   />

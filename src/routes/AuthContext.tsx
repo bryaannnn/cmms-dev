@@ -69,10 +69,10 @@ export interface MachineHistoryFormData {
   date: string;
   shift: string; 
   group: string;
-  stopJam: number;
-  stopMenit: number;
-  startJam: number;
-  startMenit: number;
+  stopJam?: number | null;
+  stopMenit?: number | null;
+  startJam?: number | null;
+  startMenit?: number | null;
   stopTime: string; 
   unit: string; 
   mesin: string; 
