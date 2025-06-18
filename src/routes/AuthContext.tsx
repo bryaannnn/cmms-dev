@@ -327,14 +327,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const getMachineHistories = useCallback(async (): Promise<MachineHistoryRecord[]> => {
     try {
       const response = await fetchWithAuth("/mhs");
-      if (!Array.isArray(response)) {
-        console.error("Data yang diterima bukan array:", response);
-        return []; 
+
+      if (response && response.data && Array.isArray(response.data)) {
+        return response.data as MachineHistoryRecord[];
       }
-      return response as MachineHistoryRecord[];
+
+      console.error("Invalid response format:", response);
+      return []; 
     } catch (error) {
       console.error("Gagal mengambil daftar history mesin:", error);
-      return [];
+      return []; 
     }
   }, [fetchWithAuth]);
 
