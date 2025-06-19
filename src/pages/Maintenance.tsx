@@ -377,7 +377,6 @@ const MachineHistoryDashboard: React.FC = () => {
 
         setRecords(data);
 
-        // Get unique machines for filter dropdown
         const uniqueMachines = Array.from(new Set(data.map((r) => getDisplayValue(r.mesin))))
           .filter(Boolean)
           .map((name) => ({ id: name, name }));

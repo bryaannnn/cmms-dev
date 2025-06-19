@@ -106,6 +106,36 @@ export interface MachineHistoryRecord extends MachineHistoryFormData {
   startstop?: Startstop | null;
 }
 
+function mapApiToMachineHistoryRecord(apiData: any): MachineHistoryRecord {
+  return {
+    id: String(apiData.id),
+    date: apiData.date,
+    shift: apiData.shift?.id || apiData.shift,
+    group: apiData.group?.id || apiData.group,
+    stopJam: apiData.startstop?.stop_time_hh ?? null,
+    stopMenit: apiData.startstop?.stop_time_mm ?? null,
+    startJam: apiData.startstop?.start_time_hh ?? null,
+    startMenit: apiData.startstop?.start_time_mm ?? null,
+    stopTime: apiData.stoptime?.id || apiData.stopTime || apiData.stoptime,
+    unit: apiData.unit?.id || apiData.unit,
+    mesin: apiData.mesin?.id || apiData.mesin,
+    runningHour: apiData.running_hour ?? 0,
+    itemTrouble: apiData.itemtrouble?.id || apiData.itemTrouble,
+    jenisGangguan: apiData.jenis_gangguan || "",
+    bentukTindakan: apiData.bentuk_tindakan || "",
+    perbaikanPerawatan: "",
+    rootCause: apiData.root_cause || "",
+    jenisAktivitas: apiData.jenisaktifitas?.id || apiData.jenisAktivitas,
+    kegiatan: apiData.kegiatan?.id || apiData.kegiatan,
+    kodePart: apiData.kode_part ?? "",
+    sparePart: apiData.spare_part || apiData.sparePart,
+    idPart: apiData.id_part ?? "",
+    jumlah: apiData.jumlah ?? 0,
+    unitSparePart: apiData.unitsp?.id || apiData.unitSparePart,
+    startstop: apiData.startstop ?? null,
+  };
+}
+
 interface AuthContextType {
   user: User | null;
   token: string | null;
@@ -344,7 +374,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const response = await fetchWithAuth("/mhs");
 
       if (response && response.data && Array.isArray(response.data)) {
-        return response.data as MachineHistoryRecord[];
+        return response.data.map(mapApiToMachineHistoryRecord);
       }
 
       console.error("Invalid response format:", response);
@@ -359,7 +389,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     async (id: string): Promise<MachineHistoryRecord | null> => {
       try {
         const data = await fetchWithAuth(`/mhs/${id}`);
-        return data as MachineHistoryRecord;
+        return mapApiToMachineHistoryRecord(data);
       } catch (error) {
         console.error(`Gagal mengambil history mesin dengan ID ${id}:`, error);
         throw error;
