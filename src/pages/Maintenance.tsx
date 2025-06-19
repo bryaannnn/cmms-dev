@@ -179,6 +179,10 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
           <p className="text-lg font-medium">{displayValue(record.mesin)}</p>
         </div>
         <div>
+          <h4 className="text-sm font-medium text-gray-500">Unit</h4>
+          <p className="text-lg font-medium">{displayValue(record.unit)}</p>
+        </div>
+        <div>
           <h4 className="text-sm font-medium text-gray-500">Stop Time</h4>
           <p className="text-lg font-medium">{formatTime(record.stopJam, record.stopMenit)}</p>
         </div>

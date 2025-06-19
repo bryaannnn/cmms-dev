@@ -110,28 +110,35 @@ function mapApiToMachineHistoryRecord(apiData: any): MachineHistoryRecord {
   return {
     id: String(apiData.id),
     date: apiData.date,
-    shift: apiData.shift?.id || apiData.shift,
-    group: apiData.group?.id || apiData.group,
+
+    shift: apiData.shift || { id: apiData.shift_id, name: "-" },
+    group: apiData.group || { id: apiData.group_id, name: "-" },
+
     stopJam: apiData.startstop?.stop_time_hh ?? null,
     stopMenit: apiData.startstop?.stop_time_mm ?? null,
     startJam: apiData.startstop?.start_time_hh ?? null,
     startMenit: apiData.startstop?.start_time_mm ?? null,
-    stopTime: apiData.stoptime?.id || apiData.stopTime || apiData.stoptime,
-    unit: apiData.unit?.id || apiData.unit,
-    mesin: apiData.mesin?.id || apiData.mesin,
+
+    stopTime: apiData.stoptime || { id: apiData.stoptime_id, name: "-" },
+    unit: apiData.unit || { id: apiData.unit_id, name: "-" },
+    mesin: apiData.mesin || { id: apiData.mesin_id, name: "-" },
     runningHour: apiData.running_hour ?? 0,
-    itemTrouble: apiData.itemtrouble?.id || apiData.itemTrouble || apiData.itemtrouble,
+
+    itemTrouble: apiData.itemtrouble || { id: apiData.itemtrouble_id, name: "-" },
     jenisGangguan: apiData.jenis_gangguan || "",
     bentukTindakan: apiData.bentuk_tindakan || "",
     perbaikanPerawatan: "",
     rootCause: apiData.root_cause || "",
-    jenisAktivitas: apiData.jenisaktifitas?.id || apiData.jenisAktivitas || apiData.jenisaktivitas,
-    kegiatan: apiData.kegiatan?.id || apiData.kegiatan,
+
+    jenisAktivitas: apiData.jenisaktifitas || { id: apiData.jenisaktifitas_id, name: "-" },
+    kegiatan: apiData.kegiatan || { id: apiData.kegiatan_id, name: "-" },
+
     kodePart: apiData.kode_part ?? "",
-    sparePart: apiData.spare_part || apiData.sparePart,
+    sparePart: apiData.spare_part || "-",
     idPart: apiData.id_part ?? "",
     jumlah: apiData.jumlah ?? 0,
-    unitSparePart: apiData.unitsp?.id || apiData.unitSparePart || apiData.unitsp || apiData.unitsparepart,
+    unitSparePart: apiData.unitsp || { id: apiData.unitsp_id, name: "-" },
+
     startstop: apiData.startstop ?? null,
   };
 }
