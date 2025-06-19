@@ -348,7 +348,7 @@ const FormMesin: React.FC = () => {
                     type="text"
                     name="startJam"
                     id="startJam"
-                    value={formData.stopJam === null ? "" : String(formData.stopJam)}
+                    value={formData.startJam === null ? "" : String(formData.startJam)}
                     onChange={handleChange}
                     placeholder="e.g., 09 (leave empty if not applicable)"
                     className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button"
