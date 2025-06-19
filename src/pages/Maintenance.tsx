@@ -155,7 +155,7 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
     if (typeof value === "string") {
       return value.trim() !== "" ? value.trim() : "-";
     }
-
+    
     return value.toString();
   };
 
