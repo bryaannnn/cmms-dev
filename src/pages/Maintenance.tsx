@@ -125,26 +125,23 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
   };
 
   const calculateDowntime = (): string => {
-    if (
-      record.stopJam === null ||
-      record.stopJam === undefined ||
-      record.stopMenit === null ||
-      record.stopMenit === undefined ||
-      record.startJam === null ||
-      record.startJam === undefined ||
-      record.startMenit === null ||
-      record.startMenit === undefined
-    ) {
+    const stopHH = record.startstop?.stop_time_hh;
+    const stopMM = record.startstop?.stop_time_mm;
+    const startHH = record.startstop?.start_time_hh;
+    const startMM = record.startstop?.start_time_mm;
+
+    if (stopHH === undefined || stopMM === undefined || startHH === undefined || startMM === undefined || stopHH === null || stopMM === null || startHH === null || startMM === null) {
       return "-";
     }
 
-    const stopTime = record.stopJam * 60 + record.stopMenit;
-    const startTime = record.startJam * 60 + record.startMenit;
-    const downtime = startTime - stopTime;
+    const stopTime = stopHH * 60 + stopMM;
+    const startTime = startHH * 60 + startMM;
 
+    let downtime = startTime - stopTime;
     if (downtime < 0) {
-      return `${24 * 60 - stopTime + startTime} minutes`;
+      downtime = 24 * 60 - stopTime + startTime;
     }
+
     return `${downtime} minutes`;
   };
 
@@ -152,7 +149,16 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
     if (typeof value === "object" && value !== null) {
       return value.name || "-";
     }
-    return value || "-";
+
+    if (typeof value === "number") {
+      return value.toString();
+    }
+
+    if (typeof value === "string") {
+      return value.trim() !== "" ? value : "-";
+    }
+
+    return "-";
   };
 
   return (

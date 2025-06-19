@@ -53,6 +53,16 @@ export interface UnitSparePart {
   name: string;
 }
 
+export interface Startstop {
+  id: number;
+  event_name: string | null;
+  start_time_hh: number | null;
+  start_time_mm: number | null;
+  stop_time_hh: number | null;
+  stop_time_mm: number | null;
+  duration_minutes: number | null;
+}
+
 export interface AllMasterData {
   mesin: Mesin[];
   shifts: Shift[];
@@ -93,6 +103,7 @@ export interface MachineHistoryFormData {
 
 export interface MachineHistoryRecord extends MachineHistoryFormData {
   id: string;
+  startstop?: Startstop | null;
 }
 
 interface AuthContextType {
@@ -147,7 +158,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
-        "Accept": "application/json", 
+        Accept: "application/json",
         ...(options.headers as Record<string, string>),
       };
 
