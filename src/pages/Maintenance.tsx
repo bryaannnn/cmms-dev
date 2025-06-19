@@ -148,24 +148,32 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
     return `${downtime} minutes`;
   };
 
+  // Helper function to display nested object values
+  const displayValue = (value: any): string => {
+    if (typeof value === "object" && value !== null) {
+      return value.name || "-";
+    }
+    return value || "-";
+  };
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <h4 className="text-sm font-medium text-gray-500">Date</h4>
-          <p className="text-lg font-medium">{record.date}</p>
+          <p className="text-lg font-medium">{displayValue(record.date)}</p>
         </div>
         <div>
           <h4 className="text-sm font-medium text-gray-500">Shift</h4>
-          <p className="text-lg font-medium">{record.shift}</p>
+          <p className="text-lg font-medium">{displayValue(record.shift)}</p>
         </div>
         <div>
           <h4 className="text-sm font-medium text-gray-500">Group</h4>
-          <p className="text-lg font-medium">{record.group}</p>
+          <p className="text-lg font-medium">{displayValue(record.group)}</p>
         </div>
         <div>
           <h4 className="text-sm font-medium text-gray-500">Machine</h4>
-          <p className="text-lg font-medium">{record.mesin}</p>
+          <p className="text-lg font-medium">{displayValue(record.mesin)}</p>
         </div>
         <div>
           <h4 className="text-sm font-medium text-gray-500">Stop Time</h4>
@@ -181,7 +189,7 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
         </div>
         <div>
           <h4 className="text-sm font-medium text-gray-500">Stop Type</h4>
-          <p className="text-lg font-medium">{record.stopTime}</p>
+          <p className="text-lg font-medium">{displayValue(record.stopTime)}</p>
         </div>
       </div>
 
@@ -190,19 +198,19 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <h4 className="text-sm font-medium text-gray-500">Item Trouble</h4>
-            <p className="text-lg font-medium">{record.itemTrouble}</p>
+            <p className="text-lg font-medium">{displayValue(record.itemTrouble)}</p>
           </div>
           <div>
             <h4 className="text-sm font-medium text-gray-500">Issue Description</h4>
-            <p className="text-lg font-medium">{record.jenisGangguan}</p>
+            <p className="text-lg font-medium">{displayValue(record.jenisGangguan)}</p>
           </div>
           <div>
             <h4 className="text-sm font-medium text-gray-500">Action Taken</h4>
-            <p className="text-lg font-medium">{record.bentukTindakan}</p>
+            <p className="text-lg font-medium">{displayValue(record.bentukTindakan)}</p>
           </div>
           <div>
             <h4 className="text-sm font-medium text-gray-500">Root Cause</h4>
-            <p className="text-lg font-medium">{record.rootCause}</p>
+            <p className="text-lg font-medium">{displayValue(record.rootCause)}</p>
           </div>
         </div>
       </div>
@@ -212,11 +220,11 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <h4 className="text-sm font-medium text-gray-500">Activity Type</h4>
-            <p className="text-lg font-medium">{record.jenisAktivitas}</p>
+            <p className="text-lg font-medium">{displayValue(record.jenisAktivitas)}</p>
           </div>
           <div>
             <h4 className="text-sm font-medium text-gray-500">Specific Activity</h4>
-            <p className="text-lg font-medium">{record.kegiatan}</p>
+            <p className="text-lg font-medium">{displayValue(record.kegiatan)}</p>
           </div>
         </div>
       </div>
@@ -226,19 +234,19 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
             <h4 className="text-sm font-medium text-gray-500">Part Code</h4>
-            <p className="text-lg font-medium">{record.kodePart}</p>
+            <p className="text-lg font-medium">{displayValue(record.kodePart)}</p>
           </div>
           <div>
             <h4 className="text-sm font-medium text-gray-500">Part Name</h4>
-            <p className="text-lg font-medium">{record.sparePart}</p>
+            <p className="text-lg font-medium">{displayValue(record.sparePart)}</p>
           </div>
           <div>
             <h4 className="text-sm font-medium text-gray-500">Quantity</h4>
-            <p className="text-lg font-medium">{record.jumlah}</p>
+            <p className="text-lg font-medium">{displayValue(record.jumlah)}</p>
           </div>
           <div>
             <h4 className="text-sm font-medium text-gray-500">Unit</h4>
-            <p className="text-lg font-medium">{record.unitSparePart}</p>
+            <p className="text-lg font-medium">{displayValue(record.unitSparePart)}</p>
           </div>
         </div>
       </div>
@@ -285,6 +293,14 @@ const MachineHistoryDashboard: React.FC = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingRecord, setEditingRecord] = useState<MachineHistoryRecord | null>(null);
 
+  // Helper function to extract value from nested objects
+  const getDisplayValue = (value: any): string => {
+    if (typeof value === "object" && value !== null) {
+      return value.name || value.toString();
+    }
+    return value?.toString() || "";
+  };
+
   const handleDelete = async (id: string) => {
     try {
       await deleteMachineHistory(id);
@@ -327,14 +343,32 @@ const MachineHistoryDashboard: React.FC = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const data = await getMachineHistories();
+        const response = await getMachineHistories();
+
+        const data = (response || []).map((record: any) => ({
+          ...record,
+          mesin: record.mesin?.name || record.mesin,
+          shift: record.shift?.name || record.shift,
+          group: record.group?.name || record.group,
+          itemTrouble: record.itemtrouble?.name || record.itemtrouble,
+          unit: record.unit?.name || record.unit,
+          unitSparePart: record.unitsp?.name || record.unitsp,
+          jenisAktivitas: record.jenisaktifitas?.name || record.jenisaktifitas,
+          kegiatan: record.kegiatan?.name || record.kegiatan,
+          stopTime: record.startstop?.event_name || record.stopTime,
+        }));
 
         if (!Array.isArray(data)) {
           throw new Error("Invalid data format: expected array");
         }
 
         setRecords(data);
-        const uniqueMachines = Array.from(new Set(data.map((r) => r.mesin))).map((id) => ({ id, name: id }));
+
+        // Get unique machines for filter dropdown
+        const uniqueMachines = Array.from(new Set(data.map((r) => getDisplayValue(r.mesin))))
+          .filter(Boolean)
+          .map((name) => ({ id: name, name }));
+
         setMachines(uniqueMachines);
         setError(null);
       } catch (err) {
@@ -379,9 +413,14 @@ const MachineHistoryDashboard: React.FC = () => {
   };
 
   const filteredRecords = records.filter((record) => {
-    const matchesSearch = record.mesin.toLowerCase().includes(searchQuery.toLowerCase()) || record.id.toLowerCase().includes(searchQuery.toLowerCase()) || record.itemTrouble.toLowerCase().includes(searchQuery.toLowerCase());
+    const machineName = getDisplayValue(record.mesin);
+    const itemTrouble = getDisplayValue(record.itemTrouble);
+    const recordId = record.id.toString();
+
+    const matchesSearch = machineName.toLowerCase().includes(searchQuery.toLowerCase()) || recordId.toLowerCase().includes(searchQuery.toLowerCase()) || itemTrouble.toLowerCase().includes(searchQuery.toLowerCase());
+
     const matchesStatus = statusFilter === "all" || record.perbaikanPerawatan === statusFilter;
-    const matchesMachine = machineFilter === "all" || record.mesin === machineFilter;
+    const matchesMachine = machineFilter === "all" || machineName === machineFilter;
 
     return matchesSearch && matchesStatus && matchesMachine;
   });
@@ -392,6 +431,8 @@ const MachineHistoryDashboard: React.FC = () => {
   const totalPages = Math.ceil(filteredRecords.length / recordsPerPage);
 
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
+
+  const getId = (val: string | { id: string }) => (typeof val === "object" ? val.id : val);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -487,6 +528,7 @@ const MachineHistoryDashboard: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top Navigation */}
@@ -624,7 +666,7 @@ const MachineHistoryDashboard: React.FC = () => {
                     >
                       <option value="all">All Machines</option>
                       {machines.map((machine) => (
-                        <option key={machine.id} value={machine.id}>
+                        <option key={machine.id} value={machine.name}>
                           {machine.name}
                         </option>
                       ))}
@@ -682,20 +724,20 @@ const MachineHistoryDashboard: React.FC = () => {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">{record.mesin}</div>
-                            <div className="text-xs text-gray-600">{record.unit}</div>
+                            <div className="text-sm font-medium text-gray-900">{getDisplayValue(record.mesin)}</div>
+                            <div className="text-xs text-gray-600">{getDisplayValue(record.unit)}</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900">
-                              Shift {record.shift}, Group {record.group}
+                              Shift {getDisplayValue(record.shift)}, Group {getDisplayValue(record.group)}
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm font-medium text-gray-900">{calculateDowntime(record)} min</div>
                           </td>
                           <td className="px-6 py-4">
-                            <div className="text-sm font-medium text-gray-900">{record.itemTrouble}</div>
-                            <div className="text-xs text-gray-600 truncate max-w-xs">{record.jenisGangguan}</div>
+                            <div className="text-sm font-medium text-gray-900">{getDisplayValue(record.itemTrouble)}</div>
+                            <div className="text-xs text-gray-600 truncate max-w-xs">{getDisplayValue(record.jenisGangguan)}</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <motion.span
@@ -816,28 +858,28 @@ const MachineHistoryDashboard: React.FC = () => {
               e.preventDefault();
               handleEditSubmit({
                 date: editingRecord.date,
-                shift: editingRecord.shift,
-                group: editingRecord.group,
+                shift: getId(editingRecord.shift),
+                group: getId(editingRecord.group),
                 stopJam: editingRecord.stopJam ?? undefined,
                 stopMenit: editingRecord.stopMenit ?? undefined,
                 startJam: editingRecord.startJam ?? undefined,
                 startMenit: editingRecord.startMenit ?? undefined,
                 stopTime: editingRecord.stopTime,
-                unit: editingRecord.unit,
-                mesin: editingRecord.mesin,
+                unit: getId(editingRecord.unit),
+                mesin: getId(editingRecord.mesin),
                 runningHour: editingRecord.runningHour,
-                itemTrouble: editingRecord.itemTrouble,
+                itemTrouble: getId(editingRecord.itemTrouble),
                 jenisGangguan: editingRecord.jenisGangguan,
                 bentukTindakan: editingRecord.bentukTindakan,
                 perbaikanPerawatan: editingRecord.perbaikanPerawatan,
                 rootCause: editingRecord.rootCause,
-                jenisAktivitas: editingRecord.jenisAktivitas,
-                kegiatan: editingRecord.kegiatan,
+                jenisAktivitas: getId(editingRecord.jenisAktivitas),
+                kegiatan: getId(editingRecord.kegiatan),
                 kodePart: editingRecord.kodePart,
                 sparePart: editingRecord.sparePart,
                 idPart: editingRecord.idPart,
                 jumlah: editingRecord.jumlah,
-                unitSparePart: editingRecord.unitSparePart,
+                unitSparePart: getId(editingRecord.unitSparePart),
               });
             }}
             className="space-y-4"
@@ -849,7 +891,7 @@ const MachineHistoryDashboard: React.FC = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Machine</label>
-                <input type="text" value={editingRecord.mesin} onChange={(e) => setEditingRecord({ ...editingRecord, mesin: e.target.value })} className="w-full p-2 border rounded" required />
+                <input type="text" value={getDisplayValue(editingRecord.mesin)} onChange={(e) => setEditingRecord({ ...editingRecord, mesin: e.target.value })} className="w-full p-2 border rounded" required />
               </div>
             </div>
             <div className="flex justify-end space-x-3">
