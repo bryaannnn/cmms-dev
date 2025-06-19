@@ -288,7 +288,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         fetchWithAuth("/itemtrouble"),
         fetchWithAuth("/jenisaktifitas"),
         fetchWithAuth("/kegiatan"),
-        fetchWithAuth("/stoptimes"),
+        fetchWithAuth("/stoptime"),
       ]);
 
       return {
@@ -313,6 +313,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       try {
         const responseData = await fetchWithAuth("/mhs", {
           method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify(data),
         });
         return responseData;
@@ -333,10 +336,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       console.error("Invalid response format:", response);
-      return []; 
+      return [];
     } catch (error) {
       console.error("Gagal mengambil daftar history mesin:", error);
-      return []; 
+      return [];
     }
   }, [fetchWithAuth]);
 
