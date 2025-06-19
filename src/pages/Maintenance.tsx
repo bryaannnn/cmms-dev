@@ -148,7 +148,6 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
     return `${downtime} minutes`;
   };
 
-  // Helper function to display nested object values
   const displayValue = (value: any): string => {
     if (typeof value === "object" && value !== null) {
       return value.name || "-";
@@ -190,6 +189,10 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
         <div>
           <h4 className="text-sm font-medium text-gray-500">Stop Type</h4>
           <p className="text-lg font-medium">{displayValue(record.stopTime)}</p>
+        </div>
+        <div>
+          <h4 className="text-sm font-medium text-gray-500">Running Hour</h4>
+          <p className="text-lg font-medium">{displayValue(record.runningHour)}</p>
         </div>
       </div>
 
@@ -239,6 +242,10 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
           <div>
             <h4 className="text-sm font-medium text-gray-500">Part Name</h4>
             <p className="text-lg font-medium">{displayValue(record.sparePart)}</p>
+          </div>
+          <div>
+            <h4 className="text-sm font-medium text-gray-500">ID Part</h4>
+            <p className="text-lg font-medium">{displayValue(record.idPart)}</p>
           </div>
           <div>
             <h4 className="text-sm font-medium text-gray-500">Quantity</h4>
