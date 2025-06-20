@@ -33,6 +33,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth, MachineHistoryRecord, MachineHistoryFormData } from "../routes/AuthContext";
 import logoWida from "../assets/logo-wida.png";
 import { motion, AnimatePresence } from "framer-motion";
+import EditHistoryForm from "../component/MachineHistory/EditFormMesin";
 
 interface NavItemProps {
   icon: React.ReactNode;
@@ -292,7 +293,7 @@ const MachineHistoryDashboard: React.FC = () => {
   const [selectedRecord, setSelectedRecord] = useState<MachineHistoryRecord | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [recordsPerPage] = useState(10);
-  const { user, fetchWithAuth, getMachineHistories, updateMachineHistory, deleteMachineHistory, isAuthenticated, isMasterDataLoading } = useAuth();
+  const { user, fetchWithAuth, getMachineHistories, updateMachineHistory, deleteMachineHistory, isAuthenticated, isMasterDataLoading, masterData } = useAuth();
   const [records, setRecords] = useState<MachineHistoryRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -324,17 +325,57 @@ const MachineHistoryDashboard: React.FC = () => {
     }
   };
 
+  // Di MachineHistoryDashboard.tsx
   const handleEditSubmit = async (updatedData: Partial<MachineHistoryFormData>) => {
-    if (!editingRecord) return;
+    if (!editingRecord || !masterData) return; // Pastikan masterData juga ada
 
     try {
-      const updatedRecord = await updateMachineHistory(editingRecord.id, updatedData);
-      setRecords(records.map((record) => (record.id === editingRecord.id ? { ...record, ...updatedRecord } : record)));
+      setLoading(true);
+      setError(null);
+
+      // Map the human-readable names back to IDs for API submission
+      // Ini adalah bagian KRITIS untuk menghindari error di backend!
+      const dataToSendToApi: Partial<MachineHistoryFormData> = {
+        ...updatedData,
+        shift: masterData.shifts.find((s) => s.name === updatedData.shift)?.id || updatedData.shift,
+        group: masterData.groups.find((g) => g.name === updatedData.group)?.id || updatedData.group,
+        stopTime: masterData.stoptimes.find((st) => st.name === updatedData.stopTime)?.id || updatedData.stopTime,
+        unit: masterData.units.find((u) => u.name === updatedData.unit)?.id || updatedData.unit,
+        mesin: masterData.mesin.find((m) => m.name === updatedData.mesin)?.id || updatedData.mesin,
+        itemTrouble: masterData.itemtroubles.find((it) => it.name === updatedData.itemTrouble)?.id || updatedData.itemTrouble,
+        jenisAktivitas: masterData.jenisaktivitas.find((ja) => ja.name === updatedData.jenisAktivitas)?.id || updatedData.jenisAktivitas,
+        kegiatan: masterData.kegiatans.find((k) => k.name === updatedData.kegiatan)?.id || updatedData.kegiatan,
+        unitSparePart: masterData.unitspareparts.find((usp) => usp.name === updatedData.unitSparePart)?.id || updatedData.unitSparePart,
+        // Pastikan bidang angka dikirim sebagai angka, tidak string
+        stopJam: updatedData.stopJam !== undefined ? Number(updatedData.stopJam) : undefined,
+        stopMenit: updatedData.stopMenit !== undefined ? Number(updatedData.stopMenit) : undefined,
+        startJam: updatedData.startJam !== undefined ? Number(updatedData.startJam) : undefined,
+        startMenit: updatedData.startMenit !== undefined ? Number(updatedData.startMenit) : undefined,
+        runningHour: updatedData.runningHour !== undefined ? Number(updatedData.runningHour) : undefined,
+        jumlah: updatedData.jumlah !== undefined ? Number(updatedData.jumlah) : undefined,
+      };
+
+      // Filter out undefined values to avoid sending them if the field isn't changed
+      Object.keys(dataToSendToApi).forEach((key) => {
+        if ((dataToSendToApi as any)[key] === undefined) {
+          delete (dataToSendToApi as any)[key];
+        }
+      });
+
+      await updateMachineHistory(editingRecord.id, dataToSendToApi);
+
+      // Re-fetch all data to ensure the table is updated with the latest state
+      // from the server, which includes master data mapping.
+      const updatedRecordsList = await getMachineHistories();
+      setRecords(updatedRecordsList);
+
       setShowEditModal(false);
       setEditingRecord(null);
     } catch (error) {
-      console.error("Failed to update record:", error);
-      setError("Failed to update record. Please try again.");
+      console.error("Gagal memperbarui catatan:", error);
+      setError("Gagal memperbarui catatan. Silakan coba lagi.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -357,7 +398,7 @@ const MachineHistoryDashboard: React.FC = () => {
         setLoading(true);
         setError(null); // Clear any previous errors
         try {
-          const fetchedRecords = await getMachineHistories(); 
+          const fetchedRecords = await getMachineHistories();
 
           if (!Array.isArray(fetchedRecords)) {
             throw new Error("Invalid data format: expected array from getMachineHistories");
@@ -367,7 +408,7 @@ const MachineHistoryDashboard: React.FC = () => {
 
           const uniqueMachines = Array.from(new Set(fetchedRecords.map((r) => r.mesin)))
             .filter(Boolean)
-            .map((name) => ({ id: name, name })); 
+            .map((name) => ({ id: name, name }));
 
           setMachines(uniqueMachines);
           setError(null);
@@ -855,61 +896,10 @@ const MachineHistoryDashboard: React.FC = () => {
         </Modal>
       )}
 
-      {/* Edit Modal */}
-      {editingRecord && (
-        <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title="Edit Machine History">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleEditSubmit({
-                date: editingRecord.date,
-                shift: getId(editingRecord.shift),
-                group: getId(editingRecord.group),
-                stopJam: editingRecord.stopJam ?? undefined,
-                stopMenit: editingRecord.stopMenit ?? undefined,
-                startJam: editingRecord.startJam ?? undefined,
-                startMenit: editingRecord.startMenit ?? undefined,
-                stopTime: editingRecord.stopTime,
-                unit: getId(editingRecord.unit),
-                mesin: getId(editingRecord.mesin),
-                runningHour: editingRecord.runningHour,
-                itemTrouble: getId(editingRecord.itemTrouble),
-                jenisGangguan: editingRecord.jenisGangguan,
-                bentukTindakan: editingRecord.bentukTindakan,
-                perbaikanPerawatan: editingRecord.perbaikanPerawatan,
-                rootCause: editingRecord.rootCause,
-                jenisAktivitas: getId(editingRecord.jenisAktivitas),
-                kegiatan: getId(editingRecord.kegiatan),
-                kodePart: editingRecord.kodePart,
-                sparePart: editingRecord.sparePart,
-                idPart: editingRecord.idPart,
-                jumlah: editingRecord.jumlah,
-                unitSparePart: getId(editingRecord.unitSparePart),
-              });
-            }}
-            className="space-y-4"
-          >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Date</label>
-                <input type="date" value={editingRecord.date} onChange={(e) => setEditingRecord({ ...editingRecord, date: e.target.value })} className="w-full p-2 border rounded" required />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Machine</label>
-                <input type="text" value={getDisplayValue(editingRecord.mesin)} onChange={(e) => setEditingRecord({ ...editingRecord, mesin: e.target.value })} className="w-full p-2 border rounded" required />
-              </div>
-            </div>
-            <div className="flex justify-end space-x-3">
-              <button type="button" onClick={() => setShowEditModal(false)} className="px-4 py-2 border rounded hover:bg-gray-100 transition-colors">
-                Cancel
-              </button>
-              <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
-                Save Changes
-              </button>
-            </div>
-          </form>
-        </Modal>
-      )}
+      {/* Edit Record Modal */}
+      <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title="Edit Riwayat Mesin">
+        {editingRecord && masterData ? <EditHistoryForm record={editingRecord} masterData={masterData} onSave={handleEditSubmit} onCancel={() => setShowEditModal(false)} /> : <p className="text-center py-4">Memuat data master...</p>}
+      </Modal>
 
       {/* Delete Confirmation Modal */}
       <Modal isOpen={showDeleteConfirm} onClose={() => setShowDeleteConfirm(false)} title="Confirm Deletion">
