@@ -29,14 +29,13 @@ function App() {
       <Route path="/workorders/input" element={<FormWorkOrders />} />
       <Route path="/workorders/dashboard" element={<WorkOrders />} />
       {/* <Route path="/machinehistory/edit" element={<MachineHistoryForm />} /> */}
-      <Route path="/machinehistory/input" element={<FormMesin />} />
 
       <Route element={<ProtectedRoute />}>
         <Route path="/" element={<Dashboard />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/workorders" element={<WorkOrdersDashboard />} />
         <Route path="/machinehistory" element={<MachineHistoryDashboard />} />
-
+        <Route path="/machinehistory/input" element={<FormMesin />} />
         <Route path="/inventory" element={<InventoryDashboard />} />
         <Route path="/assets" element={<Assets />} />
         <Route path="/reports" element={<ReportsDashboard />} />
