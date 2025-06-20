@@ -104,9 +104,6 @@ export interface MachineHistoryFormData {
 export interface MachineHistoryRecord extends MachineHistoryFormData {
   id: string;
   startstop?: Startstop | null;
-  // Note: For display, `shift`, `group`, `unit`, `mesin`, `itemTrouble`, `jenisAktivitas`, `kegiatan`, `unitSparePart`
-  // will hold names, even though `_id` versions exist in raw API data.
-  // The mapApiToMachineHistoryRecord handles this.
 }
 
 /**
