@@ -28,7 +28,6 @@ import {
   FiClock,
   FiCalendar,
   FiTrash2,
-  FiActivity,
 } from "react-icons/fi";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth, MachineHistoryRecord, MachineHistoryFormData } from "../routes/AuthContext";
@@ -122,7 +121,9 @@ interface HistoryDetailsProps {
 const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
   const formatTime = (hours: number | null | undefined, minutes: number | null | undefined): string => {
     if (hours === null || hours === undefined || minutes === null || minutes === undefined) return "-";
-    return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`;
+    const formattedHours = hours.toString().padStart(2, "0");
+    const formattedMinutes = minutes.toString().padStart(2, "0");
+    return `${formattedHours}:${formattedMinutes}`;
   };
 
   const calculateDowntime = (): string => {
@@ -131,251 +132,146 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
     const startHH = record.startJam;
     const startMM = record.startMenit;
 
-    if (!stopHH || !stopMM || !startHH || !startMM) return "-";
+    if (stopHH === null || stopHH === undefined || stopMM === null || stopMM === undefined || startHH === null || startHH === undefined || startMM === null || startMM === undefined) {
+      return "-";
+    }
 
     const stopTimeInMinutes = stopHH * 60 + stopMM;
     const startTimeInMinutes = startHH * 60 + startMM;
-    let downtime = startTimeInMinutes - stopTimeInMinutes;
 
-    return `${downtime < 0 ? 24 * 60 - stopTimeInMinutes + startTimeInMinutes : downtime} minutes`;
+    let downtime = startTimeInMinutes - stopTimeInMinutes;
+    if (downtime < 0) {
+      // Handles cases where start time is on the next day (e.g., stop 23:00, start 01:00)
+      downtime = 24 * 60 - stopTimeInMinutes + startTimeInMinutes;
+    }
+
+    return `${downtime} minutes`;
   };
 
   const displayValue = (value: any): string => {
-    if (value == null) return "-";
-    if (typeof value === "string") return value.trim() || "-";
+    if (value === null || value === undefined) return "-";
+
+    if (typeof value === "string") {
+      return value.trim() !== "" ? value.trim() : "-";
+    }
+
     return value.toString();
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Perbaikan":
-        return "bg-red-100 text-red-800";
-      case "Perawatan":
-        return "bg-blue-100 text-blue-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
   return (
-    <div className="relative bg-white rounded-2xl shadow-xl overflow-hidden max-w-6xl w-full mx-auto">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-500 p-6 text-white">
-        <div className="flex justify-between items-start">
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <h4 className="text-sm font-medium text-gray-500">Date</h4>
+          <p className="text-lg font-medium">{displayValue(record.date)}</p>
+        </div>
+        <div>
+          <h4 className="text-sm font-medium text-gray-500">Shift</h4>
+          <p className="text-lg font-medium">{displayValue(record.shift)}</p>
+        </div>
+        <div>
+          <h4 className="text-sm font-medium text-gray-500">Group</h4>
+          <p className="text-lg font-medium">{displayValue(record.group)}</p>
+        </div>
+        <div>
+          <h4 className="text-sm font-medium text-gray-500">Machine</h4>
+          <p className="text-lg font-medium">{displayValue(record.mesin)}</p>
+        </div>
+        <div>
+          <h4 className="text-sm font-medium text-gray-500">Unit</h4>
+          <p className="text-lg font-medium">{displayValue(record.unit)}</p>
+        </div>
+        <div>
+          <h4 className="text-sm font-medium text-gray-500">Stop Time</h4>
+          <p className="text-lg font-medium">{formatTime(record.stopJam, record.stopMenit)}</p>
+        </div>
+        <div>
+          <h4 className="text-sm font-medium text-gray-500">Start Time</h4>
+          <p className="text-lg font-medium">{formatTime(record.startJam, record.startMenit)}</p>
+        </div>
+        <div>
+          <h4 className="text-sm font-medium text-gray-500">Downtime</h4>
+          <p className="text-lg font-medium">{calculateDowntime()}</p>
+        </div>
+        <div>
+          <h4 className="text-sm font-medium text-gray-500">Stop Type</h4>
+          <p className="text-lg font-medium">{displayValue(record.stopTime)}</p> 
+        </div>
+        <div>
+          <h4 className="text-sm font-medium text-gray-500">Running Hour</h4>
+          <p className="text-lg font-medium">{displayValue(record.runningHour)}</p>
+        </div>
+      </div>
+
+      <div className="border-t border-blue-100 pt-4">
+        <h3 className="text-lg font-semibold mb-2">Issue Details</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <h2 className="text-2xl font-bold flex items-center gap-2">
-              <FiTool className="inline" />
-              Machine History Details
-            </h2>
-            <p className="text-blue-100 mt-1">Detailed view of machine maintenance record</p>
+            <h4 className="text-sm font-medium text-gray-500">Item Trouble</h4>
+            <p className="text-lg font-medium">{displayValue(record.itemTrouble)}</p>
           </div>
-          <motion.button onClick={onClose} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }} className="p-2 rounded-full hover:bg-blue-700 transition-colors" aria-label="Close">
-            <FiX className="text-xl" />
-          </motion.button>
+          <div>
+            <h4 className="text-sm font-medium text-gray-500">Issue Description</h4>
+            <p className="text-lg font-medium">{displayValue(record.jenisGangguan)}</p>
+          </div>
+          <div>
+            <h4 className="text-sm font-medium text-gray-500">Action Taken</h4>
+            <p className="text-lg font-medium">{displayValue(record.bentukTindakan)}</p>
+          </div>
+          <div>
+            <h4 className="text-sm font-medium text-gray-500">Root Cause</h4>
+            <p className="text-lg font-medium">{displayValue(record.rootCause)}</p>
+          </div>
         </div>
       </div>
 
-      <div className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-full bg-blue-100 text-blue-600">
-                <FiClock className="text-xl" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Downtime</p>
-                <p className="text-xl font-semibold">{calculateDowntime()}</p>
-              </div>
-            </div>
+      <div className="border-t border-blue-100 pt-4">
+        <h3 className="text-lg font-semibold mb-2">Maintenance Details</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <h4 className="text-sm font-medium text-gray-500">Activity Type</h4>
+            <p className="text-lg font-medium">{displayValue(record.jenisAktivitas)}</p>
           </div>
-
-          <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-full bg-purple-100 text-purple-600">
-                <FiActivity className="text-xl" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Status</p>
-                <p className={`text-xl font-semibold ${getStatusColor(record.perbaikanPerawatan)} px-2 py-1 rounded-full text-sm inline-block`}>{displayValue(record.perbaikanPerawatan)}</p>
-              </div>
-            </div>
+          <div>
+            <h4 className="text-sm font-medium text-gray-500">Specific Activity</h4>
+            <p className="text-lg font-medium">{displayValue(record.kegiatan)}</p>
           </div>
-
-          <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-full bg-green-100 text-green-600">
-                <FiPackage className="text-xl" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Parts Used</p>
-                <p className="text-xl font-semibold">{record.sparePart ? "Yes" : "No"}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-full bg-amber-100 text-amber-600">
-                <FiAlertTriangle className="text-xl" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Severity</p>
-                <p className="text-xl font-semibold">Medium</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Basic Information */}
-          <div className="bg-gray-50 p-5 rounded-xl border border-gray-200">
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-800">
-              <span className="w-1 h-6 bg-blue-500 rounded-full"></span>
-              Basic Information
-            </h3>
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Date</p>
-                  <p className="font-medium">{displayValue(record.date)}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Shift</p>
-                  <p className="font-medium">{displayValue(record.shift)}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Group</p>
-                  <p className="font-medium">{displayValue(record.group)}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Machine</p>
-                  <p className="font-medium">{displayValue(record.mesin)}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Unit</p>
-                  <p className="font-medium">{displayValue(record.unit)}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Running Hour</p>
-                  <p className="font-medium">{displayValue(record.runningHour)}</p>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-gray-200">
-                <p className="text-sm font-medium text-gray-500 mb-2">Time Details</p>
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500">Stop Time</p>
-                    <p className="font-medium">{formatTime(record.stopJam, record.stopMenit)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Start Time</p>
-                    <p className="font-medium">{formatTime(record.startJam, record.startMenit)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Stop Type</p>
-                    <p className="font-medium">{displayValue(record.stopTime)}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Issue Details */}
-          <div className="bg-gray-50 p-5 rounded-xl border border-gray-200">
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-800">
-              <span className="w-1 h-6 bg-red-500 rounded-full"></span>
-              Issue Details
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Problem Item</p>
-                <p className="font-medium">{displayValue(record.itemTrouble)}</p>
-              </div>
-
-              <div>
-                <p className="text-sm font-medium text-gray-500">Description</p>
-                <div className="mt-1 p-3 bg-white rounded-lg border border-gray-200">
-                  <p className="text-gray-800">{displayValue(record.jenisGangguan)}</p>
-                </div>
-              </div>
-
-              <div>
-                <p className="text-sm font-medium text-gray-500">Action Taken</p>
-                <div className="mt-1 p-3 bg-white rounded-lg border border-gray-200">
-                  <p className="text-gray-800">{displayValue(record.bentukTindakan)}</p>
-                </div>
-              </div>
-
-              <div>
-                <p className="text-sm font-medium text-gray-500">Root Cause</p>
-                <div className="mt-1 p-3 bg-white rounded-lg border border-gray-200">
-                  <p className="text-gray-800">{displayValue(record.rootCause)}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Maintenance Details */}
-          <div className="bg-gray-50 p-5 rounded-xl border border-gray-200">
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-800">
-              <span className="w-1 h-6 bg-green-500 rounded-full"></span>
-              Maintenance Details
-            </h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Activity Type</p>
-                <p className="font-medium">{displayValue(record.jenisAktivitas)}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Specific Activity</p>
-                <p className="font-medium">{displayValue(record.kegiatan)}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Spare Parts */}
-          {record.sparePart && (
-            <div className="bg-gray-50 p-5 rounded-xl border border-gray-200">
-              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-800">
-                <span className="w-1 h-6 bg-amber-500 rounded-full"></span>
-                Spare Parts Used
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Part Code</p>
-                  <p className="font-medium">{displayValue(record.kodePart)}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Part Name</p>
-                  <p className="font-medium">{displayValue(record.sparePart)}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Part ID</p>
-                  <p className="font-medium">{displayValue(record.idPart)}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Quantity</p>
-                  <p className="font-medium">
-                    {displayValue(record.jumlah)} {displayValue(record.unitSparePart)}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-end">
+      <div className="border-t border-blue-100 pt-4">
+        <h3 className="text-lg font-semibold mb-2">Spare Parts Used</h3>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <h4 className="text-sm font-medium text-gray-500">Part Code</h4>
+            <p className="text-lg font-medium">{displayValue(record.kodePart)}</p>
+          </div>
+          <div>
+            <h4 className="text-sm font-medium text-gray-500">Part Name</h4>
+            <p className="text-lg font-medium">{displayValue(record.sparePart)}</p>
+          </div>
+          <div>
+            <h4 className="text-sm font-medium text-gray-500">ID Part</h4>
+            <p className="text-lg font-medium">{displayValue(record.idPart)}</p>
+          </div>
+          <div>
+            <h4 className="text-sm font-medium text-gray-500">Quantity</h4>
+            <p className="text-lg font-medium">{displayValue(record.jumlah)}</p>
+          </div>
+          <div>
+            <h4 className="text-sm font-medium text-gray-500">Unit</h4>
+            <p className="text-lg font-medium">{displayValue(record.unitSparePart)}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex justify-end pt-4 border-t border-blue-100">
         <motion.button
           type="button"
           onClick={onClose}
           whileHover={{ scale: 1.03 }}
           whileTap={{ scale: 0.97 }}
-          className="px-6 py-2 bg-white border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all"
+          className="inline-flex items-center px-5 py-2.5 border border-blue-200 text-base font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
         >
           Close
         </motion.button>
@@ -430,16 +326,12 @@ const MachineHistoryDashboard: React.FC = () => {
     }
   };
 
-  // Di MachineHistoryDashboard.tsx
   const handleEditSubmit = async (updatedData: Partial<MachineHistoryFormData>) => {
-    if (!editingRecord || !masterData) return; // Pastikan masterData juga ada
+    if (!editingRecord || !masterData) return; 
 
     try {
       setLoading(true);
       setError(null);
-
-      // Map the human-readable names back to IDs for API submission
-      // Ini adalah bagian KRITIS untuk menghindari error di backend!
       const dataToSendToApi: Partial<MachineHistoryFormData> = {
         ...updatedData,
         shift: masterData.shifts.find((s) => s.name === updatedData.shift)?.id || updatedData.shift,
@@ -460,7 +352,6 @@ const MachineHistoryDashboard: React.FC = () => {
         jumlah: updatedData.jumlah !== undefined ? Number(updatedData.jumlah) : undefined,
       };
 
-      // Filter out undefined values to avoid sending them if the field isn't changed
       Object.keys(dataToSendToApi).forEach((key) => {
         if ((dataToSendToApi as any)[key] === undefined) {
           delete (dataToSendToApi as any)[key];
@@ -469,8 +360,6 @@ const MachineHistoryDashboard: React.FC = () => {
 
       await updateMachineHistory(editingRecord.id, dataToSendToApi);
 
-      // Re-fetch all data to ensure the table is updated with the latest state
-      // from the server, which includes master data mapping.
       const updatedRecordsList = await getMachineHistories();
       setRecords(updatedRecordsList);
 
@@ -498,10 +387,9 @@ const MachineHistoryDashboard: React.FC = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      // Only fetch if authenticated AND master data has finished loading
       if (isAuthenticated && !isMasterDataLoading) {
         setLoading(true);
-        setError(null); // Clear any previous errors
+        setError(null); 
         try {
           const fetchedRecords = await getMachineHistories();
 

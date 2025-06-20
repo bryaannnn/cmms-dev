@@ -26,9 +26,9 @@ function App() {
     <Routes>
       <Route path="/register" element={<RegisterForm />} />
       <Route path="/login" element={<LoginForm />} />
-      <Route path="/workorders/input" element={<FormWorkOrders />} />
-      <Route path="/workorders/dashboard" element={<WorkOrders />} />
-      {/* <Route path="/machinehistory/edit" element={<MachineHistoryForm />} /> */}
+      {/* <Route path="/workorders/input" element={<FormWorkOrders />} />
+      <Route path="/workorders/dashboard" element={<WorkOrders />} /> 
+      <Route path="/machinehistory/edit" element={<MachineHistoryForm />} /> */}
 
       <Route element={<ProtectedRoute />}>
         <Route path="/" element={<Dashboard />} />

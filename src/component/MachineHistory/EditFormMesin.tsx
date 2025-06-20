@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { MachineHistoryRecord, MachineHistoryFormData, AllMasterData } from "../../routes/AuthContext";
-import { FiSearch } from "react-icons/fi";
+import Select from "react-select";
 
 interface EditHistoryFormProps {
   record: MachineHistoryRecord;
@@ -11,9 +11,6 @@ interface EditHistoryFormProps {
 }
 
 const EditHistoryForm: React.FC<EditHistoryFormProps> = ({ record, masterData, onSave, onCancel }) => {
-  const [machineSearch, setMachineSearch] = useState("");
-  const [itemTroubleSearch, setItemTroubleSearch] = useState("");
-  const [kegiatanSearch, setKegiatanSearch] = useState("");
   const [formData, setFormData] = useState<Partial<MachineHistoryFormData>>({
     date: record.date,
     shift: record.shift,
@@ -77,16 +74,19 @@ const EditHistoryForm: React.FC<EditHistoryFormProps> = ({ record, masterData, o
     }
   };
 
+  const handleSelectChange = (selectedOption: { value: string; label: string } | null, actionMeta: { name?: string }) => {
+    if (actionMeta.name) {
+      setFormData((prev) => ({
+        ...prev,
+        [actionMeta.name!]: selectedOption ? selectedOption.value : "",
+      }));
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave(formData);
   };
-
-  const filteredMachines = masterData.mesin.filter((machine) => machine.name.toLowerCase().includes(machineSearch.toLowerCase()));
-
-  const filteredItemTroubles = masterData.itemtroubles.filter((item) => item.name.toLowerCase().includes(itemTroubleSearch.toLowerCase()));
-
-  const filteredKegiatans = masterData.kegiatans.filter((kegiatan) => kegiatan.name.toLowerCase().includes(kegiatanSearch.toLowerCase()));
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 p-4 bg-white rounded-xl shadow-md">
@@ -134,31 +134,26 @@ const EditHistoryForm: React.FC<EditHistoryFormProps> = ({ record, masterData, o
               ))}
             </select>
           </div>
+
+          {/* Machine Select (Menggunakan react-select) */}
           <div className="space-y-1">
             <label htmlFor="mesin" className="block text-sm font-medium text-gray-700">
               Machine
             </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <FiSearch className="text-gray-400" />
-              </div>
-              <input
-                type="text"
-                placeholder="Search machines..."
-                value={machineSearch}
-                onChange={(e) => setMachineSearch(e.target.value)}
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm mb-2"
-              />
-            </div>
-            <select name="mesin" id="mesin" value={formData.mesin || ""} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border" required>
-              <option value="">Select Machine</option>
-              {filteredMachines.map((m) => (
-                <option key={m.id} value={m.name}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
+            <Select
+              inputId="mesin"
+              name="mesin"
+              options={masterData.mesin.map((m) => ({ value: m.name, label: m.name }))}
+              value={formData.mesin ? { value: formData.mesin, label: formData.mesin } : null}
+              onChange={handleSelectChange}
+              placeholder="Select or search machine..."
+              isClearable
+              isSearchable
+              className="mt-1 block w-full rounded-md shadow-sm sm:text-sm"
+              classNamePrefix="react-select"
+            />
           </div>
+
           <div className="space-y-1">
             <label htmlFor="unit" className="block text-sm font-medium text-gray-700">
               Unit
@@ -281,33 +276,20 @@ const EditHistoryForm: React.FC<EditHistoryFormProps> = ({ record, masterData, o
             <label htmlFor="itemTrouble" className="block text-sm font-medium text-gray-700">
               Problem Item
             </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <FiSearch className="text-gray-400" />
-              </div>
-              <input
-                type="text"
-                placeholder="Search problem items..."
-                value={itemTroubleSearch}
-                onChange={(e) => setItemTroubleSearch(e.target.value)}
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm mb-2"
-              />
-            </div>
-            <select
+            <Select
+              inputId="itemTrouble"
               name="itemTrouble"
-              id="itemTrouble"
-              value={formData.itemTrouble || ""}
-              onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
-            >
-              <option value="">Select Problem Item</option>
-              {filteredItemTroubles.map((it) => (
-                <option key={it.id} value={it.name}>
-                  {it.name}
-                </option>
-              ))}
-            </select>
+              options={masterData.itemtroubles.map((it) => ({ value: it.name, label: it.name }))}
+              value={formData.itemTrouble ? { value: formData.itemTrouble, label: formData.itemTrouble } : null}
+              onChange={handleSelectChange}
+              placeholder="Select or search problem item..."
+              isClearable
+              isSearchable
+              className="mt-1 block w-full rounded-md shadow-sm sm:text-sm"
+              classNamePrefix="react-select"
+            />
           </div>
+
           <div className="space-y-1">
             <label htmlFor="jenisGangguan" className="block text-sm font-medium text-gray-700">
               Problem Description
@@ -389,30 +371,23 @@ const EditHistoryForm: React.FC<EditHistoryFormProps> = ({ record, masterData, o
               ))}
             </select>
           </div>
+
           <div className="space-y-1">
             <label htmlFor="kegiatan" className="block text-sm font-medium text-gray-700">
               Specific Activity
             </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <FiSearch className="text-gray-400" />
-              </div>
-              <input
-                type="text"
-                placeholder="Search activities..."
-                value={kegiatanSearch}
-                onChange={(e) => setKegiatanSearch(e.target.value)}
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm mb-2"
-              />
-            </div>
-            <select name="kegiatan" id="kegiatan" value={formData.kegiatan || ""} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border">
-              <option value="">Select Specific Activity</option>
-              {filteredKegiatans.map((k) => (
-                <option key={k.id} value={k.name}>
-                  {k.name}
-                </option>
-              ))}
-            </select>
+            <Select
+              inputId="kegiatan"
+              name="kegiatan"
+              options={masterData.kegiatans.map((k) => ({ value: k.name, label: k.name }))}
+              value={formData.kegiatan ? { value: formData.kegiatan, label: formData.kegiatan } : null}
+              onChange={handleSelectChange}
+              placeholder="Select or search specific activity..."
+              isClearable
+              isSearchable
+              className="mt-1 block w-full rounded-md shadow-sm sm:text-sm"
+              classNamePrefix="react-select"
+            />
           </div>
         </div>
       </div>
