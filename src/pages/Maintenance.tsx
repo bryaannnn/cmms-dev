@@ -308,7 +308,6 @@ const MachineHistoryDashboard: React.FC = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingRecord, setEditingRecord] = useState<MachineHistoryRecord | null>(null);
 
-  // Helper function to extract value from nested objects
   const getDisplayValue = (value: any): string => {
     if (typeof value === "object" && value !== null) {
       return value.name || value.toString();

@@ -1056,9 +1056,8 @@ const InventoryDashboard: React.FC = () => {
 
   const handleRequestOrder = (inventoryItem: InventoryItem) => {
     const updatedItem: InventoryItem = {
-      // Explicitly type as InventoryItem
       ...inventoryItem,
-      status: "on-order" as InventoryStatus, // Explicit cast to InventoryStatus
+      status: "on-order" as InventoryStatus, 
       nextOrder: new Date(new Date().setDate(new Date().getDate() + 14)).toISOString().split("T")[0],
     };
     setInventory(inventory.map((item) => (item.id === updatedItem.id ? updatedItem : item)));

@@ -15,6 +15,8 @@ import TeamDashboard from "./pages/Teams";
 import SettingsPage from "./pages/Settings";
 import MachineHistoryDashboard from "./pages/Maintenance";
 import FormMesin from "./component/MachineHistory/FormMesin";
+import FormWorkOrders from "./component/WorkOrders/formwo";
+import WorkOrders from "./component/WorkOrders/FormWorkOrders";
 
 // const envVariables = getProjectEnvVariables();
 
@@ -23,6 +25,8 @@ function App() {
     <Routes>
       <Route path="/register" element={<RegisterForm />} />
       <Route path="/login" element={<LoginForm />} />
+      <Route path="/workorders/input" element={<FormWorkOrders />} />
+      <Route path="/workorders/dashboard" element={<WorkOrders />} />
 
       <Route element={<ProtectedRoute />}>
         <Route path="/" element={<Dashboard />} />
