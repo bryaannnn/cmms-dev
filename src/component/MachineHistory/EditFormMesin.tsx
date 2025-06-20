@@ -1,44 +1,42 @@
-// Ini bisa di dalam file DashboardView.tsx Anda atau di file terpisah seperti components/EditHistoryForm.tsx
+// EditHistoryForm.tsx
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { MachineHistoryRecord, MachineHistoryFormData, AllMasterData } from "../../routes/AuthContext"; // Pastikan path benar
+import { MachineHistoryRecord, MachineHistoryFormData, AllMasterData } from "../../routes/AuthContext";
 
 interface EditHistoryFormProps {
   record: MachineHistoryRecord;
-  masterData: AllMasterData; // Menerima semua data master
+  masterData: AllMasterData;
   onSave: (data: Partial<MachineHistoryFormData>) => void;
   onCancel: () => void;
 }
 
 const EditHistoryForm: React.FC<EditHistoryFormProps> = ({ record, masterData, onSave, onCancel }) => {
-  // Inisialisasi formData dengan nilai dari record yang sedang diedit
   const [formData, setFormData] = useState<Partial<MachineHistoryFormData>>({
     date: record.date,
-    shift: record.shift, // Ini adalah nama
-    group: record.group, // Ini adalah nama
+    shift: record.shift,
+    group: record.group,
     stopJam: record.stopJam ?? undefined,
     stopMenit: record.stopMenit ?? undefined,
     startJam: record.startJam ?? undefined,
     startMenit: record.startMenit ?? undefined,
-    stopTime: record.stopTime, // Ini adalah nama
-    unit: record.unit, // Ini adalah nama
-    mesin: record.mesin, // Ini adalah nama
+    stopTime: record.stopTime,
+    unit: record.unit,
+    mesin: record.mesin,
     runningHour: record.runningHour ?? undefined,
-    itemTrouble: record.itemTrouble, // Ini adalah nama
+    itemTrouble: record.itemTrouble,
     jenisGangguan: record.jenisGangguan,
     bentukTindakan: record.bentukTindakan,
     perbaikanPerawatan: record.perbaikanPerawatan,
     rootCause: record.rootCause,
-    jenisAktivitas: record.jenisAktivitas, // Ini adalah nama
-    kegiatan: record.kegiatan, // Ini adalah nama
+    jenisAktivitas: record.jenisAktivitas,
+    kegiatan: record.kegiatan,
     kodePart: record.kodePart,
     sparePart: record.sparePart,
     idPart: record.idPart,
     jumlah: record.jumlah ?? undefined,
-    unitSparePart: record.unitSparePart, // Ini adalah nama
+    unitSparePart: record.unitSparePart,
   });
 
-  // Pastikan nilai angka di form tetap number atau undefined, bukan string kosong
   useEffect(() => {
     setFormData({
       date: record.date,
@@ -69,7 +67,6 @@ const EditHistoryForm: React.FC<EditHistoryFormProps> = ({ record, masterData, o
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
-    // Handle number inputs to convert value to number or undefined if empty
     if (type === "number") {
       setFormData((prev) => ({ ...prev, [name]: value === "" ? undefined : Number(value) }));
     } else {
@@ -79,97 +76,106 @@ const EditHistoryForm: React.FC<EditHistoryFormProps> = ({ record, masterData, o
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData); // Kirim formData ke parent component untuk diproses lebih lanjut
+    onSave(formData);
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-6 p-4">
+      {" "}
+      {/* Tambah padding di form */}
       {/* SECTION: Basic Information */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label htmlFor="date" className="block text-sm font-medium text-gray-700">
-            Date
-          </label>
-          <input type="date" name="date" id="date" value={formData.date || ""} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" required />
-        </div>
-        <div>
-          <label htmlFor="shift" className="block text-sm font-medium text-gray-700">
-            Shift
-          </label>
-          <select name="shift" id="shift" value={formData.shift || ""} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" required>
-            <option value="">Select Shift</option>
-            {masterData.shifts.map((s) => (
-              <option key={s.id} value={s.name}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label htmlFor="group" className="block text-sm font-medium text-gray-700">
-            Group
-          </label>
-          <select name="group" id="group" value={formData.group || ""} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" required>
-            <option value="">Select Group</option>
-            {masterData.groups.map((g) => (
-              <option key={g.id} value={g.name}>
-                {g.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label htmlFor="mesin" className="block text-sm font-medium text-gray-700">
-            Machine
-          </label>
-          <select name="mesin" id="mesin" value={formData.mesin || ""} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" required>
-            <option value="">Select Machine</option>
-            {masterData.mesin.map((m) => (
-              <option key={m.id} value={m.name}>
-                {m.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label htmlFor="unit" className="block text-sm font-medium text-gray-700">
-            Unit
-          </label>
-          <select name="unit" id="unit" value={formData.unit || ""} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" required>
-            <option value="">Select Unit</option>
-            {masterData.units.map((u) => (
-              <option key={u.id} value={u.name}>
-                {u.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label htmlFor="runningHour" className="block text-sm font-medium text-gray-700">
-            Running Hour
-          </label>
-          <input
-            type="number"
-            name="runningHour"
-            id="runningHour"
-            value={formData.runningHour ?? ""}
-            onChange={handleChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-            step="0.1"
-          />
+      <div className="bg-gray-50 p-4 rounded-md shadow-sm">
+        {" "}
+        {/* Kontainer untuk setiap bagian */}
+        <h3 className="text-lg font-semibold mb-4 text-gray-800">Informasi Dasar</h3>
+        {/* Gunakan grid-cols-1 di mobile, dan grid-cols-2 di layar sedang/besar */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="date" className="block text-sm font-medium text-gray-700">
+              Tanggal
+            </label>
+            <input type="date" name="date" id="date" value={formData.date || ""} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" required />
+          </div>
+          <div>
+            <label htmlFor="shift" className="block text-sm font-medium text-gray-700">
+              Shift
+            </label>
+            <select name="shift" id="shift" value={formData.shift || ""} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" required>
+              <option value="">Pilih Shift</option>
+              {masterData.shifts.map((s) => (
+                <option key={s.id} value={s.name}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="group" className="block text-sm font-medium text-gray-700">
+              Grup
+            </label>
+            <select name="group" id="group" value={formData.group || ""} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" required>
+              <option value="">Pilih Grup</option>
+              {masterData.groups.map((g) => (
+                <option key={g.id} value={g.name}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="mesin" className="block text-sm font-medium text-gray-700">
+              Mesin
+            </label>
+            <select name="mesin" id="mesin" value={formData.mesin || ""} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" required>
+              <option value="">Pilih Mesin</option>
+              {masterData.mesin.map((m) => (
+                <option key={m.id} value={m.name}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="unit" className="block text-sm font-medium text-gray-700">
+              Unit
+            </label>
+            <select name="unit" id="unit" value={formData.unit || ""} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" required>
+              <option value="">Pilih Unit</option>
+              {masterData.units.map((u) => (
+                <option key={u.id} value={u.name}>
+                  {u.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="runningHour" className="block text-sm font-medium text-gray-700">
+              Running Hour
+            </label>
+            <input
+              type="number"
+              name="runningHour"
+              id="runningHour"
+              value={formData.runningHour ?? ""}
+              onChange={handleChange}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+              step="0.1"
+            />
+          </div>
         </div>
       </div>
-
       {/* SECTION: Stop Time Details */}
-      <div className="border-t border-blue-100 pt-4">
-        <h3 className="text-lg font-semibold mb-2 text-gray-800">Stop Time Details</h3>
+      <div className="bg-gray-50 p-4 rounded-md shadow-sm">
+        <h3 className="text-lg font-semibold mb-4 text-gray-800">Detail Waktu Berhenti</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {" "}
+          {/* Bisa 3 kolom untuk waktu */}
           <div>
             <label htmlFor="stopTime" className="block text-sm font-medium text-gray-700">
-              Stop Type
+              Tipe Berhenti
             </label>
             <select name="stopTime" id="stopTime" value={formData.stopTime || ""} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
-              <option value="">Select Stop Type</option>
+              <option value="">Pilih Tipe Berhenti</option>
               {masterData.stoptimes.map((st) => (
                 <option key={st.id} value={st.name}>
                   {st.name}
@@ -239,17 +245,16 @@ const EditHistoryForm: React.FC<EditHistoryFormProps> = ({ record, masterData, o
           </div>
         </div>
       </div>
-
       {/* SECTION: Issue Details */}
-      <div className="border-t border-blue-100 pt-4">
-        <h3 className="text-lg font-semibold mb-2 text-gray-800">Issue Details</h3>
+      <div className="bg-gray-50 p-4 rounded-md shadow-sm">
+        <h3 className="text-lg font-semibold mb-4 text-gray-800">Detail Masalah</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label htmlFor="itemTrouble" className="block text-sm font-medium text-gray-700">
-              Item Trouble
+              Item Masalah
             </label>
             <select name="itemTrouble" id="itemTrouble" value={formData.itemTrouble || ""} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
-              <option value="">Select Item Trouble</option>
+              <option value="">Pilih Item Masalah</option>
               {masterData.itemtroubles.map((it) => (
                 <option key={it.id} value={it.name}>
                   {it.name}
@@ -259,7 +264,7 @@ const EditHistoryForm: React.FC<EditHistoryFormProps> = ({ record, masterData, o
           </div>
           <div>
             <label htmlFor="jenisGangguan" className="block text-sm font-medium text-gray-700">
-              Issue Description
+              Deskripsi Masalah
             </label>
             <textarea
               name="jenisGangguan"
@@ -272,7 +277,7 @@ const EditHistoryForm: React.FC<EditHistoryFormProps> = ({ record, masterData, o
           </div>
           <div>
             <label htmlFor="bentukTindakan" className="block text-sm font-medium text-gray-700">
-              Action Taken
+              Tindakan yang Diambil
             </label>
             <textarea
               name="bentukTindakan"
@@ -285,7 +290,7 @@ const EditHistoryForm: React.FC<EditHistoryFormProps> = ({ record, masterData, o
           </div>
           <div>
             <label htmlFor="rootCause" className="block text-sm font-medium text-gray-700">
-              Root Cause
+              Penyebab Utama
             </label>
             <textarea
               name="rootCause"
@@ -307,22 +312,20 @@ const EditHistoryForm: React.FC<EditHistoryFormProps> = ({ record, masterData, o
               onChange={handleChange}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
             >
-              <option value="">Select Type</option>
+              <option value="">Pilih Tipe</option>
               <option value="perbaikan">Perbaikan</option>
               <option value="perawatan">Perawatan</option>
-              {/* Add more options if 'perbaikanPerawatan' has other defined values */}
             </select>
           </div>
         </div>
       </div>
-
       {/* SECTION: Maintenance Details */}
-      <div className="border-t border-blue-100 pt-4">
-        <h3 className="text-lg font-semibold mb-2 text-gray-800">Maintenance Details</h3>
+      <div className="bg-gray-50 p-4 rounded-md shadow-sm">
+        <h3 className="text-lg font-semibold mb-4 text-gray-800">Detail Pemeliharaan</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label htmlFor="jenisAktivitas" className="block text-sm font-medium text-gray-700">
-              Activity Type
+              Tipe Aktivitas
             </label>
             <select
               name="jenisAktivitas"
@@ -331,7 +334,7 @@ const EditHistoryForm: React.FC<EditHistoryFormProps> = ({ record, masterData, o
               onChange={handleChange}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
             >
-              <option value="">Select Activity Type</option>
+              <option value="">Pilih Tipe Aktivitas</option>
               {masterData.jenisaktivitas.map((ja) => (
                 <option key={ja.id} value={ja.name}>
                   {ja.name}
@@ -341,10 +344,10 @@ const EditHistoryForm: React.FC<EditHistoryFormProps> = ({ record, masterData, o
           </div>
           <div>
             <label htmlFor="kegiatan" className="block text-sm font-medium text-gray-700">
-              Specific Activity
+              Aktivitas Spesifik
             </label>
             <select name="kegiatan" id="kegiatan" value={formData.kegiatan || ""} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm">
-              <option value="">Select Specific Activity</option>
+              <option value="">Pilih Aktivitas Spesifik</option>
               {masterData.kegiatans.map((k) => (
                 <option key={k.id} value={k.name}>
                   {k.name}
@@ -354,20 +357,20 @@ const EditHistoryForm: React.FC<EditHistoryFormProps> = ({ record, masterData, o
           </div>
         </div>
       </div>
-
       {/* SECTION: Spare Parts Used */}
-      <div className="border-t border-blue-100 pt-4">
-        <h3 className="text-lg font-semibold mb-2 text-gray-800">Spare Parts Used</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="bg-gray-50 p-4 rounded-md shadow-sm">
+        <h3 className="text-lg font-semibold mb-4 text-gray-800">Suku Cadang Digunakan</h3>
+        {/* Gunakan grid-cols-1 di mobile, dan grid-cols-2 atau grid-cols-3 di layar sedang/besar */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div>
             <label htmlFor="kodePart" className="block text-sm font-medium text-gray-700">
-              Part Code
+              Kode Part
             </label>
             <input type="text" name="kodePart" id="kodePart" value={formData.kodePart || ""} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" />
           </div>
           <div>
             <label htmlFor="sparePart" className="block text-sm font-medium text-gray-700">
-              Part Name
+              Nama Part
             </label>
             <input
               type="text"
@@ -386,7 +389,7 @@ const EditHistoryForm: React.FC<EditHistoryFormProps> = ({ record, masterData, o
           </div>
           <div>
             <label htmlFor="jumlah" className="block text-sm font-medium text-gray-700">
-              Quantity
+              Jumlah
             </label>
             <input
               type="number"
@@ -400,7 +403,7 @@ const EditHistoryForm: React.FC<EditHistoryFormProps> = ({ record, masterData, o
           </div>
           <div>
             <label htmlFor="unitSparePart" className="block text-sm font-medium text-gray-700">
-              Unit Spare Part
+              Unit Suku Cadang
             </label>
             <select
               name="unitSparePart"
@@ -409,7 +412,7 @@ const EditHistoryForm: React.FC<EditHistoryFormProps> = ({ record, masterData, o
               onChange={handleChange}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
             >
-              <option value="">Select Unit</option>
+              <option value="">Pilih Unit</option>
               {masterData.unitspareparts.map((usp) => (
                 <option key={usp.id} value={usp.name}>
                   {usp.name}
@@ -419,8 +422,8 @@ const EditHistoryForm: React.FC<EditHistoryFormProps> = ({ record, masterData, o
           </div>
         </div>
       </div>
-
-      <div className="flex justify-end space-x-3 pt-4 border-t border-blue-100">
+      {/* Tombol Aksi */}
+      <div className="flex justify-end space-x-3 pt-6 border-t border-blue-100">
         <motion.button
           type="button"
           onClick={onCancel}
@@ -443,4 +446,4 @@ const EditHistoryForm: React.FC<EditHistoryFormProps> = ({ record, masterData, o
   );
 };
 
-export default EditHistoryForm; 
+export default EditHistoryForm;
