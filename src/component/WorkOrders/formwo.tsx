@@ -273,22 +273,21 @@ const FormWorkOrders: React.FC = () => {
         )}
         {success && (
           <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg relative mb-4 shadow-sm" role="alert">
-            <strong className="font-bold">Berhasil!</strong> {/* Success! */}
+            <strong className="font-bold">Berhasil!</strong> 
             <span className="block sm:inline"> {success}</span>
           </div>
         )}
 
         <div className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200">
           <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-6">
-            {/* Work Order Details */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                <InfoIcon className="mr-2 text-blue-500" /> Detail Perintah Kerja {/* Work Order Details */}
+                <InfoIcon className="mr-2 text-blue-500" /> Detail Perintah Kerja 
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
-                    Judul Perintah Kerja<span className="text-red-500">*</span> {/* Work Order Title */}
+                    Judul Perintah Kerja<span className="text-red-500">*</span> 
                   </label>
                   <input
                     type="text"
@@ -297,7 +296,7 @@ const FormWorkOrders: React.FC = () => {
                     value={formData.title}
                     onChange={handleChange}
                     className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150"
-                    placeholder="Contoh: Perbaikan Sistem HVAC" // e.g., HVAC System Repair
+                    placeholder="Contoh: Perbaikan Sistem HVAC" 
                     required
                   />
                 </div>
@@ -312,14 +311,14 @@ const FormWorkOrders: React.FC = () => {
                     onChange={handleChange}
                     rows={3}
                     className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150"
-                    placeholder="Berikan deskripsi detail tentang pekerjaan yang dibutuhkan..." // Provide a detailed description of the work needed...
+                    placeholder="Berikan deskripsi detail tentang pekerjaan yang dibutuhkan..." 
                   />
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div>
                   <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">
-                    Jenis Perintah Kerja<span className="text-red-500">*</span> {/* Work Order Type */}
+                    Jenis Perintah Kerja<span className="text-red-500">*</span> 
                   </label>
                   <div className="relative">
                     <select name="type" id="type" value={formData.type} onChange={handleChange} className="w-full p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white" required>
@@ -334,7 +333,7 @@ const FormWorkOrders: React.FC = () => {
                 </div>
                 <div>
                   <label htmlFor="priority" className="block text-sm font-medium text-gray-700 mb-1">
-                    Prioritas<span className="text-red-500">*</span> {/* Priority */}
+                    Prioritas<span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <select
@@ -360,12 +359,12 @@ const FormWorkOrders: React.FC = () => {
             {/* Asset Information */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                <ToolIcon className="mr-2 text-green-500" /> Informasi Aset {/* Asset Information */}
+                <ToolIcon className="mr-2 text-green-500" /> Informasi Aset 
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="assetId" className="block text-sm font-medium text-gray-700 mb-1">
-                    ID Aset {/* Asset ID */}
+                    ID Aset 
                   </label>
                   <input
                     type="text"
@@ -374,12 +373,12 @@ const FormWorkOrders: React.FC = () => {
                     value={formData.assetId}
                     onChange={handleChange}
                     className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150"
-                    placeholder="Contoh: AST-001" // e.g., AST-001
+                    placeholder="Contoh: AST-001" 
                   />
                 </div>
                 <div>
                   <label htmlFor="assetName" className="block text-sm font-medium text-gray-700 mb-1">
-                    Nama Aset {/* Asset Name */}
+                    Nama Aset
                   </label>
                   <input
                     type="text"
@@ -388,17 +387,17 @@ const FormWorkOrders: React.FC = () => {
                     value={formData.assetName}
                     onChange={handleChange}
                     className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150"
-                    placeholder="Contoh: Kompresor #3" // e.g., Compressor #3
+                    placeholder="Contoh: Kompresor #3" 
                   />
                 </div>
               </div>
               <div className="mt-4">
                 <label htmlFor="assetType" className="block text-sm font-medium text-gray-700 mb-1">
-                  Jenis Aset {/* Asset Type */}
+                  Jenis Aset 
                 </label>
                 <div className="relative">
                   <select name="assetType" id="assetType" value={formData.assetType} onChange={handleChange} className="w-full p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white">
-                    <option value="">Pilih Jenis Aset</option> {/* Select Asset Type */}
+                    <option value="">Pilih Jenis Aset</option> 
                     {assetTypes.map((assetType) => (
                       <option key={assetType.id} value={assetType.id}>
                         {assetType.name}
@@ -413,12 +412,12 @@ const FormWorkOrders: React.FC = () => {
             {/* Assignment & Estimates */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                <UserIcon className="mr-2 text-purple-500" /> Penugasan & Estimasi {/* Assignment & Estimates */}
+                <UserIcon className="mr-2 text-purple-500" /> Penugasan & Estimasi 
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="assignedTo" className="block text-sm font-medium text-gray-700 mb-1">
-                    Ditugaskan Kepada<span className="text-red-500">*</span> {/* Assigned To */}
+                    Ditugaskan Kepada<span className="text-red-500">*</span> 
                   </label>
                   <div className="relative">
                     <select
@@ -440,24 +439,24 @@ const FormWorkOrders: React.FC = () => {
                 </div>
                 <div>
                   <label htmlFor="estimatedHours" className="block text-sm font-medium text-gray-700 mb-1">
-                    Estimasi Jam {/* Estimated Hours */}
+                    Estimasi Jam 
                   </label>
                   <input
                     type="number"
                     name="estimatedHours"
                     id="estimatedHours"
-                    value={formData.estimatedHours ?? ""} // Handle null for empty input
+                    value={formData.estimatedHours ?? ""} 
                     onChange={handleChange}
                     min="0"
                     step="0.5"
                     className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button"
-                    placeholder="Contoh: 8" // e.g., 8
+                    placeholder="Contoh: 8" 
                   />
                 </div>
               </div>
               <div className="mt-4">
                 <label htmlFor="dueDate" className="block text-sm font-medium text-gray-700 mb-1">
-                  Tanggal Jatuh Tempo<span className="text-red-500">*</span> {/* Due Date */}
+                  Tanggal Jatuh Tempo<span className="text-red-500">*</span>
                 </label>
                 <input
                   type="date"
@@ -474,24 +473,24 @@ const FormWorkOrders: React.FC = () => {
             {/* Attachments Section */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                <PaperclipIcon className="mr-2 text-orange-500" /> Lampiran {/* Attachments */}
+                <PaperclipIcon className="mr-2 text-orange-500" /> Lampiran
               </h2>
               <div>
                 <label htmlFor="attachments" className="block text-sm font-medium text-gray-700 mb-1">
-                  Unggah File (Gambar, PDF, Excel) {/* Upload Files (Images, PDF, Excel) */}
+                  Unggah File (Gambar, PDF, Excel)
                 </label>
                 <input
                   type="file"
                   name="attachments"
                   id="attachments"
-                  multiple // Allow multiple files
+                  multiple 
                   accept="image/*, application/pdf, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, .csv" // MIME types for images, PDF, XLSX, CSV
                   onChange={handleChange}
                   className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
                 />
                 {formData.attachments.length > 0 && (
                   <div className="mt-2 text-sm text-gray-600">
-                    <p>File terpilih:</p> {/* Selected files: */}
+                    <p>File terpilih:</p> 
                     <ul className="list-disc list-inside ml-4">
                       {formData.attachments.map((file, index) => (
                         <li key={index}>
@@ -511,7 +510,7 @@ const FormWorkOrders: React.FC = () => {
                 onClick={handleClear}
                 className="px-6 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
               >
-                <Trash2Icon className="inline mr-2" /> Hapus Formulir {/* Clear Form */}
+                <Trash2Icon className="inline mr-2" /> Hapus Formulir 
               </button>
               <button
                 type="submit"
@@ -520,11 +519,11 @@ const FormWorkOrders: React.FC = () => {
               >
                 {loading ? (
                   <>
-                    <span className="animate-spin inline-block mr-2">⚙️</span> Membuat... {/* Creating... */}
+                    <span className="animate-spin inline-block mr-2">⚙️</span> Membuat... 
                   </>
                 ) : (
                   <>
-                    <SaveIcon className="inline mr-2" /> Buat Perintah Kerja {/* Create Work Order */}
+                    <SaveIcon className="inline mr-2" /> Buat Perintah Kerja 
                   </>
                 )}
               </button>
