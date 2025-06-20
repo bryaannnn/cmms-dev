@@ -101,15 +101,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, classNa
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-30 backdrop-blur-sm flex justify-center items-center z-50 p-4">
-      <div className={`bg-white rounded-lg shadow-xl overflow-hidden max-h-[90vh] overflow-y-auto transform transition-all sm:w-full ${className || "max-w-lg"}`}>
-        <div className="px-6 py-4 border-b">
-          <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
-        </div>
-        <div className={`bg-white rounded-2xl shadow-xl overflow-hidden max-w-full mx-4 ${className || "max-w-4xl"}`}>{children}</div>
-        <div className="px-6 py-4 border-t flex justify-end">
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 focus:outline-none" aria-label="Tutup modal"></button>
-        </div>
-      </div>
+      <div className={`bg-white rounded-2xl shadow-xl overflow-hidden max-w-full mx-4 ${className || "max-w-4xl"}`}>{children}</div>
     </div>
   );
 };
