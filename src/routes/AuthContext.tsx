@@ -83,36 +83,47 @@ export interface MachineHistoryFormData {
   stopMenit?: number | null;
   startJam?: number | null;
   startMenit?: number | null;
-  stopTime: string;
+  stopTime: string; // This will be the ID on submission, name for display
   unit: string;
   mesin: string;
   runningHour: number;
-  itemTrouble: string;
+  itemTrouble: string; // This will be the ID on submission, name for display
   jenisGangguan: string;
   bentukTindakan: string;
   perbaikanPerawatan: string;
   rootCause: string;
-  jenisAktivitas: string;
-  kegiatan: string;
+  jenisAktivitas: string; // This will be the ID on submission, name for display
+  kegiatan: string; // This will be the ID on submission, name for display
   kodePart: string;
   sparePart: string;
   idPart: string;
   jumlah: number;
-  unitSparePart: string;
+  unitSparePart: string; // This will be the ID on submission, name for display
 }
 
 export interface MachineHistoryRecord extends MachineHistoryFormData {
   id: string;
   startstop?: Startstop | null;
+  // Note: For display, `shift`, `group`, `unit`, `mesin`, `itemTrouble`, `jenisAktivitas`, `kegiatan`, `unitSparePart`
+  // will hold names, even though `_id` versions exist in raw API data.
+  // The mapApiToMachineHistoryRecord handles this.
 }
 
+/**
+ * Maps raw API data for a machine history record to the MachineHistoryRecord interface.
+ * It enriches ID-based fields with their corresponding names from master data where necessary.
+ * @param apiData The raw data received from the API.
+ * @param masterData All loaded master data (can be null during initial loading).
+ * @returns A formatted MachineHistoryRecord.
+ */
 function mapApiToMachineHistoryRecord(apiData: any, masterData: AllMasterData | null): MachineHistoryRecord {
-  const stopTimeName = masterData?.stoptimes?.find((st) => String(st.id) === String(apiData.stoptime_id))?.name || "-";
+  // Directly use nested object names if available, otherwise try to map from masterData by ID.
+  // Fallback to "-" if no name can be found.
 
+  const stopTimeName = apiData.stoptime?.name || masterData?.stoptimes?.find((st) => String(st.id) === String(apiData.stoptime_id))?.name || "-";
   const itemTroubleName = apiData.itemtrouble?.name || masterData?.itemtroubles?.find((it) => String(it.id) === String(apiData.itemtrouble_id))?.name || "-";
-
   const jenisAktivitasName = apiData.jenisaktifitas?.name || masterData?.jenisaktivitas?.find((ja) => String(ja.id) === String(apiData.jenisaktifitas_id))?.name || "-";
-
+  const kegiatanName = apiData.kegiatan?.name || masterData?.kegiatans?.find((keg) => String(keg.id) === String(apiData.kegiatan_id))?.name || "-";
   const unitSparePartName = apiData.unitsp?.name || masterData?.unitspareparts?.find((usp) => String(usp.id) === String(apiData.unitsp_id))?.name || "-";
 
   return {
@@ -126,15 +137,15 @@ function mapApiToMachineHistoryRecord(apiData: any, masterData: AllMasterData | 
     stopMenit: apiData.startstop?.stop_time_mm ?? null,
     startJam: apiData.startstop?.start_time_hh ?? null,
     startMenit: apiData.startstop?.start_time_mm ?? null,
-    stopTime: stopTimeName,
+    stopTime: stopTimeName, // This specifically relies on masterData if no nested object
     runningHour: apiData.running_hour ?? 0,
     itemTrouble: itemTroubleName,
     jenisGangguan: apiData.jenis_gangguan || "",
     bentukTindakan: apiData.bentuk_tindakan || "",
-    perbaikanPerawatan: "",
+    perbaikanPerawatan: "", // Assuming this is not from API, or always empty
     rootCause: apiData.root_cause || "",
     jenisAktivitas: jenisAktivitasName,
-    kegiatan: apiData.kegiatan?.name || "-",
+    kegiatan: kegiatanName,
     kodePart: apiData.kode_part || "",
     sparePart: apiData.spare_part || "",
     idPart: apiData.id_part || "",
@@ -160,6 +171,7 @@ interface AuthContextType {
   updateMachineHistory: (id: string, data: Partial<MachineHistoryFormData>) => Promise<any>;
   deleteMachineHistory: (id: string) => Promise<any>;
   masterData: AllMasterData | null;
+  isMasterDataLoading: boolean; // <-- NEW: Master data loading state
 }
 
 const projectEnvVariables = getProjectEnvVariables();
@@ -170,6 +182,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [token, setToken] = useState<string | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [masterData, setMasterData] = useState<AllMasterData | null>(null);
+  const [isMasterDataLoading, setIsMasterDataLoading] = useState(true); // <-- NEW: Master data loading state
   const navigate = useNavigate();
 
   const isAuthenticated = !!token;
@@ -189,6 +202,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(null);
         setToken(null);
       }
+    } else {
+      // If no token, then master data doesn't need to load immediately for an unauthenticated user
+      setIsMasterDataLoading(false);
     }
   }, []);
 
@@ -234,7 +250,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     [token, navigate, user]
   );
 
-  // --- getAllMasterData dipindahkan ke sini agar dideklarasikan sebelum digunakan ---
+  // --- getAllMasterData: Fetches all necessary master data ---
   const getAllMasterData = useCallback(async (): Promise<AllMasterData> => {
     try {
       const [mesins, groups, shifts, units, unitspareparts, itemtroubles, jenisaktivitas, kegiatans, stoptimes] = await Promise.all([
@@ -265,21 +281,33 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       throw error;
     }
   }, [fetchWithAuth]);
-  // --- Akhir pemindahan ---
 
+  // --- Effect to load master data on authentication ---
   useEffect(() => {
     const loadMasterData = async () => {
+      // Only load if authenticated AND masterData is not yet loaded
       if (isAuthenticated && !masterData) {
+        setIsMasterDataLoading(true); // Set loading to true
         try {
-          const data = await getAllMasterData(); // Sekarang getAllMasterData sudah dideklarasikan
+          const data = await getAllMasterData();
           setMasterData(data);
         } catch (error) {
           console.error("Gagal memuat data master:", error);
+          // Optionally handle master data loading errors, e.g., show a message
+        } finally {
+          setIsMasterDataLoading(false); // Set loading to false regardless of success/failure
         }
+      } else if (!isAuthenticated && masterData) {
+        // If user logs out, clear master data and reset loading state
+        setMasterData(null);
+        setIsMasterDataLoading(false);
+      } else if (!isAuthenticated && !masterData) {
+        // If already not authenticated and no master data, ensure loading is false
+        setIsMasterDataLoading(false);
       }
     };
     loadMasterData();
-  }, [isAuthenticated, masterData, getAllMasterData]);
+  }, [isAuthenticated, masterData, getAllMasterData]); // Dependencies for this effect
 
   const register = async (name: string, email: string, password: string) => {
     try {
@@ -371,6 +399,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       localStorage.removeItem("user");
       setToken(null);
       setUser(null);
+      setMasterData(null); // Clear master data on logout
+      setIsMasterDataLoading(false); // Reset master data loading
       setIsLoggingOut(false);
       navigate("/login");
     }
@@ -400,8 +430,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const response = await fetchWithAuth("/mhs");
 
       if (response && response.data && Array.isArray(response.data)) {
+        // Warning only if masterData is truly null, and it's needed (e.g., for stoptime_id)
         if (!masterData) {
-          console.warn("Master data belum dimuat. Beberapa field mungkin menampilkan '-'.");
+          console.warn("Master data belum dimuat saat mengambil daftar history. Beberapa field mungkin menampilkan '-'.");
         }
         return response.data.map((apiDataItem: any) => mapApiToMachineHistoryRecord(apiDataItem, masterData));
       }
@@ -412,14 +443,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       console.error("Gagal mengambil daftar history mesin:", error);
       return [];
     }
-  }, [fetchWithAuth, masterData]);
+  }, [fetchWithAuth, masterData]); // Ensure masterData is a dependency
 
   const getMachineHistoryById = useCallback(
     async (id: string): Promise<MachineHistoryRecord | null> => {
       try {
         const data = await fetchWithAuth(`/mhs/${id}`);
         if (!masterData) {
-          console.warn("Master data belum dimuat saat mengambil history by ID.");
+          console.warn("Master data belum dimuat saat mengambil history by ID. Beberapa field mungkin menampilkan '-'.");
         }
         return mapApiToMachineHistoryRecord(data, masterData);
       } catch (error) {
@@ -427,7 +458,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         throw error;
       }
     },
-    [fetchWithAuth, masterData]
+    [fetchWithAuth, masterData] // Ensure masterData is a dependency
   );
 
   const updateMachineHistory = useCallback(
@@ -479,6 +510,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         updateMachineHistory,
         deleteMachineHistory,
         masterData,
+        isMasterDataLoading, // <-- Expose the loading state
       }}
     >
       {children}

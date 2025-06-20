@@ -134,12 +134,13 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
       return "-";
     }
 
-    const stopTime = stopHH * 60 + stopMM;
-    const startTime = startHH * 60 + startMM;
+    const stopTimeInMinutes = stopHH * 60 + stopMM;
+    const startTimeInMinutes = startHH * 60 + startMM;
 
-    let downtime = startTime - stopTime;
+    let downtime = startTimeInMinutes - stopTimeInMinutes;
     if (downtime < 0) {
-      downtime = 24 * 60 - stopTime + startTime;
+      // Handles cases where start time is on the next day (e.g., stop 23:00, start 01:00)
+      downtime = 24 * 60 - stopTimeInMinutes + startTimeInMinutes;
     }
 
     return `${downtime} minutes`;
@@ -291,7 +292,7 @@ const MachineHistoryDashboard: React.FC = () => {
   const [selectedRecord, setSelectedRecord] = useState<MachineHistoryRecord | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [recordsPerPage] = useState(10);
-  const { user, fetchWithAuth, getMachineHistories, updateMachineHistory, deleteMachineHistory } = useAuth();
+  const { user, fetchWithAuth, getMachineHistories, updateMachineHistory, deleteMachineHistory, isAuthenticated, isMasterDataLoading } = useAuth();
   const [records, setRecords] = useState<MachineHistoryRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -351,57 +352,52 @@ const MachineHistoryDashboard: React.FC = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      try {
+      // Only fetch if authenticated AND master data has finished loading
+      if (isAuthenticated && !isMasterDataLoading) {
         setLoading(true);
-        const response = await getMachineHistories();
+        setError(null); // Clear any previous errors
+        try {
+          const fetchedRecords = await getMachineHistories(); 
 
-        const data = (response || []).map((record: any) => ({
-          ...record,
-          mesin: record.mesin?.name || record.mesin,
-          shift: record.shift?.name || record.shift,
-          group: record.group?.name || record.group,
-          itemTrouble: record.itemtrouble?.name || record.itemtrouble,
-          unit: record.unit?.name || record.unit,
-          unitSparePart: record.unitsp?.name || record.unitsp,
-          jenisAktivitas: record.jenisaktifitas?.name || record.jenisaktifitas,
-          kegiatan: record.kegiatan?.name || record.kegiatan,
-          stopTime: record.startstop?.event_name || record.stopTime,
-        }));
-
-        if (!Array.isArray(data)) {
-          throw new Error("Invalid data format: expected array");
-        }
-
-        setRecords(data);
-
-        const uniqueMachines = Array.from(new Set(data.map((r) => getDisplayValue(r.mesin))))
-          .filter(Boolean)
-          .map((name) => ({ id: name, name }));
-
-        setMachines(uniqueMachines);
-        setError(null);
-      } catch (err) {
-        console.error("Failed to fetch machine histories:", err);
-        let errorMessage = "Failed to load machine history data. Please try again.";
-
-        if (err instanceof Error) {
-          if (err.message.includes("401")) {
-            errorMessage = "Session expired. Please login again.";
-          } else if (err.message.includes("Invalid data format")) {
-            errorMessage = "Server returned invalid data format. Please contact support.";
+          if (!Array.isArray(fetchedRecords)) {
+            throw new Error("Invalid data format: expected array from getMachineHistories");
           }
-        }
 
-        setError(errorMessage);
+          setRecords(fetchedRecords);
+
+          const uniqueMachines = Array.from(new Set(fetchedRecords.map((r) => r.mesin)))
+            .filter(Boolean)
+            .map((name) => ({ id: name, name })); 
+
+          setMachines(uniqueMachines);
+          setError(null);
+        } catch (err) {
+          console.error("Failed to fetch machine histories:", err);
+          let errorMessage = "Gagal memuat data riwayat mesin. Silakan coba lagi.";
+
+          if (err instanceof Error) {
+            if (err.message.includes("Sesi berakhir")) {
+              errorMessage = "Sesi berakhir. Silakan login kembali.";
+            } else if (err.message.includes("Invalid data format")) {
+              errorMessage = "Server mengembalikan format data tidak valid. Silakan hubungi dukungan.";
+            }
+          }
+          setError(errorMessage);
+          setRecords([]);
+          setMachines([]);
+        } finally {
+          setLoading(false);
+        }
+      } else if (!isAuthenticated) {
+        setLoading(false);
         setRecords([]);
         setMachines([]);
-      } finally {
-        setLoading(false);
+        setError("Anda harus login untuk melihat riwayat mesin.");
       }
     };
 
     fetchData();
-  }, [getMachineHistories]);
+  }, [getMachineHistories, isAuthenticated, isMasterDataLoading]);
 
   const handleNotifications = () => {
     alert("Showing notifications...");
