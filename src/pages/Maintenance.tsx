@@ -92,23 +92,30 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
+  className?: string;
 }
 
-const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
+const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, className }) => {
   if (!isOpen) return null;
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-      <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="bg-white rounded-xl shadow-2xl w-full max-w-4xl mx-auto p-6">
-        <div className="flex justify-between items-center border-b pb-3 mb-4 border-blue-100">
-          <h3 className="text-2xl font-bold text-gray-900">{title}</h3>
-          <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">
-            <FiX />
-          </motion.button>
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center z-50 p-4">
+      {/* Wrapper untuk mengatur lebar modal */}
+      <div className={`bg-white rounded-lg shadow-xl overflow-hidden max-h-[90vh] overflow-y-auto transform transition-all sm:w-full ${className || "max-w-xl"}`}>
+        {" "}
+        {/* <<< Terapkan className di sini */}
+        <div className="px-6 py-4 border-b">
+          <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
         </div>
-        <div>{children}</div>
-      </motion.div>
-    </motion.div>
+        <div className="p-6">{children}</div>
+        <div className="px-6 py-4 border-t flex justify-end">
+          {/* Tombol close jika diperlukan di modal, atau biarkan children yang menanganinya */}
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 focus:outline-none" aria-label="Close modal">
+            {/* Opsional: ikon close */}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 };
 
@@ -897,7 +904,12 @@ const MachineHistoryDashboard: React.FC = () => {
       )}
 
       {/* Edit Record Modal */}
-      <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title="Edit Riwayat Mesin">
+      <Modal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        title="Edit Riwayat Mesin"
+        className="max-w-4xl lg:max-w-6xl w-full" // <<< Tambahkan ini
+      >
         {editingRecord && masterData ? <EditHistoryForm record={editingRecord} masterData={masterData} onSave={handleEditSubmit} onCancel={() => setShowEditModal(false)} /> : <p className="text-center py-4">Memuat data master...</p>}
       </Modal>
 
