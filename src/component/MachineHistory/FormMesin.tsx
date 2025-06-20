@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { FiSave, FiTrash2, FiX, FiClock, FiCheck, FiTool, FiChevronDown } from "react-icons/fi";
+import { FiSave, FiTrash2, FiX, FiClock, FiCheck, FiTool } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
+import Select from "react-select"; 
 import { useAuth, MachineHistoryFormData, Mesin, Shift, Group, StopTime, Unit, ItemTrouble, JenisAktivitas, Kegiatan, UnitSparePart, AllMasterData } from "../../routes/AuthContext";
 import { motion } from "framer-motion";
 
@@ -47,39 +48,48 @@ const FormMesin: React.FC = () => {
     unitSparePart: "",
   });
 
-  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-
-    setFormData((prev) => {
-      if (["stopJam", "startJam"].includes(name)) {
-        const cleanedValue = value.replace(/[^\d]/g, "");
-        return {
-          ...prev,
-          [name]: cleanedValue === "" ? null : parseInt(cleanedValue, 10),
-        };
-      }
-
-      if (["stopMenit", "startMenit"].includes(name)) {
-        const cleanedValue = value.replace(/[^\d]/g, "");
-        const numValue = parseInt(cleanedValue, 10);
-        return {
-          ...prev,
-          [name]: cleanedValue === "" ? null : Math.max(0, Math.min(59, isNaN(numValue) ? 0 : numValue)),
-        };
-      }
-
-      if (name === "runningHour" || name === "jumlah") {
-        return {
-          ...prev,
-          [name]: value.replace(/[^\d.]/g, ""),
-        };
-      }
-
-      return {
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | { value: string; label: string } | null, name?: string) => {
+    if (e && typeof e === "object" && "value" in e && name) {
+      // For react-select
+      setFormData((prev) => ({
         ...prev,
-        [name]: value,
-      };
-    });
+        [name]: e.value,
+      }));
+    } else if (e && "target" in e) {
+      // For native input/textarea
+      const { name, value } = e.target;
+
+      setFormData((prev) => {
+        if (["stopJam", "startJam"].includes(name)) {
+          const cleanedValue = value.replace(/[^\d]/g, "");
+          return {
+            ...prev,
+            [name]: cleanedValue === "" ? null : parseInt(cleanedValue, 10),
+          };
+        }
+
+        if (["stopMenit", "startMenit"].includes(name)) {
+          const cleanedValue = value.replace(/[^\d]/g, "");
+          const numValue = parseInt(cleanedValue, 10);
+          return {
+            ...prev,
+            [name]: cleanedValue === "" ? null : Math.max(0, Math.min(59, isNaN(numValue) ? 0 : numValue)),
+          };
+        }
+
+        if (name === "runningHour" || name === "jumlah") {
+          return {
+            ...prev,
+            [name]: value.replace(/[^\d.]/g, ""),
+          };
+        }
+
+        return {
+          ...prev,
+          [name]: value,
+        };
+      });
+    }
   }, []);
 
   const formatNumberWithDot = useCallback((num: number | string): string => {
@@ -175,6 +185,62 @@ const FormMesin: React.FC = () => {
     fetchAllMasterData();
   }, [getAllMasterData]);
 
+  // Define custom styles for react-select to match Tailwind input styles
+  const customSelectStyles = {
+    control: (provided: any, state: any) => ({
+      ...provided,
+      minHeight: "42px", // Matches input height
+      borderColor: state.isFocused ? "#3B82F6" : "#D1D5DB", // Focus ring color for blue
+      boxShadow: state.isFocused ? "0 0 0 1px #3B82F6" : "none", // Focus ring shadow
+      "&:hover": {
+        borderColor: "#9CA3AF", // Slightly darker border on hover
+      },
+      borderRadius: "0.5rem", // rounded-lg
+      backgroundColor: "#FFFFFF", // bg-white
+      padding: "0 0.5rem", // Padding inside the control
+      transition: "all 0.15s ease-in-out", // transition duration-150
+    }),
+    valueContainer: (provided: any) => ({
+      ...provided,
+      padding: "0", // Remove default padding
+    }),
+    singleValue: (provided: any) => ({
+      ...provided,
+      color: "#374151", // text-gray-700
+    }),
+    placeholder: (provided: any) => ({
+      ...provided,
+      color: "#6B7280", // text-gray-500
+    }),
+    dropdownIndicator: (provided: any) => ({
+      ...provided,
+      color: "#9CA3AF", // text-gray-400
+      "&:hover": {
+        color: "#6B7280", // Darker on hover
+      },
+    }),
+    indicatorSeparator: (provided: any) => ({
+      ...provided,
+      display: "none", // Remove the vertical line
+    }),
+    menu: (provided: any) => ({
+      ...provided,
+      zIndex: 9999, // Ensure dropdown is above other elements
+      borderRadius: "0.5rem", // rounded-lg
+      border: "1px solid #E5E7EB", // border-gray-200
+      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)", // shadow-md
+    }),
+    option: (provided: any, state: any) => ({
+      ...provided,
+      backgroundColor: state.isFocused ? "#EFF6FF" : "#FFFFFF", // bg-blue-50 on focus
+      color: "#1F2937", // text-gray-900
+      "&:active": {
+        backgroundColor: "#DBEAFE", // bg-blue-100 on active
+      },
+      padding: "0.625rem 1rem", // py-2.5 px-4
+    }),
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
       <div className="max-w-6xl mx-auto">
@@ -233,7 +299,7 @@ const FormMesin: React.FC = () => {
                     id="date"
                     value={formData.date}
                     onChange={handleChange}
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150"
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
                     required
                   />
                 </div>
@@ -241,33 +307,31 @@ const FormMesin: React.FC = () => {
                   <label htmlFor="shift" className="block text-sm font-medium text-gray-700 mb-1">
                     Shift
                   </label>
-                  <div className="relative">
-                    <select name="shift" id="shift" value={formData.shift} onChange={handleChange} className="w-full p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white" required>
-                      <option value="">Select Shift</option>
-                      {shiftList.map((shift) => (
-                        <option key={shift.id} value={shift.id}>
-                          {shift.name}
-                        </option>
-                      ))}
-                    </select>
-                    <FiChevronDown className="absolute right-3 top-3.5 text-gray-400" />
-                  </div>
+                  <Select
+                    name="shift"
+                    id="shift"
+                    options={shiftList.map((shift) => ({ value: shift.id, label: shift.name }))}
+                    value={shiftList.map((shift) => ({ value: shift.id, label: shift.name })).find((option) => option.value === formData.shift)}
+                    onChange={(selectedOption) => handleChange(selectedOption, "shift")}
+                    placeholder="Select Shift"
+                    styles={customSelectStyles}
+                    required
+                  />
                 </div>
                 <div>
                   <label htmlFor="group" className="block text-sm font-medium text-gray-700 mb-1">
                     Group
                   </label>
-                  <div className="relative">
-                    <select name="group" id="group" value={formData.group} onChange={handleChange} className="w-full p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white" required>
-                      <option value="">Select Group</option>
-                      {groupList.map((group) => (
-                        <option key={group.id} value={group.id}>
-                          {group.name}
-                        </option>
-                      ))}
-                    </select>
-                    <FiChevronDown className="absolute right-3 top-3.5 text-gray-400" />
-                  </div>
+                  <Select
+                    name="group"
+                    id="group"
+                    options={groupList.map((group) => ({ value: group.id, label: group.name }))}
+                    value={groupList.map((group) => ({ value: group.id, label: group.name })).find((option) => option.value === formData.group)}
+                    onChange={(selectedOption) => handleChange(selectedOption, "group")}
+                    placeholder="Select Group"
+                    styles={customSelectStyles}
+                    required
+                  />
                 </div>
               </div>
             </div>
@@ -289,7 +353,7 @@ const FormMesin: React.FC = () => {
                     value={formData.stopJam === null ? "" : String(formData.stopJam)}
                     onChange={handleChange}
                     placeholder="e.g., 09 (leave empty if not applicable)"
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button"
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
                     required
                   />
                 </div>
@@ -304,7 +368,7 @@ const FormMesin: React.FC = () => {
                     value={String(formData.stopMenit)}
                     onChange={handleChange}
                     placeholder="e.g., 30"
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button"
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
                     required
                   />
                 </div>
@@ -313,24 +377,16 @@ const FormMesin: React.FC = () => {
                 <label htmlFor="stopTime" className="block text-sm font-medium text-gray-700 mb-1">
                   Stop Type
                 </label>
-                <div className="relative">
-                  <select
-                    name="stopTime"
-                    id="stopTime"
-                    value={formData.stopTime}
-                    onChange={handleChange}
-                    className="w-full p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white"
-                    required
-                  >
-                    <option value="">Select Stop Type</option>
-                    {stopTimeList.map((stopTime) => (
-                      <option key={stopTime.id} value={stopTime.id}>
-                        {stopTime.name}
-                      </option>
-                    ))}
-                  </select>
-                  <FiChevronDown className="absolute right-3 top-3.5 text-gray-400" />
-                </div>
+                <Select
+                  name="stopTime"
+                  id="stopTime"
+                  options={stopTimeList.map((stopTime) => ({ value: stopTime.id, label: stopTime.name }))}
+                  value={stopTimeList.map((stopTime) => ({ value: stopTime.id, label: stopTime.name })).find((option) => option.value === formData.stopTime)}
+                  onChange={(selectedOption) => handleChange(selectedOption, "stopTime")}
+                  placeholder="Select Stop Type"
+                  styles={customSelectStyles}
+                  required
+                />
               </div>
             </div>
 
@@ -351,7 +407,7 @@ const FormMesin: React.FC = () => {
                     value={formData.startJam === null ? "" : String(formData.startJam)}
                     onChange={handleChange}
                     placeholder="e.g., 09 (leave empty if not applicable)"
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button"
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
                     required
                   />
                 </div>
@@ -366,7 +422,7 @@ const FormMesin: React.FC = () => {
                     value={String(formData.startMenit)}
                     onChange={handleChange}
                     placeholder="e.g., 15"
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button"
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
                     required
                   />
                 </div>
@@ -383,35 +439,31 @@ const FormMesin: React.FC = () => {
                   <label htmlFor="unit" className="block text-sm font-medium text-gray-700 mb-1">
                     Unit
                   </label>
-                  <div className="relative">
-                    <select name="unit" id="unit" value={formData.unit} onChange={handleChange} className="w-full p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white" required>
-                      <option value="">Select Unit</option>
-                      {unitList.map((unit) => (
-                        <option key={unit.id} value={unit.id}>
-                          {unit.name}
-                        </option>
-                      ))}
-                    </select>
-                    <FiChevronDown className="absolute right-3 top-3.5 text-gray-400" />
-                  </div>
+                  <Select
+                    name="unit"
+                    id="unit"
+                    options={unitList.map((unit) => ({ value: unit.id, label: unit.name }))}
+                    value={unitList.map((unit) => ({ value: unit.id, label: unit.name })).find((option) => option.value === formData.unit)}
+                    onChange={(selectedOption) => handleChange(selectedOption, "unit")}
+                    placeholder="Select Unit"
+                    styles={customSelectStyles}
+                    required
+                  />
                 </div>
                 <div>
                   <label htmlFor="mesin" className="block text-sm font-medium text-gray-700 mb-1">
                     Machine
                   </label>
-                  <div className="relative">
-                    <select name="mesin" id="mesin" value={formData.mesin} onChange={handleChange} className="w-full p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white" required>
-                      <option key="default-machine" value="">
-                        Select Machine
-                      </option>
-                      {mesinList.map((mesinItem: Mesin) => (
-                        <option key={mesinItem.id} value={mesinItem.id}>
-                          {mesinItem.name}
-                        </option>
-                      ))}
-                    </select>
-                    <FiChevronDown className="absolute right-3 top-3.5 text-gray-400" />
-                  </div>
+                  <Select
+                    name="mesin"
+                    id="mesin"
+                    options={mesinList.map((mesinItem) => ({ value: mesinItem.id, label: mesinItem.name }))}
+                    value={mesinList.map((mesinItem) => ({ value: mesinItem.id, label: mesinItem.name })).find((option) => option.value === formData.mesin)}
+                    onChange={(selectedOption) => handleChange(selectedOption, "mesin")}
+                    placeholder="Select Machine"
+                    styles={customSelectStyles}
+                    required
+                  />
                 </div>
               </div>
               <div className="mt-4">
@@ -425,7 +477,7 @@ const FormMesin: React.FC = () => {
                   value={formatNumberWithDot(formData.runningHour)}
                   onChange={handleChange}
                   placeholder="e.g., 15.000"
-                  className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
                   required
                 />
               </div>
@@ -440,24 +492,16 @@ const FormMesin: React.FC = () => {
                 <label htmlFor="itemTrouble" className="block text-sm font-medium text-gray-700 mb-1">
                   Item Trouble
                 </label>
-                <div className="relative">
-                  <select
-                    name="itemTrouble"
-                    id="itemTrouble"
-                    value={formData.itemTrouble}
-                    onChange={handleChange}
-                    className="w-full p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white"
-                    required
-                  >
-                    <option value="">Select Item Trouble</option>
-                    {itemTroubleList.map((itemTrouble) => (
-                      <option key={itemTrouble.id} value={itemTrouble.id}>
-                        {itemTrouble.name}
-                      </option>
-                    ))}
-                  </select>
-                  <FiChevronDown className="absolute right-3 top-3.5 text-gray-400" />
-                </div>
+                <Select
+                  name="itemTrouble"
+                  id="itemTrouble"
+                  options={itemTroubleList.map((itemTrouble) => ({ value: itemTrouble.id, label: itemTrouble.name }))}
+                  value={itemTroubleList.map((itemTrouble) => ({ value: itemTrouble.id, label: itemTrouble.name })).find((option) => option.value === formData.itemTrouble)}
+                  onChange={(selectedOption) => handleChange(selectedOption, "itemTrouble")}
+                  placeholder="Select Item Trouble"
+                  styles={customSelectStyles}
+                  required
+                />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -472,7 +516,7 @@ const FormMesin: React.FC = () => {
                     onChange={handleChange}
                     rows={3}
                     placeholder="Describe the issue..."
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
                     required
                   />
                 </div>
@@ -487,7 +531,7 @@ const FormMesin: React.FC = () => {
                     onChange={handleChange}
                     rows={3}
                     placeholder="Describe the action taken..."
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
                     required
                   />
                 </div>
@@ -504,7 +548,7 @@ const FormMesin: React.FC = () => {
                   onChange={handleChange}
                   rows={3}
                   placeholder="Identify the root cause..."
-                  className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
                   required
                 />
               </div>
@@ -520,47 +564,31 @@ const FormMesin: React.FC = () => {
                   <label htmlFor="jenisAktivitas" className="block text-sm font-medium text-gray-700 mb-1">
                     Activity Type
                   </label>
-                  <div className="relative">
-                    <select
-                      name="jenisAktivitas"
-                      id="jenisAktivitas"
-                      value={formData.jenisAktivitas}
-                      onChange={handleChange}
-                      className="w-full p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white"
-                      required
-                    >
-                      <option value="">Select Activity Type</option>
-                      {jenisAktivitasList.map((aktivitas) => (
-                        <option key={aktivitas.id} value={aktivitas.id}>
-                          {aktivitas.name}
-                        </option>
-                      ))}
-                    </select>
-                    <FiChevronDown className="absolute right-3 top-3.5 text-gray-400" />
-                  </div>
+                  <Select
+                    name="jenisAktivitas"
+                    id="jenisAktivitas"
+                    options={jenisAktivitasList.map((aktivitas) => ({ value: aktivitas.id, label: aktivitas.name }))}
+                    value={jenisAktivitasList.map((aktivitas) => ({ value: aktivitas.id, label: aktivitas.name })).find((option) => option.value === formData.jenisAktivitas)}
+                    onChange={(selectedOption) => handleChange(selectedOption, "jenisAktivitas")}
+                    placeholder="Select Activity Type"
+                    styles={customSelectStyles}
+                    required
+                  />
                 </div>
                 <div>
                   <label htmlFor="kegiatan" className="block text-sm font-medium text-gray-700 mb-1">
                     Specific Activity
                   </label>
-                  <div className="relative">
-                    <select
-                      name="kegiatan"
-                      id="kegiatan"
-                      value={formData.kegiatan}
-                      onChange={handleChange}
-                      className="w-full p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white"
-                      required
-                    >
-                      <option value="">Select Activity</option>
-                      {kegiatanList.map((kegiatan) => (
-                        <option key={kegiatan.id} value={kegiatan.id}>
-                          {kegiatan.name}
-                        </option>
-                      ))}
-                    </select>
-                    <FiChevronDown className="absolute right-3 top-3.5 text-gray-400" />
-                  </div>
+                  <Select
+                    name="kegiatan"
+                    id="kegiatan"
+                    options={kegiatanList.map((kegiatan) => ({ value: kegiatan.id, label: kegiatan.name }))}
+                    value={kegiatanList.map((kegiatan) => ({ value: kegiatan.id, label: kegiatan.name })).find((option) => option.value === formData.kegiatan)}
+                    onChange={(selectedOption) => handleChange(selectedOption, "kegiatan")}
+                    placeholder="Select Activity"
+                    styles={customSelectStyles}
+                    required
+                  />
                 </div>
               </div>
             </div>
@@ -582,7 +610,7 @@ const FormMesin: React.FC = () => {
                     value={formData.kodePart}
                     onChange={handleChange}
                     placeholder="e.g., KODE123"
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
                     required
                   />
                 </div>
@@ -597,7 +625,7 @@ const FormMesin: React.FC = () => {
                     value={formData.sparePart}
                     onChange={handleChange}
                     placeholder="e.g., Bearing XYZ"
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
                     required
                   />
                 </div>
@@ -612,7 +640,7 @@ const FormMesin: React.FC = () => {
                     value={formData.idPart}
                     onChange={handleChange}
                     placeholder="e.g., ID456"
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
                     required
                   />
                 </div>
@@ -627,7 +655,7 @@ const FormMesin: React.FC = () => {
                     value={formatNumberWithDot(formData.jumlah)}
                     onChange={handleChange}
                     placeholder="e.g., 5"
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 no-spin-button"
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 no-spin-button bg-white text-gray-700"
                     required
                   />
                 </div>
@@ -636,23 +664,16 @@ const FormMesin: React.FC = () => {
                 <label htmlFor="unitSparePart" className="block text-sm font-medium text-gray-700 mb-1">
                   Unit
                 </label>
-                <div className="relative">
-                  <select
-                    name="unitSparePart"
-                    id="unitSparePart"
-                    value={formData.unitSparePart}
-                    onChange={handleChange}
-                    className="w-full p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white"
-                  >
-                    <option value="">Select Unit</option>
-                    {unitSparePartList.map((unitSP) => (
-                      <option key={unitSP.id} value={unitSP.id}>
-                        {unitSP.name}
-                      </option>
-                    ))}
-                  </select>
-                  <FiChevronDown className="absolute right-3 top-3.5 text-gray-400" />
-                </div>
+                <Select
+                  name="unitSparePart"
+                  id="unitSparePart"
+                  options={unitSparePartList.map((unitSP) => ({ value: unitSP.id, label: unitSP.name }))}
+                  value={unitSparePartList.map((unitSP) => ({ value: unitSP.id, label: unitSP.name })).find((option) => option.value === formData.unitSparePart)}
+                  onChange={(selectedOption) => handleChange(selectedOption, "unitSparePart")}
+                  placeholder="Select Unit"
+                  styles={customSelectStyles}
+                  required
+                />
               </div>
             </div>
 

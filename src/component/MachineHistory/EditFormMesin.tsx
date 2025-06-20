@@ -88,6 +88,11 @@ const EditHistoryForm: React.FC<EditHistoryFormProps> = ({ record, masterData, o
     onSave(formData);
   };
 
+  // Define a common className for all input and select fields
+  const inputClassName = "mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border bg-white";
+  const selectClassName = "mt-1 block w-full rounded-md shadow-sm sm:text-sm";
+  const selectPrefixClassName = "react-select"; // For react-select
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6 p-4 bg-white rounded-xl shadow-md">
       {/* SECTION: Basic Information */}
@@ -98,41 +103,41 @@ const EditHistoryForm: React.FC<EditHistoryFormProps> = ({ record, masterData, o
             <label htmlFor="date" className="block text-sm font-medium text-gray-700">
               Date
             </label>
-            <input
-              type="date"
-              name="date"
-              id="date"
-              value={formData.date || ""}
-              onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
-              required
-            />
+            <input type="date" name="date" id="date" value={formData.date || ""} onChange={handleChange} className={inputClassName} required />
           </div>
           <div className="space-y-1">
             <label htmlFor="shift" className="block text-sm font-medium text-gray-700">
               Shift
             </label>
-            <select name="shift" id="shift" value={formData.shift || ""} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border" required>
-              <option value="">Select Shift</option>
-              {masterData.shifts.map((s) => (
-                <option key={s.id} value={s.name}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+            <Select
+              inputId="shift"
+              name="shift"
+              options={masterData.shifts.map((s) => ({ value: s.name, label: s.name }))}
+              value={formData.shift ? { value: formData.shift, label: formData.shift } : null}
+              onChange={handleSelectChange}
+              placeholder="Select Shift"
+              isClearable
+              isSearchable
+              className={selectClassName}
+              classNamePrefix={selectPrefixClassName}
+            />
           </div>
           <div className="space-y-1">
             <label htmlFor="group" className="block text-sm font-medium text-gray-700">
               Group
             </label>
-            <select name="group" id="group" value={formData.group || ""} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border" required>
-              <option value="">Select Group</option>
-              {masterData.groups.map((g) => (
-                <option key={g.id} value={g.name}>
-                  {g.name}
-                </option>
-              ))}
-            </select>
+            <Select
+              inputId="group"
+              name="group"
+              options={masterData.groups.map((g) => ({ value: g.name, label: g.name }))}
+              value={formData.group ? { value: formData.group, label: formData.group } : null}
+              onChange={handleSelectChange}
+              placeholder="Select Group"
+              isClearable
+              isSearchable
+              className={selectClassName}
+              classNamePrefix={selectPrefixClassName}
+            />
           </div>
 
           {/* Machine Select (Menggunakan react-select) */}
@@ -149,8 +154,8 @@ const EditHistoryForm: React.FC<EditHistoryFormProps> = ({ record, masterData, o
               placeholder="Select or search machine..."
               isClearable
               isSearchable
-              className="mt-1 block w-full rounded-md shadow-sm sm:text-sm"
-              classNamePrefix="react-select"
+              className={selectClassName}
+              classNamePrefix={selectPrefixClassName}
             />
           </div>
 
@@ -158,28 +163,24 @@ const EditHistoryForm: React.FC<EditHistoryFormProps> = ({ record, masterData, o
             <label htmlFor="unit" className="block text-sm font-medium text-gray-700">
               Unit
             </label>
-            <select name="unit" id="unit" value={formData.unit || ""} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border" required>
-              <option value="">Select Unit</option>
-              {masterData.units.map((u) => (
-                <option key={u.id} value={u.name}>
-                  {u.name}
-                </option>
-              ))}
-            </select>
+            <Select
+              inputId="unit"
+              name="unit"
+              options={masterData.units.map((u) => ({ value: u.name, label: u.name }))}
+              value={formData.unit ? { value: formData.unit, label: formData.unit } : null}
+              onChange={handleSelectChange}
+              placeholder="Select Unit"
+              isClearable
+              isSearchable
+              className={selectClassName}
+              classNamePrefix={selectPrefixClassName}
+            />
           </div>
           <div className="space-y-1">
             <label htmlFor="runningHour" className="block text-sm font-medium text-gray-700">
               Running Hour
             </label>
-            <input
-              type="number"
-              name="runningHour"
-              id="runningHour"
-              value={formData.runningHour ?? ""}
-              onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
-              step="0.1"
-            />
+            <input type="number" name="runningHour" id="runningHour" value={formData.runningHour ?? ""} onChange={handleChange} className={inputClassName} step="0.1" />
           </div>
         </div>
       </div>
@@ -192,78 +193,42 @@ const EditHistoryForm: React.FC<EditHistoryFormProps> = ({ record, masterData, o
             <label htmlFor="stopTime" className="block text-sm font-medium text-gray-700">
               Downtime Type
             </label>
-            <select name="stopTime" id="stopTime" value={formData.stopTime || ""} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border">
-              <option value="">Select Downtime Type</option>
-              {masterData.stoptimes.map((st) => (
-                <option key={st.id} value={st.name}>
-                  {st.name}
-                </option>
-              ))}
-            </select>
+            <Select
+              inputId="stopTime"
+              name="stopTime"
+              options={masterData.stoptimes.map((st) => ({ value: st.name, label: st.name }))}
+              value={formData.stopTime ? { value: formData.stopTime, label: formData.stopTime } : null}
+              onChange={handleSelectChange}
+              placeholder="Select Downtime Type"
+              isClearable
+              isSearchable
+              className={selectClassName}
+              classNamePrefix={selectPrefixClassName}
+            />
           </div>
           <div className="space-y-1">
             <label htmlFor="stopJam" className="block text-sm font-medium text-gray-700">
               Stop Hour (HH)
             </label>
-            <input
-              type="number"
-              name="stopJam"
-              id="stopJam"
-              value={formData.stopJam ?? ""}
-              onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
-              min="0"
-              max="23"
-              placeholder="00-23"
-            />
+            <input type="number" name="stopJam" id="stopJam" value={formData.stopJam ?? ""} onChange={handleChange} className={inputClassName} min="0" max="23" placeholder="00-23" />
           </div>
           <div className="space-y-1">
             <label htmlFor="stopMenit" className="block text-sm font-medium text-gray-700">
               Stop Minute (MM)
             </label>
-            <input
-              type="number"
-              name="stopMenit"
-              id="stopMenit"
-              value={formData.stopMenit ?? ""}
-              onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
-              min="0"
-              max="59"
-              placeholder="00-59"
-            />
+            <input type="number" name="stopMenit" id="stopMenit" value={formData.stopMenit ?? ""} onChange={handleChange} className={inputClassName} min="0" max="59" placeholder="00-59" />
           </div>
           <div className="space-y-1">
             <label htmlFor="startJam" className="block text-sm font-medium text-gray-700">
               Start Hour (HH)
             </label>
-            <input
-              type="number"
-              name="startJam"
-              id="startJam"
-              value={formData.startJam ?? ""}
-              onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
-              min="0"
-              max="23"
-              placeholder="00-23"
-            />
+            <input type="number" name="startJam" id="startJam" value={formData.startJam ?? ""} onChange={handleChange} className={inputClassName} min="0" max="23" placeholder="00-23" />
           </div>
           <div className="space-y-1">
             <label htmlFor="startMenit" className="block text-sm font-medium text-gray-700">
               Start Minute (MM)
             </label>
-            <input
-              type="number"
-              name="startMenit"
-              id="startMenit"
-              value={formData.startMenit ?? ""}
-              onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
-              min="0"
-              max="59"
-              placeholder="00-59"
-            />
+            <input type="number" name="startMenit" id="startMenit" value={formData.startMenit ?? ""} onChange={handleChange} className={inputClassName} min="0" max="59" placeholder="00-59" />
           </div>
         </div>
       </div>
@@ -285,8 +250,8 @@ const EditHistoryForm: React.FC<EditHistoryFormProps> = ({ record, masterData, o
               placeholder="Select or search problem item..."
               isClearable
               isSearchable
-              className="mt-1 block w-full rounded-md shadow-sm sm:text-sm"
-              classNamePrefix="react-select"
+              className={selectClassName}
+              classNamePrefix={selectPrefixClassName}
             />
           </div>
 
@@ -294,56 +259,39 @@ const EditHistoryForm: React.FC<EditHistoryFormProps> = ({ record, masterData, o
             <label htmlFor="jenisGangguan" className="block text-sm font-medium text-gray-700">
               Problem Description
             </label>
-            <textarea
-              name="jenisGangguan"
-              id="jenisGangguan"
-              value={formData.jenisGangguan || ""}
-              onChange={handleChange}
-              rows={3}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
-            ></textarea>
+            <textarea name="jenisGangguan" id="jenisGangguan" value={formData.jenisGangguan || ""} onChange={handleChange} rows={3} className={inputClassName}></textarea>
           </div>
           <div className="space-y-1">
             <label htmlFor="bentukTindakan" className="block text-sm font-medium text-gray-700">
               Action Taken
             </label>
-            <textarea
-              name="bentukTindakan"
-              id="bentukTindakan"
-              value={formData.bentukTindakan || ""}
-              onChange={handleChange}
-              rows={3}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
-            ></textarea>
+            <textarea name="bentukTindakan" id="bentukTindakan" value={formData.bentukTindakan || ""} onChange={handleChange} rows={3} className={inputClassName}></textarea>
           </div>
           <div className="space-y-1">
             <label htmlFor="rootCause" className="block text-sm font-medium text-gray-700">
               Root Cause
             </label>
-            <textarea
-              name="rootCause"
-              id="rootCause"
-              value={formData.rootCause || ""}
-              onChange={handleChange}
-              rows={3}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
-            ></textarea>
+            <textarea name="rootCause" id="rootCause" value={formData.rootCause || ""} onChange={handleChange} rows={3} className={inputClassName}></textarea>
           </div>
           <div className="space-y-1">
             <label htmlFor="perbaikanPerawatan" className="block text-sm font-medium text-gray-700">
               Repair/Maintenance Type
             </label>
-            <select
+            <Select
+              inputId="perbaikanPerawatan"
               name="perbaikanPerawatan"
-              id="perbaikanPerawatan"
-              value={formData.perbaikanPerawatan || ""}
-              onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
-            >
-              <option value="">Select Type</option>
-              <option value="perbaikan">Repair</option>
-              <option value="perawatan">Maintenance</option>
-            </select>
+              options={[
+                { value: "perbaikan", label: "Repair" },
+                { value: "perawatan", label: "Maintenance" },
+              ]}
+              value={formData.perbaikanPerawatan ? { value: formData.perbaikanPerawatan, label: formData.perbaikanPerawatan === "perbaikan" ? "Repair" : "Maintenance" } : null}
+              onChange={handleSelectChange}
+              placeholder="Select Type"
+              isClearable
+              isSearchable
+              className={selectClassName}
+              classNamePrefix={selectPrefixClassName}
+            />
           </div>
         </div>
       </div>
@@ -356,20 +304,18 @@ const EditHistoryForm: React.FC<EditHistoryFormProps> = ({ record, masterData, o
             <label htmlFor="jenisAktivitas" className="block text-sm font-medium text-gray-700">
               Activity Type
             </label>
-            <select
+            <Select
+              inputId="jenisAktivitas"
               name="jenisAktivitas"
-              id="jenisAktivitas"
-              value={formData.jenisAktivitas || ""}
-              onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
-            >
-              <option value="">Select Activity Type</option>
-              {masterData.jenisaktivitas.map((ja) => (
-                <option key={ja.id} value={ja.name}>
-                  {ja.name}
-                </option>
-              ))}
-            </select>
+              options={masterData.jenisaktivitas.map((ja) => ({ value: ja.name, label: ja.name }))}
+              value={formData.jenisAktivitas ? { value: formData.jenisAktivitas, label: formData.jenisAktivitas } : null}
+              onChange={handleSelectChange}
+              placeholder="Select Activity Type"
+              isClearable
+              isSearchable
+              className={selectClassName}
+              classNamePrefix={selectPrefixClassName}
+            />
           </div>
 
           <div className="space-y-1">
@@ -385,8 +331,8 @@ const EditHistoryForm: React.FC<EditHistoryFormProps> = ({ record, masterData, o
               placeholder="Select or search specific activity..."
               isClearable
               isSearchable
-              className="mt-1 block w-full rounded-md shadow-sm sm:text-sm"
-              classNamePrefix="react-select"
+              className={selectClassName}
+              classNamePrefix={selectPrefixClassName}
             />
           </div>
         </div>
@@ -400,73 +346,42 @@ const EditHistoryForm: React.FC<EditHistoryFormProps> = ({ record, masterData, o
             <label htmlFor="kodePart" className="block text-sm font-medium text-gray-700">
               Part Code
             </label>
-            <input
-              type="text"
-              name="kodePart"
-              id="kodePart"
-              value={formData.kodePart || ""}
-              onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
-            />
+            <input type="text" name="kodePart" id="kodePart" value={formData.kodePart || ""} onChange={handleChange} className={inputClassName} />
           </div>
           <div className="space-y-1">
             <label htmlFor="sparePart" className="block text-sm font-medium text-gray-700">
               Part Name
             </label>
-            <input
-              type="text"
-              name="sparePart"
-              id="sparePart"
-              value={formData.sparePart || ""}
-              onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
-            />
+            <input type="text" name="sparePart" id="sparePart" value={formData.sparePart || ""} onChange={handleChange} className={inputClassName} />
           </div>
           <div className="space-y-1">
             <label htmlFor="idPart" className="block text-sm font-medium text-gray-700">
               Part ID
             </label>
-            <input
-              type="text"
-              name="idPart"
-              id="idPart"
-              value={formData.idPart || ""}
-              onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
-            />
+            <input type="text" name="idPart" id="idPart" value={formData.idPart || ""} onChange={handleChange} className={inputClassName} />
           </div>
           <div className="space-y-1">
             <label htmlFor="jumlah" className="block text-sm font-medium text-gray-700">
               Quantity
             </label>
-            <input
-              type="number"
-              name="jumlah"
-              id="jumlah"
-              value={formData.jumlah ?? ""}
-              onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
-              min="0"
-            />
+            <input type="number" name="jumlah" id="jumlah" value={formData.jumlah ?? ""} onChange={handleChange} className={inputClassName} min="0" />
           </div>
           <div className="space-y-1">
             <label htmlFor="unitSparePart" className="block text-sm font-medium text-gray-700">
               Part Unit
             </label>
-            <select
+            <Select
+              inputId="unitSparePart"
               name="unitSparePart"
-              id="unitSparePart"
-              value={formData.unitSparePart || ""}
-              onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
-            >
-              <option value="">Select Unit</option>
-              {masterData.unitspareparts.map((usp) => (
-                <option key={usp.id} value={usp.name}>
-                  {usp.name}
-                </option>
-              ))}
-            </select>
+              options={masterData.unitspareparts.map((usp) => ({ value: usp.name, label: usp.name }))}
+              value={formData.unitSparePart ? { value: formData.unitSparePart, label: formData.unitSparePart } : null}
+              onChange={handleSelectChange}
+              placeholder="Select Unit"
+              isClearable
+              isSearchable
+              className={selectClassName}
+              classNamePrefix={selectPrefixClassName}
+            />
           </div>
         </div>
       </div>
