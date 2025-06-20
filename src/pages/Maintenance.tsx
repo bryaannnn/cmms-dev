@@ -148,14 +148,10 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
   const displayValue = (value: any): string => {
     if (value === null || value === undefined) return "-";
 
-    if (typeof value === "object" && "name" in value) {
-      return value.name || "-";
-    }
-
     if (typeof value === "string") {
       return value.trim() !== "" ? value.trim() : "-";
     }
-    
+
     return value.toString();
   };
 
