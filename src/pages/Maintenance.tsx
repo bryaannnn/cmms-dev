@@ -126,7 +126,30 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
     return `${formattedHours}:${formattedMinutes}`;
   };
 
-  const calculateDowntime = (): string => {
+  const convertMinutesToHoursAndMinutes = (totalMinutes: number | null | undefined): string => {
+    if (totalMinutes === null || totalMinutes === undefined || isNaN(totalMinutes)) {
+      return "-";
+    }
+
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+
+    if (hours === 0 && minutes === 0) {
+      return "0min";
+    }
+
+    const parts: string[] = [];
+    if (hours > 0) {
+      parts.push("${hours}h");
+    }
+    if (minutes > 60) {
+      parts.push("${minutes}min");
+    }
+
+    return parts.join("");
+  };
+
+  const calculateDowntime = (record: MachineHistoryRecord): string => {
     const stopHH = record.stopJam;
     const stopMM = record.stopMenit;
     const startHH = record.startJam;
@@ -137,14 +160,14 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
     }
 
     const stopTimeInMinutes = stopHH * 60 + stopMM;
-    const startTimeInMinutes = startHH * 60 + startMM;
+    let startTimeInMinutes = startHH * 60 + startMM;
 
-    let downtime = startTimeInMinutes - stopTimeInMinutes;
-    if (downtime < 0) {
-      downtime = 24 * 60 - stopTimeInMinutes + startTimeInMinutes;
+    let downtimeMinutes = startTimeInMinutes - stopTimeInMinutes;
+    if (downtimeMinutes < 0) {
+      downtimeMinutes = 24 * 60 - stopTimeInMinutes + startTimeInMinutes;
     }
 
-    return `${downtime} minutes`;
+    return convertMinutesToHoursAndMinutes(downtimeMinutes);
   };
 
   const displayValue = (value: any): string => {
@@ -191,7 +214,7 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
         </div>
         <div>
           <h4 className="text-sm font-medium text-gray-600 mb-1">Downtime</h4>
-          <p className="bg-gray-50 border border-gray-300 text-gray-800 text-lg rounded-md p-2 min-h-[40px] flex items-center break-words shadow-sm">{calculateDowntime()}</p>
+          <p className="bg-gray-50 border border-gray-300 text-gray-800 text-lg rounded-md p-2 min-h-[40px] flex items-center break-words shadow-sm">{calculateDowntime(record)}</p>
         </div>
         <div>
           <h4 className="text-sm font-medium text-gray-600 mb-1">Stop Type</h4>
@@ -501,13 +524,36 @@ const MachineHistoryDashboard: React.FC = () => {
     return `${formattedHours}:${formattedMinutes}`;
   };
 
+  const convertMinutesToHoursAndMinutes = (totalMinutes: number | null | undefined): string => {
+    if (totalMinutes === null || totalMinutes === undefined || isNaN(totalMinutes)) {
+      return "-";
+    }
+
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+
+    if (hours === 0 && minutes === 0) {
+      return "0min";
+    }
+
+    const parts: string[] = [];
+    if (hours > 0) {
+      parts.push(`${hours}h`);
+    }
+    if (minutes > 0) {
+      parts.push(`${minutes}min`);
+    }
+
+    return parts.join(" ");
+  };
+
   const calculateDowntime = (record: MachineHistoryRecord): number => {
     const stopTime = getSafeNumber(record.stopJam) * 60 + getSafeNumber(record.stopMenit);
     const startTime = getSafeNumber(record.startJam) * 60 + getSafeNumber(record.startMenit);
-    const downtime = startTime - stopTime;
+    let downtime = startTime - stopTime;
 
     if (downtime < 0) {
-      return 24 * 60 - stopTime + startTime;
+      downtime = 24 * 60 - stopTime + startTime;
     }
     return downtime;
   };
@@ -664,7 +710,7 @@ const MachineHistoryDashboard: React.FC = () => {
           {/* Stats Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
             <StatCard title="Total Records" value={records.length.toString()} change="+8%" icon={<FiClipboard />} />
-            <StatCard title="Avg Downtime" value={records.length > 0 ? `${Math.round(records.reduce((sum, r) => sum + calculateDowntime(r), 0) / records.length)} min` : "0 min"} change="-5%" icon={<FiClock />} />
+            <StatCard title="Avg Downtime" value={records.length > 0 ? convertMinutesToHoursAndMinutes(Math.round(records.reduce((sum, r) => sum + calculateDowntime(r), 0) / records.length)) : "0min"} change="-5%" icon={<FiClock />} />
             <StatCard title="Repairs" value={records.filter((r) => r.perbaikanPerawatan === "Perbaikan").length.toString()} change="+3" icon={<FiTool />} />
             <StatCard title="Maintenance" value={records.filter((r) => r.perbaikanPerawatan === "Perawatan").length.toString()} change="+2" icon={<FiCheckCircle />} />
           </div>

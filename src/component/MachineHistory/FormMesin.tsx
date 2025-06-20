@@ -26,10 +26,10 @@ const FormMesin: React.FC = () => {
     date: new Date().toISOString().split("T")[0],
     shift: "",
     group: "",
-    stopJam: null,
-    stopMenit: null,
-    startJam: null,
-    startMenit: null,
+    stopJam: 0,
+    stopMenit: 0,
+    startJam: 0,
+    startMenit: 0,
     stopTime: "",
     unit: "",
     mesin: "",
@@ -64,7 +64,7 @@ const FormMesin: React.FC = () => {
           const cleanedValue = value.replace(/[^\d]/g, "");
           return {
             ...prev,
-            [name]: cleanedValue === "" ? null : parseInt(cleanedValue, 10),
+            [name]: cleanedValue === "" ? 0 : parseInt(cleanedValue, 10),
           };
         }
 
@@ -73,7 +73,7 @@ const FormMesin: React.FC = () => {
           const numValue = parseInt(cleanedValue, 10);
           return {
             ...prev,
-            [name]: cleanedValue === "" ? null : Math.max(0, Math.min(59, isNaN(numValue) ? 0 : numValue)),
+            [name]: cleanedValue === "" ? 0 : Math.max(0, Math.min(59, isNaN(numValue) ? 0 : numValue)),
           };
         }
 
