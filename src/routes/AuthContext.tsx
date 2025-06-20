@@ -106,7 +106,15 @@ export interface MachineHistoryRecord extends MachineHistoryFormData {
   startstop?: Startstop | null;
 }
 
-function mapApiToMachineHistoryRecord(apiData: any): MachineHistoryRecord {
+function mapApiToMachineHistoryRecord(apiData: any, masterData: AllMasterData | null): MachineHistoryRecord {
+  const stopTimeName = masterData?.stoptimes?.find((st) => String(st.id) === String(apiData.stoptime_id))?.name || "-";
+
+  const itemTroubleName = apiData.itemtrouble?.name || masterData?.itemtroubles?.find((it) => String(it.id) === String(apiData.itemtrouble_id))?.name || "-";
+
+  const jenisAktivitasName = apiData.jenisaktifitas?.name || masterData?.jenisaktivitas?.find((ja) => String(ja.id) === String(apiData.jenisaktifitas_id))?.name || "-";
+
+  const unitSparePartName = apiData.unitsp?.name || masterData?.unitspareparts?.find((usp) => String(usp.id) === String(apiData.unitsp_id))?.name || "-";
+
   return {
     id: String(apiData.id),
     date: apiData.date,
@@ -118,20 +126,20 @@ function mapApiToMachineHistoryRecord(apiData: any): MachineHistoryRecord {
     stopMenit: apiData.startstop?.stop_time_mm ?? null,
     startJam: apiData.startstop?.start_time_hh ?? null,
     startMenit: apiData.startstop?.start_time_mm ?? null,
-    stopTime: apiData.stoptime?.name || "-",
+    stopTime: stopTimeName,
     runningHour: apiData.running_hour ?? 0,
-    itemTrouble: apiData.itemtrouble?.name || "-",
+    itemTrouble: itemTroubleName,
     jenisGangguan: apiData.jenis_gangguan || "",
     bentukTindakan: apiData.bentuk_tindakan || "",
     perbaikanPerawatan: "",
     rootCause: apiData.root_cause || "",
-    jenisAktivitas: apiData.jenisaktifitas?.name || "-",
+    jenisAktivitas: jenisAktivitasName,
     kegiatan: apiData.kegiatan?.name || "-",
     kodePart: apiData.kode_part || "",
     sparePart: apiData.spare_part || "",
-    idPart: apiData.id_part || "",  
+    idPart: apiData.id_part || "",
     jumlah: apiData.jumlah ?? 0,
-    unitSparePart: apiData.unitsp?.name || "-",
+    unitSparePart: unitSparePartName,
     startstop: apiData.startstop ?? null,
   };
 }
@@ -151,6 +159,7 @@ interface AuthContextType {
   getMachineHistoryById: (id: string) => Promise<MachineHistoryRecord | null>;
   updateMachineHistory: (id: string, data: Partial<MachineHistoryFormData>) => Promise<any>;
   deleteMachineHistory: (id: string) => Promise<any>;
+  masterData: AllMasterData | null;
 }
 
 const projectEnvVariables = getProjectEnvVariables();
@@ -160,6 +169,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [masterData, setMasterData] = useState<AllMasterData | null>(null);
   const navigate = useNavigate();
 
   const isAuthenticated = !!token;
@@ -223,6 +233,53 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     },
     [token, navigate, user]
   );
+
+  // --- getAllMasterData dipindahkan ke sini agar dideklarasikan sebelum digunakan ---
+  const getAllMasterData = useCallback(async (): Promise<AllMasterData> => {
+    try {
+      const [mesins, groups, shifts, units, unitspareparts, itemtroubles, jenisaktivitas, kegiatans, stoptimes] = await Promise.all([
+        fetchWithAuth("/mesin"),
+        fetchWithAuth("/group"),
+        fetchWithAuth("/shift"),
+        fetchWithAuth("/unit"),
+        fetchWithAuth("/unitsp"),
+        fetchWithAuth("/itemtrouble"),
+        fetchWithAuth("/jenisaktifitas"),
+        fetchWithAuth("/kegiatan"),
+        fetchWithAuth("/stoptime"),
+      ]);
+
+      return {
+        mesin: mesins,
+        shifts: shifts,
+        groups: groups,
+        stoptimes: stoptimes,
+        units: units,
+        itemtroubles: itemtroubles,
+        jenisaktivitas: jenisaktivitas,
+        kegiatans: kegiatans,
+        unitspareparts: unitspareparts,
+      };
+    } catch (error) {
+      console.error("Gagal mengambil semua data master:", error);
+      throw error;
+    }
+  }, [fetchWithAuth]);
+  // --- Akhir pemindahan ---
+
+  useEffect(() => {
+    const loadMasterData = async () => {
+      if (isAuthenticated && !masterData) {
+        try {
+          const data = await getAllMasterData(); // Sekarang getAllMasterData sudah dideklarasikan
+          setMasterData(data);
+        } catch (error) {
+          console.error("Gagal memuat data master:", error);
+        }
+      }
+    };
+    loadMasterData();
+  }, [isAuthenticated, masterData, getAllMasterData]);
 
   const register = async (name: string, email: string, password: string) => {
     try {
@@ -319,37 +376,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [token, navigate]);
 
-  const getAllMasterData = useCallback(async (): Promise<AllMasterData> => {
-    try {
-      const [mesins, groups, shifts, units, unitspareparts, itemtroubles, jenisaktivitas, kegiatans, stoptimes] = await Promise.all([
-        fetchWithAuth("/mesin"),
-        fetchWithAuth("/group"),
-        fetchWithAuth("/shift"),
-        fetchWithAuth("/unit"),
-        fetchWithAuth("/unitsp"),
-        fetchWithAuth("/itemtrouble"),
-        fetchWithAuth("/jenisaktifitas"),
-        fetchWithAuth("/kegiatan"),
-        fetchWithAuth("/stoptime"),
-      ]);
-
-      return {
-        mesin: mesins,
-        shifts: shifts,
-        groups: groups,
-        stoptimes: stoptimes,
-        units: units,
-        itemtroubles: itemtroubles,
-        jenisaktivitas: jenisaktivitas,
-        kegiatans: kegiatans,
-        unitspareparts: unitspareparts,
-      };
-    } catch (error) {
-      console.error("Gagal mengambil semua data master:", error);
-      throw error;
-    }
-  }, [fetchWithAuth]);
-
   const submitMachineHistory = useCallback(
     async (data: MachineHistoryFormData) => {
       try {
@@ -374,7 +400,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const response = await fetchWithAuth("/mhs");
 
       if (response && response.data && Array.isArray(response.data)) {
-        return response.data.map(mapApiToMachineHistoryRecord);
+        if (!masterData) {
+          console.warn("Master data belum dimuat. Beberapa field mungkin menampilkan '-'.");
+        }
+        return response.data.map((apiDataItem: any) => mapApiToMachineHistoryRecord(apiDataItem, masterData));
       }
 
       console.error("Invalid response format:", response);
@@ -383,19 +412,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       console.error("Gagal mengambil daftar history mesin:", error);
       return [];
     }
-  }, [fetchWithAuth]);
+  }, [fetchWithAuth, masterData]);
 
   const getMachineHistoryById = useCallback(
     async (id: string): Promise<MachineHistoryRecord | null> => {
       try {
         const data = await fetchWithAuth(`/mhs/${id}`);
-        return mapApiToMachineHistoryRecord(data);
+        if (!masterData) {
+          console.warn("Master data belum dimuat saat mengambil history by ID.");
+        }
+        return mapApiToMachineHistoryRecord(data, masterData);
       } catch (error) {
         console.error(`Gagal mengambil history mesin dengan ID ${id}:`, error);
         throw error;
       }
     },
-    [fetchWithAuth]
+    [fetchWithAuth, masterData]
   );
 
   const updateMachineHistory = useCallback(
@@ -446,6 +478,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         getMachineHistoryById,
         updateMachineHistory,
         deleteMachineHistory,
+        masterData,
       }}
     >
       {children}

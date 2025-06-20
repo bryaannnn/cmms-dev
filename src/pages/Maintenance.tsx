@@ -125,12 +125,12 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
   };
 
   const calculateDowntime = (): string => {
-    const stopHH = record.startstop?.stop_time_hh;
-    const stopMM = record.startstop?.stop_time_mm;
-    const startHH = record.startstop?.start_time_hh;
-    const startMM = record.startstop?.start_time_mm;
+    const stopHH = record.stopJam;
+    const stopMM = record.stopMenit;
+    const startHH = record.startJam;
+    const startMM = record.startMenit;
 
-    if (stopHH === undefined || stopMM === undefined || startHH === undefined || startMM === undefined || stopHH === null || stopMM === null || startHH === null || startMM === null) {
+    if (stopHH === null || stopHH === undefined || stopMM === null || stopMM === undefined || startHH === null || startHH === undefined || startMM === null || startMM === undefined) {
       return "-";
     }
 
@@ -192,7 +192,7 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
         </div>
         <div>
           <h4 className="text-sm font-medium text-gray-500">Stop Type</h4>
-          <p className="text-lg font-medium">{displayValue(record.stopTime)}</p>
+          <p className="text-lg font-medium">{displayValue(record.stopTime)}</p> {/* Ini akan menggunakan nama dari master data */}
         </div>
         <div>
           <h4 className="text-sm font-medium text-gray-500">Running Hour</h4>
