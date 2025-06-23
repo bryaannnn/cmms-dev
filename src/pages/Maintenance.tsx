@@ -555,7 +555,8 @@ const MachineHistoryDashboard: React.FC = () => {
     return parts.join(" ");
   };
 
-  const calculateDowntime = (record: MachineHistoryRecord): number => {
+  const calculateDowntime = (record: MachineHistoryRecord): string => {
+    // <--- UBAH TIPE KEMBALIAN DI SINI
     const stopTime = getSafeNumber(record.stopJam) * 60 + getSafeNumber(record.stopMenit);
     const startTime = getSafeNumber(record.startJam) * 60 + getSafeNumber(record.startMenit);
     let downtime = startTime - stopTime;
@@ -563,7 +564,27 @@ const MachineHistoryDashboard: React.FC = () => {
     if (downtime < 0) {
       downtime = 24 * 60 - stopTime + startTime;
     }
-    return downtime;
+    // Panggil convertMinutesToHoursAndMinutes di sini sebelum mengembalikan nilai
+    return convertMinutesToHoursAndMinutes(downtime); // <--- TAMBAHKAN PEMANGGILAN FUNGSI INI
+  };
+
+  const getStopTimeColorClass = (stopTime: string | null | undefined): string => {
+    const normalizedStopTime = (stopTime || "").toLowerCase().trim(); 
+
+    switch (normalizedStopTime) {
+      case "pm":
+        return "bg-blue-100 text-blue-800"; 
+      case "harmonisasi":
+        return "bg-green-100 text-green-800"; 
+      case "cip":
+        return "bg-purple-100 text-purple-800"; 
+      case "unplanned":
+        return "bg-red-100 text-red-800"; 
+      case "standby":
+        return "bg-yellow-100 text-yellow-800"; 
+      default:
+        return "bg-gray-100 text-gray-800"; 
+    }
   };
 
   return (
@@ -718,7 +739,28 @@ const MachineHistoryDashboard: React.FC = () => {
           {/* Stats Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
             <StatCard title="Total Records" value={records.length.toString()} change="+8%" icon={<FiClipboard />} />
-            <StatCard title="Avg Downtime" value={records.length > 0 ? convertMinutesToHoursAndMinutes(Math.round(records.reduce((sum, r) => sum + calculateDowntime(r), 0) / records.length)) : "0min"} change="-5%" icon={<FiClock />} />
+            <StatCard
+              title="Avg Downtime"
+              value={
+                records.length > 0
+                  ? convertMinutesToHoursAndMinutes(
+                      Math.round(
+                        records.reduce((sum, r) => {
+                          const stopTimeInMinutes = getSafeNumber(r.stopJam) * 60 + getSafeNumber(r.stopMenit);
+                          const startTimeInMinutes = getSafeNumber(r.startJam) * 60 + getSafeNumber(r.startMenit);
+                          let rawDowntime = startTimeInMinutes - stopTimeInMinutes;
+                          if (rawDowntime < 0) {
+                            rawDowntime = 24 * 60 - stopTimeInMinutes + startTimeInMinutes;
+                          }
+                          return sum + rawDowntime;
+                        }, 0) / records.length
+                      )
+                    )
+                  : "0min"
+              }
+              change="-5%"
+              icon={<FiClock />}
+            />
             <StatCard title="Repairs" value={records.filter((r) => r.perbaikanPerawatan === "Perbaikan").length.toString()} change="+3" icon={<FiTool />} />
             <StatCard title="Maintenance" value={records.filter((r) => r.perbaikanPerawatan === "Perawatan").length.toString()} change="+2" icon={<FiCheckCircle />} />
           </div>
@@ -845,7 +887,7 @@ const MachineHistoryDashboard: React.FC = () => {
                             <div className="text-xs text-gray-600 truncate max-w-xs">{getDisplayValue(record.jenisGangguan)}</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <motion.span whileHover={{ scale: 1.05 }} className="px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full shadow-sm">
+                            <motion.span whileHover={{ scale: 1.05 }} className={`px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full shadow-sm ${getStopTimeColorClass(record.stopTime)}`}>
                               {getDisplayValue(record.stopTime)}
                             </motion.span>
                           </td>
