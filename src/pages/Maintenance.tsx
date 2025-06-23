@@ -142,7 +142,7 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
       parts.push("0h");
     } else {
       // Jika totalMinutes adalah 0
-      return "0min"; 
+      return "0min";
     }
 
     // Tampilkan menit hanya jika ada
@@ -838,18 +838,15 @@ const MachineHistoryDashboard: React.FC = () => {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">{calculateDowntime(record)} min</div>
+                            <div className="text-sm font-medium text-gray-900">{calculateDowntime(record)}</div>
                           </td>
                           <td className="px-6 py-4">
                             <div className="text-sm font-medium text-gray-900">{getDisplayValue(record.itemTrouble)}</div>
                             <div className="text-xs text-gray-600 truncate max-w-xs">{getDisplayValue(record.jenisGangguan)}</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <motion.span
-                              whileHover={{ scale: 1.05 }}
-                              className={`px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full ${record.perbaikanPerawatan === "Perbaikan" ? "bg-red-100 text-red-800" : "bg-blue-100 text-blue-800"} shadow-sm`}
-                            >
-                              {record.perbaikanPerawatan}
+                            <motion.span whileHover={{ scale: 1.05 }} className="px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full shadow-sm">
+                              {getDisplayValue(record.stopTime)}
                             </motion.span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
