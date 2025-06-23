@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { FiSave, FiTrash2, FiX, FiClock, FiCheck, FiTool } from "react-icons/fi";
+import { FiSave, FiX, FiClock, FiCheck, FiTool } from "react-icons/fi";
 import { useNavigate, useParams } from "react-router-dom";
 import Select from "react-select";
 import { useAuth, MachineHistoryFormData, Mesin, Shift, Group, StopTime, Unit, ItemTrouble, JenisAktivitas, Kegiatan, UnitSparePart, AllMasterData, MachineHistoryRecord } from "../../routes/AuthContext";
@@ -243,7 +243,6 @@ const FormEditMesin: React.FC = () => {
           setError("ID history mesin tidak diberikan untuk pengeditan.");
         }
       } catch (error: any) {
-        console.error("Gagal memuat data:", error);
         setError(error.message || "Terjadi kesalahan saat memuat data.");
       } finally {
         setLoading(false);
@@ -755,7 +754,7 @@ const FormEditMesin: React.FC = () => {
             <div className="flex flex-col sm:flex-row justify-end gap-4 pt-6 border-t border-gray-200">
               <motion.button
                 type="button"
-                onClick={() => navigate(`/machinehistory`)}
+                onClick={() => navigate(`/machinehistory/${id}`)}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 className="px-6 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
