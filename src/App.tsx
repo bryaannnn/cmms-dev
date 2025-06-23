@@ -36,7 +36,7 @@ function App() {
         <Route path="/workorders" element={<WorkOrdersDashboard />} />
         <Route path="/machinehistory" element={<MachineHistoryDashboard />} />
         <Route path="/machinehistory/input" element={<FormMesin />} />
-        <Route path="/machinehistory/edit" element={<EditFormMesin />} />
+        <Route path="/machinehistory/edit/:id" element={<EditFormMesin />} />
         <Route path="/inventory" element={<InventoryDashboard />} />
         <Route path="/assets" element={<Assets />} />
         <Route path="/reports" element={<ReportsDashboard />} />
