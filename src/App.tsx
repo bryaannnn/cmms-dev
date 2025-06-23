@@ -27,9 +27,6 @@ function App() {
     <Routes>
       <Route path="/register" element={<RegisterForm />} />
       <Route path="/login" element={<LoginForm />} />
-      <Route path="/machinehistory" element={<MachineHistoryDashboard />} />
-      <Route path="/machinehistory/input" element={<FormMesin />} /> 
-      <Route path="/machinehistory/edit" element={<EditFormMesin />} /> 
       {/* <Route path="/workorders/input" element={<FormWorkOrders />} /> */}
       {/* <Route path="/workorders/dashboard" element={<WorkOrders />} /> */}
 
@@ -37,7 +34,9 @@ function App() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/workorders" element={<WorkOrdersDashboard />} />
-
+        <Route path="/machinehistory" element={<MachineHistoryDashboard />} />
+        <Route path="/machinehistory/input" element={<FormMesin />} />
+        <Route path="/machinehistory/edit" element={<EditFormMesin />} />
         <Route path="/inventory" element={<InventoryDashboard />} />
         <Route path="/assets" element={<Assets />} />
         <Route path="/reports" element={<ReportsDashboard />} />
