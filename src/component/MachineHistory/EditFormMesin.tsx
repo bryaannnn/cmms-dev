@@ -51,13 +51,11 @@ const FormEditMesin: React.FC = () => {
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | { value: string; label: string } | null, name?: string) => {
     if (e && typeof e === "object" && "value" in e && name) {
-      // For react-select
       setFormData((prev) => ({
         ...prev,
         [name]: e.value,
       }));
     } else if (e && "target" in e) {
-      // For native input/textarea
       const { name, value } = e.target;
 
       setFormData((prev) => {
@@ -65,7 +63,7 @@ const FormEditMesin: React.FC = () => {
           const cleanedValue = value.replace(/[^\d]/g, "");
           return {
             ...prev,
-            [name]: cleanedValue === "" ? null : parseInt(cleanedValue, 10), // Allow null for empty
+            [name]: cleanedValue === "" ? null : parseInt(cleanedValue, 10),
           };
         }
 
@@ -74,14 +72,14 @@ const FormEditMesin: React.FC = () => {
           const numValue = parseInt(cleanedValue, 10);
           return {
             ...prev,
-            [name]: cleanedValue === "" ? null : Math.max(0, Math.min(59, isNaN(numValue) ? 0 : numValue)), // Allow null for empty
+            [name]: cleanedValue === "" ? null : Math.max(0, Math.min(59, isNaN(numValue) ? 0 : numValue)),
           };
         }
 
         if (name === "runningHour" || name === "jumlah") {
           return {
             ...prev,
-            [name]: value.replace(/[^\d.]/g, ""), // Keep dot for number formatting
+            [name]: value.replace(/[^\d.]/g, ""),
           };
         }
 
@@ -94,17 +92,17 @@ const FormEditMesin: React.FC = () => {
   }, []);
 
   const formatNumberWithDot = useCallback((num: number | string | null): string => {
-    if (num === null || num === undefined || num === "") return ""; // Handle null/undefined/empty string
+    if (num === null || num === undefined || num === "") return "";
 
     if (typeof num === "string") {
-      const cleanedString = num.replace(/[^\d]/g, ""); // Remove non-digits
-      if (cleanedString === "") return ""; // If only non-digits, return empty
+      const cleanedString = num.replace(/[^\d]/g, "");
+      if (cleanedString === "") return "";
       const numericValue = parseInt(cleanedString, 10);
       if (isNaN(numericValue)) return "";
       return numericValue.toLocaleString("id-ID").replace(/,/g, ".");
     }
 
-    if (isNaN(num)) return ""; // Handle NaN
+    if (isNaN(num)) return "";
     return num.toLocaleString("id-ID").replace(/,/g, ".");
   }, []);
 
@@ -120,15 +118,26 @@ const FormEditMesin: React.FC = () => {
       return;
     }
 
+    const stopJam = formData.stopJam ?? 0;
+    const startJam = formData.startJam ?? 0;
+    const stopMenit = formData.stopMenit ?? 0;
+    const startMenit = formData.startMenit ?? 0;
+
+    if (stopJam < 0 || startJam < 0 || stopMenit < 0 || startMenit < 0) {
+      setError("Waktu tidak boleh bernilai negatif");
+      setLoading(false);
+      return;
+    }
+
     const dataToSend: MachineHistoryFormData = {
       ...formData,
       perbaikanPerawatan: formData.jenisAktivitas === "JA1" ? "Perbaikan" : "Perawatan",
       runningHour: formData.runningHour ? parseInt(String(formData.runningHour).replace(/\./g, ""), 10) : 0,
       jumlah: formData.jumlah ? parseInt(String(formData.jumlah).replace(/\./g, ""), 10) : 0,
-      stopJam: formData.stopJam !== null ? formData.stopJam : null,
-      stopMenit: formData.stopMenit !== null ? formData.stopMenit : null,
-      startJam: formData.startJam !== null ? formData.startJam : null,
-      startMenit: formData.startMenit !== null ? formData.startMenit : null,
+      stopJam,
+      stopMenit,
+      startJam,
+      startMenit,
     };
 
     try {
@@ -136,8 +145,9 @@ const FormEditMesin: React.FC = () => {
       setSuccess("Data history mesin berhasil diperbarui!");
       navigate(`/machinehistory`);
     } catch (err: any) {
-      setError(err.message || "Gagal memperbarui data history mesin. Silakan coba lagi.");
-      console.error("Update error:", err);
+      const errorMessage = err.response?.data?.message || err.message || "Gagal memperbarui data history mesin. Silakan coba lagi.";
+      setError(errorMessage);
+      console.error("Update error details:", err.response?.data || err);
     } finally {
       setLoading(false);
     }
@@ -231,78 +241,60 @@ const FormEditMesin: React.FC = () => {
       }
     };
     fetchData();
-  }, [
-    id,
-    getAllMasterData,
-    getMachineHistoryById,
-    setMesinList,
-    setShiftList,
-    setGroupList,
-    setStopTimeList,
-    setUnitList,
-    setItemTroubleList,
-    setJenisAktivitasList,
-    setKegiatanList,
-    setUnitSparePartList,
-    setFormData,
-    setLoading,
-    setError,
-  ]);
-  // --- AKHIR BAGIAN YANG DIPERBAIKI ---
+  }, [id, getAllMasterData, getMachineHistoryById]);
 
-  // Define custom styles for react-select to match Tailwind input styles
   const customSelectStyles = {
     control: (provided: any, state: any) => ({
       ...provided,
-      minHeight: "42px", // Matches input height
-      borderColor: state.isFocused ? "#3B82F6" : "#D1D5DB", // Focus ring color for blue
-      boxShadow: state.isFocused ? "0 0 0 1px #3B82F6" : "none", // Focus ring shadow
+      minHeight: "42px",
+      borderColor: state.isFocused ? "#3B82F6" : "#D1D5DB",
+      boxShadow: state.isFocused ? "0 0 0 1px #3B82F6" : "none",
       "&:hover": {
-        borderColor: "#9CA3AF", // Slightly darker border on hover
+        borderColor: "#9CA3AF",
       },
-      borderRadius: "0.5rem", // rounded-lg
-      backgroundColor: "#FFFFFF", // bg-white
-      padding: "0 0.5rem", // Padding inside the control
-      transition: "all 0.15s ease-in-out", // transition duration-150
+      borderRadius: "0.5rem",
+      backgroundColor: "#FFFFFF",
+      padding: "0 0.5rem",
+      transition: "all 0.15s ease-in-out",
     }),
     valueContainer: (provided: any) => ({
       ...provided,
-      padding: "0", // Remove default padding
+      padding: "0",
     }),
     singleValue: (provided: any) => ({
       ...provided,
-      color: "#374151", // text-gray-700
+      color: "#374151",
     }),
     placeholder: (provided: any) => ({
       ...provided,
-      color: "#6B7280", // text-gray-500
+      color: "#6B7280",
     }),
     dropdownIndicator: (provided: any) => ({
       ...provided,
-      color: "#9CA3AF", // text-gray-400
+      color: "#9CA3AF",
       "&:hover": {
-        color: "#6B7280", // Darker on hover
+        color: "#6B7280",
       },
     }),
     indicatorSeparator: (provided: any) => ({
       ...provided,
-      display: "none", // Remove the vertical line
+      display: "none",
     }),
     menu: (provided: any) => ({
       ...provided,
-      zIndex: 9999, // Ensure dropdown is above other elements
-      borderRadius: "0.5rem", // rounded-lg
-      border: "1px solid #E5E7EB", // border-gray-200
-      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)", // shadow-md
+      zIndex: 9999,
+      borderRadius: "0.5rem",
+      border: "1px solid #E5E7EB",
+      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
     }),
     option: (provided: any, state: any) => ({
       ...provided,
-      backgroundColor: state.isFocused ? "#EFF6FF" : "#FFFFFF", // bg-blue-50 on focus
-      color: "#1F2937", // text-gray-900
+      backgroundColor: state.isFocused ? "#EFF6FF" : "#FFFFFF",
+      color: "#1F2937",
       "&:active": {
-        backgroundColor: "#DBEAFE", // bg-blue-100 on active
+        backgroundColor: "#DBEAFE",
       },
-      padding: "0.625rem 1rem", // py-2.5 px-4
+      padding: "0.625rem 1rem",
     }),
   };
 
@@ -356,7 +348,6 @@ const FormEditMesin: React.FC = () => {
 
         <div className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200">
           <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-6">
-            {/* General Information */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <FiClock className="mr-2 text-blue-500" /> General Information
@@ -409,23 +400,23 @@ const FormEditMesin: React.FC = () => {
               </div>
             </div>
 
-            {/* Stop Time */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <FiClock className="mr-2 text-red-500" /> Stop Time
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="stopJam" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="startJam" className="block text-sm font-medium text-gray-700 mb-1">
                     Hour (HH)
                   </label>
                   <input
-                    type="text"
+                    type="number"
                     name="stopJam"
                     id="stopJam"
-                    value={formData.stopJam === null ? "" : String(formData.stopJam)}
+                    value={formData.stopJam === null ? "" : formData.stopJam}
                     onChange={handleChange}
-                    placeholder="e.g., 09 (leave empty if not applicable)"
+                    placeholder="e.g., 9"
+                    min="0"
                     className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
                     required
                   />
@@ -463,7 +454,6 @@ const FormEditMesin: React.FC = () => {
               </div>
             </div>
 
-            {/* Start Time */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <FiCheck className="mr-2 text-green-500" /> Start Time
@@ -474,12 +464,13 @@ const FormEditMesin: React.FC = () => {
                     Hour (HH)
                   </label>
                   <input
-                    type="text"
+                    type="number"
                     name="startJam"
                     id="startJam"
-                    value={formData.startJam === null ? "" : String(formData.startJam)}
+                    value={formData.startJam === null ? "" : formData.startJam}
                     onChange={handleChange}
-                    placeholder="e.g., 09 (leave empty if not applicable)"
+                    placeholder="e.g., 9"
+                    min="0"
                     className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
                     required
                   />
@@ -502,7 +493,6 @@ const FormEditMesin: React.FC = () => {
               </div>
             </div>
 
-            {/* Machine Details */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <FiTool className="mr-2 text-blue-500" /> Machine Details
@@ -556,7 +546,6 @@ const FormEditMesin: React.FC = () => {
               </div>
             </div>
 
-            {/* Problem & Action */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <FiTool className="mr-2 text-yellow-500" /> Problem & Action
@@ -627,7 +616,6 @@ const FormEditMesin: React.FC = () => {
               </div>
             </div>
 
-            {/* Activity Details */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <FiCheck className="mr-2 text-purple-500" /> Activity Details
@@ -666,7 +654,6 @@ const FormEditMesin: React.FC = () => {
               </div>
             </div>
 
-            {/* Spare Parts */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <FiTool className="mr-2 text-indigo-500" /> Spare Parts
@@ -750,13 +737,10 @@ const FormEditMesin: React.FC = () => {
               </div>
             </div>
 
-            {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row justify-end gap-4 pt-6 border-t border-gray-200">
-              {/* Consider if "Clear Form" is appropriate for an edit form.
-                  It might be better to have a "Reset to original" or just "Cancel". */}
               <motion.button
                 type="button"
-                onClick={() => navigate(`/machinehistory/${id}`)} // Cancel and go back
+                onClick={() => navigate(`/machinehistory`)}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 className="px-6 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
