@@ -1,18 +1,17 @@
-import { useState, useEffect, useCallback, ChangeEvent, FormEvent } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { useAuth, MachineHistoryFormData, MachineHistoryRecord, Mesin, Shift, Group, StopTime, Unit, ItemTrouble, JenisAktivitas, Kegiatan, UnitSparePart, AllMasterData } from "../../routes/AuthContext";
-import "react-datepicker/dist/react-datepicker.css";
-import DatePicker from "react-datepicker";
-import { toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+import React, { useState, useEffect, useCallback } from "react";
+import { FiSave, FiTrash2, FiX, FiClock, FiCheck, FiTool } from "react-icons/fi";
+import { useNavigate, useParams } from "react-router-dom";
+import Select from "react-select";
+import { useAuth, MachineHistoryFormData, Mesin, Shift, Group, StopTime, Unit, ItemTrouble, JenisAktivitas, Kegiatan, UnitSparePart, AllMasterData, MachineHistoryRecord } from "../../routes/AuthContext";
+import { motion } from "framer-motion";
 
-const EditFormMesin = () => {
+const FormEditMesin: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const { getAllMasterData, getMachineHistoryById, updateMachineHistory, masterData } = useAuth();
   const navigate = useNavigate();
-  const { getAllMasterData, getMachineHistoryById, updateMachineHistory, masterData, isMasterDataLoading } = useAuth();
-
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [mesinList, setMesinList] = useState<Mesin[]>([]);
   const [shiftList, setShiftList] = useState<Shift[]>([]);
   const [groupList, setGroupList] = useState<Group[]>([]);
@@ -24,7 +23,7 @@ const EditFormMesin = () => {
   const [unitSparePartList, setUnitSparePartList] = useState<UnitSparePart[]>([]);
 
   const [formData, setFormData] = useState<MachineHistoryFormData>({
-    date: "",
+    date: new Date().toISOString().split("T")[0],
     shift: "",
     group: "",
     stopJam: null,
@@ -49,23 +48,134 @@ const EditFormMesin = () => {
     unitSparePart: "",
   });
 
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const findIdByName = (list: Array<{ id: string; name: string }>, name: string): string => {
+    const item = list.find((item) => item.name === name);
+    return item ? item.id : "";
+  };
+
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | { value: string; label: string } | null, name?: string) => {
+    if (e && typeof e === "object" && "value" in e && name) {
+      // For react-select
+      setFormData((prev) => ({
+        ...prev,
+        [name]: e.value,
+      }));
+    } else if (e && "target" in e) {
+      // For native input/textarea
+      const { name, value } = e.target;
+
+      setFormData((prev) => {
+        if (["stopJam", "startJam"].includes(name)) {
+          const cleanedValue = value.replace(/[^\d]/g, "");
+          return {
+            ...prev,
+            [name]: cleanedValue === "" ? null : parseInt(cleanedValue, 10), // Allow null for empty
+          };
+        }
+
+        if (["stopMenit", "startMenit"].includes(name)) {
+          const cleanedValue = value.replace(/[^\d]/g, "");
+          const numValue = parseInt(cleanedValue, 10);
+          return {
+            ...prev,
+            [name]: cleanedValue === "" ? null : Math.max(0, Math.min(59, isNaN(numValue) ? 0 : numValue)), // Allow null for empty
+          };
+        }
+
+        if (name === "runningHour" || name === "jumlah") {
+          return {
+            ...prev,
+            [name]: value.replace(/[^\d.]/g, ""), // Keep dot for number formatting
+          };
+        }
+
+        return {
+          ...prev,
+          [name]: value,
+        };
+      });
+    }
+  }, []);
+
+  const formatNumberWithDot = useCallback((num: number | string | null): string => {
+    if (num === null || num === undefined || num === "") return ""; // Handle null/undefined/empty string
+
+    if (typeof num === "string") {
+      const cleanedString = num.replace(/[^\d]/g, ""); // Remove non-digits
+      if (cleanedString === "") return ""; // If only non-digits, return empty
+      const numericValue = parseInt(cleanedString, 10);
+      if (isNaN(numericValue)) return "";
+      return numericValue.toLocaleString("id-ID").replace(/,/g, ".");
+    }
+
+    if (isNaN(num)) return "";
+    return num.toLocaleString("id-ID").replace(/,/g, ".");
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      if (!id) {
+        throw new Error("No record ID provided");
+      }
+
+      await updateMachineHistory(id, {
+        ...formData,
+        runningHour: parseInt(String(formData.runningHour).replace(/\./g, ""), 10) || 0,
+        jumlah: parseInt(String(formData.jumlah).replace(/\./g, ""), 10) || 0,
+      });
+
+      setSuccess("Record updated successfully");
+      setTimeout(() => navigate(`/machinehistory/${id}`), 1500);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Failed to update record");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClear = useCallback(() => {
+    setFormData({
+      date: new Date().toISOString().split("T")[0],
+      shift: "",
+      group: "",
+      stopJam: 0,
+      stopMenit: 0,
+      startJam: 0,
+      startMenit: 0,
+      stopTime: "",
+      unit: "",
+      mesin: "",
+      runningHour: 0,
+      itemTrouble: "",
+      jenisGangguan: "",
+      bentukTindakan: "",
+      perbaikanPerawatan: "",
+      rootCause: "",
+      jenisAktivitas: "",
+      kegiatan: "",
+      kodePart: "",
+      sparePart: "",
+      idPart: "",
+      jumlah: 0,
+      unitSparePart: "",
+    });
+    setError(null);
+    setSuccess(null);
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
+
+        // Load master data if not already loaded
         if (!masterData) {
-          const fetchedMasterData: AllMasterData = await getAllMasterData();
-          setMesinList(fetchedMasterData.mesin || []);
-          setShiftList(fetchedMasterData.shifts || []);
-          setGroupList(fetchedMasterData.groups || []);
-          setStopTimeList(fetchedMasterData.stoptimes || []);
-          setUnitList(fetchedMasterData.units || []);
-          setItemTroubleList(fetchedMasterData.itemtroubles || []);
-          setJenisAktivitasList(fetchedMasterData.jenisaktivitas || []);
-          setKegiatanList(fetchedMasterData.kegiatans || []);
-          setUnitSparePartList(fetchedMasterData.unitspareparts || []);
+          await getAllMasterData();
         } else {
           setMesinList(masterData.mesin || []);
           setShiftList(masterData.shifts || []);
@@ -79,401 +189,584 @@ const EditFormMesin = () => {
         }
 
         if (id) {
-          const machineDataResult: MachineHistoryRecord | null = await getMachineHistoryById(id);
-          if (machineDataResult) {
+          const machineData = await getMachineHistoryById(id);
+          if (machineData) {
             setFormData({
-              date: machineDataResult.date,
-              shift: machineDataResult.shift,
-              group: machineDataResult.group,
-              stopJam: machineDataResult.stopJam,
-              stopMenit: machineDataResult.stopMenit,
-              startJam: machineDataResult.startJam,
-              startMenit: machineDataResult.startMenit,
-              stopTime: machineDataResult.stopTime,
-              unit: machineDataResult.unit,
-              mesin: machineDataResult.mesin,
-              runningHour: machineDataResult.runningHour,
-              itemTrouble: machineDataResult.itemTrouble,
-              jenisGangguan: machineDataResult.jenisGangguan,
-              bentukTindakan: machineDataResult.bentukTindakan,
-              perbaikanPerawatan: machineDataResult.perbaikanPerawatan,
-              rootCause: machineDataResult.rootCause,
-              jenisAktivitas: machineDataResult.jenisAktivitas,
-              kegiatan: machineDataResult.kegiatan,
-              kodePart: machineDataResult.kodePart,
-              sparePart: machineDataResult.sparePart,
-              idPart: machineDataResult.idPart,
-              jumlah: machineDataResult.jumlah,
-              unitSparePart: machineDataResult.unitSparePart,
+              date: machineData.date,
+              shift: findIdByName(masterData?.shifts || [], machineData.shift),
+              group: findIdByName(masterData?.groups || [], machineData.group),
+              stopJam: machineData.stopJam,
+              stopMenit: machineData.stopMenit,
+              startJam: machineData.startJam,
+              startMenit: machineData.startMenit,
+              stopTime: findIdByName(masterData?.stoptimes || [], machineData.stopTime),
+              unit: findIdByName(masterData?.units || [], machineData.unit),
+              mesin: findIdByName(masterData?.mesin || [], machineData.mesin),
+              runningHour: machineData.runningHour,
+              itemTrouble: findIdByName(masterData?.itemtroubles || [], machineData.itemTrouble),
+              jenisGangguan: machineData.jenisGangguan,
+              bentukTindakan: machineData.bentukTindakan,
+              perbaikanPerawatan: machineData.perbaikanPerawatan,
+              rootCause: machineData.rootCause,
+              jenisAktivitas: findIdByName(masterData?.jenisaktivitas || [], machineData.jenisAktivitas),
+              kegiatan: findIdByName(masterData?.kegiatans || [], machineData.kegiatan),
+              kodePart: machineData.kodePart,
+              sparePart: machineData.sparePart,
+              idPart: machineData.idPart,
+              jumlah: machineData.jumlah,
+              unitSparePart: findIdByName(masterData?.unitspareparts || [], machineData.unitSparePart),
             });
-
-            // --- PERBAIKAN DI SINI ---
-            const dateFromApi = machineDataResult.date;
-            if (dateFromApi) {
-              // Pastikan tanggal tidak kosong
-              const parsedDate = new Date(dateFromApi);
-              if (!isNaN(parsedDate.getTime())) {
-                // Pastikan tanggal valid (bukan Invalid Date)
-                setSelectedDate(parsedDate);
-              } else {
-                console.warn("Tanggal dari API tidak valid:", dateFromApi);
-                setSelectedDate(null); // Atur ke null jika tidak valid
-              }
-            } else {
-              setSelectedDate(null); // Atur ke null jika kosong
-            }
-            // --- AKHIR PERBAIKAN ---
-          } else {
-            setError("Data history mesin tidak ditemukan.");
-            toast.error("Data history mesin tidak ditemukan.");
           }
-        } else {
-          setError("ID history mesin tidak diberikan untuk pengeditan.");
-          toast.error("ID history mesin tidak diberikan.");
         }
-      } catch (err: any) {
-        setError(err.message || "Terjadi kesalahan saat memuat data.");
-        toast.error(err.message || "Gagal memuat data untuk pengeditan.");
+      } catch (error) {
+        setError("Failed to load data");
+        console.error("Error loading data:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    if (!isMasterDataLoading) {
-      fetchData();
-    }
-  }, [id, getAllMasterData, getMachineHistoryById, updateMachineHistory, navigate, masterData, isMasterDataLoading]);
+    fetchData();
+  }, [id, masterData]);
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
+  // --- AKHIR BAGIAN YANG DIPERBAIKI ---
 
-  const handleDateChange = (date: Date | null) => {
-    setSelectedDate(date);
-    setFormData((prev) => ({
-      ...prev,
-      date: date ? date.toISOString().split("T")[0] : "",
-    }));
-  };
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!id) {
-      toast.error("ID history mesin tidak ditemukan untuk update.");
-      return;
-    }
-    try {
-      await updateMachineHistory(id, formData);
-      toast.success("History mesin berhasil diperbarui!");
-      navigate("/machinehistory");
-    } catch (err: any) {
-      toast.error(err.message || "Gagal memperbarui history mesin.");
-    }
+  // Define custom styles for react-select to match Tailwind input styles
+  const customSelectStyles = {
+    control: (provided: any, state: any) => ({
+      ...provided,
+      minHeight: "42px", // Matches input height
+      borderColor: state.isFocused ? "#3B82F6" : "#D1D5DB", // Focus ring color for blue
+      boxShadow: state.isFocused ? "0 0 0 1px #3B82F6" : "none", // Focus ring shadow
+      "&:hover": {
+        borderColor: "#9CA3AF", // Slightly darker border on hover
+      },
+      borderRadius: "0.5rem", // rounded-lg
+      backgroundColor: "#FFFFFF", // bg-white
+      padding: "0 0.5rem", // Padding inside the control
+      transition: "all 0.15s ease-in-out", // transition duration-150
+    }),
+    valueContainer: (provided: any) => ({
+      ...provided,
+      padding: "0", // Remove default padding
+    }),
+    singleValue: (provided: any) => ({
+      ...provided,
+      color: "#374151", // text-gray-700
+    }),
+    placeholder: (provided: any) => ({
+      ...provided,
+      color: "#6B7280", // text-gray-500
+    }),
+    dropdownIndicator: (provided: any) => ({
+      ...provided,
+      color: "#9CA3AF", // text-gray-400
+      "&:hover": {
+        color: "#6B7280", // Darker on hover
+      },
+    }),
+    indicatorSeparator: (provided: any) => ({
+      ...provided,
+      display: "none", // Remove the vertical line
+    }),
+    menu: (provided: any) => ({
+      ...provided,
+      zIndex: 9999, // Ensure dropdown is above other elements
+      borderRadius: "0.5rem", // rounded-lg
+      border: "1px solid #E5E7EB", // border-gray-200
+      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)", // shadow-md
+    }),
+    option: (provided: any, state: any) => ({
+      ...provided,
+      backgroundColor: state.isFocused ? "#EFF6FF" : "#FFFFFF", // bg-blue-50 on focus
+      color: "#1F2937", // text-gray-900
+      "&:active": {
+        backgroundColor: "#DBEAFE", // bg-blue-100 on active
+      },
+      padding: "0.625rem 1rem", // py-2.5 px-4
+    }),
   };
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <p>Memuat data...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex justify-center items-center h-screen text-red-500">
-        <p>Error: {error}</p>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-blue-600 text-lg font-semibold">Loading data...</div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Edit History Mesin</h1>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label htmlFor="date" className="block text-sm font-medium text-gray-700">
-            Tanggal:
-          </label>
-          <DatePicker selected={selectedDate} onChange={handleDateChange} dateFormat="yyyy-MM-dd" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
-        </div>
-
-        <div>
-          <label htmlFor="mesin" className="block text-sm font-medium text-gray-700">
-            Mesin:
-          </label>
-          <select id="mesin" name="mesin" value={formData.mesin} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-            <option value="">Pilih Mesin</option>
-            {mesinList.map((mesin) => (
-              <option key={mesin.id} value={mesin.name}>
-                {mesin.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label htmlFor="shift" className="block text-sm font-medium text-gray-700">
-            Shift:
-          </label>
-          <select id="shift" name="shift" value={formData.shift} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-            <option value="">Pilih Shift</option>
-            {shiftList.map((shift) => (
-              <option key={shift.id} value={shift.name}>
-                {shift.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label htmlFor="group" className="block text-sm font-medium text-gray-700">
-            Group:
-          </label>
-          <select id="group" name="group" value={formData.group} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-            <option value="">Pilih Group</option>
-            {groupList.map((group) => (
-              <option key={group.id} value={group.name}>
-                {group.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label htmlFor="stopTime" className="block text-sm font-medium text-gray-700">
-            Stop Time:
-          </label>
-          <select id="stopTime" name="stopTime" value={formData.stopTime} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-            <option value="">Pilih Stop Time</option>
-            {stopTimeList.map((st) => (
-              <option key={st.id} value={st.name}>
-                {st.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
+      <div className="max-w-6xl mx-auto">
+        <div className="flex items-center justify-between mb-8">
           <div>
-            <label htmlFor="startJam" className="block text-sm font-medium text-gray-700">
-              Start Jam (HH):
-            </label>
-            <input
-              type="number"
-              id="startJam"
-              name="startJam"
-              value={formData.startJam ?? ""}
-              onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-              min="0"
-              max="23"
-            />
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 flex items-center">
+              <FiTool className="mr-3 text-blue-600" /> Edit Machine History Record {id && `(ID: ${id})`}
+            </h1>
+            <p className="text-gray-600 mt-1">Update maintenance activities and machine issues</p>
           </div>
-          <div>
-            <label htmlFor="startMenit" className="block text-sm font-medium text-gray-700">
-              Start Menit (MM):
-            </label>
-            <input
-              type="number"
-              id="startMenit"
-              name="startMenit"
-              value={formData.startMenit ?? ""}
-              onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-              min="0"
-              max="59"
-            />
+          <motion.button
+            onClick={() => navigate("/machinehistory")}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="p-2 rounded-lg bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors duration-200 shadow-sm"
+            aria-label="Close form"
+          >
+            <FiX className="text-xl" />
+          </motion.button>
+        </div>
+
+        {loading && (
+          <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded relative mb-4" role="alert">
+            <strong className="font-bold">Processing!</strong>
+            <span className="block sm:inline"> Sedang menyimpan data...</span>
           </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="stopJam" className="block text-sm font-medium text-gray-700">
-              Stop Jam (HH):
-            </label>
-            <input
-              type="number"
-              id="stopJam"
-              name="stopJam"
-              value={formData.stopJam ?? ""}
-              onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-              min="0"
-              max="23"
-            />
+        )}
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+            <strong className="font-bold">Error!</strong>
+            <span className="block sm:inline"> {error}</span>
           </div>
-          <div>
-            <label htmlFor="stopMenit" className="block text-sm font-medium text-gray-700">
-              Stop Menit (MM):
-            </label>
-            <input
-              type="number"
-              id="stopMenit"
-              name="stopMenit"
-              value={formData.stopMenit ?? ""}
-              onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-              min="0"
-              max="59"
-            />
+        )}
+        {success && (
+          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4" role="alert">
+            <strong className="font-bold">Success!</strong>
+            <span className="block sm:inline"> {success}</span>
           </div>
-        </div>
+        )}
 
-        <div>
-          <label htmlFor="runningHour" className="block text-sm font-medium text-gray-700">
-            Running Hour:
-          </label>
-          <input
-            type="number"
-            id="runningHour"
-            name="runningHour"
-            value={formData.runningHour}
-            onChange={handleChange}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-            step="0.01"
-          />
-        </div>
+        <div className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200">
+          <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-6">
+            {/* General Information */}
+            <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+              <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <FiClock className="mr-2 text-blue-500" /> General Information
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">
+                    Date
+                  </label>
+                  <input
+                    type="date"
+                    name="date"
+                    id="date"
+                    value={formData.date}
+                    onChange={handleChange}
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="shift" className="block text-sm font-medium text-gray-700 mb-1">
+                    Shift
+                  </label>
+                  <Select
+                    name="shift"
+                    id="shift"
+                    options={shiftList.map((shift) => ({ value: shift.id, label: shift.name }))}
+                    value={shiftList.map((shift) => ({ value: shift.id, label: shift.name })).find((option) => option.value === formData.shift)}
+                    onChange={(selectedOption) => handleChange(selectedOption, "shift")}
+                    placeholder="Select Shift"
+                    styles={customSelectStyles}
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="group" className="block text-sm font-medium text-gray-700 mb-1">
+                    Group
+                  </label>
+                  <Select
+                    name="group"
+                    id="group"
+                    options={groupList.map((group) => ({ value: group.id, label: group.name }))}
+                    value={groupList.map((group) => ({ value: group.id, label: group.name })).find((option) => option.value === formData.group)}
+                    onChange={(selectedOption) => handleChange(selectedOption, "group")}
+                    placeholder="Select Group"
+                    styles={customSelectStyles}
+                    required
+                  />
+                </div>
+              </div>
+            </div>
 
-        <div>
-          <label htmlFor="itemTrouble" className="block text-sm font-medium text-gray-700">
-            Item Trouble:
-          </label>
-          <select id="itemTrouble" name="itemTrouble" value={formData.itemTrouble} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-            <option value="">Pilih Item Trouble</option>
-            {itemTroubleList.map((it) => (
-              <option key={it.id} value={it.name}>
-                {it.name}
-              </option>
-            ))}
-          </select>
-        </div>
+            {/* Stop Time */}
+            <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+              <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <FiClock className="mr-2 text-red-500" /> Stop Time
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="stopJam" className="block text-sm font-medium text-gray-700 mb-1">
+                    Hour (HH)
+                  </label>
+                  <input
+                    type="text"
+                    name="stopJam"
+                    id="stopJam"
+                    value={formData.stopJam === null ? "" : String(formData.stopJam)}
+                    onChange={handleChange}
+                    placeholder="e.g., 09 (leave empty if not applicable)"
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="stopMenit" className="block text-sm font-medium text-gray-700 mb-1">
+                    Minute (MM)
+                  </label>
+                  <input
+                    type="text"
+                    name="stopMenit"
+                    id="stopMenit"
+                    value={formData.stopMenit === null ? "" : String(formData.stopMenit)}
+                    onChange={handleChange}
+                    placeholder="e.g., 30"
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="mt-4">
+                <label htmlFor="stopTime" className="block text-sm font-medium text-gray-700 mb-1">
+                  Stop Type
+                </label>
+                <Select
+                  name="stopTime"
+                  id="stopTime"
+                  options={stopTimeList.map((stopTime) => ({ value: stopTime.id, label: stopTime.name }))}
+                  value={stopTimeList.map((stopTime) => ({ value: stopTime.id, label: stopTime.name })).find((option) => option.value === formData.stopTime)}
+                  onChange={(selectedOption) => handleChange(selectedOption, "stopTime")}
+                  placeholder="Select Stop Type"
+                  styles={customSelectStyles}
+                  required
+                />
+              </div>
+            </div>
 
-        <div>
-          <label htmlFor="jenisGangguan" className="block text-sm font-medium text-gray-700">
-            Jenis Gangguan:
-          </label>
-          <textarea
-            id="jenisGangguan"
-            name="jenisGangguan"
-            value={formData.jenisGangguan}
-            onChange={handleChange}
-            rows={3}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-          ></textarea>
-        </div>
+            {/* Start Time */}
+            <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+              <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <FiCheck className="mr-2 text-green-500" /> Start Time
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="startJam" className="block text-sm font-medium text-gray-700 mb-1">
+                    Hour (HH)
+                  </label>
+                  <input
+                    type="text"
+                    name="startJam"
+                    id="startJam"
+                    value={formData.startJam === null ? "" : String(formData.startJam)}
+                    onChange={handleChange}
+                    placeholder="e.g., 09 (leave empty if not applicable)"
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="startMenit" className="block text-sm font-medium text-gray-700 mb-1">
+                    Minute (MM)
+                  </label>
+                  <input
+                    type="text"
+                    name="startMenit"
+                    id="startMenit"
+                    value={formData.startMenit === null ? "" : String(formData.startMenit)}
+                    onChange={handleChange}
+                    placeholder="e.g., 15"
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
+                    required
+                  />
+                </div>
+              </div>
+            </div>
 
-        <div>
-          <label htmlFor="bentukTindakan" className="block text-sm font-medium text-gray-700">
-            Bentuk Tindakan:
-          </label>
-          <textarea
-            id="bentukTindakan"
-            name="bentukTindakan"
-            value={formData.bentukTindakan}
-            onChange={handleChange}
-            rows={3}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-          ></textarea>
-        </div>
+            {/* Machine Details */}
+            <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+              <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <FiTool className="mr-2 text-blue-500" /> Machine Details
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="unit" className="block text-sm font-medium text-gray-700 mb-1">
+                    Unit
+                  </label>
+                  <Select
+                    name="unit"
+                    id="unit"
+                    options={unitList.map((unit) => ({ value: unit.id, label: unit.name }))}
+                    value={unitList.map((unit) => ({ value: unit.id, label: unit.name })).find((option) => option.value === formData.unit)}
+                    onChange={(selectedOption) => handleChange(selectedOption, "unit")}
+                    placeholder="Select Unit"
+                    styles={customSelectStyles}
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="mesin" className="block text-sm font-medium text-gray-700 mb-1">
+                    Machine
+                  </label>
+                  <Select
+                    name="mesin"
+                    id="mesin"
+                    options={mesinList.map((mesinItem) => ({ value: mesinItem.id, label: mesinItem.name }))}
+                    value={mesinList.map((mesinItem) => ({ value: mesinItem.id, label: mesinItem.name })).find((option) => option.value === formData.mesin)}
+                    onChange={(selectedOption) => handleChange(selectedOption, "mesin")}
+                    placeholder="Select Machine"
+                    styles={customSelectStyles}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="mt-4">
+                <label htmlFor="runningHour" className="block text-sm font-medium text-gray-700 mb-1">
+                  Running Hours
+                </label>
+                <input
+                  type="text"
+                  name="runningHour"
+                  id="runningHour"
+                  value={formatNumberWithDot(formData.runningHour)}
+                  onChange={handleChange}
+                  placeholder="e.g., 15.000"
+                  className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
+                  required
+                />
+              </div>
+            </div>
 
-        <div>
-          <label htmlFor="rootCause" className="block text-sm font-medium text-gray-700">
-            Root Cause:
-          </label>
-          <textarea
-            id="rootCause"
-            name="rootCause"
-            value={formData.rootCause}
-            onChange={handleChange}
-            rows={3}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-          ></textarea>
-        </div>
+            {/* Problem & Action */}
+            <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+              <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <FiTool className="mr-2 text-yellow-500" /> Problem & Action
+              </h2>
+              <div className="mb-4">
+                <label htmlFor="itemTrouble" className="block text-sm font-medium text-gray-700 mb-1">
+                  Item Trouble
+                </label>
+                <Select
+                  name="itemTrouble"
+                  id="itemTrouble"
+                  options={itemTroubleList.map((itemTrouble) => ({ value: itemTrouble.id, label: itemTrouble.name }))}
+                  value={itemTroubleList.map((itemTrouble) => ({ value: itemTrouble.id, label: itemTrouble.name })).find((option) => option.value === formData.itemTrouble)}
+                  onChange={(selectedOption) => handleChange(selectedOption, "itemTrouble")}
+                  placeholder="Select Item Trouble"
+                  styles={customSelectStyles}
+                  required
+                />
+              </div>
 
-        <div>
-          <label htmlFor="jenisAktivitas" className="block text-sm font-medium text-gray-700">
-            Jenis Aktivitas:
-          </label>
-          <select id="jenisAktivitas" name="jenisAktivitas" value={formData.jenisAktivitas} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-            <option value="">Pilih Jenis Aktivitas</option>
-            {jenisAktivitasList.map((ja) => (
-              <option key={ja.id} value={ja.name}>
-                {ja.name}
-              </option>
-            ))}
-          </select>
-        </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label htmlFor="jenisGangguan" className="block text-sm font-medium text-gray-700 mb-1">
+                    Issue Description
+                  </label>
+                  <textarea
+                    name="jenisGangguan"
+                    id="jenisGangguan"
+                    value={formData.jenisGangguan}
+                    onChange={handleChange}
+                    rows={3}
+                    placeholder="Describe the issue..."
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="bentukTindakan" className="block text-sm font-medium text-gray-700 mb-1">
+                    Action Taken
+                  </label>
+                  <textarea
+                    name="bentukTindakan"
+                    id="bentukTindakan"
+                    value={formData.bentukTindakan}
+                    onChange={handleChange}
+                    rows={3}
+                    placeholder="Describe the action taken..."
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
+                    required
+                  />
+                </div>
+              </div>
 
-        <div>
-          <label htmlFor="kegiatan" className="block text-sm font-medium text-gray-700">
-            Kegiatan:
-          </label>
-          <select id="kegiatan" name="kegiatan" value={formData.kegiatan} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-            <option value="">Pilih Kegiatan</option>
-            {kegiatanList.map((keg) => (
-              <option key={keg.id} value={keg.name}>
-                {keg.name}
-              </option>
-            ))}
-          </select>
-        </div>
+              <div>
+                <label htmlFor="rootCause" className="block text-sm font-medium text-gray-700 mb-1">
+                  Root Cause
+                </label>
+                <textarea
+                  name="rootCause"
+                  id="rootCause"
+                  value={formData.rootCause}
+                  onChange={handleChange}
+                  rows={3}
+                  placeholder="Identify the root cause..."
+                  className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
+                  required
+                />
+              </div>
+            </div>
 
-        <div>
-          <label htmlFor="kodePart" className="block text-sm font-medium text-gray-700">
-            Kode Part:
-          </label>
-          <input type="text" id="kodePart" name="kodePart" value={formData.kodePart} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
-        </div>
+            {/* Activity Details */}
+            <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+              <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <FiCheck className="mr-2 text-purple-500" /> Activity Details
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="jenisAktivitas" className="block text-sm font-medium text-gray-700 mb-1">
+                    Activity Type
+                  </label>
+                  <Select
+                    name="jenisAktivitas"
+                    id="jenisAktivitas"
+                    options={jenisAktivitasList.map((aktivitas) => ({ value: aktivitas.id, label: aktivitas.name }))}
+                    value={jenisAktivitasList.map((aktivitas) => ({ value: aktivitas.id, label: aktivitas.name })).find((option) => option.value === formData.jenisAktivitas)}
+                    onChange={(selectedOption) => handleChange(selectedOption, "jenisAktivitas")}
+                    placeholder="Select Activity Type"
+                    styles={customSelectStyles}
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="kegiatan" className="block text-sm font-medium text-gray-700 mb-1">
+                    Specific Activity
+                  </label>
+                  <Select
+                    name="kegiatan"
+                    id="kegiatan"
+                    options={kegiatanList.map((kegiatan) => ({ value: kegiatan.id, label: kegiatan.name }))}
+                    value={kegiatanList.map((kegiatan) => ({ value: kegiatan.id, label: kegiatan.name })).find((option) => option.value === formData.kegiatan)}
+                    onChange={(selectedOption) => handleChange(selectedOption, "kegiatan")}
+                    placeholder="Select Activity"
+                    styles={customSelectStyles}
+                    required
+                  />
+                </div>
+              </div>
+            </div>
 
-        <div>
-          <label htmlFor="sparePart" className="block text-sm font-medium text-gray-700">
-            Spare Part:
-          </label>
-          <input type="text" id="sparePart" name="sparePart" value={formData.sparePart} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
-        </div>
+            {/* Spare Parts */}
+            <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+              <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <FiTool className="mr-2 text-indigo-500" /> Spare Parts
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <label htmlFor="kodePart" className="block text-sm font-medium text-gray-700 mb-1">
+                    Part Code
+                  </label>
+                  <input
+                    type="text"
+                    name="kodePart"
+                    id="kodePart"
+                    value={formData.kodePart}
+                    onChange={handleChange}
+                    placeholder="e.g., KODE123"
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="sparePart" className="block text-sm font-medium text-gray-700 mb-1">
+                    Part Name
+                  </label>
+                  <input
+                    type="text"
+                    name="sparePart"
+                    id="sparePart"
+                    value={formData.sparePart}
+                    onChange={handleChange}
+                    placeholder="e.g., Bearing XYZ"
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="idPart" className="block text-sm font-medium text-gray-700 mb-1">
+                    Part ID
+                  </label>
+                  <input
+                    type="text"
+                    name="idPart"
+                    id="idPart"
+                    value={formData.idPart}
+                    onChange={handleChange}
+                    placeholder="e.g., ID456"
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="jumlah" className="block text-sm font-medium text-gray-700 mb-1">
+                    Quantity
+                  </label>
+                  <input
+                    type="text"
+                    name="jumlah"
+                    id="jumlah"
+                    value={formatNumberWithDot(formData.jumlah)}
+                    onChange={handleChange}
+                    placeholder="e.g., 5"
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 no-spin-button bg-white text-gray-700"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="mt-4">
+                <label htmlFor="unitSparePart" className="block text-sm font-medium text-gray-700 mb-1">
+                  Unit
+                </label>
+                <Select
+                  name="unitSparePart"
+                  id="unitSparePart"
+                  options={unitSparePartList.map((unitSP) => ({ value: unitSP.id, label: unitSP.name }))}
+                  value={unitSparePartList.map((unitSP) => ({ value: unitSP.id, label: unitSP.name })).find((option) => option.value === formData.unitSparePart)}
+                  onChange={(selectedOption) => handleChange(selectedOption, "unitSparePart")}
+                  placeholder="Select Unit"
+                  styles={customSelectStyles}
+                  required
+                />
+              </div>
+            </div>
 
-        <div>
-          <label htmlFor="idPart" className="block text-sm font-medium text-gray-700">
-            ID Part:
-          </label>
-          <input type="text" id="idPart" name="idPart" value={formData.idPart} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row justify-end gap-4 pt-6 border-t border-gray-200">
+              {/* Consider if "Clear Form" is appropriate for an edit form.
+                  It might be better to have a "Reset to original" or just "Cancel". */}
+              <motion.button
+                type="button"
+                onClick={() => navigate(`/machinehistory/${id}`)} // Cancel and go back
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="px-6 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+              >
+                <FiX className="inline mr-2" /> Cancel
+              </motion.button>
+              <motion.button
+                type="submit"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="px-6 py-3 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <span className="animate-spin inline-block mr-2">⚙️</span> Updating...
+                  </>
+                ) : (
+                  <>
+                    <FiSave className="inline mr-2" /> Save Changes
+                  </>
+                )}
+              </motion.button>
+            </div>
+          </form>
         </div>
-
-        <div>
-          <label htmlFor="jumlah" className="block text-sm font-medium text-gray-700">
-            Jumlah:
-          </label>
-          <input type="number" id="jumlah" name="jumlah" value={formData.jumlah} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" />
-        </div>
-
-        <div>
-          <label htmlFor="unitSparePart" className="block text-sm font-medium text-gray-700">
-            Unit Spare Part:
-          </label>
-          <select id="unitSparePart" name="unitSparePart" value={formData.unitSparePart} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-            <option value="">Pilih Unit Spare Part</option>
-            {unitSparePartList.map((usp) => (
-              <option key={usp.id} value={usp.name}>
-                {usp.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <button
-          type="submit"
-          className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-        >
-          Perbarui History
-        </button>
-      </form>
+      </div>
     </div>
   );
 };
 
-export default EditFormMesin;
+export default FormEditMesin;
