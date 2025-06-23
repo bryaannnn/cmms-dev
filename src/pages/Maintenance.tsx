@@ -134,16 +134,23 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
 
-    if (hours === 0 && minutes === 0) {
-      return "0min";
+    const parts: string[] = [];
+
+    if (hours > 0) {
+      parts.push(`${hours}h`);
+    } else if (minutes > 0) {
+      parts.push("0h");
+    } else {
+      // Jika totalMinutes adalah 0
+      return "0min"; 
     }
 
-    const parts: string[] = [];
-    if (hours > 0) {
-      parts.push(`${hours}h`); 
-    }
+    // Tampilkan menit hanya jika ada
     if (minutes > 0) {
-      parts.push(`${minutes}min`); 
+      parts.push(`${minutes}min`);
+    } else if (hours > 0 && minutes === 0) {
+      // Jika ada jam tapi menitnya 0, pastikan formatnya "Xh 0min"
+      parts.push("0min");
     }
 
     return parts.join(" ");
@@ -164,6 +171,7 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
 
     let downtimeMinutes = startTimeInMinutes - stopTimeInMinutes;
     if (downtimeMinutes < 0) {
+      // Ini menangani kasus downtime yang melewati tengah malam
       downtimeMinutes = 24 * 60 - stopTimeInMinutes + startTimeInMinutes;
     }
 
