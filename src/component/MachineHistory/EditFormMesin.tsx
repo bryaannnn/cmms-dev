@@ -2,27 +2,46 @@ import React, { useState, useEffect, useCallback } from "react";
 import { FiSave, FiTrash2, FiX, FiClock, FiCheck, FiTool } from "react-icons/fi";
 import { useNavigate, useParams } from "react-router-dom";
 import Select from "react-select";
-import { useAuth, MachineHistoryFormData, Mesin, Shift, Group, StopTime, Unit, ItemTrouble, JenisAktivitas, Kegiatan, UnitSparePart, AllMasterData, MachineHistoryRecord } from "../../routes/AuthContext";
+import { useAuth, AllMasterData, MachineHistoryRecord } from "../../routes/AuthContext";
 import { motion } from "framer-motion";
+
+interface FormData {
+  date: string;
+  shift: string;
+  group: string;
+  stopJam: number | null;
+  stopMenit: number | null;
+  startJam: number | null;
+  startMenit: number | null;
+  stopTime: string;
+  unit: string;
+  mesin: string;
+  runningHour: number;
+  itemTrouble: string;
+  jenisGangguan: string;
+  bentukTindakan: string;
+  perbaikanPerawatan: string;
+  rootCause: string;
+  jenisAktivitas: string;
+  kegiatan: string;
+  kodePart: string;
+  sparePart: string;
+  idPart: string;
+  jumlah: number;
+  unitSparePart: string;
+}
 
 const FormEditMesin: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { getAllMasterData, getMachineHistoryById, updateMachineHistory, masterData } = useAuth();
+  const { masterData, isMasterDataLoading, getMachineHistoryById, updateMachineHistory } = useAuth();
   const navigate = useNavigate();
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [mesinList, setMesinList] = useState<Mesin[]>([]);
-  const [shiftList, setShiftList] = useState<Shift[]>([]);
-  const [groupList, setGroupList] = useState<Group[]>([]);
-  const [stopTimeList, setStopTimeList] = useState<StopTime[]>([]);
-  const [unitList, setUnitList] = useState<Unit[]>([]);
-  const [itemTroubleList, setItemTroubleList] = useState<ItemTrouble[]>([]);
-  const [jenisAktivitasList, setJenisAktivitasList] = useState<JenisAktivitas[]>([]);
-  const [kegiatanList, setKegiatanList] = useState<Kegiatan[]>([]);
-  const [unitSparePartList, setUnitSparePartList] = useState<UnitSparePart[]>([]);
+  const [initialData, setInitialData] = useState<MachineHistoryRecord | null>(null);
 
-  const [formData, setFormData] = useState<MachineHistoryFormData>({
+  const [formData, setFormData] = useState<FormData>({
     date: new Date().toISOString().split("T")[0],
     shift: "",
     group: "",
@@ -48,69 +67,27 @@ const FormEditMesin: React.FC = () => {
     unitSparePart: "",
   });
 
-  const findIdByName = (list: Array<{ id: string; name: string }>, name: string): string => {
-    const item = list.find((item) => item.name === name);
-    return item ? item.id : "";
+  const findSelectOption = (category: keyof AllMasterData, id: string) => {
+    if (!masterData || !masterData[category]) return null;
+    const items = masterData[category] as Array<{ id: string; name: string }>;
+    const item = items.find((item) => item.id === id);
+    return item ? { value: item.id, label: item.name } : null;
   };
 
-  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | { value: string; label: string } | null, name?: string) => {
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | { value: string; label: string } | null, name?: keyof FormData) => {
     if (e && typeof e === "object" && "value" in e && name) {
-      // For react-select
-      setFormData((prev) => ({
-        ...prev,
-        [name]: e.value,
-      }));
+      setFormData((prev) => ({ ...prev, [name]: e.value }));
     } else if (e && "target" in e) {
-      // For native input/textarea
       const { name, value } = e.target;
-
-      setFormData((prev) => {
-        if (["stopJam", "startJam"].includes(name)) {
-          const cleanedValue = value.replace(/[^\d]/g, "");
-          return {
-            ...prev,
-            [name]: cleanedValue === "" ? null : parseInt(cleanedValue, 10), // Allow null for empty
-          };
-        }
-
-        if (["stopMenit", "startMenit"].includes(name)) {
-          const cleanedValue = value.replace(/[^\d]/g, "");
-          const numValue = parseInt(cleanedValue, 10);
-          return {
-            ...prev,
-            [name]: cleanedValue === "" ? null : Math.max(0, Math.min(59, isNaN(numValue) ? 0 : numValue)), // Allow null for empty
-          };
-        }
-
-        if (name === "runningHour" || name === "jumlah") {
-          return {
-            ...prev,
-            [name]: value.replace(/[^\d.]/g, ""), // Keep dot for number formatting
-          };
-        }
-
-        return {
-          ...prev,
-          [name]: value,
-        };
-      });
+      setFormData((prev) => ({ ...prev, [name as keyof FormData]: value }));
     }
   }, []);
 
-  const formatNumberWithDot = useCallback((num: number | string | null): string => {
-    if (num === null || num === undefined || num === "") return ""; // Handle null/undefined/empty string
-
-    if (typeof num === "string") {
-      const cleanedString = num.replace(/[^\d]/g, ""); // Remove non-digits
-      if (cleanedString === "") return ""; // If only non-digits, return empty
-      const numericValue = parseInt(cleanedString, 10);
-      if (isNaN(numericValue)) return "";
-      return numericValue.toLocaleString("id-ID").replace(/,/g, ".");
-    }
-
-    if (isNaN(num)) return "";
-    return num.toLocaleString("id-ID").replace(/,/g, ".");
-  }, []);
+  const formatNumberWithDot = (num: number | string) => {
+    if (num === null || num === undefined || num === "") return "";
+    const numValue = typeof num === "string" ? parseFloat(num.replace(/\./g, "")) : num;
+    return isNaN(numValue) ? "" : numValue.toLocaleString("id-ID").replace(/,/g, ".");
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -119,178 +96,153 @@ const FormEditMesin: React.FC = () => {
     setSuccess(null);
 
     try {
-      if (!id) {
-        throw new Error("No record ID provided");
-      }
+      if (!id) throw new Error("No record ID provided");
 
-      await updateMachineHistory(id, {
+      const dataToSend = {
         ...formData,
-        runningHour: parseInt(String(formData.runningHour).replace(/\./g, ""), 10) || 0,
-        jumlah: parseInt(String(formData.jumlah).replace(/\./g, ""), 10) || 0,
-      });
+        runningHour: parseInt(String(formData.runningHour).replace(/\./g, "")),
+        jumlah: parseInt(String(formData.jumlah).replace(/\./g, "")),
+      };
 
-      setSuccess("Record updated successfully");
+      await updateMachineHistory(id, dataToSend);
+      setSuccess("Data berhasil diperbarui!");
       setTimeout(() => navigate(`/machinehistory/${id}`), 1500);
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Failed to update record");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal memperbarui data");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleClear = useCallback(() => {
-    setFormData({
-      date: new Date().toISOString().split("T")[0],
-      shift: "",
-      group: "",
-      stopJam: 0,
-      stopMenit: 0,
-      startJam: 0,
-      startMenit: 0,
-      stopTime: "",
-      unit: "",
-      mesin: "",
-      runningHour: 0,
-      itemTrouble: "",
-      jenisGangguan: "",
-      bentukTindakan: "",
-      perbaikanPerawatan: "",
-      rootCause: "",
-      jenisAktivitas: "",
-      kegiatan: "",
-      kodePart: "",
-      sparePart: "",
-      idPart: "",
-      jumlah: 0,
-      unitSparePart: "",
-    });
-    setError(null);
-    setSuccess(null);
-  }, []);
+  const handleReset = () => {
+    if (initialData) {
+      setFormData({
+        date: initialData.date,
+        shift: initialData.shift,
+        group: initialData.group,
+        stopJam: initialData.stopJam ?? null,
+        stopMenit: initialData.stopMenit ?? null,
+        startJam: initialData.startJam ?? null,
+        startMenit: initialData.startMenit ?? null,
+        stopTime: initialData.stopTime,
+        unit: initialData.unit,
+        mesin: initialData.mesin,
+        runningHour: initialData.runningHour,
+        itemTrouble: initialData.itemTrouble,
+        jenisGangguan: initialData.jenisGangguan,
+        bentukTindakan: initialData.bentukTindakan,
+        perbaikanPerawatan: initialData.perbaikanPerawatan,
+        rootCause: initialData.rootCause,
+        jenisAktivitas: initialData.jenisAktivitas,
+        kegiatan: initialData.kegiatan,
+        kodePart: initialData.kodePart,
+        sparePart: initialData.sparePart,
+        idPart: initialData.idPart,
+        jumlah: initialData.jumlah,
+        unitSparePart: initialData.unitSparePart,
+      });
+    }
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
+    const loadData = async () => {
       try {
         setLoading(true);
 
-        // Load master data if not already loaded
-        if (!masterData) {
-          await getAllMasterData();
-        } else {
-          setMesinList(masterData.mesin || []);
-          setShiftList(masterData.shifts || []);
-          setGroupList(masterData.groups || []);
-          setStopTimeList(masterData.stoptimes || []);
-          setUnitList(masterData.units || []);
-          setItemTroubleList(masterData.itemtroubles || []);
-          setJenisAktivitasList(masterData.jenisaktivitas || []);
-          setKegiatanList(masterData.kegiatans || []);
-          setUnitSparePartList(masterData.unitspareparts || []);
-        }
+        if (!id) throw new Error("ID tidak valid");
 
-        if (id) {
-          const machineData = await getMachineHistoryById(id);
-          if (machineData) {
-            setFormData({
-              date: machineData.date,
-              shift: findIdByName(masterData?.shifts || [], machineData.shift),
-              group: findIdByName(masterData?.groups || [], machineData.group),
-              stopJam: machineData.stopJam,
-              stopMenit: machineData.stopMenit,
-              startJam: machineData.startJam,
-              startMenit: machineData.startMenit,
-              stopTime: findIdByName(masterData?.stoptimes || [], machineData.stopTime),
-              unit: findIdByName(masterData?.units || [], machineData.unit),
-              mesin: findIdByName(masterData?.mesin || [], machineData.mesin),
-              runningHour: machineData.runningHour,
-              itemTrouble: findIdByName(masterData?.itemtroubles || [], machineData.itemTrouble),
-              jenisGangguan: machineData.jenisGangguan,
-              bentukTindakan: machineData.bentukTindakan,
-              perbaikanPerawatan: machineData.perbaikanPerawatan,
-              rootCause: machineData.rootCause,
-              jenisAktivitas: findIdByName(masterData?.jenisaktivitas || [], machineData.jenisAktivitas),
-              kegiatan: findIdByName(masterData?.kegiatans || [], machineData.kegiatan),
-              kodePart: machineData.kodePart,
-              sparePart: machineData.sparePart,
-              idPart: machineData.idPart,
-              jumlah: machineData.jumlah,
-              unitSparePart: findIdByName(masterData?.unitspareparts || [], machineData.unitSparePart),
-            });
-          }
-        }
-      } catch (error) {
-        setError("Failed to load data");
-        console.error("Error loading data:", error);
+        const machineData = await getMachineHistoryById(id);
+        if (!machineData) throw new Error("Data tidak ditemukan");
+
+        setInitialData(machineData);
+
+        setFormData({
+          date: machineData.date,
+          shift: machineData.shift,
+          group: machineData.group,
+          stopJam: machineData.stopJam ?? null,
+          stopMenit: machineData.stopMenit ?? null,
+          startJam: machineData.startJam ?? null,
+          startMenit: machineData.startMenit ?? null,
+          stopTime: machineData.stopTime,
+          unit: machineData.unit,
+          mesin: machineData.mesin,
+          runningHour: machineData.runningHour,
+          itemTrouble: machineData.itemTrouble,
+          jenisGangguan: machineData.jenisGangguan,
+          bentukTindakan: machineData.bentukTindakan,
+          perbaikanPerawatan: machineData.perbaikanPerawatan,
+          rootCause: machineData.rootCause,
+          jenisAktivitas: machineData.jenisAktivitas,
+          kegiatan: machineData.kegiatan,
+          kodePart: machineData.kodePart,
+          sparePart: machineData.sparePart,
+          idPart: machineData.idPart,
+          jumlah: machineData.jumlah,
+          unitSparePart: machineData.unitSparePart,
+        });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Gagal memuat data");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchData();
-  }, [id, masterData]);
+    loadData();
+  }, [id, getMachineHistoryById]);
 
-  // --- AKHIR BAGIAN YANG DIPERBAIKI ---
-
-  // Define custom styles for react-select to match Tailwind input styles
   const customSelectStyles = {
     control: (provided: any, state: any) => ({
       ...provided,
-      minHeight: "42px", // Matches input height
-      borderColor: state.isFocused ? "#3B82F6" : "#D1D5DB", // Focus ring color for blue
-      boxShadow: state.isFocused ? "0 0 0 1px #3B82F6" : "none", // Focus ring shadow
-      "&:hover": {
-        borderColor: "#9CA3AF", // Slightly darker border on hover
-      },
-      borderRadius: "0.5rem", // rounded-lg
-      backgroundColor: "#FFFFFF", // bg-white
-      padding: "0 0.5rem", // Padding inside the control
-      transition: "all 0.15s ease-in-out", // transition duration-150
+      minHeight: "42px",
+      borderColor: state.isFocused ? "#3B82F6" : "#D1D5DB",
+      boxShadow: state.isFocused ? "0 0 0 1px #3B82F6" : "none",
+      "&:hover": { borderColor: "#9CA3AF" },
+      borderRadius: "0.5rem",
+      backgroundColor: "#FFFFFF",
+      padding: "0 0.5rem",
+      transition: "all 0.15s ease-in-out",
     }),
-    valueContainer: (provided: any) => ({
-      ...provided,
-      padding: "0", // Remove default padding
-    }),
-    singleValue: (provided: any) => ({
-      ...provided,
-      color: "#374151", // text-gray-700
-    }),
-    placeholder: (provided: any) => ({
-      ...provided,
-      color: "#6B7280", // text-gray-500
-    }),
+    valueContainer: (provided: any) => ({ ...provided, padding: "0" }),
+    singleValue: (provided: any) => ({ ...provided, color: "#374151" }),
+    placeholder: (provided: any) => ({ ...provided, color: "#6B7280" }),
     dropdownIndicator: (provided: any) => ({
       ...provided,
-      color: "#9CA3AF", // text-gray-400
-      "&:hover": {
-        color: "#6B7280", // Darker on hover
-      },
+      color: "#9CA3AF",
+      "&:hover": { color: "#6B7280" },
     }),
-    indicatorSeparator: (provided: any) => ({
-      ...provided,
-      display: "none", // Remove the vertical line
-    }),
+    indicatorSeparator: () => ({ display: "none" }),
     menu: (provided: any) => ({
       ...provided,
-      zIndex: 9999, // Ensure dropdown is above other elements
-      borderRadius: "0.5rem", // rounded-lg
-      border: "1px solid #E5E7EB", // border-gray-200
-      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)", // shadow-md
+      zIndex: 9999,
+      borderRadius: "0.5rem",
+      border: "1px solid #E5E7EB",
+      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
     }),
     option: (provided: any, state: any) => ({
       ...provided,
-      backgroundColor: state.isFocused ? "#EFF6FF" : "#FFFFFF", // bg-blue-50 on focus
-      color: "#1F2937", // text-gray-900
-      "&:active": {
-        backgroundColor: "#DBEAFE", // bg-blue-100 on active
-      },
-      padding: "0.625rem 1rem", // py-2.5 px-4
+      backgroundColor: state.isFocused ? "#EFF6FF" : "#FFFFFF",
+      color: "#1F2937",
+      "&:active": { backgroundColor: "#DBEAFE" },
+      padding: "0.625rem 1rem",
     }),
   };
 
-  if (loading) {
+  if (isMasterDataLoading || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-blue-600 text-lg font-semibold">Loading data...</div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-blue-600 text-lg">Memuat data...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-red-600 text-lg">{error}</div>
+        <button onClick={() => navigate(-1)} className="ml-4 px-4 py-2 bg-gray-200 rounded">
+          Kembali
+        </button>
       </div>
     );
   }
@@ -301,465 +253,281 @@ const FormEditMesin: React.FC = () => {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 flex items-center">
-              <FiTool className="mr-3 text-blue-600" /> Edit Machine History Record {id && `(ID: ${id})`}
+              <FiTool className="mr-3 text-blue-600" /> Edit Machine History
             </h1>
-            <p className="text-gray-600 mt-1">Update maintenance activities and machine issues</p>
+            <p className="text-gray-600 mt-1">Edit maintenance record</p>
           </div>
           <motion.button
             onClick={() => navigate("/machinehistory")}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             className="p-2 rounded-lg bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors duration-200 shadow-sm"
-            aria-label="Close form"
           >
             <FiX className="text-xl" />
           </motion.button>
         </div>
 
-        {loading && (
-          <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded relative mb-4" role="alert">
-            <strong className="font-bold">Processing!</strong>
-            <span className="block sm:inline"> Sedang menyimpan data...</span>
-          </div>
-        )}
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
-            <strong className="font-bold">Error!</strong>
-            <span className="block sm:inline"> {error}</span>
-          </div>
-        )}
-        {success && (
-          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4" role="alert">
-            <strong className="font-bold">Success!</strong>
-            <span className="block sm:inline"> {success}</span>
-          </div>
-        )}
+        {success && <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4">{success}</div>}
 
         <div className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200">
           <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-6">
-            {/* General Information */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <FiClock className="mr-2 text-blue-500" /> General Information
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">
-                    Date
-                  </label>
-                  <input
-                    type="date"
-                    name="date"
-                    id="date"
-                    value={formData.date}
-                    onChange={handleChange}
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
-                    required
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                  <input type="date" name="date" value={formData.date} onChange={handleChange} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required />
                 </div>
+
                 <div>
-                  <label htmlFor="shift" className="block text-sm font-medium text-gray-700 mb-1">
-                    Shift
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Shift</label>
                   <Select
-                    name="shift"
-                    id="shift"
-                    options={shiftList.map((shift) => ({ value: shift.id, label: shift.name }))}
-                    value={shiftList.map((shift) => ({ value: shift.id, label: shift.name })).find((option) => option.value === formData.shift)}
-                    onChange={(selectedOption) => handleChange(selectedOption, "shift")}
+                    options={masterData?.shifts?.map((s: any) => ({ value: s.id, label: s.name })) || []}
+                    value={findSelectOption("shifts", formData.shift)}
+                    onChange={(opt) => handleChange(opt, "shift")}
+                    styles={customSelectStyles}
                     placeholder="Select Shift"
-                    styles={customSelectStyles}
                     required
                   />
                 </div>
+
                 <div>
-                  <label htmlFor="group" className="block text-sm font-medium text-gray-700 mb-1">
-                    Group
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Group</label>
                   <Select
-                    name="group"
-                    id="group"
-                    options={groupList.map((group) => ({ value: group.id, label: group.name }))}
-                    value={groupList.map((group) => ({ value: group.id, label: group.name })).find((option) => option.value === formData.group)}
-                    onChange={(selectedOption) => handleChange(selectedOption, "group")}
-                    placeholder="Select Group"
+                    options={masterData?.groups?.map((g: any) => ({ value: g.id, label: g.name })) || []}
+                    value={findSelectOption("groups", formData.group)}
+                    onChange={(opt) => handleChange(opt, "group")}
                     styles={customSelectStyles}
+                    placeholder="Select Group"
                     required
                   />
                 </div>
               </div>
             </div>
 
-            {/* Stop Time */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <FiClock className="mr-2 text-red-500" /> Stop Time
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="stopJam" className="block text-sm font-medium text-gray-700 mb-1">
-                    Hour (HH)
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Hour (HH)</label>
                   <input
                     type="text"
                     name="stopJam"
-                    id="stopJam"
                     value={formData.stopJam === null ? "" : String(formData.stopJam)}
                     onChange={handleChange}
-                    placeholder="e.g., 09 (leave empty if not applicable)"
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
-                    required
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
                 <div>
-                  <label htmlFor="stopMenit" className="block text-sm font-medium text-gray-700 mb-1">
-                    Minute (MM)
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Minute (MM)</label>
                   <input
                     type="text"
                     name="stopMenit"
-                    id="stopMenit"
                     value={formData.stopMenit === null ? "" : String(formData.stopMenit)}
                     onChange={handleChange}
-                    placeholder="e.g., 30"
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
-                    required
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
               </div>
               <div className="mt-4">
-                <label htmlFor="stopTime" className="block text-sm font-medium text-gray-700 mb-1">
-                  Stop Type
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Stop Type</label>
                 <Select
-                  name="stopTime"
-                  id="stopTime"
-                  options={stopTimeList.map((stopTime) => ({ value: stopTime.id, label: stopTime.name }))}
-                  value={stopTimeList.map((stopTime) => ({ value: stopTime.id, label: stopTime.name })).find((option) => option.value === formData.stopTime)}
-                  onChange={(selectedOption) => handleChange(selectedOption, "stopTime")}
-                  placeholder="Select Stop Type"
+                  options={masterData?.stoptimes?.map((s: any) => ({ value: s.id, label: s.name })) || []}
+                  value={findSelectOption("stoptimes", formData.stopTime)}
+                  onChange={(opt) => handleChange(opt, "stopTime")}
                   styles={customSelectStyles}
+                  placeholder="Select Stop Type"
                   required
                 />
               </div>
             </div>
 
-            {/* Start Time */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <FiCheck className="mr-2 text-green-500" /> Start Time
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="startJam" className="block text-sm font-medium text-gray-700 mb-1">
-                    Hour (HH)
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Hour (HH)</label>
                   <input
                     type="text"
                     name="startJam"
-                    id="startJam"
                     value={formData.startJam === null ? "" : String(formData.startJam)}
                     onChange={handleChange}
-                    placeholder="e.g., 09 (leave empty if not applicable)"
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
-                    required
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
                 <div>
-                  <label htmlFor="startMenit" className="block text-sm font-medium text-gray-700 mb-1">
-                    Minute (MM)
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Minute (MM)</label>
                   <input
                     type="text"
                     name="startMenit"
-                    id="startMenit"
                     value={formData.startMenit === null ? "" : String(formData.startMenit)}
                     onChange={handleChange}
-                    placeholder="e.g., 15"
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
-                    required
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Machine Details */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <FiTool className="mr-2 text-blue-500" /> Machine Details
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="unit" className="block text-sm font-medium text-gray-700 mb-1">
-                    Unit
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Unit</label>
                   <Select
-                    name="unit"
-                    id="unit"
-                    options={unitList.map((unit) => ({ value: unit.id, label: unit.name }))}
-                    value={unitList.map((unit) => ({ value: unit.id, label: unit.name })).find((option) => option.value === formData.unit)}
-                    onChange={(selectedOption) => handleChange(selectedOption, "unit")}
-                    placeholder="Select Unit"
+                    options={masterData?.units?.map((u: any) => ({ value: u.id, label: u.name })) || []}
+                    value={findSelectOption("units", formData.unit)}
+                    onChange={(opt) => handleChange(opt, "unit")}
                     styles={customSelectStyles}
+                    placeholder="Select Unit"
                     required
                   />
                 </div>
+
                 <div>
-                  <label htmlFor="mesin" className="block text-sm font-medium text-gray-700 mb-1">
-                    Machine
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Machine</label>
                   <Select
-                    name="mesin"
-                    id="mesin"
-                    options={mesinList.map((mesinItem) => ({ value: mesinItem.id, label: mesinItem.name }))}
-                    value={mesinList.map((mesinItem) => ({ value: mesinItem.id, label: mesinItem.name })).find((option) => option.value === formData.mesin)}
-                    onChange={(selectedOption) => handleChange(selectedOption, "mesin")}
-                    placeholder="Select Machine"
+                    options={masterData?.mesin?.map((m: any) => ({ value: m.id, label: m.name })) || []}
+                    value={findSelectOption("mesin", formData.mesin)}
+                    onChange={(opt) => handleChange(opt, "mesin")}
                     styles={customSelectStyles}
+                    placeholder="Select Machine"
                     required
                   />
                 </div>
               </div>
+
               <div className="mt-4">
-                <label htmlFor="runningHour" className="block text-sm font-medium text-gray-700 mb-1">
-                  Running Hours
-                </label>
-                <input
-                  type="text"
-                  name="runningHour"
-                  id="runningHour"
-                  value={formatNumberWithDot(formData.runningHour)}
-                  onChange={handleChange}
-                  placeholder="e.g., 15.000"
-                  className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
-                  required
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Running Hours</label>
+                <input type="text" name="runningHour" value={formatNumberWithDot(formData.runningHour)} onChange={handleChange} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required />
               </div>
             </div>
 
-            {/* Problem & Action */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <FiTool className="mr-2 text-yellow-500" /> Problem & Action
               </h2>
               <div className="mb-4">
-                <label htmlFor="itemTrouble" className="block text-sm font-medium text-gray-700 mb-1">
-                  Item Trouble
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Item Trouble</label>
                 <Select
-                  name="itemTrouble"
-                  id="itemTrouble"
-                  options={itemTroubleList.map((itemTrouble) => ({ value: itemTrouble.id, label: itemTrouble.name }))}
-                  value={itemTroubleList.map((itemTrouble) => ({ value: itemTrouble.id, label: itemTrouble.name })).find((option) => option.value === formData.itemTrouble)}
-                  onChange={(selectedOption) => handleChange(selectedOption, "itemTrouble")}
-                  placeholder="Select Item Trouble"
+                  options={masterData?.itemtroubles?.map((i: any) => ({ value: i.id, label: i.name })) || []}
+                  value={findSelectOption("itemtroubles", formData.itemTrouble)}
+                  onChange={(opt) => handleChange(opt, "itemTrouble")}
                   styles={customSelectStyles}
+                  placeholder="Select Item Trouble"
                   required
                 />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
-                  <label htmlFor="jenisGangguan" className="block text-sm font-medium text-gray-700 mb-1">
-                    Issue Description
-                  </label>
-                  <textarea
-                    name="jenisGangguan"
-                    id="jenisGangguan"
-                    value={formData.jenisGangguan}
-                    onChange={handleChange}
-                    rows={3}
-                    placeholder="Describe the issue..."
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
-                    required
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Issue Description</label>
+                  <textarea name="jenisGangguan" value={formData.jenisGangguan} onChange={handleChange} rows={3} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required />
                 </div>
                 <div>
-                  <label htmlFor="bentukTindakan" className="block text-sm font-medium text-gray-700 mb-1">
-                    Action Taken
-                  </label>
-                  <textarea
-                    name="bentukTindakan"
-                    id="bentukTindakan"
-                    value={formData.bentukTindakan}
-                    onChange={handleChange}
-                    rows={3}
-                    placeholder="Describe the action taken..."
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
-                    required
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Action Taken</label>
+                  <textarea name="bentukTindakan" value={formData.bentukTindakan} onChange={handleChange} rows={3} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required />
                 </div>
               </div>
 
               <div>
-                <label htmlFor="rootCause" className="block text-sm font-medium text-gray-700 mb-1">
-                  Root Cause
-                </label>
-                <textarea
-                  name="rootCause"
-                  id="rootCause"
-                  value={formData.rootCause}
-                  onChange={handleChange}
-                  rows={3}
-                  placeholder="Identify the root cause..."
-                  className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
-                  required
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Root Cause</label>
+                <textarea name="rootCause" value={formData.rootCause} onChange={handleChange} rows={3} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required />
               </div>
             </div>
 
-            {/* Activity Details */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <FiCheck className="mr-2 text-purple-500" /> Activity Details
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="jenisAktivitas" className="block text-sm font-medium text-gray-700 mb-1">
-                    Activity Type
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Activity Type</label>
                   <Select
-                    name="jenisAktivitas"
-                    id="jenisAktivitas"
-                    options={jenisAktivitasList.map((aktivitas) => ({ value: aktivitas.id, label: aktivitas.name }))}
-                    value={jenisAktivitasList.map((aktivitas) => ({ value: aktivitas.id, label: aktivitas.name })).find((option) => option.value === formData.jenisAktivitas)}
-                    onChange={(selectedOption) => handleChange(selectedOption, "jenisAktivitas")}
-                    placeholder="Select Activity Type"
+                    options={masterData?.jenisaktivitas?.map((j: any) => ({ value: j.id, label: j.name })) || []}
+                    value={findSelectOption("jenisaktivitas", formData.jenisAktivitas)}
+                    onChange={(opt) => handleChange(opt, "jenisAktivitas")}
                     styles={customSelectStyles}
+                    placeholder="Select Activity Type"
                     required
                   />
                 </div>
                 <div>
-                  <label htmlFor="kegiatan" className="block text-sm font-medium text-gray-700 mb-1">
-                    Specific Activity
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Specific Activity</label>
                   <Select
-                    name="kegiatan"
-                    id="kegiatan"
-                    options={kegiatanList.map((kegiatan) => ({ value: kegiatan.id, label: kegiatan.name }))}
-                    value={kegiatanList.map((kegiatan) => ({ value: kegiatan.id, label: kegiatan.name })).find((option) => option.value === formData.kegiatan)}
-                    onChange={(selectedOption) => handleChange(selectedOption, "kegiatan")}
-                    placeholder="Select Activity"
+                    options={masterData?.kegiatans?.map((k: any) => ({ value: k.id, label: k.name })) || []}
+                    value={findSelectOption("kegiatans", formData.kegiatan)}
+                    onChange={(opt) => handleChange(opt, "kegiatan")}
                     styles={customSelectStyles}
+                    placeholder="Select Activity"
                     required
                   />
                 </div>
               </div>
             </div>
 
-            {/* Spare Parts */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <FiTool className="mr-2 text-indigo-500" /> Spare Parts
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
-                  <label htmlFor="kodePart" className="block text-sm font-medium text-gray-700 mb-1">
-                    Part Code
-                  </label>
-                  <input
-                    type="text"
-                    name="kodePart"
-                    id="kodePart"
-                    value={formData.kodePart}
-                    onChange={handleChange}
-                    placeholder="e.g., KODE123"
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
-                    required
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Part Code</label>
+                  <input type="text" name="kodePart" value={formData.kodePart} onChange={handleChange} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required />
                 </div>
                 <div>
-                  <label htmlFor="sparePart" className="block text-sm font-medium text-gray-700 mb-1">
-                    Part Name
-                  </label>
-                  <input
-                    type="text"
-                    name="sparePart"
-                    id="sparePart"
-                    value={formData.sparePart}
-                    onChange={handleChange}
-                    placeholder="e.g., Bearing XYZ"
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
-                    required
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Part Name</label>
+                  <input type="text" name="sparePart" value={formData.sparePart} onChange={handleChange} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required />
                 </div>
                 <div>
-                  <label htmlFor="idPart" className="block text-sm font-medium text-gray-700 mb-1">
-                    Part ID
-                  </label>
-                  <input
-                    type="text"
-                    name="idPart"
-                    id="idPart"
-                    value={formData.idPart}
-                    onChange={handleChange}
-                    placeholder="e.g., ID456"
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
-                    required
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Part ID</label>
+                  <input type="text" name="idPart" value={formData.idPart} onChange={handleChange} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required />
                 </div>
                 <div>
-                  <label htmlFor="jumlah" className="block text-sm font-medium text-gray-700 mb-1">
-                    Quantity
-                  </label>
-                  <input
-                    type="text"
-                    name="jumlah"
-                    id="jumlah"
-                    value={formatNumberWithDot(formData.jumlah)}
-                    onChange={handleChange}
-                    placeholder="e.g., 5"
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 no-spin-button bg-white text-gray-700"
-                    required
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                  <input type="text" name="jumlah" value={formatNumberWithDot(formData.jumlah)} onChange={handleChange} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required />
                 </div>
               </div>
               <div className="mt-4">
-                <label htmlFor="unitSparePart" className="block text-sm font-medium text-gray-700 mb-1">
-                  Unit
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Unit</label>
                 <Select
-                  name="unitSparePart"
-                  id="unitSparePart"
-                  options={unitSparePartList.map((unitSP) => ({ value: unitSP.id, label: unitSP.name }))}
-                  value={unitSparePartList.map((unitSP) => ({ value: unitSP.id, label: unitSP.name })).find((option) => option.value === formData.unitSparePart)}
-                  onChange={(selectedOption) => handleChange(selectedOption, "unitSparePart")}
-                  placeholder="Select Unit"
+                  options={masterData?.unitspareparts?.map((u: any) => ({ value: u.id, label: u.name })) || []}
+                  value={findSelectOption("unitspareparts", formData.unitSparePart)}
+                  onChange={(opt) => handleChange(opt, "unitSparePart")}
                   styles={customSelectStyles}
+                  placeholder="Select Unit"
                   required
                 />
               </div>
             </div>
 
-            {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row justify-end gap-4 pt-6 border-t border-gray-200">
-              {/* Consider if "Clear Form" is appropriate for an edit form.
-                  It might be better to have a "Reset to original" or just "Cancel". */}
               <motion.button
                 type="button"
-                onClick={() => navigate(`/machinehistory/${id}`)} // Cancel and go back
+                onClick={handleReset}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                className="px-6 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                className="px-6 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
               >
-                <FiX className="inline mr-2" /> Cancel
+                <FiTrash2 className="inline mr-2" /> Reset Changes
               </motion.button>
+
               <motion.button
                 type="submit"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                className="px-6 py-3 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                className="px-6 py-3 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
                 disabled={loading}
               >
-                {loading ? (
-                  <>
-                    <span className="animate-spin inline-block mr-2">⚙️</span> Updating...
-                  </>
-                ) : (
-                  <>
-                    <FiSave className="inline mr-2" /> Save Changes
-                  </>
-                )}
+                {loading ? <span className="animate-spin inline-block mr-2">⚙️</span> : <FiSave className="inline mr-2" />}
+                {loading ? "Menyimpan..." : "Simpan Perubahan"}
               </motion.button>
             </div>
           </form>
