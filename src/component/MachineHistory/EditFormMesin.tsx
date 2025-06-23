@@ -5,6 +5,13 @@ import Select from "react-select";
 import { useAuth, MachineHistoryFormData, Mesin, Shift, Group, StopTime, Unit, ItemTrouble, JenisAktivitas, Kegiatan, UnitSparePart, AllMasterData, MachineHistoryRecord } from "../../routes/AuthContext";
 import { motion } from "framer-motion";
 
+interface FormDataState extends Omit<MachineHistoryFormData, "stopJam" | "startJam" | "stopMenit" | "startMenit"> {
+  stopJam: number | null;
+  startJam: number | null;
+  stopMenit: number | null;
+  startMenit: number | null;
+}
+
 const FormEditMesin: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { getAllMasterData, getMachineHistoryById, updateMachineHistory } = useAuth();
@@ -23,14 +30,14 @@ const FormEditMesin: React.FC = () => {
   const [kegiatanList, setKegiatanList] = useState<Kegiatan[]>([]);
   const [unitSparePartList, setUnitSparePartList] = useState<UnitSparePart[]>([]);
 
-  const [formData, setFormData] = useState<MachineHistoryFormData>({
+  const [formData, setFormData] = useState<FormDataState>({
     date: new Date().toISOString().split("T")[0],
     shift: "",
     group: "",
-    stopJam: 0,
-    stopMenit: 0,
-    startJam: 0,
-    startMenit: 0,
+    stopJam: null,
+    stopMenit: null,
+    startJam: null,
+    startMenit: null,
     stopTime: "",
     unit: "",
     mesin: "",
@@ -51,10 +58,7 @@ const FormEditMesin: React.FC = () => {
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | { value: string; label: string } | null, name?: string) => {
     if (e && typeof e === "object" && "value" in e && name) {
-      setFormData((prev) => ({
-        ...prev,
-        [name]: e.value,
-      }));
+      setFormData((prev) => ({ ...prev, [name]: e.value }));
     } else if (e && "target" in e) {
       const { name, value } = e.target;
 
@@ -118,36 +122,41 @@ const FormEditMesin: React.FC = () => {
       return;
     }
 
-    const stopJam = formData.stopJam ?? 0;
-    const startJam = formData.startJam ?? 0;
-    const stopMenit = formData.stopMenit ?? 0;
-    const startMenit = formData.startMenit ?? 0;
-
-    if (stopJam < 0 || startJam < 0 || stopMenit < 0 || startMenit < 0) {
+    if ((formData.stopJam !== null && formData.stopJam < 0) || (formData.startJam !== null && formData.startJam < 0) || (formData.stopMenit !== null && formData.stopMenit < 0) || (formData.startMenit !== null && formData.startMenit < 0)) {
       setError("Waktu tidak boleh bernilai negatif");
       setLoading(false);
       return;
     }
 
+    const transformTime = (hour: number | null, minute: number | null) => {
+      if (hour === null || minute === null) return null;
+      return {
+        hour: hour % 24,
+        minute: minute % 60,
+      };
+    };
+
+    const stopTime = transformTime(formData.stopJam, formData.stopMenit);
+    const startTime = transformTime(formData.startJam, formData.startMenit);
+
     const dataToSend: MachineHistoryFormData = {
       ...formData,
+      stopJam: stopTime?.hour ?? null,
+      stopMenit: stopTime?.minute ?? null,
+      startJam: startTime?.hour ?? null,
+      startMenit: startTime?.minute ?? null,
       perbaikanPerawatan: formData.jenisAktivitas === "JA1" ? "Perbaikan" : "Perawatan",
       runningHour: formData.runningHour ? parseInt(String(formData.runningHour).replace(/\./g, ""), 10) : 0,
       jumlah: formData.jumlah ? parseInt(String(formData.jumlah).replace(/\./g, ""), 10) : 0,
-      stopJam,
-      stopMenit,
-      startJam,
-      startMenit,
     };
 
     try {
       await updateMachineHistory(id, dataToSend);
-      setSuccess("Data history mesin berhasil diperbarui!");
-      navigate(`/machinehistory`);
+      setSuccess("Data berhasil diperbarui!");
+      setTimeout(() => navigate("/machinehistory"), 1500);
     } catch (err: any) {
-      const errorMessage = err.response?.data?.message || err.message || "Gagal memperbarui data history mesin. Silakan coba lagi.";
+      const errorMessage = err.response?.data?.message || err.message || "Gagal memperbarui data.";
       setError(errorMessage);
-      console.error("Update error details:", err.response?.data || err);
     } finally {
       setLoading(false);
     }
@@ -158,10 +167,10 @@ const FormEditMesin: React.FC = () => {
       date: new Date().toISOString().split("T")[0],
       shift: "",
       group: "",
-      stopJam: 0,
-      stopMenit: 0,
-      startJam: 0,
-      startMenit: 0,
+      stopJam: null,
+      stopMenit: null,
+      startJam: null,
+      startMenit: null,
       stopTime: "",
       unit: "",
       mesin: "",
@@ -206,10 +215,10 @@ const FormEditMesin: React.FC = () => {
               date: machineDataResult.date,
               shift: machineDataResult.shift,
               group: machineDataResult.group,
-              stopJam: machineDataResult.stopJam,
-              stopMenit: machineDataResult.stopMenit,
-              startJam: machineDataResult.startJam,
-              startMenit: machineDataResult.startMenit,
+              stopJam: machineDataResult.stopJam ?? null,
+              stopMenit: machineDataResult.stopMenit ?? null,
+              startJam: machineDataResult.startJam ?? null,
+              startMenit: machineDataResult.startMenit ?? null,
               stopTime: machineDataResult.stopTime,
               unit: machineDataResult.unit,
               mesin: machineDataResult.mesin,
@@ -406,8 +415,9 @@ const FormEditMesin: React.FC = () => {
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="startJam" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="stopJam" className="block text-sm font-medium text-gray-700 mb-1">
                     Hour (HH)
+                    {formData.stopJam !== null && formData.stopJam > 23 && <span className="text-xs text-yellow-600 ml-2">Will be saved as: {formData.stopJam % 24}</span>}
                   </label>
                   <input
                     type="number"
@@ -415,22 +425,24 @@ const FormEditMesin: React.FC = () => {
                     id="stopJam"
                     value={formData.stopJam === null ? "" : formData.stopJam}
                     onChange={handleChange}
-                    placeholder="e.g., 9"
                     min="0"
+                    placeholder="e.g., 09 (leave empty if not applicable)"
                     className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
                     required
                   />
                 </div>
                 <div>
                   <label htmlFor="stopMenit" className="block text-sm font-medium text-gray-700 mb-1">
-                    Minute (MM)
+                    Minutes (MM)
                   </label>
                   <input
-                    type="text"
+                    type="number"
                     name="stopMenit"
                     id="stopMenit"
-                    value={formData.stopMenit === null ? "" : String(formData.stopMenit)}
+                    value={formData.stopMenit === null ? "" : formData.stopMenit}
                     onChange={handleChange}
+                    min="0"
+                    max="59"
                     placeholder="e.g., 30"
                     className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
                     required
@@ -462,6 +474,7 @@ const FormEditMesin: React.FC = () => {
                 <div>
                   <label htmlFor="startJam" className="block text-sm font-medium text-gray-700 mb-1">
                     Hour (HH)
+                    {formData.startJam !== null && formData.startJam > 23 && <span className="text-xs text-yellow-600 ml-2">Will be saved as: {formData.startJam % 24}</span>}
                   </label>
                   <input
                     type="number"
@@ -469,22 +482,24 @@ const FormEditMesin: React.FC = () => {
                     id="startJam"
                     value={formData.startJam === null ? "" : formData.startJam}
                     onChange={handleChange}
-                    placeholder="e.g., 9"
                     min="0"
+                    placeholder="e.g., 09 (leave empty if not applicable)"
                     className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
                     required
                   />
                 </div>
                 <div>
                   <label htmlFor="startMenit" className="block text-sm font-medium text-gray-700 mb-1">
-                    Minute (MM)
+                    Minutes (MM)
                   </label>
                   <input
-                    type="text"
+                    type="number"
                     name="startMenit"
                     id="startMenit"
-                    value={formData.startMenit === null ? "" : String(formData.startMenit)}
+                    value={formData.startMenit === null ? "" : formData.startMenit}
                     onChange={handleChange}
+                    min="0"
+                    max="59"
                     placeholder="e.g., 15"
                     className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
                     required

@@ -344,7 +344,7 @@ const FormMesin: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="stopJam" className="block text-sm font-medium text-gray-700 mb-1">
-                    Hour (HH)
+                    Hour (HH) 
                   </label>
                   <input
                     type="text"
