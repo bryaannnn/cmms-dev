@@ -141,15 +141,12 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
     } else if (minutes > 0) {
       parts.push("0h");
     } else {
-      // Jika totalMinutes adalah 0
       return "0min";
     }
 
-    // Tampilkan menit hanya jika ada
     if (minutes > 0) {
       parts.push(`${minutes}min`);
     } else if (hours > 0 && minutes === 0) {
-      // Jika ada jam tapi menitnya 0, pastikan formatnya "Xh 0min"
       parts.push("0min");
     }
 
@@ -171,7 +168,6 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
 
     let downtimeMinutes = startTimeInMinutes - stopTimeInMinutes;
     if (downtimeMinutes < 0) {
-      // Ini menangani kasus downtime yang melewati tengah malam
       downtimeMinutes = 24 * 60 - stopTimeInMinutes + startTimeInMinutes;
     }
 
@@ -190,7 +186,6 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
 
   return (
     <div className="space-y-6">
-      {/* Section: General Details */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-y-6 gap-x-4">
         <div>
           <h4 className="text-sm font-medium text-gray-600 mb-1">Date</h4>
@@ -258,10 +253,6 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
           </div>
         </div>
       </div>
-
-      {/* --- */}
-
-      {/* Section: Maintenance Details */}
       <div className="border-t border-gray-200 pt-6 mt-6">
         <h3 className="text-xl font-bold text-gray-800 mb-4">Maintenance Details</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-4">
@@ -275,10 +266,6 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
           </div>
         </div>
       </div>
-
-      {/* --- */}
-
-      {/* Section: Spare Parts Used */}
       <div className="border-t border-gray-200 pt-6 mt-6">
         <h3 className="text-xl font-bold text-gray-800 mb-4">Spare Parts Used</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-y-6 gap-x-4">
@@ -304,10 +291,6 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
           </div>
         </div>
       </div>
-
-      {/* --- */}
-
-      {/* Footer: Close Button */}
       <div className="flex justify-end pt-6 border-t border-gray-200">
         <motion.button
           type="button"
@@ -337,7 +320,7 @@ const MachineHistoryDashboard: React.FC = () => {
   const [selectedRecord, setSelectedRecord] = useState<MachineHistoryRecord | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [recordsPerPage] = useState(10);
-  const { user, fetchWithAuth, getMachineHistories, updateMachineHistory, deleteMachineHistory, isAuthenticated, isMasterDataLoading, masterData } = useAuth();
+  const { user, getMachineHistories, deleteMachineHistory, isAuthenticated, isMasterDataLoading, masterData } = useAuth();
   const [records, setRecords] = useState<MachineHistoryRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -347,8 +330,6 @@ const MachineHistoryDashboard: React.FC = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [recordToDelete, setRecordToDelete] = useState<string | null>(null);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editingRecord, setEditingRecord] = useState<MachineHistoryRecord | null>(null);
 
   const getDisplayValue = (value: any): string => {
     if (typeof value === "object" && value !== null) {
@@ -366,53 +347,6 @@ const MachineHistoryDashboard: React.FC = () => {
     } catch (error) {
       console.error("Failed to delete record:", error);
       setError("Failed to delete record. Please try again.");
-    }
-  };
-
-  const handleEditSubmit = async (updatedData: Partial<MachineHistoryFormData>) => {
-    if (!editingRecord || !masterData) return;
-
-    try {
-      setLoading(true);
-      setError(null);
-      const dataToSendToApi: Partial<MachineHistoryFormData> = {
-        ...updatedData,
-        shift: masterData.shifts.find((s) => s.name === updatedData.shift)?.id || updatedData.shift,
-        group: masterData.groups.find((g) => g.name === updatedData.group)?.id || updatedData.group,
-        stopTime: masterData.stoptimes.find((st) => st.name === updatedData.stopTime)?.id || updatedData.stopTime,
-        unit: masterData.units.find((u) => u.name === updatedData.unit)?.id || updatedData.unit,
-        mesin: masterData.mesin.find((m) => m.name === updatedData.mesin)?.id || updatedData.mesin,
-        itemTrouble: masterData.itemtroubles.find((it) => it.name === updatedData.itemTrouble)?.id || updatedData.itemTrouble,
-        jenisAktivitas: masterData.jenisaktivitas.find((ja) => ja.name === updatedData.jenisAktivitas)?.id || updatedData.jenisAktivitas,
-        kegiatan: masterData.kegiatans.find((k) => k.name === updatedData.kegiatan)?.id || updatedData.kegiatan,
-        unitSparePart: masterData.unitspareparts.find((usp) => usp.name === updatedData.unitSparePart)?.id || updatedData.unitSparePart,
-        // Pastikan bidang angka dikirim sebagai angka, tidak string
-        stopJam: updatedData.stopJam !== undefined ? Number(updatedData.stopJam) : undefined,
-        stopMenit: updatedData.stopMenit !== undefined ? Number(updatedData.stopMenit) : undefined,
-        startJam: updatedData.startJam !== undefined ? Number(updatedData.startJam) : undefined,
-        startMenit: updatedData.startMenit !== undefined ? Number(updatedData.startMenit) : undefined,
-        runningHour: updatedData.runningHour !== undefined ? Number(updatedData.runningHour) : undefined,
-        jumlah: updatedData.jumlah !== undefined ? Number(updatedData.jumlah) : undefined,
-      };
-
-      Object.keys(dataToSendToApi).forEach((key) => {
-        if ((dataToSendToApi as any)[key] === undefined) {
-          delete (dataToSendToApi as any)[key];
-        }
-      });
-
-      await updateMachineHistory(editingRecord.id, dataToSendToApi);
-
-      const updatedRecordsList = await getMachineHistories();
-      setRecords(updatedRecordsList);
-
-      setShowEditModal(false);
-      setEditingRecord(null);
-    } catch (error) {
-      console.error("Gagal memperbarui catatan:", error);
-      setError("Gagal memperbarui catatan. Silakan coba lagi.");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -469,7 +403,6 @@ const MachineHistoryDashboard: React.FC = () => {
         setLoading(false);
         setRecords([]);
         setMachines([]);
-        setError("Anda harus login untuk melihat riwayat mesin.");
       }
     };
 
@@ -556,7 +489,6 @@ const MachineHistoryDashboard: React.FC = () => {
   };
 
   const calculateDowntime = (record: MachineHistoryRecord): string => {
-    // <--- UBAH TIPE KEMBALIAN DI SINI
     const stopTime = getSafeNumber(record.stopJam) * 60 + getSafeNumber(record.stopMenit);
     const startTime = getSafeNumber(record.startJam) * 60 + getSafeNumber(record.startMenit);
     let downtime = startTime - stopTime;
@@ -564,31 +496,46 @@ const MachineHistoryDashboard: React.FC = () => {
     if (downtime < 0) {
       downtime = 24 * 60 - stopTime + startTime;
     }
-    // Panggil convertMinutesToHoursAndMinutes di sini sebelum mengembalikan nilai
-    return convertMinutesToHoursAndMinutes(downtime); // <--- TAMBAHKAN PEMANGGILAN FUNGSI INI
+    return convertMinutesToHoursAndMinutes(downtime);
   };
 
   const getStopTimeColorClass = (stopTime: string | null | undefined): string => {
-    const normalizedStopTime = (stopTime || "").toLowerCase().trim(); 
+    const normalizedStopTime = (stopTime || "").toLowerCase().trim();
 
     switch (normalizedStopTime) {
       case "pm":
-        return "bg-blue-100 text-blue-800"; 
+        return "bg-blue-100 text-blue-800";
       case "harmonisasi":
-        return "bg-green-100 text-green-800"; 
+        return "bg-green-100 text-green-800";
       case "cip":
-        return "bg-purple-100 text-purple-800"; 
+        return "bg-purple-100 text-purple-800";
       case "unplanned":
-        return "bg-red-100 text-red-800"; 
+        return "bg-red-100 text-red-800";
       case "standby":
-        return "bg-yellow-100 text-yellow-800"; 
+        return "bg-yellow-100 text-yellow-800";
       default:
-        return "bg-gray-100 text-gray-800"; 
+        return "bg-gray-100 text-gray-800";
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-100">
+        <p>Memuat data riwayat mesin...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-100">
+        <p className="text-xl text-red-600">{error}</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex h-screen font-sans bg-gray-50 text-gray-900">
+    <div className={`flex h-screen font-sans bg-gray-50 text-gray-900 ${darkMode ? "dark" : ""}`}>
       {/* Sidebar */}
       <AnimatePresence>
         {(!isMobile || sidebarOpen) && (
@@ -895,10 +842,7 @@ const MachineHistoryDashboard: React.FC = () => {
                             <motion.button
                               whileHover={{ scale: 1.05 }}
                               whileTap={{ scale: 0.95 }}
-                              onClick={() => {
-                                setEditingRecord(record);
-                                setShowEditModal(true);
-                              }}
+                              onClick={() => navigate(`/machinehistory/edit/${record.id}`)} // Use navigate for edit
                               className="text-yellow-600 hover:text-yellow-800 transition-colors duration-200"
                               title="Edit"
                             >
@@ -993,16 +937,6 @@ const MachineHistoryDashboard: React.FC = () => {
           <HistoryDetails record={selectedRecord} onClose={() => setShowHistoryDetails(false)} />
         </Modal>
       )}
-
-      {/* Edit Record Modal */}
-      <Modal
-        isOpen={showEditModal}
-        onClose={() => setShowEditModal(false)}
-        title="Edit Riwayat Mesin"
-        className="max-w-4xl lg:max-w-6xl w-full" // <<< Tambahkan ini
-      >
-        {editingRecord && masterData ? <EditHistoryForm record={editingRecord} masterData={masterData} onSave={handleEditSubmit} onCancel={() => setShowEditModal(false)} /> : <p className="text-center py-4">Memuat data master...</p>}
-      </Modal>
 
       {/* Delete Confirmation Modal */}
       <Modal isOpen={showDeleteConfirm} onClose={() => setShowDeleteConfirm(false)} title="Confirm Deletion">

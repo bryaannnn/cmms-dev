@@ -168,7 +168,7 @@ interface AuthContextType {
   updateMachineHistory: (id: string, data: Partial<MachineHistoryFormData>) => Promise<any>;
   deleteMachineHistory: (id: string) => Promise<any>;
   masterData: AllMasterData | null;
-  isMasterDataLoading: boolean; // <-- NEW: Master data loading state
+  isMasterDataLoading: boolean; 
 }
 
 const projectEnvVariables = getProjectEnvVariables();
