@@ -140,13 +140,13 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
 
     const parts: string[] = [];
     if (hours > 0) {
-      parts.push("${hours}h");
+      parts.push(`${hours}h`); 
     }
-    if (minutes > 60) {
-      parts.push("${minutes}min");
+    if (minutes > 0) {
+      parts.push(`${minutes}min`); 
     }
 
-    return parts.join("");
+    return parts.join(" ");
   };
 
   const calculateDowntime = (record: MachineHistoryRecord): string => {
