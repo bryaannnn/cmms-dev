@@ -106,7 +106,23 @@ const EditFormMesin = () => {
               jumlah: machineDataResult.jumlah,
               unitSparePart: machineDataResult.unitSparePart,
             });
-            setSelectedDate(new Date(machineDataResult.date));
+
+            // --- PERBAIKAN DI SINI ---
+            const dateFromApi = machineDataResult.date;
+            if (dateFromApi) {
+              // Pastikan tanggal tidak kosong
+              const parsedDate = new Date(dateFromApi);
+              if (!isNaN(parsedDate.getTime())) {
+                // Pastikan tanggal valid (bukan Invalid Date)
+                setSelectedDate(parsedDate);
+              } else {
+                console.warn("Tanggal dari API tidak valid:", dateFromApi);
+                setSelectedDate(null); // Atur ke null jika tidak valid
+              }
+            } else {
+              setSelectedDate(null); // Atur ke null jika kosong
+            }
+            // --- AKHIR PERBAIKAN ---
           } else {
             setError("Data history mesin tidak ditemukan.");
             toast.error("Data history mesin tidak ditemukan.");
