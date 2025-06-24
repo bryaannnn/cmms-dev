@@ -118,29 +118,21 @@ interface HistoryDetailsProps {
   onClose: () => void;
 }
 
-const convertDurationInMinutes = (
-  startHour: number | null | undefined,
-  startMinute: number | null | undefined,
-  stopHour: number | null | undefined,
-  stopMinute: number | null | undefined
-): number | null => {
-  if (
-    startHour === null || startHour === undefined ||
-    startMinute === null || startMinute === undefined ||
-    stopHour === null || stopHour === undefined ||
-    stopMinute === null || stopMinute === undefined
-  ) {
+const convertDurationInMinutes = (startHour: number | null | undefined, startMinute: number | null | undefined, stopHour: number | null | undefined, stopMinute: number | null | undefined): number | null => {
+  if (startHour === null || startHour === undefined || startMinute === null || startMinute === undefined || stopHour === null || stopHour === undefined || stopMinute === null || stopMinute === undefined) {
     return null;
   }
 
   const startTimeInMinutes = startHour * 60 + startMinute;
-  let stopTimeInMinutes = stopHour * 60 + stopMinute;
+  const stopTimeInMinutes = stopHour * 60 + stopMinute;
 
-  if (stopTimeInMinutes < startTimeInMinutes) {
-    stopTimeInMinutes += 24 * 60;
+  let diff = Math.abs(stopTimeInMinutes - startTimeInMinutes);
+
+  if (diff > 720) {
+    diff = 1440 - diff;
   }
 
-  return stopTimeInMinutes - startTimeInMinutes;
+  return diff;
 };
 
 const convertMinutesToHoursAndMinutes = (totalMinutes: number | null | undefined): string => {
@@ -192,12 +184,7 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
     return value.toString();
   };
 
-  const downtimeMinutes = convertDurationInMinutes(
-    record.stopJam,
-    record.stopMenit,
-    record.startJam,
-    record.startMenit
-  );
+  const downtimeMinutes = convertDurationInMinutes(record.stopJam, record.stopMenit, record.startJam, record.startMenit);
 
   const displayDowntime = convertMinutesToHoursAndMinutes(downtimeMinutes);
 
@@ -477,12 +464,7 @@ const MachineHistoryDashboard: React.FC = () => {
   };
 
   const calculateDowntime = (record: MachineHistoryRecord): string => {
-    const downtimeMinutes = convertDurationInMinutes(
-      record.stopJam,
-      record.stopMenit,
-      record.startJam,
-      record.startMenit
-    );
+    const downtimeMinutes = convertDurationInMinutes(record.stopJam, record.stopMenit, record.startJam, record.startMenit);
     return convertMinutesToHoursAndMinutes(downtimeMinutes);
   };
 
@@ -680,12 +662,7 @@ const MachineHistoryDashboard: React.FC = () => {
                   ? convertMinutesToHoursAndMinutes(
                       Math.round(
                         records.reduce((sum, r) => {
-                          const downtime = convertDurationInMinutes(
-                            r.stopJam,
-                            r.stopMenit,
-                            r.startJam,
-                            r.startMenit
-                          ) || 0;
+                          const downtime = convertDurationInMinutes(r.stopJam, r.stopMenit, r.startJam, r.startMenit) || 0;
                           return sum + downtime;
                         }, 0) / records.length
                       )
