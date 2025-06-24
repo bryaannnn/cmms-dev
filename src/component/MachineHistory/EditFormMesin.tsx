@@ -143,9 +143,9 @@ const FormEditMesin: React.FC = () => {
           const apiDataRaw: any = await getMachineHistoryById(id); // Ini harusnya mengembalikan data MENTAH dari API
 
           if (apiDataRaw) {
-            // Kita akan memetakan data mentah API ke struktur FormData yang membutuhkan ID
             setFormData({
               date: apiDataRaw.date || "",
+              // For dropdowns, we need the 'id' from the nested object (if present)
               shift: apiDataRaw.shift?.id || "",
               group: apiDataRaw.group?.id || "",
               stopJam: apiDataRaw.startstop?.stop_time_hh ?? null,
@@ -155,11 +155,14 @@ const FormEditMesin: React.FC = () => {
               stopTime: apiDataRaw.stoptime?.id || "",
               unit: apiDataRaw.unit?.id || "",
               mesin: apiDataRaw.mesin?.id || "",
+              // Ensure snake_case from API matches camelCase in formData
               runningHour: apiDataRaw.running_hour ?? 0,
               itemTrouble: apiDataRaw.itemtrouble?.id || "",
               jenisGangguan: apiDataRaw.jenis_gangguan || "",
               bentukTindakan: apiDataRaw.bentuk_tindakan || "",
-              // Logika ini harus sesuai dengan bagaimana Anda menentukan di API
+              // This 'perbaikanPerawatan' logic might be tricky.
+              // It's derived from `jenisaktifitas.name`.
+              // If your API provides `jenisaktifitas_id` directly without nesting, adjust accordingly.
               perbaikanPerawatan: apiDataRaw.jenisaktifitas?.name === "Perbaikan" ? "Perbaikan" : "Perawatan",
               rootCause: apiDataRaw.root_cause || "",
               jenisAktivitas: apiDataRaw.jenisaktifitas?.id || "",
@@ -168,7 +171,7 @@ const FormEditMesin: React.FC = () => {
               sparePart: apiDataRaw.spare_part || "",
               idPart: apiDataRaw.id_part || "",
               jumlah: apiDataRaw.jumlah ?? 0,
-              unitSparePart: apiDataRaw.unitsp?.id || "",
+              unitSparePart: apiDataRaw.unitsp?.id || "", // Watch out for `unitsp` or `unit_spare_part`
             });
           } else {
             setError("Data history mesin tidak ditemukan.");
