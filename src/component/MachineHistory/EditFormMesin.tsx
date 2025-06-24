@@ -158,16 +158,13 @@ const FormEditMesin: React.FC = () => {
     fetchData();
   }, [id, masterData, isMasterDataLoading, getMachineHistoryById]);
 
-  // FIX: Updated handleChange to correctly type input and textarea events
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | OptionType | null, name?: string) => {
     if (name) {
-      // This path is for Select components
       setFormData((prev) => ({
         ...prev,
         [name]: (e as OptionType)?.value || "",
       }));
     } else if (e && "target" in e) {
-      // This path is for native input/textarea elements
       const target = e.target as HTMLInputElement | HTMLTextAreaElement;
       const { name, value, type } = target;
 
@@ -258,6 +255,9 @@ const FormEditMesin: React.FC = () => {
     try {
       const response = await updateMachineHistory(id!, dataToSend);
       setSuccess(response.message || "Machine history updated successfully!");
+      setTimeout(() => {
+        navigate("/machinehistory");
+      }, 1500);
     } catch (error: any) {
       console.error("Error updating machine history:", error);
       setError(error.message || "Failed to update machine history.");
@@ -592,7 +592,7 @@ const FormEditMesin: React.FC = () => {
                     name="jenisGangguan"
                     id="jenisGangguan"
                     value={formData.jenisGangguan}
-                    onChange={handleChange as React.ChangeEventHandler<HTMLTextAreaElement>} // Type assertion here
+                    onChange={handleChange as React.ChangeEventHandler<HTMLTextAreaElement>}
                     rows={3}
                     placeholder="Describe the issue..."
                     className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
@@ -607,7 +607,7 @@ const FormEditMesin: React.FC = () => {
                     name="bentukTindakan"
                     id="bentukTindakan"
                     value={formData.bentukTindakan}
-                    onChange={handleChange as React.ChangeEventHandler<HTMLTextAreaElement>} // Type assertion here
+                    onChange={handleChange as React.ChangeEventHandler<HTMLTextAreaElement>}
                     rows={3}
                     placeholder="Describe the action taken..."
                     className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
@@ -624,7 +624,7 @@ const FormEditMesin: React.FC = () => {
                   name="rootCause"
                   id="rootCause"
                   value={formData.rootCause}
-                  onChange={handleChange as React.ChangeEventHandler<HTMLTextAreaElement>} // Type assertion here
+                  onChange={handleChange as React.ChangeEventHandler<HTMLTextAreaElement>}
                   rows={3}
                   placeholder="Identify the root cause..."
                   className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
