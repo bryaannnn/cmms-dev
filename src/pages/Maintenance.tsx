@@ -143,23 +143,19 @@ const convertMinutesToHoursAndMinutes = (totalMinutes: number | null | undefined
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
 
-  const parts: string[] = [];
-
-  if (hours > 0) {
-    parts.push(`${hours}h`);
-  } else if (minutes > 0) {
-    parts.push("0h");
-  } else {
+  if (totalMinutes === 0) {
     return "0min";
   }
 
-  if (minutes > 0) {
-    parts.push(`${minutes}min`);
-  } else if (hours > 0 && minutes === 0) {
-    parts.push("0min");
+  if (hours === 0 && minutes > 0) {
+    return `${minutes}min`;
   }
 
-  return parts.join(" ");
+  if (hours > 0 && minutes === 0) {
+    return `${hours}h`;
+  }
+
+  return `${hours}h ${minutes}min`;
 };
 
 const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
