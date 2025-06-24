@@ -176,7 +176,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [token, setToken] = useState<string | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [masterData, setMasterData] = useState<AllMasterData | null>(null);
-  const [isMasterDataLoading, setIsMasterDataLoading] = useState(true); 
+  const [isMasterDataLoading, setIsMasterDataLoading] = useState(true);
   const navigate = useNavigate();
 
   const isAuthenticated = !!token;
@@ -277,7 +277,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const loadMasterData = async () => {
       if (isAuthenticated && !masterData) {
-        setIsMasterDataLoading(true); 
+        setIsMasterDataLoading(true);
         try {
           const data = await getAllMasterData();
           setMasterData(data);
@@ -429,22 +429,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       console.error("Gagal mengambil daftar history mesin:", error);
       return [];
     }
-  }, [fetchWithAuth, masterData]); 
+  }, [fetchWithAuth, masterData]);
 
   const getMachineHistoryById = useCallback(
-    async (id: string): Promise<MachineHistoryRecord | null> => {
+    async (id: string): Promise<any> => {
       try {
         const data = await fetchWithAuth(`/mhs/${id}`);
-        if (!masterData) {
-          console.warn("Master data belum dimuat saat mengambil history by ID. Beberapa field mungkin menampilkan '-'.");
-        }
-        return mapApiToMachineHistoryRecord(data, masterData);
+        // Jika Anda ingin mengembalikan data mentah untuk kebutuhan form, biarkan seperti ini:
+        return data; // Kembali data mentah dari API
+        // JANGAN: return mapApiToMachineHistoryRecord(data, masterData); jika ini untuk FormEditMesin
       } catch (error) {
         console.error(`Gagal mengambil history mesin dengan ID ${id}:`, error);
         throw error;
       }
     },
-    [fetchWithAuth, masterData] 
+    [fetchWithAuth]
   );
 
   const updateMachineHistory = useCallback(
@@ -506,7 +505,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         updateMachineHistory,
         deleteMachineHistory,
         masterData,
-        isMasterDataLoading, 
+        isMasterDataLoading,
       }}
     >
       {children}

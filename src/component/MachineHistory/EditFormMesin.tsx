@@ -1,37 +1,86 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { FiSave, FiX, FiClock, FiCheck, FiTool } from "react-icons/fi";
-import { useNavigate, useParams } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { useAuth } from "../../routes/AuthContext"; // Pastikan path ini benar
 import Select from "react-select";
-import { useAuth, MachineHistoryFormData, Mesin, Shift, Group, StopTime, Unit, ItemTrouble, JenisAktivitas, Kegiatan, UnitSparePart, AllMasterData, MachineHistoryRecord } from "../../routes/AuthContext";
 import { motion } from "framer-motion";
+import { FiTool, FiClock, FiCheck, FiX, FiSave } from "react-icons/fi";
 
-interface FormDataState extends Omit<MachineHistoryFormData, "stopJam" | "startJam" | "stopMenit" | "startMenit"> {
-  stopJam: number | null;
-  startJam: number | null;
-  stopMenit: number | null;
-  startMenit: number | null;
+// Asumsi interface OptionType sudah ada atau bisa didefinisikan di sini
+interface OptionType {
+  value: string | number;
+  label: string;
 }
+
+// Interface FormData harus sesuai dengan apa yang akan dikirim ke API
+// dan apa yang disimpan di state lokal untuk mengisi form.
+// Ini adalah *ID* dari relasi, bukan namanya.
+interface FormData {
+  date: string;
+  shift: string; // ID shift
+  group: string; // ID group
+  stopJam: number | null;
+  stopMenit: number | null;
+  startJam: number | null;
+  startMenit: number | null;
+  stopTime: string; // ID stopTime
+  unit: string; // ID unit
+  mesin: string; // ID mesin
+  runningHour: number;
+  itemTrouble: string; // ID itemTrouble
+  jenisGangguan: string;
+  bentukTindakan: string;
+  perbaikanPerawatan: string; // Ini mungkin string 'Perbaikan' atau 'Perawatan'
+  rootCause: string;
+  jenisAktivitas: string; // ID jenisAktivitas
+  kegiatan: string; // ID kegiatan
+  kodePart: string;
+  sparePart: string;
+  idPart: string;
+  jumlah: number;
+  unitSparePart: string; // ID unitSparePart
+}
+
+// Custom styles for react-select (contoh, sesuaikan dengan kebutuhan styling Anda)
+const customSelectStyles = {
+  control: (provided: any, state: any) => ({
+    ...provided,
+    minHeight: "42px", // Menyesuaikan tinggi dengan input biasa
+    borderRadius: "0.5rem", // rounded-lg
+    borderColor: state.isFocused ? "#3B82F6" : "#D1D5DB", // focus:border-blue-500
+    boxShadow: state.isFocused ? "0 0 0 1px #3B82F6" : "none", // focus:ring-blue-500
+    "&:hover": {
+      borderColor: "#3B82F6",
+    },
+  }),
+  singleValue: (provided: any) => ({
+    ...provided,
+    color: "#4B5563", // text-gray-700
+  }),
+  option: (provided: any, state: any) => ({
+    ...provided,
+    backgroundColor: state.isSelected ? "#3B82F6" : state.isFocused ? "#EFF6FF" : null,
+    color: state.isSelected ? "white" : "#4B5563",
+    "&:active": {
+      backgroundColor: "#2563EB",
+    },
+  }),
+};
 
 const FormEditMesin: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const { getAllMasterData, getMachineHistoryById, updateMachineHistory } = useAuth();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
-  const [mesinList, setMesinList] = useState<Mesin[]>([]);
-  const [shiftList, setShiftList] = useState<Shift[]>([]);
-  const [groupList, setGroupList] = useState<Group[]>([]);
-  const [stopTimeList, setStopTimeList] = useState<StopTime[]>([]);
-  const [unitList, setUnitList] = useState<Unit[]>([]);
-  const [itemTroubleList, setItemTroubleList] = useState<ItemTrouble[]>([]);
-  const [jenisAktivitasList, setJenisAktivitasList] = useState<JenisAktivitas[]>([]);
-  const [kegiatanList, setKegiatanList] = useState<Kegiatan[]>([]);
-  const [unitSparePartList, setUnitSparePartList] = useState<UnitSparePart[]>([]);
+  // Ambil fungsi dan data dari AuthContext
+  const {
+    getMachineHistoryById,
+    getAllMasterData,
+    updateMachineHistory,
+    masterData, // Gunakan masterData yang sudah dimuat di AuthContext
+    isMasterDataLoading, // Gunakan isMasterDataLoading dari AuthContext
+  } = useAuth();
 
-  const [formData, setFormData] = useState<FormDataState>({
-    date: new Date().toISOString().split("T")[0],
+  const [formData, setFormData] = useState<FormData>({
+    date: "",
     shift: "",
     group: "",
     stopJam: null,
@@ -45,7 +94,7 @@ const FormEditMesin: React.FC = () => {
     itemTrouble: "",
     jenisGangguan: "",
     bentukTindakan: "",
-    perbaikanPerawatan: "",
+    perbaikanPerawatan: "", // Default value, will be set from API
     rootCause: "",
     jenisAktivitas: "",
     kegiatan: "",
@@ -56,188 +105,70 @@ const FormEditMesin: React.FC = () => {
     unitSparePart: "",
   });
 
-  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | { value: string; label: string } | null, name?: string) => {
-    if (e && typeof e === "object" && "value" in e && name) {
-      setFormData((prev) => ({ ...prev, [name]: e.value }));
-    } else if (e && "target" in e) {
-      const { name, value } = e.target;
+  // States for dropdown options will now be derived from `masterData`
+  // We'll use local loading state for this component to differentiate from global master data loading
+  const [localLoading, setLocalLoading] = useState<boolean>(true); // For fetching the specific record
+  const [submitting, setSubmitting] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
-      setFormData((prev) => {
-        if (["stopJam", "startJam"].includes(name)) {
-          const cleanedValue = value.replace(/[^\d]/g, "");
-          return {
-            ...prev,
-            [name]: cleanedValue === "" ? null : parseInt(cleanedValue, 10),
-          };
-        }
-
-        if (["stopMenit", "startMenit"].includes(name)) {
-          const cleanedValue = value.replace(/[^\d]/g, "");
-          const numValue = parseInt(cleanedValue, 10);
-          return {
-            ...prev,
-            [name]: cleanedValue === "" ? null : Math.max(0, Math.min(59, isNaN(numValue) ? 0 : numValue)),
-          };
-        }
-
-        if (name === "runningHour" || name === "jumlah") {
-          return {
-            ...prev,
-            [name]: value.replace(/[^\d.]/g, ""),
-          };
-        }
-
-        return {
-          ...prev,
-          [name]: value,
-        };
-      });
-    }
-  }, []);
-
-  const formatNumberWithDot = useCallback((num: number | string | null): string => {
-    if (num === null || num === undefined || num === "") return "";
-
-    if (typeof num === "string") {
-      const cleanedString = num.replace(/[^\d]/g, "");
-      if (cleanedString === "") return "";
-      const numericValue = parseInt(cleanedString, 10);
-      if (isNaN(numericValue)) return "";
-      return numericValue.toLocaleString("id-ID").replace(/,/g, ".");
-    }
-
-    if (isNaN(num)) return "";
-    return num.toLocaleString("id-ID").replace(/,/g, ".");
-  }, []);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    setSuccess(null);
-
-    if (!id) {
-      setError("Machine history ID is missing.");
-      setLoading(false);
-      return;
-    }
-
-    if ((formData.stopJam !== null && formData.stopJam < 0) || (formData.startJam !== null && formData.startJam < 0) || (formData.stopMenit !== null && formData.stopMenit < 0) || (formData.startMenit !== null && formData.startMenit < 0)) {
-      setError("Waktu tidak boleh bernilai negatif");
-      setLoading(false);
-      return;
-    }
-
-    const transformTime = (hour: number | null, minute: number | null) => {
-      if (hour === null || minute === null) return null;
-      return {
-        hour: hour % 24,
-        minute: minute % 60,
-      };
-    };
-
-    const stopTime = transformTime(formData.stopJam, formData.stopMenit);
-    const startTime = transformTime(formData.startJam, formData.startMenit);
-
-    const dataToSend: MachineHistoryFormData = {
-      ...formData,
-      stopJam: stopTime?.hour ?? null,
-      stopMenit: stopTime?.minute ?? null,
-      startJam: startTime?.hour ?? null,
-      startMenit: startTime?.minute ?? null,
-      perbaikanPerawatan: formData.jenisAktivitas === "JA1" ? "Perbaikan" : "Perawatan",
-      runningHour: formData.runningHour ? parseInt(String(formData.runningHour).replace(/\./g, ""), 10) : 0,
-      jumlah: formData.jumlah ? parseInt(String(formData.jumlah).replace(/\./g, ""), 10) : 0,
-    };
-
-    try {
-      await updateMachineHistory(id, dataToSend);
-      setSuccess("Data berhasil diperbarui!");
-      setTimeout(() => navigate("/machinehistory"), 1500);
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.message || err.message || "Gagal memperbarui data.";
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleClear = useCallback(() => {
-    setFormData({
-      date: new Date().toISOString().split("T")[0],
-      shift: "",
-      group: "",
-      stopJam: null,
-      stopMenit: null,
-      startJam: null,
-      startMenit: null,
-      stopTime: "",
-      unit: "",
-      mesin: "",
-      runningHour: 0,
-      itemTrouble: "",
-      jenisGangguan: "",
-      bentukTindakan: "",
-      perbaikanPerawatan: "",
-      rootCause: "",
-      jenisAktivitas: "",
-      kegiatan: "",
-      kodePart: "",
-      sparePart: "",
-      idPart: "",
-      jumlah: 0,
-      unitSparePart: "",
-    });
-    setError(null);
-    setSuccess(null);
-  }, []);
-
+  // --- useEffect untuk mengambil data awal (master data & data record yang diedit) ---
   useEffect(() => {
     const fetchData = async () => {
+      // Tunggu hingga masterData selesai dimuat di AuthProvider
+      if (isMasterDataLoading || !masterData) {
+        setLocalLoading(true); // Pastikan loading masih aktif jika master data belum siap
+        return;
+      }
+
       try {
-        setLoading(true);
+        setLocalLoading(true); // Set local loading true for fetching the specific record
 
-        const masterDataResult: AllMasterData = await getAllMasterData();
-        setMesinList(masterDataResult.mesin || []);
-        setShiftList(masterDataResult.shifts || []);
-        setGroupList(masterDataResult.groups || []);
-        setStopTimeList(masterDataResult.stoptimes || []);
-        setUnitList(masterDataResult.units || []);
-        setItemTroubleList(masterDataResult.itemtroubles || []);
-        setJenisAktivitasList(masterDataResult.jenisaktivitas || []);
-        setKegiatanList(masterDataResult.kegiatans || []);
-        setUnitSparePartList(masterDataResult.unitspareparts || []);
-
+        // 1. Ambil data history mesin berdasarkan ID
         if (id) {
-          const machineDataResult: any = await getMachineHistoryById(id); // Gunakan 'any' sementara untuk fleksibilitas pembacaan API
-          if (machineDataResult && machineDataResult.data) {
-            // Pastikan 'data' ada jika API Anda mengembalikannya dalam objek data
-            const dataAPI = machineDataResult.data; // Ambil objek data yang sebenarnya
+          // getMachineHistoryById dari AuthContext sekarang mengembalikan MachineHistoryRecord
+          // Yang sudah dipetakan nama-namanya untuk tampilan, tapi kita butuh ID untuk form.
+          // JADI, KITA AKAN PANGGIL API MENTAH ATAU PASTIKAN FUNGSI API ANDA BISA MEMBERIKAN MENTAHNYA.
 
+          // **PENTING**: Jika `getMachineHistoryById` di `AuthContext` sudah mengembalikan
+          // objek yang *sudah dipetakan namanya* (seperti `shift: "Shift Pagi"`),
+          // maka kita perlu menyesuaikannya di sini untuk mendapatkan ID kembali.
+          // Solusi terbaik adalah `getMachineHistoryById` mengembalikan data mentah
+          // dari API, lalu kita petakan untuk FORM.
+
+          // ASUMSI: `getMachineHistoryById` MENGEMBALIKAN DATA MENTAH DARI API SEPERTI INI:
+          // { ..., shift: { id: "1", name: "Shift Pagi" }, stoptime: { id: "2", name: "Maintenance" }, ... }
+          // BUKAN { ..., shift: "Shift Pagi", stopTime: "Maintenance", ... }
+
+          const apiDataRaw: any = await getMachineHistoryById(id); // Ini harusnya mengembalikan data MENTAH dari API
+
+          if (apiDataRaw) {
+            // Kita akan memetakan data mentah API ke struktur FormData yang membutuhkan ID
             setFormData({
-              date: dataAPI.date,
-              shift: dataAPI.shift.id, // Ambil ID dari objek relasi
-              group: dataAPI.group.id, // Ambil ID dari objek relasi
-              stopJam: dataAPI.startstop.stop_time_hh ?? null, // Ambil dari objek startstop
-              stopMenit: dataAPI.startstop.stop_time_mm ?? null, // Ambil dari objek startstop
-              startJam: dataAPI.startstop.start_time_hh ?? null, // Ambil dari objek startstop
-              startMenit: dataAPI.startstop.start_time_mm ?? null, // Ambil dari objek startstop
-              stopTime: dataAPI.stoptime.id, // Ambil ID dari objek relasi
-              unit: dataAPI.unit.id, // Ambil ID dari objek relasi
-              mesin: dataAPI.mesin.id, // Ambil ID dari objek relasi
-              runningHour: dataAPI.running_hour, // Ubah dari running_hour
-              itemTrouble: dataAPI.itemtrouble.id, // Ambil ID dari objek relasi
-              jenisGangguan: dataAPI.jenis_gangguan, // Ubah dari jenis_gangguan
-              bentukTindakan: dataAPI.bentuk_tindakan, // Ubah dari bentuk_tindakan
-              perbaikanPerawatan: dataAPI.jenisaktifitas.name === "Perbaikan" ? "Perbaikan" : "Perawatan", // Tetap seperti ini, atau bisa diatur dari API jika ada properti spesifik
-              rootCause: dataAPI.root_cause, // Ubah dari root_cause
-              jenisAktivitas: dataAPI.jenisaktifitas.id, // Ambil ID dari objek relasi
-              kegiatan: dataAPI.kegiatan.id, // Ambil ID dari objek relasi
-              kodePart: dataAPI.kode_part, // Ubah dari kode_part
-              sparePart: dataAPI.spare_part, // Ubah dari spare_part
-              idPart: dataAPI.id_part, // Ubah dari id_part
-              jumlah: dataAPI.jumlah,
-              unitSparePart: dataAPI.unitsp.id, // Ambil ID dari objek relasi 'unitsp'
+              date: apiDataRaw.date || "",
+              shift: apiDataRaw.shift?.id || "",
+              group: apiDataRaw.group?.id || "",
+              stopJam: apiDataRaw.startstop?.stop_time_hh ?? null,
+              stopMenit: apiDataRaw.startstop?.stop_time_mm ?? null,
+              startJam: apiDataRaw.startstop?.start_time_hh ?? null,
+              startMenit: apiDataRaw.startstop?.start_time_mm ?? null,
+              stopTime: apiDataRaw.stoptime?.id || "",
+              unit: apiDataRaw.unit?.id || "",
+              mesin: apiDataRaw.mesin?.id || "",
+              runningHour: apiDataRaw.running_hour ?? 0,
+              itemTrouble: apiDataRaw.itemtrouble?.id || "",
+              jenisGangguan: apiDataRaw.jenis_gangguan || "",
+              bentukTindakan: apiDataRaw.bentuk_tindakan || "",
+              // Logika ini harus sesuai dengan bagaimana Anda menentukan di API
+              perbaikanPerawatan: apiDataRaw.jenisaktifitas?.name === "Perbaikan" ? "Perbaikan" : "Perawatan",
+              rootCause: apiDataRaw.root_cause || "",
+              jenisAktivitas: apiDataRaw.jenisaktifitas?.id || "",
+              kegiatan: apiDataRaw.kegiatan?.id || "",
+              kodePart: apiDataRaw.kode_part || "",
+              sparePart: apiDataRaw.spare_part || "",
+              idPart: apiDataRaw.id_part || "",
+              jumlah: apiDataRaw.jumlah ?? 0,
+              unitSparePart: apiDataRaw.unitsp?.id || "",
             });
           } else {
             setError("Data history mesin tidak ditemukan.");
@@ -246,73 +177,151 @@ const FormEditMesin: React.FC = () => {
           setError("ID history mesin tidak diberikan untuk pengeditan.");
         }
       } catch (error: any) {
+        console.error("Error fetching machine history:", error);
         setError(error.message || "Terjadi kesalahan saat memuat data.");
       } finally {
-        setLoading(false);
+        setLocalLoading(false); // Selesai memuat data record spesifik
       }
     };
     fetchData();
-  }, [id, getAllMasterData, getMachineHistoryById]); // Dependencies
+  }, [id, masterData, isMasterDataLoading, getMachineHistoryById]); // Dependensi penting: masterData dan isMasterDataLoading
 
-  const customSelectStyles = {
-    control: (provided: any, state: any) => ({
-      ...provided,
-      minHeight: "42px",
-      borderColor: state.isFocused ? "#3B82F6" : "#D1D5DB",
-      boxShadow: state.isFocused ? "0 0 0 1px #3B82F6" : "none",
-      "&:hover": {
-        borderColor: "#9CA3AF",
-      },
-      borderRadius: "0.5rem",
-      backgroundColor: "#FFFFFF",
-      padding: "0 0.5rem",
-      transition: "all 0.15s ease-in-out",
-    }),
-    valueContainer: (provided: any) => ({
-      ...provided,
-      padding: "0",
-    }),
-    singleValue: (provided: any) => ({
-      ...provided,
-      color: "#374151",
-    }),
-    placeholder: (provided: any) => ({
-      ...provided,
-      color: "#6B7280",
-    }),
-    dropdownIndicator: (provided: any) => ({
-      ...provided,
-      color: "#9CA3AF",
-      "&:hover": {
-        color: "#6B7280",
-      },
-    }),
-    indicatorSeparator: (provided: any) => ({
-      ...provided,
-      display: "none",
-    }),
-    menu: (provided: any) => ({
-      ...provided,
-      zIndex: 9999,
-      borderRadius: "0.5rem",
-      border: "1px solid #E5E7EB",
-      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
-    }),
-    option: (provided: any, state: any) => ({
-      ...provided,
-      backgroundColor: state.isFocused ? "#EFF6FF" : "#FFFFFF",
-      color: "#1F2937",
-      "&:active": {
-        backgroundColor: "#DBEAFE",
-      },
-      padding: "0.625rem 1rem",
-    }),
+  // --- Fungsi handleChange untuk input form ---
+  // ... (bagian atas kode lainnya tetap sama)
+
+  // --- Fungsi handleChange untuk input form ---
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | OptionType | null, name?: string) => {
+    // Case 1: Untuk React-Select (karena ada 'name' yang diberikan secara eksplisit)
+    if (name) {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: (e as OptionType)?.value || "", // Casting 'e' ke OptionType di sini
+      }));
+    }
+    // Case 2: Untuk input dan textarea biasa (punya 'target')
+    else if (e && "target" in e) {
+      // <-- Perubahan ada di sini: Gunakan 'in' operator
+      const target = e.target as HTMLInputElement | HTMLTextAreaElement;
+      const { name, value, type } = target;
+
+      if (type === "number" || name === "runningHour" || name === "jumlah") {
+        const cleanedValue = value.replace(/\./g, "");
+        setFormData((prev) => ({
+          ...prev,
+          [name]: cleanedValue === "" ? null : Number(cleanedValue),
+        }));
+      } else {
+        setFormData((prev) => ({ ...prev, [name]: value }));
+      }
+    }
   };
 
-  if (loading) {
+  // ... (bagian bawah kode lainnya tetap sama)
+
+  // --- Fungsi formatNumberWithDot (pastikan ini ada) ---
+  const formatNumberWithDot = (num: number | null): string => {
+    if (num === null || isNaN(num)) return "";
+    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  };
+
+  // --- Fungsi handleSubmit untuk pengiriman form ---
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    setSuccess(null);
+
+    // Validasi dasar (bisa diperluas)
+    if (
+      !formData.date ||
+      !formData.shift ||
+      !formData.group ||
+      !formData.stopTime ||
+      !formData.unit ||
+      !formData.mesin ||
+      formData.runningHour === null ||
+      formData.runningHour < 0 ||
+      !formData.itemTrouble ||
+      !formData.jenisGangguan ||
+      !formData.bentukTindakan ||
+      !formData.rootCause ||
+      !formData.jenisAktivitas ||
+      !formData.kegiatan ||
+      !formData.kodePart ||
+      !formData.sparePart ||
+      !formData.idPart ||
+      formData.jumlah === null ||
+      formData.jumlah < 0 ||
+      !formData.unitSparePart ||
+      formData.stopJam === null ||
+      formData.stopMenit === null ||
+      formData.startJam === null ||
+      formData.startMenit === null
+    ) {
+      setError("Please fill in all required fields and ensure numeric values are valid.");
+      setSubmitting(false);
+      return;
+    }
+
+    // Siapkan data untuk dikirim ke API (sesuaikan dengan snake_case API)
+    const dataToSend = {
+      date: formData.date,
+      shift_id: formData.shift,
+      group_id: formData.group,
+      stop_time_hh: formData.stopJam,
+      stop_time_mm: formData.stopMenit,
+      start_time_hh: formData.startJam,
+      start_time_mm: formData.startMenit, // BUG FIX: ini sudah benar
+      stoptime_id: formData.stopTime,
+      unit_id: formData.unit,
+      mesin_id: formData.mesin,
+      running_hour: formData.runningHour,
+      itemtrouble_id: formData.itemTrouble,
+      jenis_gangguan: formData.jenisGangguan,
+      bentuk_tindakan: formData.bentukTindakan,
+      root_cause: formData.rootCause,
+      jenisaktifitas_id: formData.jenisAktivitas,
+      kegiatan_id: formData.kegiatan,
+      kode_part: formData.kodePart,
+      spare_part: formData.sparePart,
+      id_part: formData.idPart,
+      jumlah: formData.jumlah,
+      unitsp_id: formData.unitSparePart,
+    };
+
+    try {
+      const response = await updateMachineHistory(id!, dataToSend);
+      setSuccess(response.message || "Machine history updated successfully!");
+      // navigate(`/machinehistory/${id}`); // Uncomment if you want to navigate back on success
+    } catch (error: any) {
+      console.error("Error updating machine history:", error);
+      setError(error.message || "Failed to update machine history.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Render formulir hanya jika data sudah selesai dimuat
+  if (isMasterDataLoading || localLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-blue-600 text-lg font-semibold">Loading data...</div>
+      <div className="min-h-screen bg-gray-50 p-4 sm:p-6 flex justify-center items-center">
+        <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded relative" role="alert">
+          <strong className="font-bold">Loading Data!</strong>
+          <span className="block sm:inline"> Sedang memuat data history mesin dan master data...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Jika ada error saat memuat data awal
+  if (error && !formData.date) {
+    // Cek formData.date sebagai indikator apakah data sudah berhasil dimuat atau belum
+    return (
+      <div className="min-h-screen bg-gray-50 p-4 sm:p-6 flex justify-center items-center">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+          <strong className="font-bold">Error!</strong>
+          <span className="block sm:inline"> {error}</span>
+        </div>
       </div>
     );
   }
@@ -338,13 +347,7 @@ const FormEditMesin: React.FC = () => {
           </motion.button>
         </div>
 
-        {loading && (
-          <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded relative mb-4" role="alert">
-            <strong className="font-bold">Processing!</strong>
-            <span className="block sm:inline"> Sedang menyimpan data...</span>
-          </div>
-        )}
-        {error && (
+        {error && ( // Tampilkan error saat submit
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
             <strong className="font-bold">Error!</strong>
             <span className="block sm:inline"> {error}</span>
@@ -366,7 +369,7 @@ const FormEditMesin: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">
-                    Date
+                    Date <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="date"
@@ -380,13 +383,13 @@ const FormEditMesin: React.FC = () => {
                 </div>
                 <div>
                   <label htmlFor="shift" className="block text-sm font-medium text-gray-700 mb-1">
-                    Shift
+                    Shift <span className="text-red-500">*</span>
                   </label>
                   <Select
                     name="shift"
                     id="shift"
-                    options={shiftList.map((shift) => ({ value: shift.id, label: shift.name }))}
-                    value={shiftList.map((shift) => ({ value: shift.id, label: shift.name })).find((option) => option.value === formData.shift)}
+                    options={masterData?.shifts.map((shift) => ({ value: shift.id, label: shift.name })) || []}
+                    value={masterData?.shifts.map((shift) => ({ value: shift.id, label: shift.name })).find((option) => option.value === formData.shift) || null}
                     onChange={(selectedOption) => handleChange(selectedOption, "shift")}
                     placeholder="Select Shift"
                     styles={customSelectStyles}
@@ -395,13 +398,13 @@ const FormEditMesin: React.FC = () => {
                 </div>
                 <div>
                   <label htmlFor="group" className="block text-sm font-medium text-gray-700 mb-1">
-                    Group
+                    Group <span className="text-red-500">*</span>
                   </label>
                   <Select
                     name="group"
                     id="group"
-                    options={groupList.map((group) => ({ value: group.id, label: group.name }))}
-                    value={groupList.map((group) => ({ value: group.id, label: group.name })).find((option) => option.value === formData.group)}
+                    options={masterData?.groups.map((group) => ({ value: group.id, label: group.name })) || []}
+                    value={masterData?.groups.map((group) => ({ value: group.id, label: group.name })).find((option) => option.value === formData.group) || null}
                     onChange={(selectedOption) => handleChange(selectedOption, "group")}
                     placeholder="Select Group"
                     styles={customSelectStyles}
@@ -418,7 +421,7 @@ const FormEditMesin: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="stopJam" className="block text-sm font-medium text-gray-700 mb-1">
-                    Hour (HH)
+                    Hour (HH) <span className="text-red-500">*</span>
                     {formData.stopJam !== null && formData.stopJam > 23 && <span className="text-xs text-yellow-600 ml-2">Will be saved as: {formData.stopJam % 24}</span>}
                   </label>
                   <input
@@ -428,14 +431,14 @@ const FormEditMesin: React.FC = () => {
                     value={formData.stopJam === null ? "" : formData.stopJam}
                     onChange={handleChange}
                     min="0"
-                    placeholder="e.g., 09 (leave empty if not applicable)"
+                    placeholder="e.g., 09"
                     className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
                     required
                   />
                 </div>
                 <div>
                   <label htmlFor="stopMenit" className="block text-sm font-medium text-gray-700 mb-1">
-                    Minutes (MM)
+                    Minutes (MM) <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="number"
@@ -453,13 +456,13 @@ const FormEditMesin: React.FC = () => {
               </div>
               <div className="mt-4">
                 <label htmlFor="stopTime" className="block text-sm font-medium text-gray-700 mb-1">
-                  Stop Type
+                  Stop Type <span className="text-red-500">*</span>
                 </label>
                 <Select
                   name="stopTime"
                   id="stopTime"
-                  options={stopTimeList.map((stopTime) => ({ value: stopTime.id, label: stopTime.name }))}
-                  value={stopTimeList.map((stopTime) => ({ value: stopTime.id, label: stopTime.name })).find((option) => option.value === formData.stopTime)}
+                  options={masterData?.stoptimes.map((stopTime) => ({ value: stopTime.id, label: stopTime.name })) || []}
+                  value={masterData?.stoptimes.map((stopTime) => ({ value: stopTime.id, label: stopTime.name })).find((option) => option.value === formData.stopTime) || null}
                   onChange={(selectedOption) => handleChange(selectedOption, "stopTime")}
                   placeholder="Select Stop Type"
                   styles={customSelectStyles}
@@ -475,7 +478,7 @@ const FormEditMesin: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="startJam" className="block text-sm font-medium text-gray-700 mb-1">
-                    Hour (HH)
+                    Hour (HH) <span className="text-red-500">*</span>
                     {formData.startJam !== null && formData.startJam > 23 && <span className="text-xs text-yellow-600 ml-2">Will be saved as: {formData.startJam % 24}</span>}
                   </label>
                   <input
@@ -485,14 +488,14 @@ const FormEditMesin: React.FC = () => {
                     value={formData.startJam === null ? "" : formData.startJam}
                     onChange={handleChange}
                     min="0"
-                    placeholder="e.g., 09 (leave empty if not applicable)"
+                    placeholder="e.g., 09"
                     className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
                     required
                   />
                 </div>
                 <div>
                   <label htmlFor="startMenit" className="block text-sm font-medium text-gray-700 mb-1">
-                    Minutes (MM)
+                    Minutes (MM) <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="number"
@@ -517,13 +520,13 @@ const FormEditMesin: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="unit" className="block text-sm font-medium text-gray-700 mb-1">
-                    Unit
+                    Unit <span className="text-red-500">*</span>
                   </label>
                   <Select
                     name="unit"
                     id="unit"
-                    options={unitList.map((unit) => ({ value: unit.id, label: unit.name }))}
-                    value={unitList.map((unit) => ({ value: unit.id, label: unit.name })).find((option) => option.value === formData.unit)}
+                    options={masterData?.units.map((unit) => ({ value: unit.id, label: unit.name })) || []}
+                    value={masterData?.units.map((unit) => ({ value: unit.id, label: unit.name })).find((option) => option.value === formData.unit) || null}
                     onChange={(selectedOption) => handleChange(selectedOption, "unit")}
                     placeholder="Select Unit"
                     styles={customSelectStyles}
@@ -532,13 +535,13 @@ const FormEditMesin: React.FC = () => {
                 </div>
                 <div>
                   <label htmlFor="mesin" className="block text-sm font-medium text-gray-700 mb-1">
-                    Machine
+                    Machine <span className="text-red-500">*</span>
                   </label>
                   <Select
                     name="mesin"
                     id="mesin"
-                    options={mesinList.map((mesinItem) => ({ value: mesinItem.id, label: mesinItem.name }))}
-                    value={mesinList.map((mesinItem) => ({ value: mesinItem.id, label: mesinItem.name })).find((option) => option.value === formData.mesin)}
+                    options={masterData?.mesin.map((mesinItem) => ({ value: mesinItem.id, label: mesinItem.name })) || []}
+                    value={masterData?.mesin.map((mesinItem) => ({ value: mesinItem.id, label: mesinItem.name })).find((option) => option.value === formData.mesin) || null}
                     onChange={(selectedOption) => handleChange(selectedOption, "mesin")}
                     placeholder="Select Machine"
                     styles={customSelectStyles}
@@ -548,10 +551,10 @@ const FormEditMesin: React.FC = () => {
               </div>
               <div className="mt-4">
                 <label htmlFor="runningHour" className="block text-sm font-medium text-gray-700 mb-1">
-                  Running Hours
+                  Running Hours <span className="text-red-500">*</span>
                 </label>
                 <input
-                  type="text"
+                  type="text" // Menggunakan type="text" untuk format titik
                   name="runningHour"
                   id="runningHour"
                   value={formatNumberWithDot(formData.runningHour)}
@@ -569,13 +572,13 @@ const FormEditMesin: React.FC = () => {
               </h2>
               <div className="mb-4">
                 <label htmlFor="itemTrouble" className="block text-sm font-medium text-gray-700 mb-1">
-                  Item Trouble
+                  Item Trouble <span className="text-red-500">*</span>
                 </label>
                 <Select
                   name="itemTrouble"
                   id="itemTrouble"
-                  options={itemTroubleList.map((itemTrouble) => ({ value: itemTrouble.id, label: itemTrouble.name }))}
-                  value={itemTroubleList.map((itemTrouble) => ({ value: itemTrouble.id, label: itemTrouble.name })).find((option) => option.value === formData.itemTrouble)}
+                  options={masterData?.itemtroubles.map((itemTrouble) => ({ value: itemTrouble.id, label: itemTrouble.name })) || []}
+                  value={masterData?.itemtroubles.map((itemTrouble) => ({ value: itemTrouble.id, label: itemTrouble.name })).find((option) => option.value === formData.itemTrouble) || null}
                   onChange={(selectedOption) => handleChange(selectedOption, "itemTrouble")}
                   placeholder="Select Item Trouble"
                   styles={customSelectStyles}
@@ -586,7 +589,7 @@ const FormEditMesin: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
                   <label htmlFor="jenisGangguan" className="block text-sm font-medium text-gray-700 mb-1">
-                    Issue Description
+                    Issue Description <span className="text-red-500">*</span>
                   </label>
                   <textarea
                     name="jenisGangguan"
@@ -601,7 +604,7 @@ const FormEditMesin: React.FC = () => {
                 </div>
                 <div>
                   <label htmlFor="bentukTindakan" className="block text-sm font-medium text-gray-700 mb-1">
-                    Action Taken
+                    Action Taken <span className="text-red-500">*</span>
                   </label>
                   <textarea
                     name="bentukTindakan"
@@ -618,7 +621,7 @@ const FormEditMesin: React.FC = () => {
 
               <div>
                 <label htmlFor="rootCause" className="block text-sm font-medium text-gray-700 mb-1">
-                  Root Cause
+                  Root Cause <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   name="rootCause"
@@ -640,13 +643,13 @@ const FormEditMesin: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="jenisAktivitas" className="block text-sm font-medium text-gray-700 mb-1">
-                    Activity Type
+                    Activity Type <span className="text-red-500">*</span>
                   </label>
                   <Select
                     name="jenisAktivitas"
                     id="jenisAktivitas"
-                    options={jenisAktivitasList.map((aktivitas) => ({ value: aktivitas.id, label: aktivitas.name }))}
-                    value={jenisAktivitasList.map((aktivitas) => ({ value: aktivitas.id, label: aktivitas.name })).find((option) => option.value === formData.jenisAktivitas)}
+                    options={masterData?.jenisaktivitas.map((aktivitas) => ({ value: aktivitas.id, label: aktivitas.name })) || []}
+                    value={masterData?.jenisaktivitas.map((aktivitas) => ({ value: aktivitas.id, label: aktivitas.name })).find((option) => option.value === formData.jenisAktivitas) || null}
                     onChange={(selectedOption) => handleChange(selectedOption, "jenisAktivitas")}
                     placeholder="Select Activity Type"
                     styles={customSelectStyles}
@@ -655,13 +658,13 @@ const FormEditMesin: React.FC = () => {
                 </div>
                 <div>
                   <label htmlFor="kegiatan" className="block text-sm font-medium text-gray-700 mb-1">
-                    Specific Activity
+                    Specific Activity <span className="text-red-500">*</span>
                   </label>
                   <Select
                     name="kegiatan"
                     id="kegiatan"
-                    options={kegiatanList.map((kegiatan) => ({ value: kegiatan.id, label: kegiatan.name }))}
-                    value={kegiatanList.map((kegiatan) => ({ value: kegiatan.id, label: kegiatan.name })).find((option) => option.value === formData.kegiatan)}
+                    options={masterData?.kegiatans.map((kegiatan) => ({ value: kegiatan.id, label: kegiatan.name })) || []}
+                    value={masterData?.kegiatans.map((kegiatan) => ({ value: kegiatan.id, label: kegiatan.name })).find((option) => option.value === formData.kegiatan) || null}
                     onChange={(selectedOption) => handleChange(selectedOption, "kegiatan")}
                     placeholder="Select Activity"
                     styles={customSelectStyles}
@@ -678,7 +681,7 @@ const FormEditMesin: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
                   <label htmlFor="kodePart" className="block text-sm font-medium text-gray-700 mb-1">
-                    Part Code
+                    Part Code <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -693,7 +696,7 @@ const FormEditMesin: React.FC = () => {
                 </div>
                 <div>
                   <label htmlFor="sparePart" className="block text-sm font-medium text-gray-700 mb-1">
-                    Part Name
+                    Part Name <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -708,7 +711,7 @@ const FormEditMesin: React.FC = () => {
                 </div>
                 <div>
                   <label htmlFor="idPart" className="block text-sm font-medium text-gray-700 mb-1">
-                    Part ID
+                    Part ID <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -723,10 +726,10 @@ const FormEditMesin: React.FC = () => {
                 </div>
                 <div>
                   <label htmlFor="jumlah" className="block text-sm font-medium text-gray-700 mb-1">
-                    Quantity
+                    Quantity <span className="text-red-500">*</span>
                   </label>
                   <input
-                    type="text"
+                    type="text" // Menggunakan type="text" untuk format titik
                     name="jumlah"
                     id="jumlah"
                     value={formatNumberWithDot(formData.jumlah)}
@@ -739,13 +742,13 @@ const FormEditMesin: React.FC = () => {
               </div>
               <div className="mt-4">
                 <label htmlFor="unitSparePart" className="block text-sm font-medium text-gray-700 mb-1">
-                  Unit
+                  Unit <span className="text-red-500">*</span>
                 </label>
                 <Select
                   name="unitSparePart"
                   id="unitSparePart"
-                  options={unitSparePartList.map((unitSP) => ({ value: unitSP.id, label: unitSP.name }))}
-                  value={unitSparePartList.map((unitSP) => ({ value: unitSP.id, label: unitSP.name })).find((option) => option.value === formData.unitSparePart)}
+                  options={masterData?.unitspareparts.map((unitSP) => ({ value: unitSP.id, label: unitSP.name })) || []}
+                  value={masterData?.unitspareparts.map((unitSP) => ({ value: unitSP.id, label: unitSP.name })).find((option) => option.value === formData.unitSparePart) || null}
                   onChange={(selectedOption) => handleChange(selectedOption, "unitSparePart")}
                   placeholder="Select Unit"
                   styles={customSelectStyles}
@@ -769,9 +772,9 @@ const FormEditMesin: React.FC = () => {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 className="px-6 py-3 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
-                disabled={loading}
+                disabled={submitting}
               >
-                {loading ? (
+                {submitting ? (
                   <>
                     <span className="animate-spin inline-block mr-2">⚙️</span> Updating...
                   </>
