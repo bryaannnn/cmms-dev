@@ -79,10 +79,10 @@ export interface MachineHistoryFormData {
   date: string;
   shift: string;
   group: string;
-  stopJam?: number | null;
-  stopMenit?: number | null;
-  startJam?: number | null;
-  startMenit?: number | null;
+  stopJam: number | null;
+  stopMenit: number | null;
+  startJam: number | null;
+  startMenit: number | null;
   stopTime: string;
   unit: string;
   mesin: string;
@@ -106,13 +106,6 @@ export interface MachineHistoryRecord extends MachineHistoryFormData {
   startstop?: Startstop | null;
 }
 
-/**
- * Maps raw API data for a machine history record to the MachineHistoryRecord interface.
- * It enriches ID-based fields with their corresponding names from master data where necessary.
- * @param apiData The raw data received from the API.
- * @param masterData All loaded master data (can be null during initial loading).
- * @returns A formatted MachineHistoryRecord.
- */
 function mapApiToMachineHistoryRecord(apiData: any, masterData: AllMasterData | null): MachineHistoryRecord {
   const stopTimeName = apiData.stoptime?.name || masterData?.stoptimes?.find((st) => String(st.id) === String(apiData.stoptime_id))?.name || "-";
   const itemTroubleName = apiData.itemtrouble?.name || masterData?.itemtroubles?.find((it) => String(it.id) === String(apiData.itemtrouble_id))?.name || "-";
@@ -136,7 +129,7 @@ function mapApiToMachineHistoryRecord(apiData: any, masterData: AllMasterData | 
     itemTrouble: itemTroubleName,
     jenisGangguan: apiData.jenis_gangguan || "",
     bentukTindakan: apiData.bentuk_tindakan || "",
-    perbaikanPerawatan: "",
+    perbaikanPerawatan: apiData.jenisaktifitas?.name === "Perbaikan" ? "Perbaikan" : "Perawatan",
     rootCause: apiData.root_cause || "",
     jenisAktivitas: jenisAktivitasName,
     kegiatan: kegiatanName,
@@ -161,8 +154,8 @@ interface AuthContextType {
   getAllMasterData: () => Promise<AllMasterData>;
   submitMachineHistory: (data: MachineHistoryFormData) => Promise<any>;
   getMachineHistories: () => Promise<MachineHistoryRecord[]>;
-  getMachineHistoryById: (id: string) => Promise<MachineHistoryRecord | null>;
-  updateMachineHistory: (id: string, data: Partial<MachineHistoryFormData>) => Promise<any>;
+  getMachineHistoryById: (id: string) => Promise<any>;
+  updateMachineHistory: (id: string, data: MachineHistoryFormData) => Promise<any>;
   deleteMachineHistory: (id: string) => Promise<any>;
   masterData: AllMasterData | null;
   isMasterDataLoading: boolean;
@@ -435,9 +428,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     async (id: string): Promise<any> => {
       try {
         const data = await fetchWithAuth(`/mhs/${id}`);
-        // Jika Anda ingin mengembalikan data mentah untuk kebutuhan form, biarkan seperti ini:
-        return data; // Kembali data mentah dari API
-        // JANGAN: return mapApiToMachineHistoryRecord(data, masterData); jika ini untuk FormEditMesin
+        return data;
       } catch (error) {
         console.error(`Gagal mengambil history mesin dengan ID ${id}:`, error);
         throw error;
@@ -447,21 +438,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   );
 
   const updateMachineHistory = useCallback(
-    async (id: string, data: Partial<MachineHistoryFormData>): Promise<any> => {
+    async (id: string, data: MachineHistoryFormData): Promise<any> => {
       try {
-        const payload = Object.keys(data).reduce((acc, key) => {
-          if (data[key as keyof MachineHistoryFormData] !== undefined) {
-            acc[key] = data[key as keyof MachineHistoryFormData];
-          }
-          return acc;
-        }, {} as Record<string, any>);
-
         const responseData = await fetchWithAuth(`/mhs/${id}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify(payload),
+          body: JSON.stringify(data),
         });
         return responseData;
       } catch (error) {

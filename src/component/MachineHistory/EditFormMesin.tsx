@@ -10,31 +10,7 @@ interface OptionType {
   label: string;
 }
 
-interface FormData {
-  date: string;
-  shift: string;
-  group: string;
-  stopJam: number | null;
-  stopMenit: number | null;
-  startJam: number | null;
-  startMenit: number | null;
-  stopTime: string;
-  unit: string;
-  mesin: string;
-  runningHour: number;
-  itemTrouble: string;
-  jenisGangguan: string;
-  bentukTindakan: string;
-  perbaikanPerawatan: string;
-  rootCause: string;
-  jenisAktivitas: string;
-  kegiatan: string;
-  kodePart: string;
-  sparePart: string;
-  idPart: string;
-  jumlah: number;
-  unitSparePart: string;
-}
+import { MachineHistoryFormData } from "../../routes/AuthContext";
 
 const customSelectStyles = {
   control: (provided: any, state: any) => ({
@@ -96,7 +72,7 @@ const FormEditMesin: React.FC = () => {
   const navigate = useNavigate();
   const { getMachineHistoryById, updateMachineHistory, masterData, isMasterDataLoading } = useAuth();
 
-  const [formData, setFormData] = useState<FormData>({
+  const [formData, setFormData] = useState<MachineHistoryFormData>({
     date: "",
     shift: "",
     group: "",
@@ -182,13 +158,16 @@ const FormEditMesin: React.FC = () => {
     fetchData();
   }, [id, masterData, isMasterDataLoading, getMachineHistoryById]);
 
+  // FIX: Updated handleChange to correctly type input and textarea events
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | OptionType | null, name?: string) => {
     if (name) {
+      // This path is for Select components
       setFormData((prev) => ({
         ...prev,
         [name]: (e as OptionType)?.value || "",
       }));
     } else if (e && "target" in e) {
+      // This path is for native input/textarea elements
       const target = e.target as HTMLInputElement | HTMLTextAreaElement;
       const { name, value, type } = target;
 
@@ -215,29 +194,65 @@ const FormEditMesin: React.FC = () => {
     setError(null);
     setSuccess(null);
 
-    const dataToSend = {
+    const requiredStringFields: Array<keyof MachineHistoryFormData> = ["jenisGangguan", "bentukTindakan", "rootCause", "kodePart", "sparePart", "idPart"];
+
+    for (const field of requiredStringFields) {
+      if (!formData[field]) {
+        setError(`Kolom '${field}' wajib diisi.`);
+        setSubmitting(false);
+        return;
+      }
+    }
+
+    if (formData.runningHour === null || isNaN(formData.runningHour)) {
+      setError("Kolom 'Running Hours' wajib diisi dan harus berupa angka.");
+      setSubmitting(false);
+      return;
+    }
+    if (formData.jumlah === null || isNaN(formData.jumlah)) {
+      setError("Kolom 'Quantity' wajib diisi dan harus berupa angka.");
+      setSubmitting(false);
+      return;
+    }
+    if (
+      formData.stopJam === null ||
+      isNaN(formData.stopJam) ||
+      formData.stopMenit === null ||
+      isNaN(formData.stopMenit) ||
+      formData.startJam === null ||
+      isNaN(formData.startJam) ||
+      formData.startMenit === null ||
+      isNaN(formData.startMenit)
+    ) {
+      setError("Kolom waktu (jam dan menit) wajib diisi dan harus berupa angka.");
+      setSubmitting(false);
+      return;
+    }
+
+    const dataToSend: MachineHistoryFormData = {
       date: formData.date,
-      shift_id: formData.shift,
-      group_id: formData.group,
-      stop_time_hh: formData.stopJam,
-      stop_time_mm: formData.stopMenit,
-      start_time_hh: formData.startJam,
-      start_time_mm: formData.startMenit,
-      stoptime_id: formData.stopTime,
-      unit_id: formData.unit,
-      mesin_id: formData.mesin,
-      running_hour: formData.runningHour,
-      itemtrouble_id: formData.itemTrouble,
-      jenis_gangguan: formData.jenisGangguan,
-      bentuk_tindakan: formData.bentukTindakan,
-      root_cause: formData.rootCause,
-      jenisaktifitas_id: formData.jenisAktivitas,
-      kegiatan_id: formData.kegiatan,
-      kode_part: formData.kodePart,
-      spare_part: formData.sparePart,
-      id_part: formData.idPart,
+      shift: formData.shift,
+      group: formData.group,
+      stopJam: formData.stopJam,
+      stopMenit: formData.stopMenit,
+      startJam: formData.startJam,
+      startMenit: formData.startMenit,
+      stopTime: formData.stopTime,
+      unit: formData.unit,
+      mesin: formData.mesin,
+      runningHour: formData.runningHour,
+      itemTrouble: formData.itemTrouble,
+      jenisGangguan: formData.jenisGangguan,
+      bentukTindakan: formData.bentukTindakan,
+      perbaikanPerawatan: formData.perbaikanPerawatan,
+      rootCause: formData.rootCause,
+      jenisAktivitas: formData.jenisAktivitas,
+      kegiatan: formData.kegiatan,
+      kodePart: formData.kodePart,
+      sparePart: formData.sparePart,
+      idPart: formData.idPart,
       jumlah: formData.jumlah,
-      unitsp_id: formData.unitSparePart,
+      unitSparePart: formData.unitSparePart,
     };
 
     try {
@@ -397,7 +412,7 @@ const FormEditMesin: React.FC = () => {
                   <FiCheck className="mr-2 text-green-500" /> Start Time
                 </h2>
                 <h2 className="text-lg font-semibold text-gray-800 flex items-center justify-start">
-                  <FiClock className="mr-2 text-red-500" /> Stop Time
+                  <FiX className="mr-2 text-red-500" /> Stop Time
                 </h2>
               </div>
 
@@ -577,7 +592,7 @@ const FormEditMesin: React.FC = () => {
                     name="jenisGangguan"
                     id="jenisGangguan"
                     value={formData.jenisGangguan}
-                    onChange={handleChange}
+                    onChange={handleChange as React.ChangeEventHandler<HTMLTextAreaElement>} // Type assertion here
                     rows={3}
                     placeholder="Describe the issue..."
                     className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
@@ -592,7 +607,7 @@ const FormEditMesin: React.FC = () => {
                     name="bentukTindakan"
                     id="bentukTindakan"
                     value={formData.bentukTindakan}
-                    onChange={handleChange}
+                    onChange={handleChange as React.ChangeEventHandler<HTMLTextAreaElement>} // Type assertion here
                     rows={3}
                     placeholder="Describe the action taken..."
                     className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
@@ -609,7 +624,7 @@ const FormEditMesin: React.FC = () => {
                   name="rootCause"
                   id="rootCause"
                   value={formData.rootCause}
-                  onChange={handleChange}
+                  onChange={handleChange as React.ChangeEventHandler<HTMLTextAreaElement>} // Type assertion here
                   rows={3}
                   placeholder="Identify the root cause..."
                   className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
