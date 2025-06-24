@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../../routes/AuthContext";
 import Select from "react-select";
 import { motion } from "framer-motion";
-import { FiTool, FiClock, FiCheck, FiX, FiSave, FiTrash2 } from "react-icons/fi";
+import { FiTool, FiClock, FiCheck, FiX, FiSave } from "react-icons/fi";
 
 interface OptionType {
   value: string | number;
@@ -40,60 +40,31 @@ const customSelectStyles = {
   control: (provided: any, state: any) => ({
     ...provided,
     minHeight: "42px",
+    borderRadius: "0.5rem",
     borderColor: state.isFocused ? "#3B82F6" : "#D1D5DB",
     boxShadow: state.isFocused ? "0 0 0 1px #3B82F6" : "none",
     "&:hover": {
-      borderColor: "#9CA3AF",
+      borderColor: "#3B82F6",
     },
-    borderRadius: "0.5rem",
-    backgroundColor: "#FFFFFF",
-    padding: "0 0.5rem",
-    transition: "all 0.15s ease-in-out",
-  }),
-  valueContainer: (provided: any) => ({
-    ...provided,
-    padding: "0",
   }),
   singleValue: (provided: any) => ({
     ...provided,
-    color: "#374151",
-  }),
-  placeholder: (provided: any) => ({
-    ...provided,
-    color: "#6B7280",
-  }),
-  dropdownIndicator: (provided: any) => ({
-    ...provided,
-    color: "#9CA3AF",
-    "&:hover": {
-      color: "#6B7280",
-    },
-  }),
-  indicatorSeparator: (provided: any) => ({
-    ...provided,
-    display: "none",
-  }),
-  menu: (provided: any) => ({
-    ...provided,
-    zIndex: 9999,
-    borderRadius: "0.5rem",
-    border: "1px solid #E5E7EB",
-    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+    color: "#4B5563",
   }),
   option: (provided: any, state: any) => ({
     ...provided,
-    backgroundColor: state.isFocused ? "#EFF6FF" : "#FFFFFF",
-    color: "#1F2937",
+    backgroundColor: state.isSelected ? "#3B82F6" : state.isFocused ? "#EFF6FF" : null,
+    color: state.isSelected ? "white" : "#4B5563",
     "&:active": {
-      backgroundColor: "#DBEAFE",
+      backgroundColor: "#2563EB",
     },
-    padding: "0.625rem 1rem",
   }),
 };
 
 const FormEditMesin: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+
   const { getMachineHistoryById, updateMachineHistory, masterData, isMasterDataLoading } = useAuth();
 
   const [formData, setFormData] = useState<FormData>({
@@ -136,35 +107,36 @@ const FormEditMesin: React.FC = () => {
 
       try {
         setLocalLoading(true);
+
         if (id) {
           const responseData: any = await getMachineHistoryById(id);
-          const apiDataRaw = responseData.data;
+          const apiDataRaw = responseData.data; // <--- INI PERUBAHAN UTAMA
 
           if (apiDataRaw) {
             setFormData({
               date: apiDataRaw.date || "",
-              shift: String(apiDataRaw.shift_id) || "",
-              group: String(apiDataRaw.group_id) || "",
+              shift: String(apiDataRaw.shift_id) || "", // Menggunakan shift_id langsung
+              group: String(apiDataRaw.group_id) || "", // Menggunakan group_id langsung
               stopJam: apiDataRaw.startstop?.stop_time_hh ?? null,
               stopMenit: apiDataRaw.startstop?.stop_time_mm ?? null,
               startJam: apiDataRaw.startstop?.start_time_hh ?? null,
               startMenit: apiDataRaw.startstop?.start_time_mm ?? null,
-              stopTime: String(apiDataRaw.stoptime_id) || "",
-              unit: String(apiDataRaw.unit_id) || "",
-              mesin: String(apiDataRaw.mesin_id) || "",
+              stopTime: String(apiDataRaw.stoptime_id) || "", // Menggunakan stoptime_id langsung
+              unit: String(apiDataRaw.unit_id) || "", // Menggunakan unit_id langsung
+              mesin: String(apiDataRaw.mesin_id) || "", // Menggunakan mesin_id langsung
               runningHour: apiDataRaw.running_hour ?? 0,
-              itemTrouble: String(apiDataRaw.itemtrouble_id) || "",
+              itemTrouble: String(apiDataRaw.itemtrouble_id) || "", // Menggunakan itemtrouble_id langsung
               jenisGangguan: apiDataRaw.jenis_gangguan || "",
               bentukTindakan: apiDataRaw.bentuk_tindakan || "",
               perbaikanPerawatan: apiDataRaw.jenisaktifitas?.name === "Perbaikan" ? "Perbaikan" : "Perawatan",
               rootCause: apiDataRaw.root_cause || "",
-              jenisAktivitas: String(apiDataRaw.jenisaktifitas_id) || "",
-              kegiatan: String(apiDataRaw.kegiatan_id) || "",
+              jenisAktivitas: String(apiDataRaw.jenisaktifitas_id) || "", // Menggunakan jenisaktifitas_id langsung
+              kegiatan: String(apiDataRaw.kegiatan_id) || "", // Menggunakan kegiatan_id langsung
               kodePart: apiDataRaw.kode_part || "",
               sparePart: apiDataRaw.spare_part || "",
               idPart: apiDataRaw.id_part || "",
               jumlah: apiDataRaw.jumlah ?? 0,
-              unitSparePart: String(apiDataRaw.unitsp_id) || "",
+              unitSparePart: String(apiDataRaw.unitsp_id) || "", // Menggunakan unitsp_id langsung
             });
           } else {
             setError("Data history mesin tidak ditemukan.");
@@ -215,6 +187,37 @@ const FormEditMesin: React.FC = () => {
     setError(null);
     setSuccess(null);
 
+    if (
+      !formData.date ||
+      !formData.shift ||
+      !formData.group ||
+      !formData.stopTime ||
+      !formData.unit ||
+      !formData.mesin ||
+      formData.runningHour === null ||
+      formData.runningHour < 0 ||
+      !formData.itemTrouble ||
+      !formData.jenisGangguan ||
+      !formData.bentukTindakan ||
+      !formData.rootCause ||
+      !formData.jenisAktivitas ||
+      !formData.kegiatan ||
+      !formData.kodePart ||
+      !formData.sparePart ||
+      !formData.idPart ||
+      formData.jumlah === null ||
+      formData.jumlah < 0 ||
+      !formData.unitSparePart ||
+      formData.stopJam === null ||
+      formData.stopMenit === null ||
+      formData.startJam === null ||
+      formData.startMenit === null
+    ) {
+      setError("Please fill in all required fields and ensure numeric values are valid.");
+      setSubmitting(false);
+      return;
+    }
+
     const dataToSend = {
       date: formData.date,
       shift_id: formData.shift,
@@ -243,42 +246,13 @@ const FormEditMesin: React.FC = () => {
     try {
       const response = await updateMachineHistory(id!, dataToSend);
       setSuccess(response.message || "Machine history updated successfully!");
+      // navigate(`/machinehistory/${id}`);
     } catch (error: any) {
       console.error("Error updating machine history:", error);
       setError(error.message || "Failed to update machine history.");
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const handleClear = () => {
-    setFormData({
-      date: "",
-      shift: "",
-      group: "",
-      stopJam: null,
-      stopMenit: null,
-      startJam: null,
-      startMenit: null,
-      stopTime: "",
-      unit: "",
-      mesin: "",
-      runningHour: 0,
-      itemTrouble: "",
-      jenisGangguan: "",
-      bentukTindakan: "",
-      perbaikanPerawatan: "",
-      rootCause: "",
-      jenisAktivitas: "",
-      kegiatan: "",
-      kodePart: "",
-      sparePart: "",
-      idPart: "",
-      jumlah: 0,
-      unitSparePart: "",
-    });
-    setError(null);
-    setSuccess(null);
   };
 
   if (isMasterDataLoading || localLoading) {
@@ -339,7 +313,6 @@ const FormEditMesin: React.FC = () => {
 
         <div className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200">
           <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-6">
-            {/* General Information */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <FiClock className="mr-2 text-blue-500" /> General Information
@@ -347,7 +320,7 @@ const FormEditMesin: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">
-                    Date
+                    Date <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="date"
@@ -361,7 +334,7 @@ const FormEditMesin: React.FC = () => {
                 </div>
                 <div>
                   <label htmlFor="shift" className="block text-sm font-medium text-gray-700 mb-1">
-                    Shift
+                    Shift <span className="text-red-500">*</span>
                   </label>
                   <Select
                     name="shift"
@@ -376,7 +349,7 @@ const FormEditMesin: React.FC = () => {
                 </div>
                 <div>
                   <label htmlFor="group" className="block text-sm font-medium text-gray-700 mb-1">
-                    Group
+                    Group <span className="text-red-500">*</span>
                   </label>
                   <Select
                     name="group"
@@ -392,97 +365,49 @@ const FormEditMesin: React.FC = () => {
               </div>
             </div>
 
-            {/* Time Information */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-18 mb-4">
-                <h2 className="text-lg font-semibold text-gray-800 flex items-center justify-start">
-                  <FiCheck className="mr-2 text-green-500" /> Start Time
-                </h2>
-                <h2 className="text-lg font-semibold text-gray-800 flex items-center justify-start">
-                  <FiClock className="mr-2 text-red-500" /> Stop Time
-                </h2>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-6 mb-4">
-                <div className="flex items-end justify-start">
-                  <div className="flex-1 max-w-[calc(50%-15px)]">
-                    <label htmlFor="startJam" className="block text-sm font-medium text-gray-700 mb-1">
-                      Hour (HH)
-                    </label>
-                    <input
-                      type="number"
-                      name="startJam"
-                      id="startJam"
-                      value={formData.startJam === null ? "" : formData.startJam}
-                      onChange={handleChange}
-                      min="0"
-                      max="23"
-                      placeholder="e.g., 09"
-                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
-                      required
-                    />
-                  </div>
-                  <div className="mx-1 text-2xl font-bold text-gray-600 pb-2">:</div>
-                  <div className="flex-1 max-w-[calc(50%-15px)]">
-                    <label htmlFor="startMenit" className="block text-sm font-medium text-gray-700 mb-1">
-                      Minute (MM)
-                    </label>
-                    <input
-                      type="number"
-                      name="startMenit"
-                      id="startMenit"
-                      value={formData.startMenit === null ? "" : formData.startMenit}
-                      onChange={handleChange}
-                      min="0"
-                      max="59"
-                      placeholder="e.g., 15"
-                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
-                      required
-                    />
-                  </div>
+              <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <FiClock className="mr-2 text-red-500" /> Stop Time
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="stopJam" className="block text-sm font-medium text-gray-700 mb-1">
+                    Hour (HH) <span className="text-red-500">*</span>
+                    {formData.stopJam !== null && formData.stopJam > 23 && <span className="text-xs text-yellow-600 ml-2">Will be saved as: {formData.stopJam % 24}</span>}
+                  </label>
+                  <input
+                    type="number"
+                    name="stopJam"
+                    id="stopJam"
+                    value={formData.stopJam === null ? "" : formData.stopJam}
+                    onChange={handleChange}
+                    min="0"
+                    placeholder="e.g., 09"
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
+                    required
+                  />
                 </div>
-                <div className="flex items-end justify-end">
-                  <div className="flex-1 max-w-[calc(50%-15px)]">
-                    <label htmlFor="stopJam" className="block text-sm font-medium text-gray-700 mb-1">
-                      Hour (HH)
-                    </label>
-                    <input
-                      type="number"
-                      name="stopJam"
-                      id="stopJam"
-                      value={formData.stopJam === null ? "" : formData.stopJam}
-                      onChange={handleChange}
-                      min="0"
-                      max="23"
-                      placeholder="e.g., 09"
-                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
-                      required
-                    />
-                  </div>
-                  <div className="mx-1 text-2xl font-bold text-gray-600 pb-2">:</div>
-                  <div className="flex-1 max-w-[calc(50%-15px)]">
-                    <label htmlFor="stopMenit" className="block text-sm font-medium text-gray-700 mb-1">
-                      Minute (MM)
-                    </label>
-                    <input
-                      type="number"
-                      name="stopMenit"
-                      id="stopMenit"
-                      value={formData.stopMenit === null ? "" : formData.stopMenit}
-                      onChange={handleChange}
-                      min="0"
-                      max="59"
-                      placeholder="e.g., 30"
-                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
-                      required
-                    />
-                  </div>
+                <div>
+                  <label htmlFor="stopMenit" className="block text-sm font-medium text-gray-700 mb-1">
+                    Minutes (MM) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="stopMenit"
+                    id="stopMenit"
+                    value={formData.stopMenit === null ? "" : formData.stopMenit}
+                    onChange={handleChange}
+                    min="0"
+                    max="59"
+                    placeholder="e.g., 30"
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
+                    required
+                  />
                 </div>
               </div>
-
               <div className="mt-4">
                 <label htmlFor="stopTime" className="block text-sm font-medium text-gray-700 mb-1">
-                  Stop Type
+                  Stop Type <span className="text-red-500">*</span>
                 </label>
                 <Select
                   name="stopTime"
@@ -497,7 +422,48 @@ const FormEditMesin: React.FC = () => {
               </div>
             </div>
 
-            {/* Machine Details */}
+            <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+              <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <FiCheck className="mr-2 text-green-500" /> Start Time
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="startJam" className="block text-sm font-medium text-gray-700 mb-1">
+                    Hour (HH) <span className="text-red-500">*</span>
+                    {formData.startJam !== null && formData.startJam > 23 && <span className="text-xs text-yellow-600 ml-2">Will be saved as: {formData.startJam % 24}</span>}
+                  </label>
+                  <input
+                    type="number"
+                    name="startJam"
+                    id="startJam"
+                    value={formData.startJam === null ? "" : formData.startJam}
+                    onChange={handleChange}
+                    min="0"
+                    placeholder="e.g., 09"
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="startMenit" className="block text-sm font-medium text-gray-700 mb-1">
+                    Minutes (MM) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="startMenit"
+                    id="startMenit"
+                    value={formData.startMenit === null ? "" : formData.startMenit}
+                    onChange={handleChange}
+                    min="0"
+                    max="59"
+                    placeholder="e.g., 15"
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <FiTool className="mr-2 text-blue-500" /> Machine Details
@@ -505,7 +471,7 @@ const FormEditMesin: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="unit" className="block text-sm font-medium text-gray-700 mb-1">
-                    Unit
+                    Unit <span className="text-red-500">*</span>
                   </label>
                   <Select
                     name="unit"
@@ -520,7 +486,7 @@ const FormEditMesin: React.FC = () => {
                 </div>
                 <div>
                   <label htmlFor="mesin" className="block text-sm font-medium text-gray-700 mb-1">
-                    Machine
+                    Machine <span className="text-red-500">*</span>
                   </label>
                   <Select
                     name="mesin"
@@ -536,7 +502,7 @@ const FormEditMesin: React.FC = () => {
               </div>
               <div className="mt-4">
                 <label htmlFor="runningHour" className="block text-sm font-medium text-gray-700 mb-1">
-                  Running Hours
+                  Running Hours <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -551,14 +517,13 @@ const FormEditMesin: React.FC = () => {
               </div>
             </div>
 
-            {/* Problem & Action */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <FiTool className="mr-2 text-yellow-500" /> Problem & Action
               </h2>
               <div className="mb-4">
                 <label htmlFor="itemTrouble" className="block text-sm font-medium text-gray-700 mb-1">
-                  Item Trouble
+                  Item Trouble <span className="text-red-500">*</span>
                 </label>
                 <Select
                   name="itemTrouble"
@@ -575,7 +540,7 @@ const FormEditMesin: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
                   <label htmlFor="jenisGangguan" className="block text-sm font-medium text-gray-700 mb-1">
-                    Issue Description
+                    Issue Description <span className="text-red-500">*</span>
                   </label>
                   <textarea
                     name="jenisGangguan"
@@ -590,7 +555,7 @@ const FormEditMesin: React.FC = () => {
                 </div>
                 <div>
                   <label htmlFor="bentukTindakan" className="block text-sm font-medium text-gray-700 mb-1">
-                    Action Taken
+                    Action Taken <span className="text-red-500">*</span>
                   </label>
                   <textarea
                     name="bentukTindakan"
@@ -607,7 +572,7 @@ const FormEditMesin: React.FC = () => {
 
               <div>
                 <label htmlFor="rootCause" className="block text-sm font-medium text-gray-700 mb-1">
-                  Root Cause
+                  Root Cause <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   name="rootCause"
@@ -622,7 +587,6 @@ const FormEditMesin: React.FC = () => {
               </div>
             </div>
 
-            {/* Activity Details */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <FiCheck className="mr-2 text-purple-500" /> Activity Details
@@ -630,7 +594,7 @@ const FormEditMesin: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="jenisAktivitas" className="block text-sm font-medium text-gray-700 mb-1">
-                    Activity Type
+                    Activity Type <span className="text-red-500">*</span>
                   </label>
                   <Select
                     name="jenisAktivitas"
@@ -645,7 +609,7 @@ const FormEditMesin: React.FC = () => {
                 </div>
                 <div>
                   <label htmlFor="kegiatan" className="block text-sm font-medium text-gray-700 mb-1">
-                    Specific Activity
+                    Specific Activity <span className="text-red-500">*</span>
                   </label>
                   <Select
                     name="kegiatan"
@@ -661,7 +625,6 @@ const FormEditMesin: React.FC = () => {
               </div>
             </div>
 
-            {/* Spare Parts */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                 <FiTool className="mr-2 text-indigo-500" /> Spare Parts
@@ -669,7 +632,7 @@ const FormEditMesin: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
                   <label htmlFor="kodePart" className="block text-sm font-medium text-gray-700 mb-1">
-                    Part Code
+                    Part Code <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -684,7 +647,7 @@ const FormEditMesin: React.FC = () => {
                 </div>
                 <div>
                   <label htmlFor="sparePart" className="block text-sm font-medium text-gray-700 mb-1">
-                    Part Name
+                    Part Name <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -699,7 +662,7 @@ const FormEditMesin: React.FC = () => {
                 </div>
                 <div>
                   <label htmlFor="idPart" className="block text-sm font-medium text-gray-700 mb-1">
-                    Part ID
+                    Part ID <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -714,7 +677,7 @@ const FormEditMesin: React.FC = () => {
                 </div>
                 <div>
                   <label htmlFor="jumlah" className="block text-sm font-medium text-gray-700 mb-1">
-                    Quantity
+                    Quantity <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -730,7 +693,7 @@ const FormEditMesin: React.FC = () => {
               </div>
               <div className="mt-4">
                 <label htmlFor="unitSparePart" className="block text-sm font-medium text-gray-700 mb-1">
-                  Unit
+                  Unit <span className="text-red-500">*</span>
                 </label>
                 <Select
                   name="unitSparePart"
@@ -745,16 +708,15 @@ const FormEditMesin: React.FC = () => {
               </div>
             </div>
 
-            {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row justify-end gap-4 pt-6 border-t border-gray-200">
               <motion.button
                 type="button"
-                onClick={handleClear}
+                onClick={() => navigate(`/machinehistory/${id}`)}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 className="px-6 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
               >
-                <FiTrash2 className="inline mr-2" /> Clear Form
+                <FiX className="inline mr-2" /> Cancel
               </motion.button>
               <motion.button
                 type="submit"
@@ -765,7 +727,7 @@ const FormEditMesin: React.FC = () => {
               >
                 {submitting ? (
                   <>
-                    <span className="animate-spin inline-block mr-2">⚙️</span> Saving...
+                    <span className="animate-spin inline-block mr-2">⚙️</span> Updating...
                   </>
                 ) : (
                   <>
