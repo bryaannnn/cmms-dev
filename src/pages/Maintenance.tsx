@@ -483,14 +483,6 @@ const MachineHistoryDashboard: React.FC = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100">
-        <p>Memuat data riwayat mesin...</p>
-      </div>
-    );
-  }
-
   if (error) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-100">

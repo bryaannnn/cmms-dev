@@ -176,7 +176,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [token, setToken] = useState<string | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [masterData, setMasterData] = useState<AllMasterData | null>(null);
-  const [isMasterDataLoading, setIsMasterDataLoading] = useState(true); // <-- NEW: Master data loading state
+  const [isMasterDataLoading, setIsMasterDataLoading] = useState(true); 
   const navigate = useNavigate();
 
   const isAuthenticated = !!token;
@@ -197,7 +197,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setToken(null);
       }
     } else {
-      // If no token, then master data doesn't need to load immediately for an unauthenticated user
       setIsMasterDataLoading(false);
     }
   }, []);
@@ -244,7 +243,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     [token, navigate, user]
   );
 
-  // --- getAllMasterData: Fetches all necessary master data ---
   const getAllMasterData = useCallback(async (): Promise<AllMasterData> => {
     try {
       const [mesins, groups, shifts, units, unitspareparts, itemtroubles, jenisaktivitas, kegiatans, stoptimes] = await Promise.all([
@@ -276,32 +274,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [fetchWithAuth]);
 
-  // --- Effect to load master data on authentication ---
   useEffect(() => {
     const loadMasterData = async () => {
-      // Only load if authenticated AND masterData is not yet loaded
       if (isAuthenticated && !masterData) {
-        setIsMasterDataLoading(true); // Set loading to true
+        setIsMasterDataLoading(true); 
         try {
           const data = await getAllMasterData();
           setMasterData(data);
         } catch (error) {
           console.error("Gagal memuat data master:", error);
-          // Optionally handle master data loading errors, e.g., show a message
         } finally {
-          setIsMasterDataLoading(false); // Set loading to false regardless of success/failure
+          setIsMasterDataLoading(false);
         }
       } else if (!isAuthenticated && masterData) {
-        // If user logs out, clear master data and reset loading state
         setMasterData(null);
         setIsMasterDataLoading(false);
       } else if (!isAuthenticated && !masterData) {
-        // If already not authenticated and no master data, ensure loading is false
         setIsMasterDataLoading(false);
       }
     };
     loadMasterData();
-  }, [isAuthenticated, masterData, getAllMasterData]); // Dependencies for this effect
+  }, [isAuthenticated, masterData, getAllMasterData]);
 
   const register = async (name: string, email: string, password: string) => {
     try {
@@ -393,8 +386,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       localStorage.removeItem("user");
       setToken(null);
       setUser(null);
-      setMasterData(null); // Clear master data on logout
-      setIsMasterDataLoading(false); // Reset master data loading
+      setMasterData(null);
+      setIsMasterDataLoading(false);
       setIsLoggingOut(false);
       navigate("/login");
     }
@@ -424,7 +417,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const response = await fetchWithAuth("/mhs");
 
       if (response && response.data && Array.isArray(response.data)) {
-        // Warning only if masterData is truly null, and it's needed (e.g., for stoptime_id)
         if (!masterData) {
           console.warn("Master data belum dimuat saat mengambil daftar history. Beberapa field mungkin menampilkan '-'.");
         }
@@ -437,7 +429,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       console.error("Gagal mengambil daftar history mesin:", error);
       return [];
     }
-  }, [fetchWithAuth, masterData]); // Ensure masterData is a dependency
+  }, [fetchWithAuth, masterData]); 
 
   const getMachineHistoryById = useCallback(
     async (id: string): Promise<MachineHistoryRecord | null> => {
@@ -452,7 +444,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         throw error;
       }
     },
-    [fetchWithAuth, masterData] // Ensure masterData is a dependency
+    [fetchWithAuth, masterData] 
   );
 
   const updateMachineHistory = useCallback(
@@ -514,7 +506,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         updateMachineHistory,
         deleteMachineHistory,
         masterData,
-        isMasterDataLoading, // <-- Expose the loading state
+        isMasterDataLoading, 
       }}
     >
       {children}
