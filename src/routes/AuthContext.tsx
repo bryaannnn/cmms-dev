@@ -83,22 +83,22 @@ export interface MachineHistoryFormData {
   stopMenit?: number | null;
   startJam?: number | null;
   startMenit?: number | null;
-  stopTime: string; 
+  stopTime: string;
   unit: string;
   mesin: string;
   runningHour: number;
-  itemTrouble: string; 
+  itemTrouble: string;
   jenisGangguan: string;
   bentukTindakan: string;
   perbaikanPerawatan: string;
   rootCause: string;
-  jenisAktivitas: string; 
+  jenisAktivitas: string;
   kegiatan: string;
   kodePart: string;
   sparePart: string;
   idPart: string;
   jumlah: number;
-  unitSparePart: string; 
+  unitSparePart: string;
 }
 
 export interface MachineHistoryRecord extends MachineHistoryFormData {
@@ -131,12 +131,12 @@ function mapApiToMachineHistoryRecord(apiData: any, masterData: AllMasterData | 
     stopMenit: apiData.startstop?.stop_time_mm ?? null,
     startJam: apiData.startstop?.start_time_hh ?? null,
     startMenit: apiData.startstop?.start_time_mm ?? null,
-    stopTime: stopTimeName, 
+    stopTime: stopTimeName,
     runningHour: apiData.running_hour ?? 0,
     itemTrouble: itemTroubleName,
     jenisGangguan: apiData.jenis_gangguan || "",
     bentukTindakan: apiData.bentuk_tindakan || "",
-    perbaikanPerawatan: "", 
+    perbaikanPerawatan: "",
     rootCause: apiData.root_cause || "",
     jenisAktivitas: jenisAktivitasName,
     kegiatan: kegiatanName,
@@ -165,7 +165,7 @@ interface AuthContextType {
   updateMachineHistory: (id: string, data: Partial<MachineHistoryFormData>) => Promise<any>;
   deleteMachineHistory: (id: string) => Promise<any>;
   masterData: AllMasterData | null;
-  isMasterDataLoading: boolean; 
+  isMasterDataLoading: boolean;
 }
 
 const projectEnvVariables = getProjectEnvVariables();
@@ -458,9 +458,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const updateMachineHistory = useCallback(
     async (id: string, data: Partial<MachineHistoryFormData>): Promise<any> => {
       try {
+        const payload = Object.keys(data).reduce((acc, key) => {
+          if (data[key as keyof MachineHistoryFormData] !== undefined) {
+            acc[key] = data[key as keyof MachineHistoryFormData];
+          }
+          return acc;
+        }, {} as Record<string, any>);
+
         const responseData = await fetchWithAuth(`/mhs/${id}`, {
           method: "PUT",
-          body: JSON.stringify(data),
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
         });
         return responseData;
       } catch (error) {
