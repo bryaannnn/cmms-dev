@@ -169,10 +169,33 @@ const FormEditMesin: React.FC = () => {
       const { name, value, type } = target;
 
       if (type === "number" || name === "runningHour" || name === "jumlah") {
-        const cleanedValue = value.replace(/\./g, "");
+        let numericValue: number | null = null;
+        if (value !== "") {
+          const cleanedValue = value.replace(/\./g, "");
+          numericValue = Number(cleanedValue);
+        }
+
+        if (name === "startJam" || name === "stopJam") {
+          if (numericValue !== null && (numericValue < 0 || numericValue > 23)) {
+            setError("Jam harus antara 0 dan 23.");
+            setSubmitting(false); // Pastikan tidak bisa submit jika ada error
+            return;
+          } else {
+            setError(null); // Clear error jika sudah valid
+          }
+        } else if (name === "startMenit" || name === "stopMenit") {
+          if (numericValue !== null && (numericValue < 0 || numericValue > 59)) {
+            setError("Menit harus antara 0 dan 59.");
+            setSubmitting(false); // Pastikan tidak bisa submit jika ada error
+            return;
+          } else {
+            setError(null); // Clear error jika sudah valid
+          }
+        }
+
         setFormData((prev) => ({
           ...prev,
-          [name]: cleanedValue === "" ? null : Number(cleanedValue),
+          [name]: numericValue,
         }));
       } else {
         setFormData((prev) => ({ ...prev, [name]: value }));
@@ -211,17 +234,25 @@ const FormEditMesin: React.FC = () => {
       setSubmitting(false);
       return;
     }
-    if (
-      formData.stopJam === null ||
-      isNaN(formData.stopJam) ||
-      formData.stopMenit === null ||
-      isNaN(formData.stopMenit) ||
-      formData.startJam === null ||
-      isNaN(formData.startJam) ||
-      formData.startMenit === null ||
-      isNaN(formData.startMenit)
-    ) {
-      setError("Kolom waktu (jam dan menit) wajib diisi dan harus berupa angka.");
+
+    // Client-side validation for time inputs before submission
+    if (formData.stopJam === null || isNaN(formData.stopJam) || formData.stopJam < 0 || formData.stopJam > 23) {
+      setError("Jam Berhenti wajib diisi dan harus antara 0 dan 23.");
+      setSubmitting(false);
+      return;
+    }
+    if (formData.stopMenit === null || isNaN(formData.stopMenit) || formData.stopMenit < 0 || formData.stopMenit > 59) {
+      setError("Menit Berhenti wajib diisi dan harus antara 0 dan 59.");
+      setSubmitting(false);
+      return;
+    }
+    if (formData.startJam === null || isNaN(formData.startJam) || formData.startJam < 0 || formData.startJam > 23) {
+      setError("Jam Mulai wajib diisi dan harus antara 0 dan 23.");
+      setSubmitting(false);
+      return;
+    }
+    if (formData.startMenit === null || isNaN(formData.startMenit) || formData.startMenit < 0 || formData.startMenit > 59) {
+      setError("Menit Mulai wajib diisi dan harus antara 0 dan 59.");
       setSubmitting(false);
       return;
     }
