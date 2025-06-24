@@ -118,6 +118,21 @@ interface HistoryDetailsProps {
   onClose: () => void;
 }
 
+const calculateDurationInMinutes = (startHour: number | null | undefined, startMinute: number | null | undefined, stopHour: number | null | undefined, stopMinute: number | null | undefined): number | null => {
+  if (startHour === null || startHour === undefined || startMinute === null || startMinute === undefined || stopHour === null || stopHour === undefined || stopMinute === null || stopMinute === undefined) {
+    return null;
+  }
+
+  const startTimeInMinutes = startHour * 60 + startMinute;
+  let stopTimeInMinutes = stopHour * 60 + stopMinute;
+
+  if (stopTimeInMinutes < startTimeInMinutes) {
+    stopTimeInMinutes += 24 * 60;
+  }
+
+  return stopTimeInMinutes - startTimeInMinutes;
+};
+
 const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
   const formatTime = (hours: number | null | undefined, minutes: number | null | undefined): string => {
     if (hours === null || hours === undefined || minutes === null || minutes === undefined) return "-";
@@ -127,7 +142,7 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
   };
 
   const convertMinutesToHoursAndMinutes = (totalMinutes: number | null | undefined): string => {
-    if (totalMinutes === null || totalMinutes === undefined || isNaN(totalMinutes)) {
+    if (totalMinutes === null || totalMinutes === undefined || isNaN(totalMinutes) || totalMinutes < 0) {
       return "-";
     }
 
@@ -153,27 +168,6 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
     return parts.join(" ");
   };
 
-  const calculateDowntime = (record: MachineHistoryRecord): string => {
-    const stopHH = record.stopJam;
-    const stopMM = record.stopMenit;
-    const startHH = record.startJam;
-    const startMM = record.startMenit;
-
-    if (stopHH === null || stopHH === undefined || stopMM === null || stopMM === undefined || startHH === null || startHH === undefined || startMM === null || startMM === undefined) {
-      return "-";
-    }
-
-    const stopTimeInMinutes = stopHH * 60 + stopMM;
-    let startTimeInMinutes = startHH * 60 + startMM;
-
-    let downtimeMinutes = startTimeInMinutes - stopTimeInMinutes;
-    if (downtimeMinutes < 0) {
-      downtimeMinutes = 24 * 60 - stopTimeInMinutes + startTimeInMinutes;
-    }
-
-    return convertMinutesToHoursAndMinutes(downtimeMinutes);
-  };
-
   const displayValue = (value: any): string => {
     if (value === null || value === undefined) return "-";
 
@@ -181,8 +175,16 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
       return value.trim() !== "" ? value.trim() : "-";
     }
 
+    if (typeof value === "number") {
+      return value.toLocaleString("id-ID");
+    }
+
     return value.toString();
   };
+
+  const downtimeMinutes = calculateDurationInMinutes(record.stopJam, record.stopMenit, record.startJam, record.startMenit);
+
+  const displayDowntime = convertMinutesToHoursAndMinutes(downtimeMinutes);
 
   return (
     <div className="space-y-6">
@@ -217,7 +219,7 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
         </div>
         <div>
           <h4 className="text-sm font-medium text-gray-600 mb-1">Downtime</h4>
-          <p className="bg-gray-50 border border-gray-300 text-gray-800 text-lg rounded-md p-2 min-h-[40px] flex items-center break-words shadow-sm">{calculateDowntime(record)}</p>
+          <p className="bg-gray-50 border border-gray-300 text-gray-800 text-lg rounded-md p-2 min-h-[40px] flex items-center break-words shadow-sm">{displayDowntime}</p>
         </div>
         <div>
           <h4 className="text-sm font-medium text-gray-600 mb-1">Stop Type</h4>
@@ -842,7 +844,7 @@ const MachineHistoryDashboard: React.FC = () => {
                             <motion.button
                               whileHover={{ scale: 1.05 }}
                               whileTap={{ scale: 0.95 }}
-                              onClick={() => navigate(`/machinehistory/edit/${record.id}`)} // Use navigate for edit
+                              onClick={() => navigate(`/machinehistory/edit/${record.id}`)}
                               className="text-yellow-600 hover:text-yellow-800 transition-colors duration-200"
                               title="Edit"
                             >

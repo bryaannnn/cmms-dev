@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { FiSave, FiX, FiClock, FiCheck, FiTool } from "react-icons/fi";
+import { FiSave, FiEdit, FiX, FiClock, FiCheck, FiTool } from "react-icons/fi";
 import { useNavigate, useParams } from "react-router-dom";
 import Select from "react-select";
 import { useAuth, MachineHistoryFormData, Mesin, Shift, Group, StopTime, Unit, ItemTrouble, JenisAktivitas, Kegiatan, UnitSparePart, AllMasterData, MachineHistoryRecord } from "../../routes/AuthContext";
@@ -19,6 +19,7 @@ const FormEditMesin: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
 
   const [mesinList, setMesinList] = useState<Mesin[]>([]);
   const [shiftList, setShiftList] = useState<Shift[]>([]);
@@ -153,6 +154,7 @@ const FormEditMesin: React.FC = () => {
     try {
       await updateMachineHistory(id, dataToSend);
       setSuccess("Data berhasil diperbarui!");
+      setIsEditing(false);
       setTimeout(() => navigate("/machinehistory"), 1500);
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || err.message || "Gagal memperbarui data.";
@@ -162,35 +164,7 @@ const FormEditMesin: React.FC = () => {
     }
   };
 
-  const handleClear = useCallback(() => {
-    setFormData({
-      date: new Date().toISOString().split("T")[0],
-      shift: "",
-      group: "",
-      stopJam: null,
-      stopMenit: null,
-      startJam: null,
-      startMenit: null,
-      stopTime: "",
-      unit: "",
-      mesin: "",
-      runningHour: 0,
-      itemTrouble: "",
-      jenisGangguan: "",
-      bentukTindakan: "",
-      perbaikanPerawatan: "",
-      rootCause: "",
-      jenisAktivitas: "",
-      kegiatan: "",
-      kodePart: "",
-      sparePart: "",
-      idPart: "",
-      jumlah: 0,
-      unitSparePart: "",
-    });
-    setError(null);
-    setSuccess(null);
-  }, []);
+  const toggleEdit = () => setIsEditing(!isEditing);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -306,6 +280,10 @@ const FormEditMesin: React.FC = () => {
     }),
   };
 
+  const findLabelById = (list: Array<{ id: string; name: string }>, id: string) => {
+    return list.find((item) => item.id === id)?.name || id;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -365,45 +343,57 @@ const FormEditMesin: React.FC = () => {
                   <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">
                     Date
                   </label>
-                  <input
-                    type="date"
-                    name="date"
-                    id="date"
-                    value={formData.date}
-                    onChange={handleChange}
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
-                    required
-                  />
+                  {isEditing ? (
+                    <input
+                      type="date"
+                      name="date"
+                      id="date"
+                      value={formData.date}
+                      onChange={handleChange}
+                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
+                      required
+                    />
+                  ) : (
+                    <div className="p-2.5 bg-gray-100 rounded-lg text-gray-800">{new Date(formData.date).toLocaleDateString()}</div>
+                  )}
                 </div>
                 <div>
                   <label htmlFor="shift" className="block text-sm font-medium text-gray-700 mb-1">
                     Shift
                   </label>
-                  <Select
-                    name="shift"
-                    id="shift"
-                    options={shiftList.map((shift) => ({ value: shift.id, label: shift.name }))}
-                    value={shiftList.map((shift) => ({ value: shift.id, label: shift.name })).find((option) => option.value === formData.shift)}
-                    onChange={(selectedOption) => handleChange(selectedOption, "shift")}
-                    placeholder="Select Shift"
-                    styles={customSelectStyles}
-                    required
-                  />
+                  {isEditing ? (
+                    <Select
+                      name="shift"
+                      id="shift"
+                      options={shiftList.map((shift) => ({ value: shift.id, label: shift.name }))}
+                      value={shiftList.map((shift) => ({ value: shift.id, label: shift.name })).find((option) => option.value === formData.shift)}
+                      onChange={(selectedOption) => handleChange(selectedOption, "shift")}
+                      placeholder="Select Shift"
+                      styles={customSelectStyles}
+                      required
+                    />
+                  ) : (
+                    <div className="p-2.5 bg-gray-100 rounded-lg text-gray-800">{findLabelById(shiftList, formData.shift)}</div>
+                  )}
                 </div>
                 <div>
                   <label htmlFor="group" className="block text-sm font-medium text-gray-700 mb-1">
                     Group
                   </label>
-                  <Select
-                    name="group"
-                    id="group"
-                    options={groupList.map((group) => ({ value: group.id, label: group.name }))}
-                    value={groupList.map((group) => ({ value: group.id, label: group.name })).find((option) => option.value === formData.group)}
-                    onChange={(selectedOption) => handleChange(selectedOption, "group")}
-                    placeholder="Select Group"
-                    styles={customSelectStyles}
-                    required
-                  />
+                  {isEditing ? (
+                    <Select
+                      name="group"
+                      id="group"
+                      options={groupList.map((group) => ({ value: group.id, label: group.name }))}
+                      value={groupList.map((group) => ({ value: group.id, label: group.name })).find((option) => option.value === formData.group)}
+                      onChange={(selectedOption) => handleChange(selectedOption, "group")}
+                      placeholder="Select Group"
+                      styles={customSelectStyles}
+                      required
+                    />
+                  ) : (
+                    <div className="p-2.5 bg-gray-100 rounded-lg text-gray-800">{findLabelById(groupList, formData.group)}</div>
+                  )}
                 </div>
               </div>
             </div>
@@ -418,50 +408,62 @@ const FormEditMesin: React.FC = () => {
                     Hour (HH)
                     {formData.stopJam !== null && formData.stopJam > 23 && <span className="text-xs text-yellow-600 ml-2">Will be saved as: {formData.stopJam % 24}</span>}
                   </label>
-                  <input
-                    type="number"
-                    name="stopJam"
-                    id="stopJam"
-                    value={formData.stopJam === null ? "" : formData.stopJam}
-                    onChange={handleChange}
-                    min="0"
-                    placeholder="e.g., 09 (leave empty if not applicable)"
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
-                    required
-                  />
+                  {isEditing ? (
+                    <input
+                      type="number"
+                      name="stopJam"
+                      id="stopJam"
+                      value={formData.stopJam === null ? "" : formData.stopJam}
+                      onChange={handleChange}
+                      min="0"
+                      placeholder="e.g., 09 (leave empty if not applicable)"
+                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
+                      required
+                    />
+                  ) : (
+                    <div className="p-2.5 bg-gray-100 rounded-lg text-gray-800">{formData.stopJam !== null ? formData.stopJam : "-"}</div>
+                  )}
                 </div>
                 <div>
                   <label htmlFor="stopMenit" className="block text-sm font-medium text-gray-700 mb-1">
                     Minutes (MM)
                   </label>
-                  <input
-                    type="number"
-                    name="stopMenit"
-                    id="stopMenit"
-                    value={formData.stopMenit === null ? "" : formData.stopMenit}
-                    onChange={handleChange}
-                    min="0"
-                    max="59"
-                    placeholder="e.g., 30"
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
-                    required
-                  />
+                  {isEditing ? (
+                    <input
+                      type="number"
+                      name="stopMenit"
+                      id="stopMenit"
+                      value={formData.stopMenit === null ? "" : formData.stopMenit}
+                      onChange={handleChange}
+                      min="0"
+                      max="59"
+                      placeholder="e.g., 30"
+                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
+                      required
+                    />
+                  ) : (
+                    <div className="p-2.5 bg-gray-100 rounded-lg text-gray-800">{formData.stopMenit !== null ? formData.stopMenit : "-"}</div>
+                  )}
                 </div>
               </div>
               <div className="mt-4">
                 <label htmlFor="stopTime" className="block text-sm font-medium text-gray-700 mb-1">
                   Stop Type
                 </label>
-                <Select
-                  name="stopTime"
-                  id="stopTime"
-                  options={stopTimeList.map((stopTime) => ({ value: stopTime.id, label: stopTime.name }))}
-                  value={stopTimeList.map((stopTime) => ({ value: stopTime.id, label: stopTime.name })).find((option) => option.value === formData.stopTime)}
-                  onChange={(selectedOption) => handleChange(selectedOption, "stopTime")}
-                  placeholder="Select Stop Type"
-                  styles={customSelectStyles}
-                  required
-                />
+                {isEditing ? (
+                  <Select
+                    name="stopTime"
+                    id="stopTime"
+                    options={stopTimeList.map((stopTime) => ({ value: stopTime.id, label: stopTime.name }))}
+                    value={stopTimeList.map((stopTime) => ({ value: stopTime.id, label: stopTime.name })).find((option) => option.value === formData.stopTime)}
+                    onChange={(selectedOption) => handleChange(selectedOption, "stopTime")}
+                    placeholder="Select Stop Type"
+                    styles={customSelectStyles}
+                    required
+                  />
+                ) : (
+                  <div className="p-2.5 bg-gray-100 rounded-lg text-gray-800">{findLabelById(stopTimeList, formData.stopTime)}</div>
+                )}
               </div>
             </div>
 
@@ -475,34 +477,42 @@ const FormEditMesin: React.FC = () => {
                     Hour (HH)
                     {formData.startJam !== null && formData.startJam > 23 && <span className="text-xs text-yellow-600 ml-2">Will be saved as: {formData.startJam % 24}</span>}
                   </label>
-                  <input
-                    type="number"
-                    name="startJam"
-                    id="startJam"
-                    value={formData.startJam === null ? "" : formData.startJam}
-                    onChange={handleChange}
-                    min="0"
-                    placeholder="e.g., 09 (leave empty if not applicable)"
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
-                    required
-                  />
+                  {isEditing ? (
+                    <input
+                      type="number"
+                      name="startJam"
+                      id="startJam"
+                      value={formData.startJam === null ? "" : formData.startJam}
+                      onChange={handleChange}
+                      min="0"
+                      placeholder="e.g., 09 (leave empty if not applicable)"
+                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
+                      required
+                    />
+                  ) : (
+                    <div className="p-2.5 bg-gray-100 rounded-lg text-gray-800">{formData.startJam !== null ? formData.startJam : "-"}</div>
+                  )}
                 </div>
                 <div>
                   <label htmlFor="startMenit" className="block text-sm font-medium text-gray-700 mb-1">
                     Minutes (MM)
                   </label>
-                  <input
-                    type="number"
-                    name="startMenit"
-                    id="startMenit"
-                    value={formData.startMenit === null ? "" : formData.startMenit}
-                    onChange={handleChange}
-                    min="0"
-                    max="59"
-                    placeholder="e.g., 15"
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
-                    required
-                  />
+                  {isEditing ? (
+                    <input
+                      type="number"
+                      name="startMenit"
+                      id="startMenit"
+                      value={formData.startMenit === null ? "" : formData.startMenit}
+                      onChange={handleChange}
+                      min="0"
+                      max="59"
+                      placeholder="e.g., 15"
+                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
+                      required
+                    />
+                  ) : (
+                    <div className="p-2.5 bg-gray-100 rounded-lg text-gray-800">{formData.startMenit !== null ? formData.startMenit : "-"}</div>
+                  )}
                 </div>
               </div>
             </div>
@@ -516,47 +526,59 @@ const FormEditMesin: React.FC = () => {
                   <label htmlFor="unit" className="block text-sm font-medium text-gray-700 mb-1">
                     Unit
                   </label>
-                  <Select
-                    name="unit"
-                    id="unit"
-                    options={unitList.map((unit) => ({ value: unit.id, label: unit.name }))}
-                    value={unitList.map((unit) => ({ value: unit.id, label: unit.name })).find((option) => option.value === formData.unit)}
-                    onChange={(selectedOption) => handleChange(selectedOption, "unit")}
-                    placeholder="Select Unit"
-                    styles={customSelectStyles}
-                    required
-                  />
+                  {isEditing ? (
+                    <Select
+                      name="unit"
+                      id="unit"
+                      options={unitList.map((unit) => ({ value: unit.id, label: unit.name }))}
+                      value={unitList.map((unit) => ({ value: unit.id, label: unit.name })).find((option) => option.value === formData.unit)}
+                      onChange={(selectedOption) => handleChange(selectedOption, "unit")}
+                      placeholder="Select Unit"
+                      styles={customSelectStyles}
+                      required
+                    />
+                  ) : (
+                    <div className="p-2.5 bg-gray-100 rounded-lg text-gray-800">{findLabelById(unitList, formData.unit)}</div>
+                  )}
                 </div>
                 <div>
                   <label htmlFor="mesin" className="block text-sm font-medium text-gray-700 mb-1">
                     Machine
                   </label>
-                  <Select
-                    name="mesin"
-                    id="mesin"
-                    options={mesinList.map((mesinItem) => ({ value: mesinItem.id, label: mesinItem.name }))}
-                    value={mesinList.map((mesinItem) => ({ value: mesinItem.id, label: mesinItem.name })).find((option) => option.value === formData.mesin)}
-                    onChange={(selectedOption) => handleChange(selectedOption, "mesin")}
-                    placeholder="Select Machine"
-                    styles={customSelectStyles}
-                    required
-                  />
+                  {isEditing ? (
+                    <Select
+                      name="mesin"
+                      id="mesin"
+                      options={mesinList.map((mesinItem) => ({ value: mesinItem.id, label: mesinItem.name }))}
+                      value={mesinList.map((mesinItem) => ({ value: mesinItem.id, label: mesinItem.name })).find((option) => option.value === formData.mesin)}
+                      onChange={(selectedOption) => handleChange(selectedOption, "mesin")}
+                      placeholder="Select Machine"
+                      styles={customSelectStyles}
+                      required
+                    />
+                  ) : (
+                    <div className="p-2.5 bg-gray-100 rounded-lg text-gray-800">{findLabelById(mesinList, formData.mesin)}</div>
+                  )}
                 </div>
               </div>
               <div className="mt-4">
                 <label htmlFor="runningHour" className="block text-sm font-medium text-gray-700 mb-1">
                   Running Hours
                 </label>
-                <input
-                  type="text"
-                  name="runningHour"
-                  id="runningHour"
-                  value={formatNumberWithDot(formData.runningHour)}
-                  onChange={handleChange}
-                  placeholder="e.g., 15.000"
-                  className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
-                  required
-                />
+                {isEditing ? (
+                  <input
+                    type="text"
+                    name="runningHour"
+                    id="runningHour"
+                    value={formatNumberWithDot(formData.runningHour)}
+                    onChange={handleChange}
+                    placeholder="e.g., 15.000"
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
+                    required
+                  />
+                ) : (
+                  <div className="p-2.5 bg-gray-100 rounded-lg text-gray-800">{formatNumberWithDot(formData.runningHour)}</div>
+                )}
               </div>
             </div>
 
@@ -568,16 +590,20 @@ const FormEditMesin: React.FC = () => {
                 <label htmlFor="itemTrouble" className="block text-sm font-medium text-gray-700 mb-1">
                   Item Trouble
                 </label>
-                <Select
-                  name="itemTrouble"
-                  id="itemTrouble"
-                  options={itemTroubleList.map((itemTrouble) => ({ value: itemTrouble.id, label: itemTrouble.name }))}
-                  value={itemTroubleList.map((itemTrouble) => ({ value: itemTrouble.id, label: itemTrouble.name })).find((option) => option.value === formData.itemTrouble)}
-                  onChange={(selectedOption) => handleChange(selectedOption, "itemTrouble")}
-                  placeholder="Select Item Trouble"
-                  styles={customSelectStyles}
-                  required
-                />
+                {isEditing ? (
+                  <Select
+                    name="itemTrouble"
+                    id="itemTrouble"
+                    options={itemTroubleList.map((itemTrouble) => ({ value: itemTrouble.id, label: itemTrouble.name }))}
+                    value={itemTroubleList.map((itemTrouble) => ({ value: itemTrouble.id, label: itemTrouble.name })).find((option) => option.value === formData.itemTrouble)}
+                    onChange={(selectedOption) => handleChange(selectedOption, "itemTrouble")}
+                    placeholder="Select Item Trouble"
+                    styles={customSelectStyles}
+                    required
+                  />
+                ) : (
+                  <div className="p-2.5 bg-gray-100 rounded-lg text-gray-800">{findLabelById(itemTroubleList, formData.itemTrouble)}</div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -585,31 +611,39 @@ const FormEditMesin: React.FC = () => {
                   <label htmlFor="jenisGangguan" className="block text-sm font-medium text-gray-700 mb-1">
                     Issue Description
                   </label>
-                  <textarea
-                    name="jenisGangguan"
-                    id="jenisGangguan"
-                    value={formData.jenisGangguan}
-                    onChange={handleChange}
-                    rows={3}
-                    placeholder="Describe the issue..."
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
-                    required
-                  />
+                  {isEditing ? (
+                    <textarea
+                      name="jenisGangguan"
+                      id="jenisGangguan"
+                      value={formData.jenisGangguan}
+                      onChange={handleChange}
+                      rows={3}
+                      placeholder="Describe the issue..."
+                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
+                      required
+                    />
+                  ) : (
+                    <div className="p-2.5 bg-gray-100 rounded-lg text-gray-800 whitespace-pre-line">{formData.jenisGangguan}</div>
+                  )}
                 </div>
                 <div>
                   <label htmlFor="bentukTindakan" className="block text-sm font-medium text-gray-700 mb-1">
                     Action Taken
                   </label>
-                  <textarea
-                    name="bentukTindakan"
-                    id="bentukTindakan"
-                    value={formData.bentukTindakan}
-                    onChange={handleChange}
-                    rows={3}
-                    placeholder="Describe the action taken..."
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
-                    required
-                  />
+                  {isEditing ? (
+                    <textarea
+                      name="bentukTindakan"
+                      id="bentukTindakan"
+                      value={formData.bentukTindakan}
+                      onChange={handleChange}
+                      rows={3}
+                      placeholder="Describe the action taken..."
+                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
+                      required
+                    />
+                  ) : (
+                    <div className="p-2.5 bg-gray-100 rounded-lg text-gray-800 whitespace-pre-line">{formData.bentukTindakan}</div>
+                  )}
                 </div>
               </div>
 
@@ -617,16 +651,20 @@ const FormEditMesin: React.FC = () => {
                 <label htmlFor="rootCause" className="block text-sm font-medium text-gray-700 mb-1">
                   Root Cause
                 </label>
-                <textarea
-                  name="rootCause"
-                  id="rootCause"
-                  value={formData.rootCause}
-                  onChange={handleChange}
-                  rows={3}
-                  placeholder="Identify the root cause..."
-                  className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
-                  required
-                />
+                {isEditing ? (
+                  <textarea
+                    name="rootCause"
+                    id="rootCause"
+                    value={formData.rootCause}
+                    onChange={handleChange}
+                    rows={3}
+                    placeholder="Identify the root cause..."
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
+                    required
+                  />
+                ) : (
+                  <div className="p-2.5 bg-gray-100 rounded-lg text-gray-800 whitespace-pre-line">{formData.rootCause}</div>
+                )}
               </div>
             </div>
 
@@ -639,31 +677,39 @@ const FormEditMesin: React.FC = () => {
                   <label htmlFor="jenisAktivitas" className="block text-sm font-medium text-gray-700 mb-1">
                     Activity Type
                   </label>
-                  <Select
-                    name="jenisAktivitas"
-                    id="jenisAktivitas"
-                    options={jenisAktivitasList.map((aktivitas) => ({ value: aktivitas.id, label: aktivitas.name }))}
-                    value={jenisAktivitasList.map((aktivitas) => ({ value: aktivitas.id, label: aktivitas.name })).find((option) => option.value === formData.jenisAktivitas)}
-                    onChange={(selectedOption) => handleChange(selectedOption, "jenisAktivitas")}
-                    placeholder="Select Activity Type"
-                    styles={customSelectStyles}
-                    required
-                  />
+                  {isEditing ? (
+                    <Select
+                      name="jenisAktivitas"
+                      id="jenisAktivitas"
+                      options={jenisAktivitasList.map((aktivitas) => ({ value: aktivitas.id, label: aktivitas.name }))}
+                      value={jenisAktivitasList.map((aktivitas) => ({ value: aktivitas.id, label: aktivitas.name })).find((option) => option.value === formData.jenisAktivitas)}
+                      onChange={(selectedOption) => handleChange(selectedOption, "jenisAktivitas")}
+                      placeholder="Select Activity Type"
+                      styles={customSelectStyles}
+                      required
+                    />
+                  ) : (
+                    <div className="p-2.5 bg-gray-100 rounded-lg text-gray-800">{findLabelById(jenisAktivitasList, formData.jenisAktivitas)}</div>
+                  )}
                 </div>
                 <div>
                   <label htmlFor="kegiatan" className="block text-sm font-medium text-gray-700 mb-1">
                     Specific Activity
                   </label>
-                  <Select
-                    name="kegiatan"
-                    id="kegiatan"
-                    options={kegiatanList.map((kegiatan) => ({ value: kegiatan.id, label: kegiatan.name }))}
-                    value={kegiatanList.map((kegiatan) => ({ value: kegiatan.id, label: kegiatan.name })).find((option) => option.value === formData.kegiatan)}
-                    onChange={(selectedOption) => handleChange(selectedOption, "kegiatan")}
-                    placeholder="Select Activity"
-                    styles={customSelectStyles}
-                    required
-                  />
+                  {isEditing ? (
+                    <Select
+                      name="kegiatan"
+                      id="kegiatan"
+                      options={kegiatanList.map((kegiatan) => ({ value: kegiatan.id, label: kegiatan.name }))}
+                      value={kegiatanList.map((kegiatan) => ({ value: kegiatan.id, label: kegiatan.name })).find((option) => option.value === formData.kegiatan)}
+                      onChange={(selectedOption) => handleChange(selectedOption, "kegiatan")}
+                      placeholder="Select Activity"
+                      styles={customSelectStyles}
+                      required
+                    />
+                  ) : (
+                    <div className="p-2.5 bg-gray-100 rounded-lg text-gray-800">{findLabelById(kegiatanList, formData.kegiatan)}</div>
+                  )}
                 </div>
               </div>
             </div>
@@ -677,107 +723,140 @@ const FormEditMesin: React.FC = () => {
                   <label htmlFor="kodePart" className="block text-sm font-medium text-gray-700 mb-1">
                     Part Code
                   </label>
-                  <input
-                    type="text"
-                    name="kodePart"
-                    id="kodePart"
-                    value={formData.kodePart}
-                    onChange={handleChange}
-                    placeholder="e.g., KODE123"
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
-                    required
-                  />
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      name="kodePart"
+                      id="kodePart"
+                      value={formData.kodePart}
+                      onChange={handleChange}
+                      placeholder="e.g., KODE123"
+                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
+                      required
+                    />
+                  ) : (
+                    <div className="p-2.5 bg-gray-100 rounded-lg text-gray-800">{formData.kodePart}</div>
+                  )}
                 </div>
                 <div>
                   <label htmlFor="sparePart" className="block text-sm font-medium text-gray-700 mb-1">
                     Part Name
                   </label>
-                  <input
-                    type="text"
-                    name="sparePart"
-                    id="sparePart"
-                    value={formData.sparePart}
-                    onChange={handleChange}
-                    placeholder="e.g., Bearing XYZ"
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
-                    required
-                  />
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      name="sparePart"
+                      id="sparePart"
+                      value={formData.sparePart}
+                      onChange={handleChange}
+                      placeholder="e.g., Bearing XYZ"
+                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
+                      required
+                    />
+                  ) : (
+                    <div className="p-2.5 bg-gray-100 rounded-lg text-gray-800">{formData.sparePart}</div>
+                  )}
                 </div>
                 <div>
                   <label htmlFor="idPart" className="block text-sm font-medium text-gray-700 mb-1">
                     Part ID
                   </label>
-                  <input
-                    type="text"
-                    name="idPart"
-                    id="idPart"
-                    value={formData.idPart}
-                    onChange={handleChange}
-                    placeholder="e.g., ID456"
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
-                    required
-                  />
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      name="idPart"
+                      id="idPart"
+                      value={formData.idPart}
+                      onChange={handleChange}
+                      placeholder="e.g., ID456"
+                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
+                      required
+                    />
+                  ) : (
+                    <div className="p-2.5 bg-gray-100 rounded-lg text-gray-800">{formData.idPart}</div>
+                  )}
                 </div>
                 <div>
                   <label htmlFor="jumlah" className="block text-sm font-medium text-gray-700 mb-1">
                     Quantity
                   </label>
-                  <input
-                    type="text"
-                    name="jumlah"
-                    id="jumlah"
-                    value={formatNumberWithDot(formData.jumlah)}
-                    onChange={handleChange}
-                    placeholder="e.g., 5"
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 no-spin-button bg-white text-gray-700"
-                    required
-                  />
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      name="jumlah"
+                      id="jumlah"
+                      value={formatNumberWithDot(formData.jumlah)}
+                      onChange={handleChange}
+                      placeholder="e.g., 5"
+                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 no-spin-button bg-white text-gray-700"
+                      required
+                    />
+                  ) : (
+                    <div className="p-2.5 bg-gray-100 rounded-lg text-gray-800">{formatNumberWithDot(formData.jumlah)}</div>
+                  )}
                 </div>
               </div>
               <div className="mt-4">
                 <label htmlFor="unitSparePart" className="block text-sm font-medium text-gray-700 mb-1">
                   Unit
                 </label>
-                <Select
-                  name="unitSparePart"
-                  id="unitSparePart"
-                  options={unitSparePartList.map((unitSP) => ({ value: unitSP.id, label: unitSP.name }))}
-                  value={unitSparePartList.map((unitSP) => ({ value: unitSP.id, label: unitSP.name })).find((option) => option.value === formData.unitSparePart)}
-                  onChange={(selectedOption) => handleChange(selectedOption, "unitSparePart")}
-                  placeholder="Select Unit"
-                  styles={customSelectStyles}
-                  required
-                />
+                {isEditing ? (
+                  <Select
+                    name="unitSparePart"
+                    id="unitSparePart"
+                    options={unitSparePartList.map((unitSP) => ({ value: unitSP.id, label: unitSP.name }))}
+                    value={unitSparePartList.map((unitSP) => ({ value: unitSP.id, label: unitSP.name })).find((option) => option.value === formData.unitSparePart)}
+                    onChange={(selectedOption) => handleChange(selectedOption, "unitSparePart")}
+                    placeholder="Select Unit"
+                    styles={customSelectStyles}
+                    required
+                  />
+                ) : (
+                  <div className="p-2.5 bg-gray-100 rounded-lg text-gray-800">{findLabelById(unitSparePartList, formData.unitSparePart)}</div>
+                )}
               </div>
             </div>
 
             <div className="flex flex-col sm:flex-row justify-end gap-4 pt-6 border-t border-gray-200">
-              <motion.button
-                type="button"
-                onClick={() => navigate(`/machinehistory/${id}`)}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="px-6 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
-              >
-                <FiX className="inline mr-2" /> Cancel
-              </motion.button>
-              <motion.button
-                type="submit"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="px-6 py-3 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
-                disabled={loading}
-              >
-                {loading ? (
-                  <>
-                    <span className="animate-spin inline-block mr-2">⚙️</span> Updating...
-                  </>
-                ) : (
-                  <>
-                    <FiSave className="inline mr-2" /> Save Changes
-                  </>
-                )}
-              </motion.button>
+              {isEditing ? (
+                <>
+                  <motion.button
+                    type="button"
+                    onClick={toggleEdit}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="px-6 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                  >
+                    <FiX className="inline mr-2" /> Cancel
+                  </motion.button>
+                  <motion.button
+                    type="submit"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="px-6 py-3 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <>
+                        <span className="animate-spin inline-block mr-2">⚙️</span> Updating...
+                      </>
+                    ) : (
+                      <>
+                        <FiSave className="inline mr-2" /> Save Changes
+                      </>
+                    )}
+                  </motion.button>
+                </>
+              ) : (
+                <motion.button
+                  onClick={toggleEdit}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="px-6 py-3 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                >
+                  <FiEdit className="inline mr-2" /> Edit
+                </motion.button>
+              )}
             </div>
           </form>
         </div>

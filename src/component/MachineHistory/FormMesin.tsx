@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { FiSave, FiTrash2, FiX, FiClock, FiCheck, FiTool } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
-import Select from "react-select"; 
+import Select from "react-select";
 import { useAuth, MachineHistoryFormData, Mesin, Shift, Group, StopTime, Unit, ItemTrouble, JenisAktivitas, Kegiatan, UnitSparePart, AllMasterData } from "../../routes/AuthContext";
 import { motion } from "framer-motion";
 
@@ -61,16 +61,19 @@ const FormMesin: React.FC = () => {
 
       setFormData((prev) => {
         if (["stopJam", "startJam"].includes(name)) {
-          const cleanedValue = value.replace(/[^\d]/g, "");
+          const cleanedValue = value.replace(/[^\d]/g, ""); // Hapus karakter non-digit
+          const numValue = parseInt(cleanedValue, 10); // Ubah ke angka
+          // Validasi rentang 0-23 untuk jam
           return {
             ...prev,
-            [name]: cleanedValue === "" ? 0 : parseInt(cleanedValue, 10),
+            [name]: cleanedValue === "" ? 0 : Math.max(0, Math.min(23, isNaN(numValue) ? 0 : numValue)),
           };
         }
 
         if (["stopMenit", "startMenit"].includes(name)) {
-          const cleanedValue = value.replace(/[^\d]/g, "");
-          const numValue = parseInt(cleanedValue, 10);
+          const cleanedValue = value.replace(/[^\d]/g, ""); // Hapus karakter non-digit
+          const numValue = parseInt(cleanedValue, 10); // Ubah ke angka
+          // Validasi rentang 0-59 untuk menit
           return {
             ...prev,
             [name]: cleanedValue === "" ? 0 : Math.max(0, Math.min(59, isNaN(numValue) ? 0 : numValue)),
@@ -115,10 +118,11 @@ const FormMesin: React.FC = () => {
       perbaikanPerawatan: formData.jenisAktivitas === "Perbaikan" ? "Perbaikan" : "Perawatan",
       runningHour: formData.runningHour ? parseInt(String(formData.runningHour).replace(/\./g, ""), 10) : 0,
       jumlah: formData.jumlah ? parseInt(String(formData.jumlah).replace(/\./g, ""), 10) : 0,
-      stopJam: formData.stopJam ?? null,
-      stopMenit: formData.stopMenit ?? null,
-      startJam: formData.startJam ?? null,
-      startMenit: formData.startMenit ?? null,
+      // Pastikan stopJam dan startJam dikirim sebagai angka atau null/undefined
+      stopJam: formData.stopJam === 0 && String(formData.stopJam) === "" ? null : formData.stopJam,
+      stopMenit: formData.stopMenit === 0 && String(formData.stopMenit) === "" ? null : formData.stopMenit,
+      startJam: formData.startJam === 0 && String(formData.startJam) === "" ? null : formData.startJam,
+      startMenit: formData.startMenit === 0 && String(formData.startMenit) === "" ? null : formData.startMenit,
     };
 
     try {
@@ -336,43 +340,93 @@ const FormMesin: React.FC = () => {
               </div>
             </div>
 
-            {/* Stop Time */}
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                <FiClock className="mr-2 text-red-500" /> Stop Time
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="stopJam" className="block text-sm font-medium text-gray-700 mb-1">
-                    Hour (HH) 
-                  </label>
-                  <input
-                    type="text"
-                    name="stopJam"
-                    id="stopJam"
-                    value={formData.stopJam === null ? "" : String(formData.stopJam)}
-                    onChange={handleChange}
-                    placeholder="e.g., 09 (leave empty if not applicable)"
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
-                    required
-                  />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-18 mb-4">
+                <h2 className="text-lg font-semibold text-gray-800 flex items-center justify-start">
+                  <FiCheck className="mr-2 text-green-500" /> Start Time
+                </h2>
+                <h2 className="text-lg font-semibold text-gray-800 flex items-center justify-start">
+                  <FiClock className="mr-2 text-red-500" /> Stop Time
+                </h2>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-6 mb-4">
+                <div className="flex items-end justify-start">
+                  <div className="flex-1 max-w-[calc(50%-15px)]">
+                    <label htmlFor="startJam" className="block text-sm font-medium text-gray-700 mb-1">
+                      Hour (HH)
+                    </label>
+                    <input
+                      type="string"
+                      name="startJam"
+                      id="startJam"
+                      value={formData.startJam === null ? "" : formData.startJam}
+                      onChange={handleChange}
+                      min="0"
+                      max="23"
+                      placeholder="e.g., 09"
+                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
+                      required
+                    />
+                  </div>
+                  <div className="mx-1 text-2xl font-bold text-gray-600 pb-2">:</div>
+                  <div className="flex-1 max-w-[calc(50%-15px)]">
+                    <label htmlFor="startMenit" className="block text-sm font-medium text-gray-700 mb-1">
+                      Minute (MM)
+                    </label>
+                    <input
+                      type="string"
+                      name="startMenit"
+                      id="startMenit"
+                      value={formData.startMenit === null ? "" : formData.startMenit}
+                      onChange={handleChange}
+                      min="0"
+                      max="59"
+                      placeholder="e.g., 15"
+                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
+                      required
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label htmlFor="stopMenit" className="block text-sm font-medium text-gray-700 mb-1">
-                    Minute (MM)
-                  </label>
-                  <input
-                    type="text"
-                    name="stopMenit"
-                    id="stopMenit"
-                    value={String(formData.stopMenit)}
-                    onChange={handleChange}
-                    placeholder="e.g., 30"
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
-                    required
-                  />
+                <div className="flex items-end justify-end">
+                  <div className="flex-1 max-w-[calc(50%-15px)]">
+                    <label htmlFor="stopJam" className="block text-sm font-medium text-gray-700 mb-1">
+                      Hour (HH)
+                    </label>
+                    <input
+                      type="string"
+                      name="stopJam"
+                      id="stopJam"
+                      value={formData.stopJam === null ? "" : formData.stopJam}
+                      onChange={handleChange}
+                      min="0"
+                      max="23"
+                      placeholder="e.g., 09"
+                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
+                      required
+                    />
+                  </div>
+                  <div className="mx-1 text-2xl font-bold text-gray-600 pb-2">:</div>
+                  <div className="flex-1 max-w-[calc(50%-15px)]">
+                    <label htmlFor="stopMenit" className="block text-sm font-medium text-gray-700 mb-1">
+                      Minute (MM)
+                    </label>
+                    <input
+                      type="string"
+                      name="stopMenit"
+                      id="stopMenit"
+                      value={formData.stopMenit === null ? "" : formData.stopMenit}
+                      onChange={handleChange}
+                      min="0"
+                      max="59"
+                      placeholder="e.g., 30"
+                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
+                      required
+                    />
+                  </div>
                 </div>
               </div>
+
               <div className="mt-4">
                 <label htmlFor="stopTime" className="block text-sm font-medium text-gray-700 mb-1">
                   Stop Type
@@ -381,51 +435,12 @@ const FormMesin: React.FC = () => {
                   name="stopTime"
                   id="stopTime"
                   options={stopTimeList.map((stopTime) => ({ value: stopTime.id, label: stopTime.name }))}
-                  value={stopTimeList.map((stopTime) => ({ value: stopTime.id, label: stopTime.name })).find((option) => option.value === formData.stopTime)}
+                  value={stopTimeList.find((option) => option.id === formData.stopTime) ? { value: formData.stopTime, label: stopTimeList.find((option) => option.id === formData.stopTime)?.name || "" } : null}
                   onChange={(selectedOption) => handleChange(selectedOption, "stopTime")}
                   placeholder="Select Stop Type"
                   styles={customSelectStyles}
                   required
                 />
-              </div>
-            </div>
-
-            {/* Start Time */}
-            <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                <FiCheck className="mr-2 text-green-500" /> Start Time
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="startJam" className="block text-sm font-medium text-gray-700 mb-1">
-                    Hour (HH)
-                  </label>
-                  <input
-                    type="text"
-                    name="startJam"
-                    id="startJam"
-                    value={formData.startJam === null ? "" : String(formData.startJam)}
-                    onChange={handleChange}
-                    placeholder="e.g., 09 (leave empty if not applicable)"
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
-                    required
-                  />
-                </div>
-                <div>
-                  <label htmlFor="startMenit" className="block text-sm font-medium text-gray-700 mb-1">
-                    Minute (MM)
-                  </label>
-                  <input
-                    type="text"
-                    name="startMenit"
-                    id="startMenit"
-                    value={String(formData.startMenit)}
-                    onChange={handleChange}
-                    placeholder="e.g., 15"
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
-                    required
-                  />
-                </div>
               </div>
             </div>
 

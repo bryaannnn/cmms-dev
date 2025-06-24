@@ -83,22 +83,22 @@ export interface MachineHistoryFormData {
   stopMenit?: number | null;
   startJam?: number | null;
   startMenit?: number | null;
-  stopTime: string; // This will be the ID on submission, name for display
+  stopTime: string; 
   unit: string;
   mesin: string;
   runningHour: number;
-  itemTrouble: string; // This will be the ID on submission, name for display
+  itemTrouble: string; 
   jenisGangguan: string;
   bentukTindakan: string;
   perbaikanPerawatan: string;
   rootCause: string;
-  jenisAktivitas: string; // This will be the ID on submission, name for display
-  kegiatan: string; // This will be the ID on submission, name for display
+  jenisAktivitas: string; 
+  kegiatan: string;
   kodePart: string;
   sparePart: string;
   idPart: string;
   jumlah: number;
-  unitSparePart: string; // This will be the ID on submission, name for display
+  unitSparePart: string; 
 }
 
 export interface MachineHistoryRecord extends MachineHistoryFormData {
@@ -114,9 +114,6 @@ export interface MachineHistoryRecord extends MachineHistoryFormData {
  * @returns A formatted MachineHistoryRecord.
  */
 function mapApiToMachineHistoryRecord(apiData: any, masterData: AllMasterData | null): MachineHistoryRecord {
-  // Directly use nested object names if available, otherwise try to map from masterData by ID.
-  // Fallback to "-" if no name can be found.
-
   const stopTimeName = apiData.stoptime?.name || masterData?.stoptimes?.find((st) => String(st.id) === String(apiData.stoptime_id))?.name || "-";
   const itemTroubleName = apiData.itemtrouble?.name || masterData?.itemtroubles?.find((it) => String(it.id) === String(apiData.itemtrouble_id))?.name || "-";
   const jenisAktivitasName = apiData.jenisaktifitas?.name || masterData?.jenisaktivitas?.find((ja) => String(ja.id) === String(apiData.jenisaktifitas_id))?.name || "-";
@@ -134,12 +131,12 @@ function mapApiToMachineHistoryRecord(apiData: any, masterData: AllMasterData | 
     stopMenit: apiData.startstop?.stop_time_mm ?? null,
     startJam: apiData.startstop?.start_time_hh ?? null,
     startMenit: apiData.startstop?.start_time_mm ?? null,
-    stopTime: stopTimeName, // This specifically relies on masterData if no nested object
+    stopTime: stopTimeName, 
     runningHour: apiData.running_hour ?? 0,
     itemTrouble: itemTroubleName,
     jenisGangguan: apiData.jenis_gangguan || "",
     bentukTindakan: apiData.bentuk_tindakan || "",
-    perbaikanPerawatan: "", // Assuming this is not from API, or always empty
+    perbaikanPerawatan: "", 
     rootCause: apiData.root_cause || "",
     jenisAktivitas: jenisAktivitasName,
     kegiatan: kegiatanName,
