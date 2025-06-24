@@ -118,8 +118,18 @@ interface HistoryDetailsProps {
   onClose: () => void;
 }
 
-const calculateDurationInMinutes = (startHour: number | null | undefined, startMinute: number | null | undefined, stopHour: number | null | undefined, stopMinute: number | null | undefined): number | null => {
-  if (startHour === null || startHour === undefined || startMinute === null || startMinute === undefined || stopHour === null || stopHour === undefined || stopMinute === null || stopMinute === undefined) {
+const convertDurationInMinutes = (
+  startHour: number | null | undefined,
+  startMinute: number | null | undefined,
+  stopHour: number | null | undefined,
+  stopMinute: number | null | undefined
+): number | null => {
+  if (
+    startHour === null || startHour === undefined ||
+    startMinute === null || startMinute === undefined ||
+    stopHour === null || stopHour === undefined ||
+    stopMinute === null || stopMinute === undefined
+  ) {
     return null;
   }
 
@@ -133,39 +143,39 @@ const calculateDurationInMinutes = (startHour: number | null | undefined, startM
   return stopTimeInMinutes - startTimeInMinutes;
 };
 
+const convertMinutesToHoursAndMinutes = (totalMinutes: number | null | undefined): string => {
+  if (totalMinutes === null || totalMinutes === undefined || isNaN(totalMinutes) || totalMinutes < 0) {
+    return "-";
+  }
+
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  const parts: string[] = [];
+
+  if (hours > 0) {
+    parts.push(`${hours}h`);
+  } else if (minutes > 0) {
+    parts.push("0h");
+  } else {
+    return "0min";
+  }
+
+  if (minutes > 0) {
+    parts.push(`${minutes}min`);
+  } else if (hours > 0 && minutes === 0) {
+    parts.push("0min");
+  }
+
+  return parts.join(" ");
+};
+
 const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
   const formatTime = (hours: number | null | undefined, minutes: number | null | undefined): string => {
     if (hours === null || hours === undefined || minutes === null || minutes === undefined) return "-";
     const formattedHours = hours.toString().padStart(2, "0");
     const formattedMinutes = minutes.toString().padStart(2, "0");
     return `${formattedHours}:${formattedMinutes}`;
-  };
-
-  const convertMinutesToHoursAndMinutes = (totalMinutes: number | null | undefined): string => {
-    if (totalMinutes === null || totalMinutes === undefined || isNaN(totalMinutes) || totalMinutes < 0) {
-      return "-";
-    }
-
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-
-    const parts: string[] = [];
-
-    if (hours > 0) {
-      parts.push(`${hours}h`);
-    } else if (minutes > 0) {
-      parts.push("0h");
-    } else {
-      return "0min";
-    }
-
-    if (minutes > 0) {
-      parts.push(`${minutes}min`);
-    } else if (hours > 0 && minutes === 0) {
-      parts.push("0min");
-    }
-
-    return parts.join(" ");
   };
 
   const displayValue = (value: any): string => {
@@ -182,7 +192,12 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
     return value.toString();
   };
 
-  const downtimeMinutes = calculateDurationInMinutes(record.stopJam, record.stopMenit, record.startJam, record.startMenit);
+  const downtimeMinutes = convertDurationInMinutes(
+    record.stopJam,
+    record.stopMenit,
+    record.startJam,
+    record.startMenit
+  );
 
   const displayDowntime = convertMinutesToHoursAndMinutes(downtimeMinutes);
 
@@ -231,9 +246,7 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
         </div>
       </div>
 
-      {/* --- */}
-
-      {/* Section: Issue Details */}
+      {/* Issue Details */}
       <div className="border-t border-gray-200 pt-6 mt-6">
         <h3 className="text-xl font-bold text-gray-800 mb-4">Issue Details</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-4">
@@ -456,10 +469,6 @@ const MachineHistoryDashboard: React.FC = () => {
     localStorage.setItem("sidebarOpen", JSON.stringify(sidebarOpen));
   }, [searchQuery, statusFilter, machineFilter, sidebarOpen]);
 
-  const getSafeNumber = (value: number | null | undefined, defaultValue = 0): number => {
-    return value ?? defaultValue;
-  };
-
   const formatTime = (hours: number | null | undefined, minutes: number | null | undefined): string => {
     if (hours === null || hours === undefined || minutes === null || minutes === undefined) return "-";
     const formattedHours = hours.toString().padStart(2, "0");
@@ -467,38 +476,14 @@ const MachineHistoryDashboard: React.FC = () => {
     return `${formattedHours}:${formattedMinutes}`;
   };
 
-  const convertMinutesToHoursAndMinutes = (totalMinutes: number | null | undefined): string => {
-    if (totalMinutes === null || totalMinutes === undefined || isNaN(totalMinutes)) {
-      return "-";
-    }
-
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-
-    if (hours === 0 && minutes === 0) {
-      return "0min";
-    }
-
-    const parts: string[] = [];
-    if (hours > 0) {
-      parts.push(`${hours}h`);
-    }
-    if (minutes > 0) {
-      parts.push(`${minutes}min`);
-    }
-
-    return parts.join(" ");
-  };
-
   const calculateDowntime = (record: MachineHistoryRecord): string => {
-    const stopTime = getSafeNumber(record.stopJam) * 60 + getSafeNumber(record.stopMenit);
-    const startTime = getSafeNumber(record.startJam) * 60 + getSafeNumber(record.startMenit);
-    let downtime = startTime - stopTime;
-
-    if (downtime < 0) {
-      downtime = 24 * 60 - stopTime + startTime;
-    }
-    return convertMinutesToHoursAndMinutes(downtime);
+    const downtimeMinutes = convertDurationInMinutes(
+      record.stopJam,
+      record.stopMenit,
+      record.startJam,
+      record.startMenit
+    );
+    return convertMinutesToHoursAndMinutes(downtimeMinutes);
   };
 
   const getStopTimeColorClass = (stopTime: string | null | undefined): string => {
@@ -695,13 +680,13 @@ const MachineHistoryDashboard: React.FC = () => {
                   ? convertMinutesToHoursAndMinutes(
                       Math.round(
                         records.reduce((sum, r) => {
-                          const stopTimeInMinutes = getSafeNumber(r.stopJam) * 60 + getSafeNumber(r.stopMenit);
-                          const startTimeInMinutes = getSafeNumber(r.startJam) * 60 + getSafeNumber(r.startMenit);
-                          let rawDowntime = startTimeInMinutes - stopTimeInMinutes;
-                          if (rawDowntime < 0) {
-                            rawDowntime = 24 * 60 - stopTimeInMinutes + startTimeInMinutes;
-                          }
-                          return sum + rawDowntime;
+                          const downtime = convertDurationInMinutes(
+                            r.stopJam,
+                            r.stopMenit,
+                            r.startJam,
+                            r.startMenit
+                          ) || 0;
+                          return sum + downtime;
                         }, 0) / records.length
                       )
                     )

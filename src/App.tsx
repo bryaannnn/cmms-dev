@@ -28,7 +28,6 @@ function App() {
       <Route path="/register" element={<RegisterForm />} />
       <Route path="/login" element={<LoginForm />} />
       {/* <Route path="/machinehistory/edit" element={<EditFormMesin />} /> */}
-      {/* <Route path="/machinehistory/edit" element={<EditFormMesin />} /> */}
       {/* <Route path="/workorders/input" element={<FormWorkOrders />} /> */}
       {/* <Route path="/workorders/dashboard" element={<WorkOrders />} /> */}
 
