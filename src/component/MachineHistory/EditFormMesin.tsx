@@ -56,6 +56,37 @@ const FormEditMesin: React.FC = () => {
     unitSparePart: "",
   });
 
+  const [downtime, setDowntime] = useState<string>("");
+
+  const calculateDowntime = useCallback(() => {
+    if (formData.stopJam === null || formData.stopMenit === null || formData.startJam === null || formData.startMenit === null) {
+      setDowntime("");
+      return;
+    }
+
+    const stopTime = new Date();
+    stopTime.setHours(formData.stopJam, formData.stopMenit, 0, 0);
+
+    const startTime = new Date();
+    startTime.setHours(formData.startJam, formData.startMenit, 0, 0);
+
+    // Handle case where start time is the next day
+    if (startTime < stopTime) {
+      startTime.setDate(startTime.getDate() + 1);
+    }
+
+    const diffMs = startTime.getTime() - stopTime.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const hours = Math.floor(diffMins / 60);
+    const minutes = diffMins % 60;
+
+    setDowntime(`${hours}h ${minutes}min`);
+  }, [formData.stopJam, formData.stopMenit, formData.startJam, formData.startMenit]);
+
+  useEffect(() => {
+    calculateDowntime();
+  }, [calculateDowntime]);
+
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | { value: string; label: string } | null, name?: string) => {
     if (e && typeof e === "object" && "value" in e && name) {
       setFormData((prev) => ({ ...prev, [name]: e.value }));
@@ -109,6 +140,11 @@ const FormEditMesin: React.FC = () => {
     if (isNaN(num)) return "";
     return num.toLocaleString("id-ID").replace(/,/g, ".");
   }, []);
+
+  const getSelectedLabel = (list: any[], id: string) => {
+    const item = list.find((item) => item.id === id);
+    return item ? item.name : "";
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -374,6 +410,7 @@ const FormEditMesin: React.FC = () => {
                     className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
                     required
                   />
+                  <div className="mt-1 p-2 bg-gray-50 rounded text-sm text-gray-700">Selected: {formData.date}</div>
                 </div>
                 <div>
                   <label htmlFor="shift" className="block text-sm font-medium text-gray-700 mb-1">
@@ -389,6 +426,7 @@ const FormEditMesin: React.FC = () => {
                     styles={customSelectStyles}
                     required
                   />
+                  <div className="mt-1 p-2 bg-gray-50 rounded text-sm text-gray-700">Selected: {getSelectedLabel(shiftList, formData.shift)}</div>
                 </div>
                 <div>
                   <label htmlFor="group" className="block text-sm font-medium text-gray-700 mb-1">
@@ -404,6 +442,7 @@ const FormEditMesin: React.FC = () => {
                     styles={customSelectStyles}
                     required
                   />
+                  <div className="mt-1 p-2 bg-gray-50 rounded text-sm text-gray-700">Selected: {getSelectedLabel(groupList, formData.group)}</div>
                 </div>
               </div>
             </div>
@@ -448,6 +487,9 @@ const FormEditMesin: React.FC = () => {
                   />
                 </div>
               </div>
+              <div className="mt-2 p-2 bg-gray-50 rounded text-sm text-gray-700">
+                Stop Time: {formData.stopJam !== null && formData.stopMenit !== null ? `${String(formData.stopJam % 24).padStart(2, "0")}:${String(formData.stopMenit).padStart(2, "0")}` : "Not set"}
+              </div>
               <div className="mt-4">
                 <label htmlFor="stopTime" className="block text-sm font-medium text-gray-700 mb-1">
                   Stop Type
@@ -462,6 +504,7 @@ const FormEditMesin: React.FC = () => {
                   styles={customSelectStyles}
                   required
                 />
+                <div className="mt-1 p-2 bg-gray-50 rounded text-sm text-gray-700">Selected: {getSelectedLabel(stopTimeList, formData.stopTime)}</div>
               </div>
             </div>
 
@@ -505,6 +548,10 @@ const FormEditMesin: React.FC = () => {
                   />
                 </div>
               </div>
+              <div className="mt-2 p-2 bg-gray-50 rounded text-sm text-gray-700">
+                Start Time: {formData.startJam !== null && formData.startMenit !== null ? `${String(formData.startJam % 24).padStart(2, "0")}:${String(formData.startMenit).padStart(2, "0")}` : "Not set"}
+              </div>
+              <div className="mt-2 p-2 bg-gray-50 rounded text-sm text-gray-700">Downtime: {downtime || "Not calculated"}</div>
             </div>
 
             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
@@ -526,6 +573,7 @@ const FormEditMesin: React.FC = () => {
                     styles={customSelectStyles}
                     required
                   />
+                  <div className="mt-1 p-2 bg-gray-50 rounded text-sm text-gray-700">Selected: {getSelectedLabel(unitList, formData.unit)}</div>
                 </div>
                 <div>
                   <label htmlFor="mesin" className="block text-sm font-medium text-gray-700 mb-1">
@@ -541,6 +589,7 @@ const FormEditMesin: React.FC = () => {
                     styles={customSelectStyles}
                     required
                   />
+                  <div className="mt-1 p-2 bg-gray-50 rounded text-sm text-gray-700">Selected: {getSelectedLabel(mesinList, formData.mesin)}</div>
                 </div>
               </div>
               <div className="mt-4">
@@ -557,6 +606,7 @@ const FormEditMesin: React.FC = () => {
                   className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
                   required
                 />
+                <div className="mt-1 p-2 bg-gray-50 rounded text-sm text-gray-700">Value: {formatNumberWithDot(formData.runningHour)}</div>
               </div>
             </div>
 
@@ -578,6 +628,7 @@ const FormEditMesin: React.FC = () => {
                   styles={customSelectStyles}
                   required
                 />
+                <div className="mt-1 p-2 bg-gray-50 rounded text-sm text-gray-700">Selected: {getSelectedLabel(itemTroubleList, formData.itemTrouble)}</div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -649,6 +700,7 @@ const FormEditMesin: React.FC = () => {
                     styles={customSelectStyles}
                     required
                   />
+                  <div className="mt-1 p-2 bg-gray-50 rounded text-sm text-gray-700">Selected: {getSelectedLabel(jenisAktivitasList, formData.jenisAktivitas)}</div>
                 </div>
                 <div>
                   <label htmlFor="kegiatan" className="block text-sm font-medium text-gray-700 mb-1">
@@ -664,6 +716,7 @@ const FormEditMesin: React.FC = () => {
                     styles={customSelectStyles}
                     required
                   />
+                  <div className="mt-1 p-2 bg-gray-50 rounded text-sm text-gray-700">Selected: {getSelectedLabel(kegiatanList, formData.kegiatan)}</div>
                 </div>
               </div>
             </div>
@@ -732,6 +785,7 @@ const FormEditMesin: React.FC = () => {
                     className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 no-spin-button bg-white text-gray-700"
                     required
                   />
+                  <div className="mt-1 p-2 bg-gray-50 rounded text-sm text-gray-700">Value: {formatNumberWithDot(formData.jumlah)}</div>
                 </div>
               </div>
               <div className="mt-4">
@@ -748,6 +802,7 @@ const FormEditMesin: React.FC = () => {
                   styles={customSelectStyles}
                   required
                 />
+                <div className="mt-1 p-2 bg-gray-50 rounded text-sm text-gray-700">Selected: {getSelectedLabel(unitSparePartList, formData.unitSparePart)}</div>
               </div>
             </div>
 
@@ -786,4 +841,4 @@ const FormEditMesin: React.FC = () => {
   );
 };
 
-export default FormEditMesin; 
+export default FormEditMesin;
