@@ -2,10 +2,17 @@ import { createContext, useContext, useState, useEffect, useCallback } from "rea
 import { useNavigate } from "react-router-dom";
 import { getProjectEnvVariables } from "../shared/projectEnvVariables";
 
+type UserRole = "customer" | "helpdesk" | "technician" | "supervisor" | "vendor" | "admin";
+
 export interface User {
   id: string;
   name: string;
   email: string;
+  phone: string;
+  mobile: string;
+  role: UserRole;
+  avatar: string;
+  department: string;
 }
 
 export interface Mesin {

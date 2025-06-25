@@ -16,10 +16,11 @@ import TeamDashboard from "./pages/Teams";
 import SettingsPage from "./pages/Settings";
 import MachineHistoryDashboard from "./pages/Maintenance";
 import FormMesin from "./component/MachineHistory/FormMesin";
-import FormWorkOrders from "./component/WorkOrders/formwo";
+// import FormWorkOrders from "./component/WorkOrders/FormWO";
 import WorkOrders from "./component/WorkOrders/WorkOrdersDashboard2";
 import MachineHistoryForm from "./component/MachineHistory/EditFormMesin";
 import EditFormMesin from "./component/MachineHistory/EditFormMesin";
+import PermissionsPage from "./pages/Permission";
 
 // const envVariables = getProjectEnvVariables();
 
@@ -29,7 +30,7 @@ function App() {
       <Route path="/register" element={<RegisterForm />} />
       <Route path="/login" element={<LoginForm />} />
       {/* <Route path="/machinehistory/edit" element={<EditFormMesin />} /> */}
-      <Route path="/workorders/input" element={<FormWorkOrders />} />
+      {/* <Route path="/workorders/input" element={<FormWorkOrders />} /> */}
       <Route path="/workorders/dashboard" element={<WorkOrdersDashboard2 />} />
 
       <Route element={<ProtectedRoute />}>
@@ -44,6 +45,7 @@ function App() {
         <Route path="/reports" element={<ReportsDashboard />} />
         <Route path="/team" element={<TeamDashboard />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/permissions" element={<PermissionsPage />} />
       </Route>
 
       <Route path="/terms" element={<TermsAndConditions />} />

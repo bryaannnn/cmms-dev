@@ -624,9 +624,10 @@ interface WorkOrderDetailsFormProps {
   users: User[];
   knowledgeBase: KnowledgeBaseArticle[];
   assets: Asset[];
+  workOrders: WorkOrder[];
 }
 
-const WorkOrderDetailsForm: React.FC<WorkOrderDetailsFormProps> = ({ workOrder, isEditing, onSave, onCancel, onComplete, onPrint, onEscalate, currentUser, users, knowledgeBase, assets }) => {
+const WorkOrderDetailsForm: React.FC<WorkOrderDetailsFormProps> = ({ workOrder, isEditing, onSave, onCancel, onComplete, onPrint, onEscalate, currentUser, users, knowledgeBase, assets, workOrders }) => {
   const [formData, setFormData] = useState<WorkOrder>(workOrder);
   const [newChecklistItem, setNewChecklistItem] = useState("");
   const [newNote, setNewNote] = useState("");
@@ -1499,9 +1500,8 @@ const WorkOrderDetailsForm: React.FC<WorkOrderDetailsFormProps> = ({ workOrder, 
               {selectedKBArticle.relatedWorkOrders.length > 0 ? (
                 <ul className="space-y-2">
                   {selectedKBArticle.relatedWorkOrders.map((woId) => {
-                    const wo = workOrders.find((w: WorkOrder) => w.id === woId); 
+                    const wo = workOrders.find((w: WorkOrder) => w.id === woId);
                     if (!wo) return null;
-
                     return (
                       <li key={woId} className="flex items-center justify-between p-2 bg-blue-50 rounded">
                         <span className="font-medium">{wo.title}</span>
@@ -3263,6 +3263,7 @@ const WorkOrdersDashboard2: React.FC = () => {
             users={users}
             knowledgeBase={knowledgeBase}
             assets={assets}
+            workOrders={workOrders} // Add this line
           />
         </Modal>
       )}

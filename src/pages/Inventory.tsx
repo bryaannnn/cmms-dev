@@ -38,6 +38,7 @@ import {
   FiDollarSign,
   FiTruck,
   FiArchive,
+  FiKey,
 } from "react-icons/fi";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../routes/AuthContext";
@@ -1057,7 +1058,7 @@ const InventoryDashboard: React.FC = () => {
   const handleRequestOrder = (inventoryItem: InventoryItem) => {
     const updatedItem: InventoryItem = {
       ...inventoryItem,
-      status: "on-order" as InventoryStatus, 
+      status: "on-order" as InventoryStatus,
       nextOrder: new Date(new Date().setDate(new Date().getDate() + 14)).toISOString().split("T")[0],
     };
     setInventory(inventory.map((item) => (item.id === updatedItem.id ? updatedItem : item)));
@@ -1143,6 +1144,9 @@ const InventoryDashboard: React.FC = () => {
               <NavItem icon={<FiBarChart2 />} text="Reports" to="/reports" expanded={sidebarOpen} />
               <NavItem icon={<FiUsers />} text="Team" to="/team" expanded={sidebarOpen} />
               <NavItem icon={<FiSettings />} text="Settings" to="/settings" expanded={sidebarOpen} />
+              {user?.role?.includes("admin") && ( // Hanya tampilkan jika user adalah admin
+                <NavItem icon={<FiKey />} text="Permissions" to="/permissions" expanded={sidebarOpen} />
+              )}
             </nav>
 
             <div className="p-4 border-t border-blue-100">
