@@ -5,12 +5,13 @@ import { getProjectEnvVariables } from "../shared/projectEnvVariables";
 type UserRole = "customer" | "helpdesk" | "technician" | "supervisor" | "vendor" | "admin";
 
 export interface User {
-  id: string;
+  id: string; 
   name: string;
   email: string;
   phone: string;
   mobile: string;
   role: UserRole;
+  roles: {id: number; name: string}[];
   avatar: string;
   department: string;
 }
