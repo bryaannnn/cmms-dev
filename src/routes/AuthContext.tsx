@@ -106,6 +106,31 @@ export interface MachineHistoryRecord extends MachineHistoryFormData {
   startstop?: Startstop | null;
 }
 
+export interface WorkOrder {
+  id: number;
+  issue: string;
+  created_by: number;
+  assigned_to: number | null;
+  status: "open" | "in_progress" | "completed" | "on_hold" | "canceled";
+  priority: "low" | "medium" | "high" | "emergency";
+  due_date: string | null;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+  creator: User;
+  assigned: User | null;
+}
+
+export interface WorkOrderFormData {
+  issue: string;
+  created_by: number;
+  assigned_to?: number | null;
+  status?: "open" | "in_progress" | "completed" | "on_hold" | "canceled";
+  priority?: "low" | "medium" | "high" | "emergency";
+  due_date?: string | null;
+  description?: string | null;
+}
+
 function mapApiToMachineHistoryRecord(apiData: any, masterData: AllMasterData | null): MachineHistoryRecord {
   const stopTimeName = apiData.stoptime?.name || masterData?.stoptimes?.find((st) => String(st.id) === String(apiData.stoptime_id))?.name || "-";
   const itemTroubleName = apiData.itemtrouble?.name || masterData?.itemtroubles?.find((it) => String(it.id) === String(apiData.itemtrouble_id))?.name || "-";
@@ -159,6 +184,11 @@ interface AuthContextType {
   deleteMachineHistory: (id: string) => Promise<any>;
   masterData: AllMasterData | null;
   isMasterDataLoading: boolean;
+  submitWorkOrder: (data: WorkOrderFormData) => Promise<WorkOrder>;
+  getWorkOrders: () => Promise<WorkOrder[]>;
+  getWorkOrderById: (id: string | number) => Promise<WorkOrder>;
+  updateWorkOrder: (id: string | number, data: WorkOrderFormData) => Promise<WorkOrder>;
+  deleteWorkOrder: (id: string | number) => Promise<any>;
 }
 
 const projectEnvVariables = getProjectEnvVariables();
@@ -233,7 +263,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       return response.json();
     },
-    [token, navigate, user]
+    [token, navigate]
   );
 
   const getAllMasterData = useCallback(async (): Promise<AllMasterData> => {
@@ -471,6 +501,86 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     [fetchWithAuth]
   );
 
+  const submitWorkOrder = useCallback(
+    async (data: WorkOrderFormData): Promise<WorkOrder> => {
+      try {
+        const responseData = await fetchWithAuth("/wos", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(data),
+        });
+        return responseData.data;
+      } catch (error) {
+        console.error("Gagal menyimpan Work Order:", error);
+        throw error;
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const getWorkOrders = useCallback(async (): Promise<WorkOrder[]> => {
+    try {
+      const response = await fetchWithAuth("/wos");
+      if (response && response.data && Array.isArray(response.data)) {
+        return response.data;
+      }
+      console.error("Format respons Work Order tidak valid:", response);
+      return [];
+    } catch (error) {
+      console.error("Gagal mengambil daftar Work Order:", error);
+      return [];
+    }
+  }, [fetchWithAuth]);
+
+  const getWorkOrderById = useCallback(
+    async (id: string | number): Promise<WorkOrder> => {
+      try {
+        const responseData = await fetchWithAuth(`/wos/${id}`);
+        return responseData.data;
+      } catch (error) {
+        console.error(`Gagal mengambil Work Order dengan ID ${id}:`, error);
+        throw error;
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const updateWorkOrder = useCallback(
+    async (id: string | number, data: WorkOrderFormData): Promise<WorkOrder> => {
+      try {
+        const responseData = await fetchWithAuth(`/wos/${id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(data),
+        });
+        return responseData.data;
+      } catch (error) {
+        console.error(`Gagal mengupdate Work Order dengan ID ${id}:`, error);
+        throw error;
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const deleteWorkOrder = useCallback(
+    async (id: string | number): Promise<any> => {
+      try {
+        const responseData = await fetchWithAuth(`/wos/${id}`, {
+          method: "DELETE",
+        });
+        return responseData;
+      } catch (error) {
+        console.error(`Gagal menghapus Work Order dengan ID ${id}:`, error);
+        throw error;
+      }
+    },
+    [fetchWithAuth]
+  );
+
   return (
     <AuthContext.Provider
       value={{
@@ -490,6 +600,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         deleteMachineHistory,
         masterData,
         isMasterDataLoading,
+        submitWorkOrder,
+        getWorkOrders,
+        getWorkOrderById,
+        updateWorkOrder,
+        deleteWorkOrder,
       }}
     >
       {children}

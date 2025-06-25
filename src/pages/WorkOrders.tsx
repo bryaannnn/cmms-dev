@@ -1226,7 +1226,7 @@ const WorkOrdersDashboard: React.FC = () => {
     alert(`Printing work order ${workOrder.id}`);
     // In a real app, this would generate a PDF or open a print dialog
   };
-
+  
   const toggleSidebar = () => {
     setHasInteracted(true);
     setSidebarOpen((prev) => !prev);

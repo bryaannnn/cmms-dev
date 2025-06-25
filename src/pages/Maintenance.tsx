@@ -186,106 +186,108 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-y-6 gap-x-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         <div>
-          <h4 className="text-sm font-medium text-gray-600 mb-1">Date</h4>
-          <p className="bg-gray-50 border border-gray-300 text-gray-800 text-lg rounded-md p-2 min-h-[40px] flex items-center break-words shadow-sm">{displayValue(record.date)}</p>
+          <h4 className="block text-sm font-medium text-gray-700">Date</h4>
+          <p className="mt-1 w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-blue-50 text-gray-800 transition-all duration-200 min-h-[40px] flex items-center break-words">{displayValue(record.date)}</p>
         </div>
         <div>
-          <h4 className="text-sm font-medium text-gray-600 mb-1">Shift</h4>
-          <p className="bg-gray-50 border border-gray-300 text-gray-800 text-lg rounded-md p-2 min-h-[40px] flex items-center break-words shadow-sm">{displayValue(record.shift)}</p>
+          <h4 className="block text-sm font-medium text-gray-700">Shift</h4>
+          <p className="mt-1 w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-blue-50 text-gray-800 transition-all duration-200 min-h-[40px] flex items-center break-words">{displayValue(record.shift)}</p>
         </div>
         <div>
-          <h4 className="text-sm font-medium text-gray-600 mb-1">Group</h4>
-          <p className="bg-gray-50 border border-gray-300 text-gray-800 text-lg rounded-md p-2 min-h-[40px] flex items-center break-words shadow-sm">{displayValue(record.group)}</p>
+          <h4 className="block text-sm font-medium text-gray-700">Group</h4>
+          <p className="mt-1 w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-blue-50 text-gray-800 transition-all duration-200 min-h-[40px] flex items-center break-words">{displayValue(record.group)}</p>
         </div>
         <div>
-          <h4 className="text-sm font-medium text-gray-600 mb-1">Machine</h4>
-          <p className="bg-gray-50 border border-gray-300 text-gray-800 text-lg rounded-md p-2 min-h-[40px] flex items-center break-words shadow-sm">{displayValue(record.mesin)}</p>
+          <h4 className="block text-sm font-medium text-gray-700">Machine</h4>
+          <p className="mt-1 w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-blue-50 text-gray-800 transition-all duration-200 min-h-[40px] flex items-center break-words">{displayValue(record.mesin)}</p>
         </div>
         <div>
-          <h4 className="text-sm font-medium text-gray-600 mb-1">Unit</h4>
-          <p className="bg-gray-50 border border-gray-300 text-gray-800 text-lg rounded-md p-2 min-h-[40px] flex items-center break-words shadow-sm">{displayValue(record.unit)}</p>
+          <h4 className="block text-sm font-medium text-gray-700">Unit</h4>
+          <p className="mt-1 w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-blue-50 text-gray-800 transition-all duration-200 min-h-[40px] flex items-center break-words">{displayValue(record.unit)}</p>
         </div>
         <div>
-          <h4 className="text-sm font-medium text-gray-600 mb-1">Stop Time</h4>
-          <p className="bg-gray-50 border border-gray-300 text-gray-800 text-lg rounded-md p-2 min-h-[40px] flex items-center break-words shadow-sm">{formatTime(record.stopJam, record.stopMenit)}</p>
+          <h4 className="block text-sm font-medium text-gray-700">Stop Time</h4>
+          <p className="mt-1 w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-blue-50 text-gray-800 transition-all duration-200 min-h-[40px] flex items-center break-words">{formatTime(record.stopJam, record.stopMenit)}</p>
         </div>
         <div>
-          <h4 className="text-sm font-medium text-gray-600 mb-1">Start Time</h4>
-          <p className="bg-gray-50 border border-gray-300 text-gray-800 text-lg rounded-md p-2 min-h-[40px] flex items-center break-words shadow-sm">{formatTime(record.startJam, record.startMenit)}</p>
+          <h4 className="block text-sm font-medium text-gray-700">Start Time</h4>
+          <p className="mt-1 w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-blue-50 text-gray-800 transition-all duration-200 min-h-[40px] flex items-center break-words">{formatTime(record.startJam, record.startMenit)}</p>
         </div>
         <div>
-          <h4 className="text-sm font-medium text-gray-600 mb-1">Downtime</h4>
-          <p className="bg-gray-50 border border-gray-300 text-gray-800 text-lg rounded-md p-2 min-h-[40px] flex items-center break-words shadow-sm">{displayDowntime}</p>
+          <h4 className="block text-sm font-medium text-gray-700">Downtime</h4>
+          <p className="mt-1 w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-blue-50 text-gray-800 transition-all duration-200 min-h-[40px] flex items-center break-words">{displayValue(displayDowntime)}</p>
         </div>
         <div>
-          <h4 className="text-sm font-medium text-gray-600 mb-1">Stop Type</h4>
-          <p className="bg-gray-50 border border-gray-300 text-gray-800 text-lg rounded-md p-2 min-h-[40px] flex items-center break-words shadow-sm">{displayValue(record.stopTime)}</p>
+          <h4 className="block text-sm font-medium text-gray-700">Stop Type</h4>
+          <p className="mt-1 w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-blue-50 text-gray-800 transition-all duration-200 min-h-[40px] flex items-center break-words">{displayValue(record.stopTime)}</p>
         </div>
         <div>
-          <h4 className="text-sm font-medium text-gray-600 mb-1">Running Hour</h4>
-          <p className="bg-gray-50 border border-gray-300 text-gray-800 text-lg rounded-md p-2 min-h-[40px] flex items-center break-words shadow-sm">{displayValue(record.runningHour)}</p>
+          <h4 className="block text-sm font-medium text-gray-700">Running Hour</h4>
+          <p className="mt-1 w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-blue-50 text-gray-800 transition-all duration-200 min-h-[40px] flex items-center break-words">{displayValue(record.runningHour)}</p>
         </div>
       </div>
-
+      ---
       {/* Issue Details */}
       <div className="border-t border-gray-200 pt-6 mt-6">
         <h3 className="text-xl font-bold text-gray-800 mb-4">Issue Details</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <h4 className="text-sm font-medium text-gray-600 mb-1">Item Trouble</h4>
-            <p className="bg-gray-50 border border-gray-300 text-gray-800 text-lg rounded-md p-2 min-h-[40px] flex items-center break-words shadow-sm">{displayValue(record.itemTrouble)}</p>
+            <h4 className="block text-sm font-medium text-gray-700">Item Trouble</h4>
+            <p className="mt-1 w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-blue-50 text-gray-800 transition-all duration-200 min-h-[40px] flex items-center break-words">{displayValue(record.itemTrouble)}</p>
           </div>
           <div>
-            <h4 className="text-sm font-medium text-gray-600 mb-1">Issue Description</h4>
-            <p className="bg-gray-50 border border-gray-300 text-gray-800 text-lg rounded-md p-2 min-h-[40px] flex items-center break-words shadow-sm">{displayValue(record.jenisGangguan)}</p>
+            <h4 className="block text-sm font-medium text-gray-700">Issue Description</h4>
+            <p className="mt-1 w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-blue-50 text-gray-800 transition-all duration-200 min-h-[40px] flex items-center break-words">{displayValue(record.jenisGangguan)}</p>
           </div>
           <div>
-            <h4 className="text-sm font-medium text-gray-600 mb-1">Action Taken</h4>
-            <p className="bg-gray-50 border border-gray-300 text-gray-800 text-lg rounded-md p-2 min-h-[40px] flex items-center break-words shadow-sm">{displayValue(record.bentukTindakan)}</p>
+            <h4 className="block text-sm font-medium text-gray-700">Action Taken</h4>
+            <p className="mt-1 w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-blue-50 text-gray-800 transition-all duration-200 min-h-[40px] flex items-center break-words">{displayValue(record.bentukTindakan)}</p>
           </div>
           <div>
-            <h4 className="text-sm font-medium text-gray-600 mb-1">Root Cause</h4>
-            <p className="bg-gray-50 border border-gray-300 text-gray-800 text-lg rounded-md p-2 min-h-[40px] flex items-center break-words shadow-sm">{displayValue(record.rootCause)}</p>
+            <h4 className="block text-sm font-medium text-gray-700">Root Cause</h4>
+            <p className="mt-1 w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-blue-50 text-gray-800 transition-all duration-200 min-h-[40px] flex items-center break-words">{displayValue(record.rootCause)}</p>
           </div>
         </div>
       </div>
+      ---
       <div className="border-t border-gray-200 pt-6 mt-6">
         <h3 className="text-xl font-bold text-gray-800 mb-4">Maintenance Details</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <h4 className="text-sm font-medium text-gray-600 mb-1">Activity Type</h4>
-            <p className="bg-gray-50 border border-gray-300 text-gray-800 text-lg rounded-md p-2 min-h-[40px] flex items-center break-words shadow-sm">{displayValue(record.jenisAktivitas)}</p>
+            <h4 className="block text-sm font-medium text-gray-700">Activity Type</h4>
+            <p className="mt-1 w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-blue-50 text-gray-800 transition-all duration-200 min-h-[40px] flex items-center break-words">{displayValue(record.jenisAktivitas)}</p>
           </div>
           <div>
-            <h4 className="text-sm font-medium text-gray-600 mb-1">Specific Activity</h4>
-            <p className="bg-gray-50 border border-gray-300 text-gray-800 text-lg rounded-md p-2 min-h-[40px] flex items-center break-words shadow-sm">{displayValue(record.kegiatan)}</p>
+            <h4 className="block text-sm font-medium text-gray-700">Specific Activity</h4>
+            <p className="mt-1 w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-blue-50 text-gray-800 transition-all duration-200 min-h-[40px] flex items-center break-words">{displayValue(record.kegiatan)}</p>
           </div>
         </div>
       </div>
+      ---
       <div className="border-t border-gray-200 pt-6 mt-6">
         <h3 className="text-xl font-bold text-gray-800 mb-4">Spare Parts Used</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-y-6 gap-x-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           <div>
-            <h4 className="text-sm font-medium text-gray-600 mb-1">Part Code</h4>
-            <p className="bg-gray-50 border border-gray-300 text-gray-800 text-lg rounded-md p-2 min-h-[40px] flex items-center break-words shadow-sm">{displayValue(record.kodePart)}</p>
+            <h4 className="block text-sm font-medium text-gray-700">Part Code</h4>
+            <p className="mt-1 w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-blue-50 text-gray-800 transition-all duration-200 min-h-[40px] flex items-center break-words">{displayValue(record.kodePart)}</p>
           </div>
           <div>
-            <h4 className="text-sm font-medium text-gray-600 mb-1">Part Name</h4>
-            <p className="bg-gray-50 border border-gray-300 text-gray-800 text-lg rounded-md p-2 min-h-[40px] flex items-center break-words shadow-sm">{displayValue(record.sparePart)}</p>
+            <h4 className="block text-sm font-medium text-gray-700">Part Name</h4>
+            <p className="mt-1 w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-blue-50 text-gray-800 transition-all duration-200 min-h-[40px] flex items-center break-words">{displayValue(record.sparePart)}</p>
           </div>
           <div>
-            <h4 className="text-sm font-medium text-gray-600 mb-1">ID Part</h4>
-            <p className="bg-gray-50 border border-gray-300 text-gray-800 text-lg rounded-md p-2 min-h-[40px] flex items-center break-words shadow-sm">{displayValue(record.idPart)}</p>
+            <h4 className="block text-sm font-medium text-gray-700">ID Part</h4>
+            <p className="mt-1 w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-blue-50 text-gray-800 transition-all duration-200 min-h-[40px] flex items-center break-words">{displayValue(record.idPart)}</p>
           </div>
           <div>
-            <h4 className="text-sm font-medium text-gray-600 mb-1">Quantity</h4>
-            <p className="bg-gray-50 border border-gray-300 text-gray-800 text-lg rounded-md p-2 min-h-[40px] flex items-center break-words shadow-sm">{displayValue(record.jumlah)}</p>
+            <h4 className="block text-sm font-medium text-gray-700">Quantity</h4>
+            <p className="mt-1 w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-blue-50 text-gray-800 transition-all duration-200 min-h-[40px] flex items-center break-words">{displayValue(record.jumlah)}</p>
           </div>
           <div>
-            <h4 className="text-sm font-medium text-gray-600 mb-1">Unit</h4>
-            <p className="bg-gray-50 border border-gray-300 text-gray-800 text-lg rounded-md p-2 min-h-[40px] flex items-center break-words shadow-sm">{displayValue(record.unitSparePart)}</p>
+            <h4 className="block text-sm font-medium text-gray-700">Unit</h4>
+            <p className="mt-1 w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-blue-50 text-gray-800 transition-all duration-200 min-h-[40px] flex items-center break-words">{displayValue(record.unitSparePart)}</p>
           </div>
         </div>
       </div>
