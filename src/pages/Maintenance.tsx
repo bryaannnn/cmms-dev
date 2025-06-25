@@ -228,7 +228,7 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
           <p className="mt-1 w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-blue-50 text-gray-800 transition-all duration-200 min-h-[40px] flex items-center break-words">{displayValue(record.runningHour)}</p>
         </div>
       </div>
-      ---
+
       {/* Issue Details */}
       <div className="border-t border-gray-200 pt-6 mt-6">
         <h3 className="text-xl font-bold text-gray-800 mb-4">Issue Details</h3>
@@ -265,7 +265,7 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
           </div>
         </div>
       </div>
-      ---
+      
       <div className="border-t border-gray-200 pt-6 mt-6">
         <h3 className="text-xl font-bold text-gray-800 mb-4">Spare Parts Used</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">

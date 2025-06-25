@@ -9,6 +9,7 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import Logout from "./pages/Logout";
 import Assets from "./pages/Assets";
 import WorkOrdersDashboard from "./pages/WorkOrders";
+import WorkOrdersDashboard2 from "./component/WorkOrders/WorkOrdersDashboard2";
 import InventoryDashboard from "./pages/Inventory";
 import ReportsDashboard from "./pages/Reports";
 import TeamDashboard from "./pages/Teams";
@@ -16,7 +17,7 @@ import SettingsPage from "./pages/Settings";
 import MachineHistoryDashboard from "./pages/Maintenance";
 import FormMesin from "./component/MachineHistory/FormMesin";
 import FormWorkOrders from "./component/WorkOrders/formwo";
-// import WorkOrders from "./component/WorkOrders/FormWorkOrders";
+import WorkOrders from "./component/WorkOrders/WorkOrdersDashboard2";
 import MachineHistoryForm from "./component/MachineHistory/EditFormMesin";
 import EditFormMesin from "./component/MachineHistory/EditFormMesin";
 
@@ -28,8 +29,8 @@ function App() {
       <Route path="/register" element={<RegisterForm />} />
       <Route path="/login" element={<LoginForm />} />
       {/* <Route path="/machinehistory/edit" element={<EditFormMesin />} /> */}
-      {/* <Route path="/workorders/input" element={<FormWorkOrders />} /> */}
-      {/* <Route path="/workorders/dashboard" element={<WorkOrders />} /> */}
+      <Route path="/workorders/input" element={<FormWorkOrders />} />
+      <Route path="/workorders/dashboard" element={<WorkOrdersDashboard2 />} />
 
       <Route element={<ProtectedRoute />}>
         <Route path="/" element={<Dashboard />} />
