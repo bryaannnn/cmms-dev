@@ -350,7 +350,7 @@ const SettingsPage: React.FC = () => {
                       <>
                         <SettingItem label="Name" value={user?.name} onEdit={() => setIsEditing(true)} />
                         <SettingItem label="Email" value={user?.email} onEdit={() => setIsEditing(true)} />
-                        <SettingItem label="Role" value="none" editable={false} />
+                        <SettingItem label="Role" value={user?.roles?.[0]?.name} editable={false} />
                         <SettingItem label="Member since" value="none" editable={false} />
                       </>
                     )}

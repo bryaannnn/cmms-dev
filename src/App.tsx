@@ -21,6 +21,7 @@ import WorkOrders from "./component/WorkOrders/WorkOrdersDashboard2";
 import MachineHistoryForm from "./component/MachineHistory/EditFormMesin";
 import EditFormMesin from "./component/MachineHistory/EditFormMesin";
 import PermissionsPage from "./pages/Permission";
+import ChangePasswordPage from "./pages/ChangePassword";
 
 // const envVariables = getProjectEnvVariables();
 
@@ -32,6 +33,8 @@ function App() {
       {/* <Route path="/machinehistory/edit" element={<EditFormMesin />} /> */}
       {/* <Route path="/workorders/input" element={<FormWorkOrders />} /> */}
       {/* <Route path="/workorders/dashboard" element={<WorkOrdersDashboard2 />} /> */}
+      <Route path="/settings" element={<SettingsPage />} />
+      <Route path="/settings/change-password" element={<ChangePasswordPage />} />
 
       <Route element={<ProtectedRoute />}>
         <Route path="/" element={<Dashboard />} />
@@ -44,7 +47,7 @@ function App() {
         <Route path="/assets" element={<Assets />} />
         <Route path="/reports" element={<ReportsDashboard />} />
         <Route path="/team" element={<TeamDashboard />} />
-        <Route path="/settings" element={<SettingsPage />} />
+
         <Route path="/permissions" element={<PermissionsPage />} />
       </Route>
 
