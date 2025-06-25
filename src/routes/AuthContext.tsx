@@ -1,9 +1,7 @@
-// src/routes/AuthContext.ts
-import { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { getProjectEnvVariables } from "../shared/projectEnvVariables";
 
-// --- Type Definitions ---
 type UserRole = "customer" | "helpdesk" | "technician" | "supervisor" | "vendor" | "admin";
 
 export interface User {
@@ -13,12 +11,11 @@ export interface User {
   phone: string;
   mobile: string;
   role: UserRole;
-  roles: { id: number; name: string }[]; // Assuming roles is an array of objects from API
+  roles: { id: number; name: string }[];
   avatar: string;
   department: string;
 }
 
-// ... (Other interfaces like Mesin, Shift, Group, etc. remain unchanged) ...
 export interface Mesin {
   id: string;
   name: string;
@@ -178,7 +175,6 @@ function mapApiToMachineHistoryRecord(apiData: any, masterData: AllMasterData | 
   };
 }
 
-// --- AuthContextType Interface ---
 interface AuthContextType {
   user: User | null;
   token: string | null;
@@ -209,7 +205,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(localStorage.getItem("token")); // Initialize from localStorage
+  const [token, setToken] = useState<string | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [masterData, setMasterData] = useState<AllMasterData | null>(null);
   const [isMasterDataLoading, setIsMasterDataLoading] = useState(true);
@@ -224,7 +220,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (storedToken && storedUser) {
       setToken(storedToken);
       try {
-        // Assume user data from localStorage is complete and correct User type
         setUser(JSON.parse(storedUser));
       } catch (e) {
         console.error("Failed to parse user from localStorage", e);
@@ -234,43 +229,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setToken(null);
       }
     } else {
-      setIsMasterDataLoading(false); // No user, no master data to load
+      setIsMasterDataLoading(false);
     }
-  }, []); // Run only once on component mount
-
-  const logout = useCallback(async () => {
-    setIsLoggingOut(true);
-    try {
-      if (token) {
-        const logoutHeaders: Record<string, string> = {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        };
-
-        // Attempt to call logout API, but don't block on its success/failure
-        // The main goal is to clear local state regardless
-        await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/logout`, {
-          method: "POST",
-          headers: logoutHeaders,
-        });
-      }
-    } catch (error) {
-      console.error("Error API logout:", error);
-    } finally {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      setToken(null);
-      setUser(null);
-      setMasterData(null); // Clear master data on logout
-      setIsMasterDataLoading(false); // Reset loading state
-      setIsLoggingOut(false);
-      navigate("/login");
-    }
-  }, [token, navigate]); // logout depends on token and navigate
+  }, []);
 
   const fetchWithAuth = useCallback(
     async (url: string, options: RequestInit = {}) => {
-      const authToken = token || localStorage.getItem("token"); // Always try current token first
+      const authToken = token || localStorage.getItem("token");
 
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
@@ -292,23 +257,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const response = await fetch(fullUrl, fetchOptions);
 
       if (response.status === 401) {
-        // If 401, session expired. Force logout.
         try {
-          await logout(); // Use the memoized logout
+          await logout();
         } catch (logoutError) {
           console.error("Error during automatic logout after 401:", logoutError);
         }
-        throw new Error("Session expired. Please log in again.");
+        throw new Error("Sesi berakhir. Silakan login kembali.");
       }
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || `Request failed with status: ${response.status}`);
+        throw new Error(errorData.message || `Permintaan gagal dengan status: ${response.status}`);
       }
 
       return response.json();
     },
-    [token, logout] // fetchWithAuth depends on token and the memoized logout
+    [token, navigate]
   );
 
   const getAllMasterData = useCallback(async (): Promise<AllMasterData> => {
@@ -337,125 +301,143 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         unitspareparts: unitspareparts,
       };
     } catch (error) {
-      console.error("Failed to fetch all master data:", error);
+      console.error("Gagal mengambil semua data master:", error);
       throw error;
     }
-  }, [fetchWithAuth]); // Depends on the memoized fetchWithAuth
+  }, [fetchWithAuth]);
 
   useEffect(() => {
     const loadMasterData = async () => {
-      if (isAuthenticated && !masterData && !isMasterDataLoading) {
-        // Prevent re-trigger if already loading
+      if (isAuthenticated && !masterData) {
         setIsMasterDataLoading(true);
         try {
           const data = await getAllMasterData();
           setMasterData(data);
         } catch (error) {
-          console.error("Failed to load master data:", error);
+          console.error("Gagal memuat data master:", error);
         } finally {
           setIsMasterDataLoading(false);
         }
       } else if (!isAuthenticated && masterData) {
-        // Clear master data if user logs out
         setMasterData(null);
         setIsMasterDataLoading(false);
-      } else if (!isAuthenticated && !masterData && isMasterDataLoading) {
-        // If no user and not already loading, ensure loading state is false.
+      } else if (!isAuthenticated && !masterData) {
         setIsMasterDataLoading(false);
       }
     };
     loadMasterData();
-  }, [isAuthenticated, masterData, getAllMasterData, isMasterDataLoading]); // Add isMasterDataLoading to dependencies for clarity
+  }, [isAuthenticated, masterData, getAllMasterData]);
 
-  const register = useCallback(
-    async (name: string, email: string, password: string) => {
-      try {
-        const response = await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/register`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, email, password }),
-        });
+  const register = async (name: string, email: string, password: string) => {
+    try {
+      const response = await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name, email, password }),
+      });
 
-        const contentType = response.headers.get("content-type");
-        if (!contentType?.includes("application/json")) {
-          const text = await response.text();
-          throw new Error(`Expected JSON but got: ${text.substring(0, Math.min(text.length, 50))}...`);
-        }
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.message || "Registration failed");
-        }
-
-        if (data.token && data.user) {
-          localStorage.setItem("token", data.token);
-          setToken(data.token);
-          // Assuming data.user includes the roles structure for consistency
-          localStorage.setItem("user", JSON.stringify(data.user));
-          setUser(data.user);
-          navigate("/dashboard");
-        } else {
-          throw new Error("Token or user data not received after registration.");
-        }
-      } catch (error) {
-        console.error("Registration error:", error);
-        throw error;
+      const contentType = response.headers.get("content-type");
+      if (!contentType?.includes("application/json")) {
+        const text = await response.text();
+        throw new Error(`Expected JSON but got: ${text.substring(0, Math.min(text.length, 50))}...`);
       }
-    },
-    [navigate]
-  ); // navigate is a dependency
 
-  const login = useCallback(
-    async (email: string, password: string) => {
-      try {
-        const response = await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/login`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password }),
-        });
+      const data = await response.json();
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || "Login failed");
-        }
-
-        const data = await response.json();
-
-        if (data.token && data.user) {
-          localStorage.setItem("token", data.token);
-          setToken(data.token);
-          // Ensure the user object stored includes roles if your API returns them
-          // The API response you showed previously had roles at the top level,
-          // so you might need to merge them into data.user here before storing.
-          // For example: const userWithRoles = { ...data.user, roles: data.roles };
-          // localStorage.setItem("user", JSON.stringify(userWithRoles));
-          // setUser(userWithRoles);
-          localStorage.setItem("user", JSON.stringify(data.user));
-          setUser(data.user);
-          navigate("/dashboard");
-        } else {
-          throw new Error("Token or user data not received after login.");
-        }
-      } catch (error) {
-        console.error("Login error:", error);
-        throw error;
+      if (!response.ok) {
+        throw new Error(data.message || "Pendaftaran gagal");
       }
-    },
-    [navigate]
-  ); // navigate is a dependency
+
+      if (data.token && data.user) {
+        setToken(data.token);
+        localStorage.setItem("token", data.token);
+        setUser(data.user);
+        localStorage.setItem("user", JSON.stringify(data.user));
+        navigate("/dashboard");
+      } else {
+        throw new Error("Token atau data user tidak diterima setelah pendaftaran.");
+      }
+    } catch (error) {
+      console.error("Error pendaftaran:", error);
+      throw error;
+    }
+  };
+
+  const login = async (email: string, password: string) => {
+    try {
+      const response = await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Login gagal");
+      }
+
+      const data = await response.json();
+
+      if (data.token && data.user) {
+        localStorage.setItem("token", data.token);
+        setToken(data.token);
+        localStorage.setItem("user", JSON.stringify(data.user));
+        setUser(data.user);
+        navigate("/dashboard");
+      } else {
+        throw new Error("Token atau data user tidak diterima setelah login.");
+      }
+    } catch (error) {
+      console.error("Error login:", error);
+      throw error;
+    }
+  };
+
+  const logout = useCallback(async () => {
+    setIsLoggingOut(true);
+    try {
+      if (token) {
+        const logoutHeaders: Record<string, string> = {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        };
+
+        await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/logout`, {
+          method: "POST",
+          headers: logoutHeaders,
+        });
+      }
+    } catch (error) {
+      console.error("Error API logout:", error);
+    } finally {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      setToken(null);
+      setUser(null);
+      setMasterData(null);
+      setIsMasterDataLoading(false);
+      setIsLoggingOut(false);
+      navigate("/login");
+    }
+  }, [token, navigate]);
 
   const submitMachineHistory = useCallback(
     async (data: MachineHistoryFormData) => {
       try {
         const responseData = await fetchWithAuth("/mhs", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify(data),
         });
         return responseData;
       } catch (error) {
-        console.error("Failed to save machine history data:", error);
+        console.error("Gagal menyimpan data history mesin:", error);
         throw error;
       }
     },
@@ -468,7 +450,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (response && response.data && Array.isArray(response.data)) {
         if (!masterData) {
-          console.warn("Master data not loaded when fetching history list. Some fields might display '-'.");
+          console.warn("Master data belum dimuat saat mengambil daftar history. Beberapa field mungkin menampilkan '-'.");
         }
         return response.data.map((apiDataItem: any) => mapApiToMachineHistoryRecord(apiDataItem, masterData));
       }
@@ -476,10 +458,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       console.error("Invalid response format:", response);
       return [];
     } catch (error) {
-      console.error("Failed to fetch machine history list:", error);
+      console.error("Gagal mengambil daftar history mesin:", error);
       return [];
     }
-  }, [fetchWithAuth, masterData]); // masterData is a dependency
+  }, [fetchWithAuth, masterData]);
 
   const getMachineHistoryById = useCallback(
     async (id: string): Promise<any> => {
@@ -487,7 +469,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const data = await fetchWithAuth(`/mhs/${id}`);
         return data;
       } catch (error) {
-        console.error(`Failed to fetch machine history with ID ${id}:`, error);
+        console.error(`Gagal mengambil history mesin dengan ID ${id}:`, error);
         throw error;
       }
     },
@@ -499,12 +481,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       try {
         const responseData = await fetchWithAuth(`/mhs/${id}`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify(data),
         });
         return responseData;
       } catch (error) {
-        console.error(`Failed to update machine history with ID ${id}:`, error);
+        console.error(`Gagal mengupdate history mesin dengan ID ${id}:`, error);
         throw error;
       }
     },
@@ -519,7 +503,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         });
         return responseData;
       } catch (error) {
-        console.error(`Failed to delete machine history with ID ${id}:`, error);
+        console.error(`Gagal menghapus history mesin dengan ID ${id}:`, error);
         throw error;
       }
     },
@@ -531,12 +515,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       try {
         const responseData = await fetchWithAuth("/wos", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify(data),
         });
         return responseData.data;
       } catch (error) {
-        console.error("Failed to save Work Order:", error);
+        console.error("Gagal menyimpan Work Order:", error);
         throw error;
       }
     },
@@ -549,10 +535,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (response && response.data && Array.isArray(response.data)) {
         return response.data;
       }
-      console.error("Invalid Work Order response format:", response);
+      console.error("Format respons Work Order tidak valid:", response);
       return [];
     } catch (error) {
-      console.error("Failed to fetch Work Order list:", error);
+      console.error("Gagal mengambil daftar Work Order:", error);
       return [];
     }
   }, [fetchWithAuth]);
@@ -563,7 +549,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const responseData = await fetchWithAuth(`/wos/${id}`);
         return responseData.data;
       } catch (error) {
-        console.error(`Failed to fetch Work Order with ID ${id}:`, error);
+        console.error(`Gagal mengambil Work Order dengan ID ${id}:`, error);
         throw error;
       }
     },
@@ -575,12 +561,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       try {
         const responseData = await fetchWithAuth(`/wos/${id}`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify(data),
         });
         return responseData.data;
       } catch (error) {
-        console.error(`Failed to update Work Order with ID ${id}:`, error);
+        console.error(`Gagal mengupdate Work Order dengan ID ${id}:`, error);
         throw error;
       }
     },
@@ -595,7 +583,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         });
         return responseData;
       } catch (error) {
-        console.error(`Failed to delete Work Order with ID ${id}:`, error);
+        console.error(`Gagal menghapus Work Order dengan ID ${id}:`, error);
         throw error;
       }
     },
@@ -606,82 +594,62 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     async (oldPassword: string, newPassword: string) => {
       try {
         const response = await fetchWithAuth("/user/password-update", {
-          method: "POST", 
-          headers: { "Content-Type": "application/json" },
+          method: "PUT", 
+          headers: {
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify({
-            current_password: oldPassword,    
+            current_password: oldPassword, // <<< Make sure these match your backend's expected field names
             new_password: newPassword,
-            new_password_confirmation: newPassword,
+            new_password_confirmation: newPassword, // Often required by Laravel for confirmation
           }),
         });
+
         console.log("Password changed successfully:", response);
+        // No need to return anything specific if success is handled by not throwing an error
       } catch (error: any) {
-        console.error("Failed to change password in context:", error);
+        console.error("Failed to change password:", error);
+        // Re-throw the error so the component can catch it and display a message
         throw new Error(error.message || "An unexpected error occurred during password change.");
       }
     },
-    [fetchWithAuth] 
+    [fetchWithAuth]
   );
 
-  const contextValue = useMemo(
-    () => ({
-      user,
-      token,
-      isAuthenticated,
-      login,
-      register,
-      logout,
-      isLoggingOut,
-      fetchWithAuth,
-      getAllMasterData,
-      submitMachineHistory,
-      getMachineHistories,
-      getMachineHistoryById,
-      updateMachineHistory,
-      deleteMachineHistory,
-      masterData,
-      isMasterDataLoading,
-      submitWorkOrder,
-      getWorkOrders,
-      getWorkOrderById,
-      updateWorkOrder,
-      deleteWorkOrder,
-      changePassword,
-    }),
-    [
-      user,
-      token,
-      isAuthenticated,
-      login,
-      register,
-      logout,
-      isLoggingOut,
-      fetchWithAuth,
-      getAllMasterData,
-      submitMachineHistory,
-      getMachineHistories,
-      getMachineHistoryById,
-      updateMachineHistory,
-      deleteMachineHistory,
-      masterData,
-      isMasterDataLoading,
-      submitWorkOrder,
-      getWorkOrders,
-      getWorkOrderById,
-      updateWorkOrder,
-      deleteWorkOrder,
-      changePassword,
-    ]
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        token,
+        isAuthenticated,
+        login,
+        register,
+        logout,
+        isLoggingOut,
+        fetchWithAuth,
+        getAllMasterData,
+        submitMachineHistory,
+        getMachineHistories,
+        getMachineHistoryById,
+        updateMachineHistory,
+        deleteMachineHistory,
+        masterData,
+        isMasterDataLoading,
+        submitWorkOrder,
+        getWorkOrders,
+        getWorkOrderById,
+        updateWorkOrder,
+        deleteWorkOrder,
+        changePassword,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
   );
-
-  return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === null) {
-    // Changed to null because createContext<AuthContextType | null>(null)
-    throw new Error("useAuth must be used within AuthProvider");
-  }
+  if (!context) throw new Error("useAuth must be used within AuthProvider");
   return context;
 };
