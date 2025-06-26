@@ -594,12 +594,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     async (oldPassword: string, newPassword: string) => {
       try {
         const response = await fetchWithAuth("/user/password-update", {
-          method: "PUT", 
+          method: "POST", 
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            current_password: oldPassword, // <<< Make sure these match your backend's expected field names
+            current_password: oldPassword, // <<< Make sure these match your backend' s expected field names
             new_password: newPassword,
             new_password_confirmation: newPassword, // Often required by Laravel for confirmation
           }),
