@@ -290,7 +290,6 @@ const PermissionsPage: React.FC = () => {
       </div>
     );
   }
-
   return (
     <div className={`flex h-screen font-sans ${darkMode ? "bg-gray-900 text-gray-100" : "bg-gray-50 text-gray-900"}`}>
       <AnimatePresence>
@@ -597,7 +596,7 @@ const PermissionsPage: React.FC = () => {
                         </div>
                         <div className="flex items-center justify-between text-sm">
                           <span className={darkMode ? "text-gray-400" : "text-gray-500"}>Users with this role:</span>
-                          <span className={`font-medium ${darkMode ? "text-gray-200" : "text-gray-900"}`}>{users.filter((u) => u.roles?.includes(role.id) ?? false).length}</span>
+                          <span className={`font-medium ${darkMode ? "text-gray-200" : "text-gray-900"}`}>{users.filter((u) => u.roleId === role.id).length}</span>
                         </div>
                       </div>
                     </motion.div>
