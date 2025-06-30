@@ -33,22 +33,22 @@ function App() {
       {/* <Route path="/machinehistory/edit" element={<EditFormMesin />} /> */}
       {/* <Route path="/workorders/input" element={<FormWorkOrders />} /> */}
       {/* <Route path="/workorders/dashboard" element={<WorkOrdersDashboard2 />} /> */}
-      <Route path="/dashboard" element={<Dashboard />} />
-      <Route path="/workorders" element={<WorkOrdersDashboard />} />
-      <Route path="/machinehistory" element={<MachineHistoryDashboard />} />
-      <Route path="/machinehistory/input" element={<FormMesin />} />
-      <Route path="/machinehistory/edit/:id" element={<EditFormMesin />} />
-      <Route path="/inventory" element={<InventoryDashboard />} />
-      <Route path="/assets" element={<Assets />} />
-      <Route path="/reports" element={<ReportsDashboard />} />
-      <Route path="/team" element={<TeamDashboard />} />
-      <Route path="/settings" element={<SettingsPage />} />
-      <Route path="/settings/change-password" element={<ChangePasswordPage />} />
-      <Route path="/permissions" element={<PermissionsPage />} />
-      <Route path="/permissions/adduser" element={<AddUserPage />} />
 
       <Route element={<ProtectedRoute />}>
         <Route path="/" element={<Dashboard />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/workorders" element={<WorkOrdersDashboard />} />
+        <Route path="/machinehistory" element={<MachineHistoryDashboard />} />
+        <Route path="/machinehistory/input" element={<FormMesin />} />
+        <Route path="/machinehistory/edit/:id" element={<EditFormMesin />} />
+        <Route path="/inventory" element={<InventoryDashboard />} />
+        <Route path="/assets" element={<Assets />} />
+        <Route path="/reports" element={<ReportsDashboard />} />
+        <Route path="/team" element={<TeamDashboard />} />
+        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/settings/change-password" element={<ChangePasswordPage />} />
+        <Route path="/permissions" element={<PermissionsPage />} />
+        <Route path="/permissions/adduser" element={<AddUserPage />} />
       </Route>
 
       <Route path="/terms" element={<TermsAndConditions />} />
