@@ -771,10 +771,11 @@ const PermissionsPage: React.FC = () => {
                             className={`p-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 ${darkMode ? "bg-gray-800" : "bg-white"}`}
                           >
                             {perms.map((permission) => {
-                              const roleHasPermission = editingUser.roles.some((roleId) => {
-                                const role = roles.find((r) => r.id === roleId);
-                                return role?.permissions.includes(permission);
-                              });
+                              const roleHasPermission =
+                                editingUser?.roles?.some((roleId) => {
+                                  const role = roles.find((r) => r.id === roleId);
+                                  return role?.permissions?.includes(permission);
+                                }) || false;
                               const userHasPermission = editingUser.permissions?.includes(permission) || false;
                               const isDisabled = roleHasPermission;
 
@@ -787,7 +788,7 @@ const PermissionsPage: React.FC = () => {
                                     onChange={() => !isDisabled && handleUserPermissionToggle(permission)}
                                     disabled={isDisabled}
                                     className={`h-4 w-4 rounded focus:ring-blue-500 
-                                      ${roleHasPermission ? (darkMode ? "text-purple-400 bg-gray-700 border-gray-600" : "text-purple-600") : darkMode ? "text-blue-400 bg-gray-700 border-gray-600" : "text-blue-600"}`}
+    ${roleHasPermission ? (darkMode ? "text-purple-400 bg-gray-700 border-gray-600" : "text-purple-600") : darkMode ? "text-blue-400 bg-gray-700 border-gray-600" : "text-blue-600"}`}
                                   />
                                   <label htmlFor={`user-perm-${permission}`} className={`ml-2 text-sm ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
                                     <div className="font-medium flex items-center">
