@@ -9,7 +9,7 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import Logout from "./pages/Logout";
 import Assets from "./pages/Assets";
 import WorkOrdersDashboard from "./pages/WorkOrders";
-import WorkOrdersDashboard2 from "./component/WorkOrders/WorkOrdersDashboard2";
+// import WorkOrdersDashboard2 from "./component/WorkOrders/WorkOrdersDashboard2";
 import InventoryDashboard from "./pages/Inventory";
 import ReportsDashboard from "./pages/Reports";
 import TeamDashboard from "./pages/Teams";
@@ -17,11 +17,11 @@ import SettingsPage from "./pages/Settings";
 import MachineHistoryDashboard from "./pages/Maintenance";
 import FormMesin from "./component/MachineHistory/FormMesin";
 // import FormWorkOrders from "./component/WorkOrders/FormWO";
-import WorkOrders from "./component/WorkOrders/WorkOrdersDashboard2";
 import MachineHistoryForm from "./component/MachineHistory/EditFormMesin";
 import EditFormMesin from "./component/MachineHistory/EditFormMesin";
 import PermissionsPage from "./pages/Permission";
 import ChangePasswordPage from "./pages/ChangePassword";
+import AddUserPage from "./pages/AddUserPage";
 
 // const envVariables = getProjectEnvVariables();
 
@@ -48,6 +48,7 @@ function App() {
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/settings/change-password" element={<ChangePasswordPage />} />
         <Route path="/permissions" element={<PermissionsPage />} />
+        <Route path="/permissions/adduser" element={<AddUserPage />} />
       </Route>
 
       <Route path="/terms" element={<TermsAndConditions />} />

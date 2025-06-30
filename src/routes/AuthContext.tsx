@@ -2,18 +2,32 @@ import { createContext, useContext, useState, useEffect, useCallback } from "rea
 import { useNavigate } from "react-router-dom";
 import { getProjectEnvVariables } from "../shared/projectEnvVariables";
 
-type UserRole = "customer" | "helpdesk" | "technician" | "supervisor" | "vendor" | "admin";
+export type PermissionName =
+  | "view_dashboard"
+  | "edit_dashboard"
+  | "view_assets"
+  | "create_assets"
+  | "edit_assets"
+  | "delete_assets"
+  | "view_workorders"
+  | "create_workorders"
+  | "assign_workorders"
+  | "complete_workorders"
+  | "view_reports"
+  | "export_reports"
+  | "view_settings"
+  | "edit_settings"
+  | "view_permissions"
+  | "edit_permissions"
+  | "manage_users";
 
 export interface User {
   id: string;
   name: string;
   email: string;
-  phone: string;
-  mobile: string;
-  role: UserRole;
-  roles: { id: number; name: string }[];
-  avatar: string;
-  department: string;
+  roles: string[];
+  permissions?: PermissionName[];
+  department: string | null;
 }
 
 export interface Mesin {
@@ -198,6 +212,8 @@ interface AuthContextType {
   updateWorkOrder: (id: string | number, data: WorkOrderFormData) => Promise<WorkOrder>;
   deleteWorkOrder: (id: string | number) => Promise<any>;
   changePassword: (oldPassword: string, newPassword: string) => Promise<void>;
+  fetchUser: () => Promise<User>;
+  getUsers: () => Promise<User[]>;
 }
 
 const projectEnvVariables = getProjectEnvVariables();
@@ -232,6 +248,34 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setIsMasterDataLoading(false);
     }
   }, []);
+
+  const logout = useCallback(async () => {
+    setIsLoggingOut(true);
+    try {
+      if (token) {
+        const logoutHeaders: Record<string, string> = {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        };
+
+        await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/logout`, {
+          method: "POST",
+          headers: logoutHeaders,
+        });
+      }
+    } catch (error) {
+      console.error("Error API logout:", error);
+    } finally {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      setToken(null);
+      setUser(null);
+      setMasterData(null);
+      setIsMasterDataLoading(false);
+      setIsLoggingOut(false);
+      navigate("/login");
+    }
+  }, [token, navigate]);
 
   const fetchWithAuth = useCallback(
     async (url: string, options: RequestInit = {}) => {
@@ -272,8 +316,51 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       return response.json();
     },
-    [token, navigate]
+    [token, navigate, logout]
   );
+
+  const fetchUser = useCallback(async (): Promise<User> => {
+    try {
+      const userData = await fetchWithAuth("/user");
+      const mappedUser: User = {
+        id: String(userData.id),
+        name: userData.name,
+        email: userData.email,
+        roles: userData.roles,
+        permissions: userData.permissions,
+        department: userData.department,
+      };
+      setUser(mappedUser);
+      localStorage.setItem("user", JSON.stringify(mappedUser));
+      return mappedUser;
+    } catch (error) {
+      console.error("Gagal mengambil data user:", error);
+      await logout();
+      throw error;
+    }
+  }, [fetchWithAuth, logout]);
+
+  const getUsers = useCallback(async (): Promise<User[]> => {
+    try {
+      const response = await fetchWithAuth("/users");
+
+      if (response && Array.isArray(response.data)) {
+        return response.data.map((apiUser: any) => ({
+          id: String(apiUser.id),
+          name: apiUser.name,
+          email: apiUser.email,
+          roles: apiUser.roles,
+          permissions: apiUser.permissions,
+          department: apiUser.department,
+        }));
+      }
+      console.error("Format respons untuk daftar pengguna tidak valid:", response);
+      return [];
+    } catch (error) {
+      console.error("Gagal mengambil daftar pengguna:", error);
+      throw error;
+    }
+  }, [fetchWithAuth]);
 
   const getAllMasterData = useCallback(async (): Promise<AllMasterData> => {
     try {
@@ -396,34 +483,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       throw error;
     }
   };
-
-  const logout = useCallback(async () => {
-    setIsLoggingOut(true);
-    try {
-      if (token) {
-        const logoutHeaders: Record<string, string> = {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        };
-
-        await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/logout`, {
-          method: "POST",
-          headers: logoutHeaders,
-        });
-      }
-    } catch (error) {
-      console.error("Error API logout:", error);
-    } finally {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      setToken(null);
-      setUser(null);
-      setMasterData(null);
-      setIsMasterDataLoading(false);
-      setIsLoggingOut(false);
-      navigate("/login");
-    }
-  }, [token, navigate]);
 
   const submitMachineHistory = useCallback(
     async (data: MachineHistoryFormData) => {
@@ -594,22 +653,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     async (oldPassword: string, newPassword: string) => {
       try {
         const response = await fetchWithAuth("/user/password-update", {
-          method: "POST", 
+          method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            current_password: oldPassword, // <<< Make sure these match your backend' s expected field names
+            current_password: oldPassword,
             new_password: newPassword,
-            new_password_confirmation: newPassword, // Often required by Laravel for confirmation
+            new_password_confirmation: newPassword,
           }),
         });
 
         console.log("Password changed successfully:", response);
-        // No need to return anything specific if success is handled by not throwing an error
       } catch (error: any) {
         console.error("Failed to change password:", error);
-        // Re-throw the error so the component can catch it and display a message
         throw new Error(error.message || "An unexpected error occurred during password change.");
       }
     },
@@ -641,6 +698,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         updateWorkOrder,
         deleteWorkOrder,
         changePassword,
+        fetchUser,
+        getUsers,
       }}
     >
       {children}
