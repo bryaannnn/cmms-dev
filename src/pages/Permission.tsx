@@ -661,19 +661,19 @@ const PermissionsPage: React.FC = () => {
                                 <span
                                   key={role}
                                   className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-            ${
-              role === "superadmin"
-                ? darkMode
-                  ? "bg-purple-900 text-purple-300"
-                  : "bg-purple-100 text-purple-800"
-                : role === "admin"
-                ? darkMode
-                  ? "bg-green-900 text-green-300"
-                  : "bg-green-100 text-green-800"
-                : darkMode
-                ? "bg-blue-900 text-blue-300"
-                : "bg-blue-100 text-blue-800"
-            }`}
+        ${
+          role === "superadmin"
+            ? darkMode
+              ? "bg-purple-900 text-purple-300"
+              : "bg-purple-100 text-purple-800"
+            : role === "admin"
+            ? darkMode
+              ? "bg-green-900 text-green-300"
+              : "bg-green-100 text-green-800"
+            : darkMode
+            ? "bg-blue-900 text-blue-300"
+            : "bg-blue-100 text-blue-800"
+        }`}
                                 >
                                   {role}
                                 </span>
