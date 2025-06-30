@@ -25,9 +25,23 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  roles: string[];
+  email_verified_at: string | null;
+  created_at: string;
+  updated_at: string;
+  roles: {
+    id: number;
+    name: string;
+    guard_name: string;
+    created_at: string;
+    updated_at: string;
+    pivot: {
+      model_type: string;
+      model_id: number;
+      role_id: number;
+    };
+  }[];
   permissions?: PermissionName[];
-  department: string | null;
+  department?: string | null; // Opsional jika tidak ada di backend
 }
 
 export interface Mesin {
@@ -326,6 +340,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         id: String(userData.id),
         name: userData.name,
         email: userData.email,
+        email_verified_at: userData.email_verifed_at,
+        created_at: userData.created_at,
+        updated_at: userData.update_at,
         roles: userData.roles,
         permissions: userData.permissions,
         department: userData.department,
@@ -349,7 +366,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           id: String(apiUser.id),
           name: apiUser.name,
           email: apiUser.email,
-          roles: apiUser.roles, 
+          roles: apiUser.roles,
           permissions: apiUser.permissions,
           department: apiUser.department,
         }));

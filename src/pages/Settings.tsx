@@ -216,7 +216,7 @@ const SettingsPage: React.FC = () => {
               <NavItem icon={<FiBarChart2 />} text="Reports" to="/reports" expanded={sidebarOpen} />
               <NavItem icon={<FiUsers />} text="Team" to="/team" expanded={sidebarOpen} />
               <NavItem icon={<FiSettings />} text="Settings" to="/settings" expanded={sidebarOpen} />
-              
+              {user?.roles.some((role) => role.name === "admin") && <NavItem icon={<FiKey />} text="Permissions" to="/permissions" expanded={sidebarOpen} />}
               {/* {user?.roles.some((role) => role === "admin") && <NavItem icon={<FiKey />} text="Permissions" to="/permissions" expanded={sidebarOpen} />} */}
             </nav>
 
@@ -226,7 +226,7 @@ const SettingsPage: React.FC = () => {
                 {sidebarOpen && (
                   <div>
                     <p className="font-medium text-gray-900">{user?.name}</p>
-                    <p className="text-sm text-gray-600">{user?.roles?.[0]}</p>
+                    <p className="text-sm text-gray-600">{user?.roles?.[0]?.name}</p>
                   </div>
                 )}
               </div>
@@ -351,7 +351,7 @@ const SettingsPage: React.FC = () => {
                       <>
                         <SettingItem label="Name" value={user?.name} onEdit={() => setIsEditing(true)} />
                         <SettingItem label="Email" value={user?.email} onEdit={() => setIsEditing(true)} />
-                        <SettingItem label="Role" value={user?.roles?.[0]} editable={false} />
+                        <SettingItem label="Role" value={user?.roles?.[0]?.name} editable={false} />
                         <SettingItem label="Member since" value="none" editable={false} />
                       </>
                     )}

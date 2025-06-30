@@ -819,7 +819,7 @@ const AssetsDashboard: React.FC = () => {
                 {sidebarOpen && (
                   <div>
                     <p className="font-medium text-gray-900">{user?.name}</p>
-                    <p className="text-sm text-gray-600">{user?.roles?.[0]}</p>
+                    <p className="text-sm text-gray-600">{user?.roles?.[0]?.name}</p>
                   </div>
                 )}
               </div>
