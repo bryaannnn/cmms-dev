@@ -34,7 +34,7 @@ import {
   FiKey,
 } from "react-icons/fi";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useAuth } from "../routes/AuthContext";
+import { useAuth, PermissionName } from "../routes/AuthContext";
 import logoWida from "../assets/logo-wida.png";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -853,6 +853,10 @@ const WorkOrdersDashboard: React.FC = () => {
   const [hasInteracted, setHasInteracted] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
+  const hasPermission = (permission: PermissionName): boolean => {
+    return user?.permissions?.includes(permission) || false;
+  };
+
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768);
@@ -1306,7 +1310,8 @@ const WorkOrdersDashboard: React.FC = () => {
               <NavItem icon={<FiBarChart2 />} text="Reports" to="/reports" expanded={sidebarOpen} />
               <NavItem icon={<FiUsers />} text="Team" to="/team" expanded={sidebarOpen} />
               <NavItem icon={<FiSettings />} text="Settings" to="/settings" expanded={sidebarOpen} />
-              {user?.roles.some((role) => role === "admin") && <NavItem icon={<FiKey />} text="Permissions" to="/permissions" expanded={sidebarOpen} />}
+              {hasPermission("manage_users") && <NavItem icon={<FiKey />} text="Permissions" to="/permissions" expanded={sidebarOpen} />}
+              {/* {user?.roles.some((role) => role === "admin") && <NavItem icon={<FiKey />} text="Permissions" to="/permissions" expanded={sidebarOpen} />} */}
             </nav>
 
             <div className="p-4 border-t border-blue-100">

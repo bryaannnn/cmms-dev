@@ -31,7 +31,7 @@ import {
   FiKey,
 } from "react-icons/fi";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useAuth, MachineHistoryRecord, MachineHistoryFormData } from "../routes/AuthContext";
+import { useAuth, MachineHistoryRecord, MachineHistoryFormData, PermissionName } from "../routes/AuthContext";
 import logoWida from "../assets/logo-wida.png";
 import { motion, AnimatePresence } from "framer-motion";
 import EditHistoryForm from "../component/MachineHistory/EditFormMesin";
@@ -330,6 +330,10 @@ const MachineHistoryDashboard: React.FC = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [recordToDelete, setRecordToDelete] = useState<string | null>(null);
 
+  const hasPermission = (permission: PermissionName): boolean => {
+    return user?.permissions?.includes(permission) || false;
+  };
+
   const getDisplayValue = (value: any): string => {
     if (typeof value === "object" && value !== null) {
       return value.name || value.toString();
@@ -532,7 +536,8 @@ const MachineHistoryDashboard: React.FC = () => {
               <NavItem icon={<FiBarChart2 />} text="Reports" to="/reports" expanded={sidebarOpen} />
               <NavItem icon={<FiUsers />} text="Team" to="/team" expanded={sidebarOpen} />
               <NavItem icon={<FiSettings />} text="Settings" to="/settings" expanded={sidebarOpen} />
-              {user?.roles.some((role) => role === "admin") && <NavItem icon={<FiKey />} text="Permissions" to="/permissions" expanded={sidebarOpen} />}
+              {hasPermission("manage_users") && <NavItem icon={<FiKey />} text="Permissions" to="/permissions" expanded={sidebarOpen} />}
+              {/* {user?.roles.some((role) => role === "admin") && <NavItem icon={<FiKey />} text="Permissions" to="/permissions" expanded={sidebarOpen} />} */}
             </nav>
 
             <div className="p-4 border-t border-blue-100">
