@@ -349,7 +349,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           id: String(apiUser.id),
           name: apiUser.name,
           email: apiUser.email,
-          roles: apiUser.roles, 
+          roles: apiUser.roles,
           permissions: apiUser.permissions,
           department: apiUser.department,
         }));
@@ -425,19 +425,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         body: JSON.stringify({ name, email, password }),
       });
 
+      const contentType = response.headers.get("content-type");
+      if (!contentType?.includes("application/json")) {
+        const text = await response.text();
+        throw new Error(`Expected JSON but got: ${text.substring(0, Math.min(text.length, 50))}...`);
+      }
+
       const data = await response.json();
-      if (!response.ok) throw new Error(data.message || "Pendaftaran gagal");
 
-      if (data.token) {
-        localStorage.setItem("token", data.token);
+      if (!response.ok) {
+        throw new Error(data.message || "Pendaftaran gagal");
+      }
+
+      if (data.token && data.user) {
         setToken(data.token);
-
-        const freshUser = await fetchUser();
-        setUser(freshUser);
-
+        localStorage.setItem("token", data.token);
+        setUser(data.user);
+        localStorage.setItem("user", JSON.stringify(data.user));
         navigate("/dashboard");
       } else {
-        throw new Error("Token tidak diterima setelah pendaftaran.");
+        throw new Error("Token atau data user tidak diterima setelah pendaftaran.");
       }
     } catch (error) {
       console.error("Error pendaftaran:", error);
@@ -455,19 +462,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || "Login gagal");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Login gagal");
+      }
 
-      if (data.token) {
+      const data = await response.json();
+
+      if (data.token && data.user) {
         localStorage.setItem("token", data.token);
         setToken(data.token);
-
-        const freshUser = await fetchUser();
-        setUser(freshUser);
-
+        localStorage.setItem("user", JSON.stringify(data.user));
+        setUser(data.user);
         navigate("/dashboard");
       } else {
-        throw new Error("Token tidak diterima setelah login.");
+        throw new Error("Token atau data user tidak diterima setelah login.");
       }
     } catch (error) {
       console.error("Error login:", error);
