@@ -25,23 +25,11 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  email_verified_at: string | null;
-  created_at: string;
-  updated_at: string;
-  roles: {
-    id: number;
-    name: string;
-    guard_name: string;
-    created_at: string;
-    updated_at: string;
-    pivot: {
-      model_type: string;
-      model_id: number;
-      role_id: number;
-    };
-  }[];
-  permissions?: PermissionName[];
-  department?: string | null; // Opsional jika tidak ada di backend
+  roleId?: string; // Dari endpoint /users
+  roles?: string[]; // Dari endpoint /user
+  customPermissions?: string[]; // Dari endpoint /users
+  permissions?: PermissionName[]; // Dari endpoint /user
+  department?: string | null;
 }
 
 export interface Mesin {
@@ -232,6 +220,18 @@ interface AuthContextType {
 
 const projectEnvVariables = getProjectEnvVariables();
 const AuthContext = createContext<AuthContextType | null>(null);
+const mapApiToUser = (apiUser: any): User => {
+  return {
+    id: String(apiUser.id),
+    name: apiUser.name,
+    email: apiUser.email,
+    roleId: apiUser.roleId,
+    roles: apiUser.roles || [],
+    customPermissions: apiUser.customPermissions || [],
+    permissions: apiUser.permissions || [],
+    department: apiUser.department || null,
+  };
+};
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -340,18 +340,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         id: String(userData.id),
         name: userData.name,
         email: userData.email,
-        email_verified_at: userData.email_verifed_at,
-        created_at: userData.created_at,
-        updated_at: userData.update_at,
-        roles: userData.roles,
-        permissions: userData.permissions,
-        department: userData.department,
+        roles: userData.roles, // Directly use the string array
+        permissions: userData.permissions || [],
       };
       setUser(mappedUser);
       localStorage.setItem("user", JSON.stringify(mappedUser));
       return mappedUser;
     } catch (error) {
-      console.error("Gagal mengambil data user:", error);
+      console.error("Failed to fetch user:", error);
       await logout();
       throw error;
     }
@@ -360,21 +356,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const getUsers = useCallback(async (): Promise<User[]> => {
     try {
       const response = await fetchWithAuth("/users");
-
-      if (response && Array.isArray(response.data)) {
-        return response.data.map((apiUser: any) => ({
-          id: String(apiUser.id),
-          name: apiUser.name,
-          email: apiUser.email,
-          roles: apiUser.roles,
-          permissions: apiUser.permissions,
-          department: apiUser.department,
-        }));
-      }
-      console.error("Format respons untuk daftar pengguna tidak valid:", response);
-      return [];
+      return response.map((apiUser: any) => mapApiToUser(apiUser));
     } catch (error) {
-      console.error("Gagal mengambil daftar pengguna:", error);
+      console.error("Failed to fetch users:", error);
       throw error;
     }
   }, [fetchWithAuth]);

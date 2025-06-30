@@ -808,7 +808,21 @@ const InventoryDashboard: React.FC = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   const hasPermission = (permission: PermissionName): boolean => {
-    return user?.permissions?.includes(permission) || false;
+    // Untuk user yang sedang login (dari endpoint /user)
+    if (user?.permissions?.includes(permission)) return true;
+
+    // Untuk user lain (dari endpoint /users)
+    // Di sini Anda perlu logika tambahan untuk mengecek:
+    // 1. Permission dari roleId
+    // 2. customPermissions
+
+    // Contoh sederhana (sesuaikan dengan kebutuhan Anda):
+    if (user?.roles?.includes("superadmin")) return true;
+    if (user?.roles?.includes("admin") && !["edit_permissions", "delete_users"].includes(permission)) {
+      return true;
+    }
+
+    return false;
   };
 
   useEffect(() => {
@@ -1148,8 +1162,8 @@ const InventoryDashboard: React.FC = () => {
               <NavItem icon={<FiBarChart2 />} text="Reports" to="/reports" expanded={sidebarOpen} />
               <NavItem icon={<FiUsers />} text="Team" to="/team" expanded={sidebarOpen} />
               <NavItem icon={<FiSettings />} text="Settings" to="/settings" expanded={sidebarOpen} />
-              {/* {hasPermission("manage_users") && <NavItem icon={<FiKey />} text="Permissions" to="/permissions" expanded={sidebarOpen} />} */}
-              {user?.roles.some((role) => role.name === "admin") && <NavItem icon={<FiKey />} text="Permissions" to="/permissions" expanded={sidebarOpen} />}
+              {hasPermission("manage_users") && <NavItem icon={<FiKey />} text="Permissions" to="/permissions" expanded={sidebarOpen} />}
+              {/* {user?.roles.some((role) => role.name === "admin") && <NavItem icon={<FiKey />} text="Permissions" to="/permissions" expanded={sidebarOpen} />} */}
             </nav>
 
             <div className="p-4 border-t border-blue-100">
@@ -1158,7 +1172,7 @@ const InventoryDashboard: React.FC = () => {
                 {sidebarOpen && (
                   <div>
                     <p className="font-medium text-gray-900">{user?.name}</p>
-                    <p className="text-sm text-gray-600">{user?.roles?.[0]?.name}</p>
+                    <p className="text-sm text-gray-600">{user?.roles?.[0]}</p>
                   </div>
                 )}
               </div>

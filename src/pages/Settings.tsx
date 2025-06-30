@@ -26,7 +26,7 @@ import {
   FiKey,
 } from "react-icons/fi";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useAuth } from "../routes/AuthContext";
+import { useAuth, PermissionName } from "../routes/AuthContext";
 import logoWida from "../assets/logo-wida.png";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -70,6 +70,25 @@ const SettingsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState("profile");
   const [isEditing, setIsEditing] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+
+  const hasPermission = (permission: PermissionName): boolean => {
+    // Untuk user yang sedang login (dari endpoint /user)
+    if (user?.permissions?.includes(permission)) return true;
+
+    // Untuk user lain (dari endpoint /users)
+    // Di sini Anda perlu logika tambahan untuk mengecek:
+    // 1. Permission dari roleId
+    // 2. customPermissions
+
+    // Contoh sederhana (sesuaikan dengan kebutuhan Anda):
+    if (user?.roles?.includes("superadmin")) return true;
+    if (user?.roles?.includes("admin") && !["edit_permissions", "delete_users"].includes(permission)) {
+      return true;
+    }
+
+    return false;
+  };
+
   const [formData, setFormData] = useState({
     name: "Admin User",
     email: "admin@company.com",
@@ -216,7 +235,7 @@ const SettingsPage: React.FC = () => {
               <NavItem icon={<FiBarChart2 />} text="Reports" to="/reports" expanded={sidebarOpen} />
               <NavItem icon={<FiUsers />} text="Team" to="/team" expanded={sidebarOpen} />
               <NavItem icon={<FiSettings />} text="Settings" to="/settings" expanded={sidebarOpen} />
-              {user?.roles.some((role) => role.name === "admin") && <NavItem icon={<FiKey />} text="Permissions" to="/permissions" expanded={sidebarOpen} />}
+              {hasPermission("manage_users") && <NavItem icon={<FiKey />} text="Permissions" to="/permissions" expanded={sidebarOpen} />}
               {/* {user?.roles.some((role) => role === "admin") && <NavItem icon={<FiKey />} text="Permissions" to="/permissions" expanded={sidebarOpen} />} */}
             </nav>
 
@@ -226,7 +245,7 @@ const SettingsPage: React.FC = () => {
                 {sidebarOpen && (
                   <div>
                     <p className="font-medium text-gray-900">{user?.name}</p>
-                    <p className="text-sm text-gray-600">{user?.roles?.[0]?.name}</p>
+                    <p className="text-sm text-gray-600">{user?.roles?.[0]}</p>
                   </div>
                 )}
               </div>
@@ -351,7 +370,7 @@ const SettingsPage: React.FC = () => {
                       <>
                         <SettingItem label="Name" value={user?.name} onEdit={() => setIsEditing(true)} />
                         <SettingItem label="Email" value={user?.email} onEdit={() => setIsEditing(true)} />
-                        <SettingItem label="Role" value={user?.roles?.[0]?.name} editable={false} />
+                        <SettingItem label="Role" value={user?.roles?.[0]} editable={false} />
                         <SettingItem label="Member since" value="none" editable={false} />
                       </>
                     )}

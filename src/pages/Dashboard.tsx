@@ -95,7 +95,21 @@ const Dashboard: React.FC = () => {
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
 
   const hasPermission = (permission: PermissionName): boolean => {
-    return user?.permissions?.includes(permission) || false;
+    // Untuk user yang sedang login (dari endpoint /user)
+    if (user?.permissions?.includes(permission)) return true;
+
+    // Untuk user lain (dari endpoint /users)
+    // Di sini Anda perlu logika tambahan untuk mengecek:
+    // 1. Permission dari roleId
+    // 2. customPermissions
+
+    // Contoh sederhana (sesuaikan dengan kebutuhan Anda):
+    if (user?.roles?.includes("superadmin")) return true;
+    if (user?.roles?.includes("admin") && !["edit_permissions", "delete_users"].includes(permission)) {
+      return true;
+    }
+
+    return false;
   };
 
   useEffect(() => {
@@ -260,8 +274,8 @@ const Dashboard: React.FC = () => {
               <NavItem icon={<FiBarChart2 />} text="Reports" to="/reports" expanded={sidebarOpen} />
               <NavItem icon={<FiUsers />} text="Team" to="/team" expanded={sidebarOpen} />
               <NavItem icon={<FiSettings />} text="Settings" to="/settings" expanded={sidebarOpen} />
-              {/* {hasPermission("manage_users") && <NavItem icon={<FiKey />} text="Permissions" to="/permissions" expanded={sidebarOpen} />} */}
-              {user?.roles.some((role) => role.name === "admin") && <NavItem icon={<FiKey />} text="Permissions" to="/permissions" expanded={sidebarOpen} />}
+              {hasPermission("manage_users") && <NavItem icon={<FiKey />} text="Permissions" to="/permissions" expanded={sidebarOpen} />}
+              {/* {user?.roles.some((role) => role.name === "admin") && <NavItem icon={<FiKey />} text="Permissions" to="/permissions" expanded={sidebarOpen} />} */}
             </nav>
 
             <div className="p-4 border-t border-blue-100">
@@ -270,7 +284,7 @@ const Dashboard: React.FC = () => {
                 {sidebarOpen && (
                   <div>
                     <p className="font-medium text-gray-900">{user?.name}</p>
-                    <p className="text-sm text-gray-600">{user?.roles?.[0]?.name}</p>
+                    <p className="text-sm text-gray-600">{user?.roles?.[0]}</p>
                   </div>
                 )}
               </div>
@@ -338,7 +352,7 @@ const Dashboard: React.FC = () => {
             transition={{ duration: 0.5 }}
             className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-xl p-6 text-white mb-6 shadow-lg hover:shadow-xl transition-all duration-300"
           >
-            <h1 className="text-xl md:text-2xl font-bold mb-2">Welcome back, {user?.name || user?.roles?.[0]?.name}!</h1>
+            <h1 className="text-xl md:text-2xl font-bold mb-2">Welcome back, {user?.name || user?.roles?.[0]}!</h1>
             <p className="opacity-90">Here's what's happening with your assets today</p>
           </motion.div>
 
