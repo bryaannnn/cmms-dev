@@ -12,8 +12,6 @@ import {
   FiChevronUp,
   FiPlus,
   FiCheck,
-  FiLock,
-  FiUnlock,
   FiChevronLeft,
   FiChevronRight,
   FiHome,
@@ -122,7 +120,7 @@ const PermissionsPage: React.FC = () => {
       try {
         setIsLoading(true);
         const fetchedUsers = await getUsers();
-        setUsers(fetchedUsers);
+        setUsers(fetchedUsers || []);
       } catch (error) {
         console.error("Failed to fetch users:", error);
       } finally {
@@ -151,7 +149,7 @@ const PermissionsPage: React.FC = () => {
   const handleRolePermissionToggle = (permissionId: PermissionName) => {
     if (!editingRole) return;
 
-    setEditingRole((prev: Role | null) => {
+    setEditingRole((prev) => {
       if (!prev) return null;
       const newPermissions = prev.permissions.includes(permissionId) ? prev.permissions.filter((id) => id !== permissionId) : [...prev.permissions, permissionId];
       return { ...prev, permissions: newPermissions };
@@ -161,11 +159,10 @@ const PermissionsPage: React.FC = () => {
   const handleUserPermissionToggle = (permissionId: PermissionName) => {
     if (!editingUser) return;
 
-    setEditingUser((prev: User | null) => {
+    setEditingUser((prev) => {
       if (!prev) return null;
       const currentPermissions = prev.permissions || [];
       const newPermissions = currentPermissions.includes(permissionId) ? currentPermissions.filter((id) => id !== permissionId) : [...currentPermissions, permissionId];
-
       return { ...prev, permissions: newPermissions };
     });
   };
@@ -181,7 +178,6 @@ const PermissionsPage: React.FC = () => {
         const newId = `role-${Date.now()}`;
         setRoles((prev) => [...prev, { ...editingRole, id: newId }]);
       }
-
       setEditingRole(null);
       setShowNewRoleForm(false);
     } catch (error) {
@@ -202,13 +198,13 @@ const PermissionsPage: React.FC = () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          permissions: editingUser.permissions,
-          roles: editingUser.roles,
+          permissions: editingUser.permissions || [],
+          roles: editingUser.roles || [],
         }),
       });
 
       const fetchedUsers = await getUsers();
-      setUsers(fetchedUsers);
+      setUsers(fetchedUsers || []);
       setEditingUser(null);
     } catch (error) {
       console.error("Failed to save user:", error);
@@ -218,9 +214,7 @@ const PermissionsPage: React.FC = () => {
   };
 
   const deleteRole = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this role? Users with this role will be left without a role.")) {
-      return;
-    }
+    if (!window.confirm("Are you sure you want to delete this role?")) return;
 
     try {
       setIsLoading(true);
@@ -233,9 +227,7 @@ const PermissionsPage: React.FC = () => {
   };
 
   const deleteUser = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this user?")) {
-      return;
-    }
+    if (!window.confirm("Are you sure you want to delete this user?")) return;
 
     try {
       setIsLoading(true);
@@ -243,7 +235,7 @@ const PermissionsPage: React.FC = () => {
         method: "DELETE",
       });
       const fetchedUsers = await getUsers();
-      setUsers(fetchedUsers);
+      setUsers(fetchedUsers || []);
     } catch (error) {
       console.error("Failed to delete user:", error);
     } finally {
@@ -258,10 +250,46 @@ const PermissionsPage: React.FC = () => {
 
   const uniqueDepartments = ["all", ...Array.from(new Set(users.map((u) => u.department || "").filter(Boolean)))];
 
-  const filteredUsers =
-    departmentFilter === "all"
-      ? users.filter((user) => user.name.toLowerCase().includes(searchQuery.toLowerCase()) || user.email.toLowerCase().includes(searchQuery.toLowerCase()))
-      : users.filter((u) => u.department === departmentFilter && (u.name.toLowerCase().includes(searchQuery.toLowerCase()) || u.email.toLowerCase().includes(searchQuery.toLowerCase())));
+  const filteredUsers = users
+    .filter((user) => departmentFilter === "all" || user.department === departmentFilter)
+    .filter((user) => user.name.toLowerCase().includes(searchQuery.toLowerCase()) || user.email.toLowerCase().includes(searchQuery.toLowerCase()));
+
+  const NavItem: React.FC<{
+    icon: React.ReactNode;
+    text: string;
+    to: string;
+    expanded: boolean;
+  }> = ({ icon, text, to, expanded }) => {
+    const navigate = useNavigate();
+    const location = useLocation();
+    const active = location.pathname === to;
+
+    return (
+      <motion.button
+        onClick={() => navigate(to)}
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        className={`w-full text-left flex items-center p-2 rounded-lg transition-all duration-200
+          ${active ? "bg-blue-50 text-blue-700 font-semibold" : "hover:bg-blue-50 text-gray-700"}
+        `}
+      >
+        <span className="text-xl">{icon}</span>
+        {expanded && (
+          <motion.span initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="ml-3 text-base">
+            {text}
+          </motion.span>
+        )}
+      </motion.button>
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <div className={`flex items-center justify-center h-screen ${darkMode ? "bg-gray-900" : "bg-gray-50"}`}>
+        <div className="text-xl">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <div className={`flex h-screen font-sans ${darkMode ? "bg-gray-900 text-gray-100" : "bg-gray-50 text-gray-900"}`}>
