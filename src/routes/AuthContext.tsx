@@ -2,6 +2,34 @@ import { createContext, useContext, useState, useEffect, useCallback } from "rea
 import { useNavigate } from "react-router-dom";
 import { getProjectEnvVariables } from "../shared/projectEnvVariables";
 
+// Tambahkan di bagian atas file AuthContext.tsx
+export const roleMapping: Record<string, { name: string; isITRole: boolean }> = {
+  "1": { name: "Admin", isITRole: true },
+  "2": { name: "Technician", isITRole: false },
+  "3": { name: "Superadmin", isITRole: true },
+  "4": { name: "Customer", isITRole: false },
+};
+
+export const permissionMapping: Record<string, PermissionName> = {
+  "1": "view_dashboard",
+  "2": "edit_dashboard",
+  "3": "view_assets",
+  "4": "create_assets",
+  "5": "edit_assets",
+  "6": "delete_assets",
+  "7": "view_workorders",
+  "8": "create_workorders",
+  "9": "assign_workorders",
+  "10": "complete_workorders",
+  "11": "view_reports",
+  "12": "export_reports",
+  "13": "view_settings",
+  "14": "edit_settings",
+  "15": "view_permissions",
+  "16": "edit_permissions",
+  "17": "manage_users",
+};
+
 export type PermissionName =
   | "view_dashboard"
   | "edit_dashboard"
@@ -221,14 +249,20 @@ interface AuthContextType {
 const projectEnvVariables = getProjectEnvVariables();
 const AuthContext = createContext<AuthContextType | null>(null);
 const mapApiToUser = (apiUser: any): User => {
+  const mappedCustomPermissions = apiUser.customPermissions
+    ? apiUser.customPermissions.map((id: string) => permissionMapping[id]).filter(Boolean) 
+    : [];
+
+  const mappedPermissions = apiUser.permissions ? apiUser.permissions.map((id: string) => permissionMapping[id]).filter(Boolean) : [];
+
   return {
     id: String(apiUser.id),
     name: apiUser.name,
     email: apiUser.email,
     roleId: apiUser.roleId,
     roles: apiUser.roles || [],
-    customPermissions: apiUser.customPermissions || [],
-    permissions: apiUser.permissions || [],
+    customPermissions: mappedCustomPermissions,
+    permissions: mappedPermissions,
     department: apiUser.department || null,
   };
 };

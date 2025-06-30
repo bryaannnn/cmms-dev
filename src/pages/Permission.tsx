@@ -50,6 +50,35 @@ const PermissionsPage: React.FC = () => {
   });
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
+  // Mapping untuk role
+  const roleMapping: Record<string, { name: string; isITRole: boolean }> = {
+    "1": { name: "Admin", isITRole: true },
+    "2": { name: "Technician", isITRole: false },
+    "3": { name: "Superadmin", isITRole: true },
+    "4": { name: "Customer", isITRole: false },
+  };
+
+  // Mapping untuk permission
+  const permissionMapping: Record<string, PermissionName> = {
+    "1": "view_dashboard",
+    "2": "edit_dashboard",
+    "3": "view_assets",
+    "4": "create_assets",
+    "5": "edit_assets",
+    "6": "delete_assets",
+    "7": "view_workorders",
+    "8": "create_workorders",
+    "9": "assign_workorders",
+    "10": "complete_workorders",
+    "11": "view_reports",
+    "12": "export_reports",
+    "13": "view_settings",
+    "14": "edit_settings",
+    "15": "view_permissions",
+    "16": "edit_permissions",
+    "17": "manage_users",
+  };
+
   const allPermissions: PermissionName[] = [
     "view_dashboard",
     "edit_dashboard",
@@ -70,12 +99,21 @@ const PermissionsPage: React.FC = () => {
     "manage_users",
   ];
 
-  const [allRoles, setAllRoles] = useState<Role[]>([
-    { id: "superadmin-role", name: "Superadmin", description: "Superadmin role", permissions: allPermissions, isITRole: true },
-    { id: "admin-role", name: "Admin", description: "Admin role", permissions: allPermissions, isITRole: true },
-    { id: "technician-role", name: "Technician", description: "Technician role", permissions: ["view_workorders", "complete_workorders"], isITRole: false },
-    { id: "customer-role", name: "Customer", description: "Customer role", permissions: ["view_workorders"], isITRole: false },
-  ]);
+  
+
+  const getRoleName = (roleId: string): string => {
+    return roleMapping[roleId]?.name || "No Role";
+  };
+
+  const [allRoles, setAllRoles] = useState<Role[]>(
+    Object.entries(roleMapping).map(([id, role]) => ({
+      id,
+      name: role.name,
+      description: `${role.name} role`,
+      permissions: [], // Akan diisi sesuai kebutuhan
+      isITRole: role.isITRole,
+    }))
+  );
 
   const permissionCategories = Array.from(new Set(allPermissions.map((p) => p.split("_")[0])));
 
@@ -192,14 +230,22 @@ const PermissionsPage: React.FC = () => {
 
     try {
       setIsLoading(true);
+
+      // Convert permission names back to IDs
+      const customPermissionIds = editingUser.customPermissions
+        ? Object.entries(permissionMapping)
+            .filter(([_, name]) => editingUser.customPermissions?.includes(name as PermissionName))
+            .map(([id]) => id)
+        : [];
+
       await fetchWithAuth(`/users/${editingUser.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          permissions: editingUser.permissions || [],
-          roles: editingUser.roles || [],
+          roleId: editingUser.roleId,
+          customPermissions: customPermissionIds,
         }),
       });
 
@@ -688,20 +734,21 @@ const PermissionsPage: React.FC = () => {
                               {userItem.roleId ? (
                                 <span
                                   className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                    ${
-                                      roles.find((r) => r.id === userItem.roleId)?.name === "Admin"
-                                        ? darkMode
-                                          ? "bg-green-900 text-green-300"
-                                          : "bg-green-100 text-green-800"
-                                        : darkMode
-                                        ? "bg-blue-900 text-blue-300"
-                                        : "bg-blue-100 text-blue-800"
-                                    }`}
+        ${roleMapping[userItem.roleId]?.isITRole ? (darkMode ? "bg-green-900 text-green-300" : "bg-green-100 text-green-800") : darkMode ? "bg-blue-900 text-blue-300" : "bg-blue-100 text-blue-800"}`}
                                 >
-                                  {roles.find((r) => r.id === userItem.roleId)?.name || "No Role"}
+                                  {getRoleName(userItem.roleId)}
                                 </span>
                               ) : (
                                 <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${darkMode ? "bg-gray-700 text-gray-300" : "bg-gray-200 text-gray-800"}`}>No Role</span>
+                              )}
+                            </td>
+
+                            {/* Untuk custom permissions */}
+                            <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>
+                              {userItem.customPermissions && userItem.customPermissions.length > 0 ? (
+                                <span className={`${darkMode ? "text-blue-400" : "text-blue-600"} font-medium`}>{userItem.customPermissions.join(", ")}</span>
+                              ) : (
+                                <span className={darkMode ? "text-gray-500" : "text-gray-400"}>None</span>
                               )}
                             </td>
                             <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>
