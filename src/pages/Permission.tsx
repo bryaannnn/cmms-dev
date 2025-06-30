@@ -290,6 +290,7 @@ const PermissionsPage: React.FC = () => {
       </div>
     );
   }
+
   return (
     <div className={`flex h-screen font-sans ${darkMode ? "bg-gray-900 text-gray-100" : "bg-gray-50 text-gray-900"}`}>
       <AnimatePresence>
@@ -340,7 +341,7 @@ const PermissionsPage: React.FC = () => {
                 {sidebarOpen && (
                   <div>
                     <p className={`font-medium ${darkMode ? "text-gray-100" : "text-gray-900"}`}>{user?.name}</p>
-                    <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>{user?.roles?.[0]}</p>
+                    <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>{user?.roleId}</p>
                   </div>
                 )}
               </div>
@@ -684,19 +685,28 @@ const PermissionsPage: React.FC = () => {
                             <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>{userItem.email}</td>
                             <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>{userItem.department || "-"}</td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              {userItem.roles?.map((role) => (
+                              {userItem.roleId ? (
                                 <span
-                                  key={role}
                                   className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                    ${role === "admin" ? (darkMode ? "bg-green-900 text-green-300" : "bg-green-100 text-green-800") : darkMode ? "bg-blue-900 text-blue-300" : "bg-blue-100 text-blue-800"}`}
+                                    ${
+                                      roles.find((r) => r.id === userItem.roleId)?.name === "Admin"
+                                        ? darkMode
+                                          ? "bg-green-900 text-green-300"
+                                          : "bg-green-100 text-green-800"
+                                        : darkMode
+                                        ? "bg-blue-900 text-blue-300"
+                                        : "bg-blue-100 text-blue-800"
+                                    }`}
                                 >
-                                  {role}
+                                  {roles.find((r) => r.id === userItem.roleId)?.name || "No Role"}
                                 </span>
-                              ))}
+                              ) : (
+                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${darkMode ? "bg-gray-700 text-gray-300" : "bg-gray-200 text-gray-800"}`}>No Role</span>
+                              )}
                             </td>
                             <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>
-                              {(userItem.permissions?.length ?? 0) > 0 ? (
-                                <span className={`${darkMode ? "text-blue-400" : "text-blue-600"} font-medium`}>{userItem.permissions?.length ?? 0} added</span>
+                              {(userItem.customPermissions?.length ?? 0) > 0 ? (
+                                <span className={`${darkMode ? "text-blue-400" : "text-blue-600"} font-medium`}>{userItem.customPermissions?.length ?? 0} added</span>
                               ) : (
                                 <span className={darkMode ? "text-gray-500" : "text-gray-400"}>None</span>
                               )}
@@ -749,18 +759,15 @@ const PermissionsPage: React.FC = () => {
                     <div className={darkMode ? "text-gray-300" : "text-gray-600"}>{editingUser.department || "-"}</div>
                   </div>
                   <div>
-                    <label className={`block text-sm font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Roles</label>
+                    <label className={`block text-sm font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Role</label>
                     <select
-                      multiple
-                      value={editingUser?.roles || []}
-                      onChange={(e) => {
-                        const selectedRoles = Array.from(e.target.selectedOptions, (option) => option.value);
-                        setEditingUser((prev) => (prev ? { ...prev, roles: selectedRoles } : null));
-                      }}
+                      value={editingUser.roleId || ""}
+                      onChange={(e) => setEditingUser((prev) => (prev ? { ...prev, roleId: e.target.value } : null))}
                       className={`w-full ${darkMode ? "bg-gray-700 border-gray-600 text-gray-100" : "border-gray-300"} border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500`}
                     >
-                      {allRoles.map((role) => (
-                        <option key={role.id} value={role.name}>
+                      <option value="">No Role</option>
+                      {roles.map((role) => (
+                        <option key={role.id} value={role.id}>
                           {role.name}
                         </option>
                       ))}
@@ -786,12 +793,8 @@ const PermissionsPage: React.FC = () => {
                             className={`p-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 ${darkMode ? "bg-gray-800" : "bg-white"}`}
                           >
                             {perms.map((permission) => {
-                              const roleHasPermission =
-                                editingUser?.roles?.some((role) => {
-                                  const foundRole = roles.find((r) => r.id === String(role));
-                                  return foundRole?.permissions?.includes(permission);
-                                }) || false;
-                              const userHasPermission = editingUser.permissions?.includes(permission) || false;
+                              const roleHasPermission = editingUser.roleId ? roles.find((r) => r.id === editingUser.roleId)?.permissions.includes(permission) || false : false;
+                              const userHasPermission = editingUser.customPermissions?.includes(permission) || false;
                               const isDisabled = roleHasPermission;
 
                               return (
