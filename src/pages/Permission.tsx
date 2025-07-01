@@ -826,9 +826,8 @@ const PermissionsPage: React.FC = () => {
                                 <span className="italic text-gray-400">No custom permissions</span>
                               )}
                             </td>
-                            {/* Only one td for actions - remove the empty one above this */}
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                              {user?.roleId === "3" || (user?.roleId === "2" && userItem.department === user.department) ? (
+                              {user?.roleId === "3" || (user?.roleId === "2" && userItem.department === user?.department) ? (
                                 <>
                                   <button onClick={() => setEditingUser(userItem)} className={`${darkMode ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-900"} mr-4`}>
                                     Edit
@@ -839,7 +838,9 @@ const PermissionsPage: React.FC = () => {
                                     </button>
                                   )}
                                 </>
-                              ) : null}
+                              ) : (
+                                <span className={`italic ${darkMode ? "text-gray-500" : "text-gray-400"}`}>No actions</span>
+                              )}
                             </td>
                           </tr>
                         ))}
