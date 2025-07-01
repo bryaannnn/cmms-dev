@@ -39,7 +39,7 @@ type Role = {
 };
 
 const PermissionsPage: React.FC = () => {
-  const { user, logout, fetchWithAuth, getUsers } = useAuth();
+  const { user, logout, fetchWithAuth, getUsers, hasPermission } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -50,7 +50,6 @@ const PermissionsPage: React.FC = () => {
   });
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
-  // Mapping untuk role
   const roleMapping: Record<string, { name: string; isITRole: boolean }> = {
     "1": { name: "Admin", isITRole: true },
     "2": { name: "Technician", isITRole: false },
@@ -58,7 +57,6 @@ const PermissionsPage: React.FC = () => {
     "4": { name: "Customer", isITRole: false },
   };
 
-  // Mapping untuk permission
   const permissionMapping: Record<string, PermissionName> = {
     "1": "view_dashboard",
     "2": "edit_dashboard",
@@ -77,29 +75,61 @@ const PermissionsPage: React.FC = () => {
     "15": "view_permissions",
     "16": "edit_permissions",
     "17": "manage_users",
+    "18": "view_inventory",
+    "19": "view_teams",
+    "20": "view_machinehistory",
+    "21": "edit_machinehistory",
+    "22": "edit_inventory",
+    "23": "edit_workorders",
+    "24": "edit_reports",
+    "25": "edit_teams",
+    "26": "create_machine_history",
+    "27": "create_inventory",
+    "28": "create_reports",
+    "29": "create_teams",
+    "30": "delete_workorders",
+    "31": "delete_machinehistory",
+    "32": "delete_inventory",
+    "33": "delete_reports",
+    "34": "delete_teams",
   };
 
   const allPermissions: PermissionName[] = [
     "view_dashboard",
-    "edit_dashboard",
     "view_assets",
-    "create_assets",
-    "edit_assets",
-    "delete_assets",
     "view_workorders",
+    "view_reports",
+    "view_permissions",
+    "view_inventory",
+    "view_teams",
+    "view_machinehistory",
+    "view_settings",
+    "edit_dashboard",
+    "edit_machinehistory",
+    "edit_inventory",
+    "edit_workorders",
+    "edit_reports",
+    "edit_teams",
+    "edit_assets",
+    "edit_permissions",
+    "edit_settings",
+    "create_assets",
     "create_workorders",
+    "create_machine_history",
+    "create_inventory",
+    "create_reports",
+    "create_teams",
+    "delete_assets",
+    "delete_workorders",
+    "delete_machinehistory",
+    "delete_inventory",
+    "delete_reports",
+    "delete_teams",
     "assign_workorders",
     "complete_workorders",
-    "view_reports",
     "export_reports",
-    "view_settings",
-    "edit_settings",
-    "view_permissions",
-    "edit_permissions",
     "manage_users",
   ];
-
-  
 
   const getRoleName = (roleId: string): string => {
     return roleMapping[roleId]?.name || "No Role";
@@ -110,7 +140,7 @@ const PermissionsPage: React.FC = () => {
       id,
       name: role.name,
       description: `${role.name} role`,
-      permissions: [], // Akan diisi sesuai kebutuhan
+      permissions: [],
       isITRole: role.isITRole,
     }))
   );
@@ -131,10 +161,6 @@ const PermissionsPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>(allRoles);
-
-  const hasPermission = (permission: PermissionName): boolean => {
-    return user?.permissions?.includes(permission) || false;
-  };
 
   const permissionsByCategory = permissionCategories.reduce<Record<string, PermissionName[]>>((acc, category) => {
     acc[category] = getPermissionsByCategory(category);
@@ -169,7 +195,7 @@ const PermissionsPage: React.FC = () => {
     if (hasPermission("manage_users")) {
       fetchUsersData();
     }
-  }, [getUsers]);
+  }, [getUsers, hasPermission]);
 
   const toggleSidebar = () => {
     const newState = !sidebarOpen;
@@ -189,7 +215,9 @@ const PermissionsPage: React.FC = () => {
 
     setEditingRole((prev) => {
       if (!prev) return null;
-      const newPermissions = prev.permissions.includes(permissionId) ? prev.permissions.filter((id) => id !== permissionId) : [...prev.permissions, permissionId];
+      const newPermissions = prev.permissions.includes(permissionId)
+        ? prev.permissions.filter((id) => id !== permissionId)
+        : [...prev.permissions, permissionId];
       return { ...prev, permissions: newPermissions };
     });
   };
@@ -200,13 +228,15 @@ const PermissionsPage: React.FC = () => {
     setEditingUser((prev) => {
       if (!prev) return null;
       const currentPermissions = prev.permissions || [];
-      const newPermissions = currentPermissions.includes(permissionId) ? currentPermissions.filter((id) => id !== permissionId) : [...currentPermissions, permissionId];
+      const newPermissions = currentPermissions.includes(permissionId)
+        ? currentPermissions.filter((id) => id !== permissionId)
+        : [...currentPermissions, permissionId];
       return { ...prev, permissions: newPermissions };
     });
   };
 
   const saveRole = async () => {
-    if (!editingRole) return;
+    if (!editingRole || !hasPermission("edit_permissions")) return;
 
     try {
       setIsLoading(true);
@@ -226,12 +256,10 @@ const PermissionsPage: React.FC = () => {
   };
 
   const saveUser = async () => {
-    if (!editingUser) return;
+    if (!editingUser || !hasPermission("manage_users")) return;
 
     try {
       setIsLoading(true);
-
-      // Convert permission names back to IDs
       const customPermissionIds = editingUser.customPermissions
         ? Object.entries(permissionMapping)
             .filter(([_, name]) => editingUser.customPermissions?.includes(name as PermissionName))
@@ -260,7 +288,7 @@ const PermissionsPage: React.FC = () => {
   };
 
   const deleteRole = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this role?")) return;
+    if (!hasPermission("manage_users") || !window.confirm("Are you sure you want to delete this role?")) return;
 
     try {
       setIsLoading(true);
@@ -273,7 +301,7 @@ const PermissionsPage: React.FC = () => {
   };
 
   const deleteUser = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this user?")) return;
+    if (!hasPermission("manage_users") || !window.confirm("Are you sure you want to delete this user?")) return;
 
     try {
       setIsLoading(true);
@@ -337,6 +365,14 @@ const PermissionsPage: React.FC = () => {
     );
   }
 
+  if (!hasPermission("view_permissions")) {
+    return (
+      <div className={`flex items-center justify-center h-screen ${darkMode ? "bg-gray-900" : "bg-gray-50"}`}>
+        <div className="text-xl">You don't have permission to access this page</div>
+      </div>
+    );
+  }
+
   return (
     <div className={`flex h-screen font-sans ${darkMode ? "bg-gray-900 text-gray-100" : "bg-gray-50 text-gray-900"}`}>
       <AnimatePresence>
@@ -370,15 +406,15 @@ const PermissionsPage: React.FC = () => {
             </div>
 
             <nav className="flex-1 p-4 space-y-2 overflow-y-auto custom-scrollbar">
-              <NavItem icon={<FiHome />} text="Dashboard" to="/dashboard" expanded={sidebarOpen} />
-              <NavItem icon={<FiPackage />} text="Assets" to="/assets" expanded={sidebarOpen} />
-              <NavItem icon={<FiClipboard />} text="Work Orders" to="/workorders" expanded={sidebarOpen} />
-              <NavItem icon={<FiClipboard />} text="Machine History" to="/machinehistory" expanded={sidebarOpen} />
-              <NavItem icon={<FiDatabase />} text="Inventory" to="/inventory" expanded={sidebarOpen} />
-              <NavItem icon={<FiBarChart2 />} text="Reports" to="/reports" expanded={sidebarOpen} />
-              <NavItem icon={<FiUsers />} text="Team" to="/team" expanded={sidebarOpen} />
-              <NavItem icon={<FiSettings />} text="Settings" to="/settings" expanded={sidebarOpen} />
-              {hasPermission("manage_users") && <NavItem icon={<FiKey />} text="Permissions" to="/permissions" expanded={sidebarOpen} />}
+              {hasPermission("view_dashboard") && <NavItem icon={<FiHome />} text="Dashboard" to="/dashboard" expanded={sidebarOpen} />}
+              {hasPermission("view_assets") && <NavItem icon={<FiPackage />} text="Assets" to="/assets" expanded={sidebarOpen} />}
+              {hasPermission("view_workorders") && <NavItem icon={<FiClipboard />} text="Work Orders" to="/workorders" expanded={sidebarOpen} />}
+              {hasPermission("view_machinehistory") && <NavItem icon={<FiClipboard />} text="Machine History" to="/machinehistory" expanded={sidebarOpen} />}
+              {hasPermission("view_inventory") && <NavItem icon={<FiDatabase />} text="Inventory" to="/inventory" expanded={sidebarOpen} />}
+              {hasPermission("view_reports") && <NavItem icon={<FiBarChart2 />} text="Reports" to="/reports" expanded={sidebarOpen} />}
+              {hasPermission("view_teams") && <NavItem icon={<FiUsers />} text="Team" to="/team" expanded={sidebarOpen} />}
+              {hasPermission("view_settings") && <NavItem icon={<FiSettings />} text="Settings" to="/settings" expanded={sidebarOpen} />}
+              {hasPermission("view_permissions") && <NavItem icon={<FiKey />} text="Permissions" to="/permissions" expanded={sidebarOpen} />}
             </nav>
 
             <div className={`p-4 ${darkMode ? "border-gray-700" : "border-blue-100"} border-t`}>
@@ -489,16 +525,18 @@ const PermissionsPage: React.FC = () => {
               <div>
                 <div className="flex justify-between items-center mb-6">
                   <h2 className={`text-xl font-semibold ${darkMode ? "text-gray-100" : "text-gray-900"}`}>Roles</h2>
-                  <button
-                    onClick={() => {
-                      setShowNewRoleForm(true);
-                      setEditingRole({ id: "", name: "", description: "", permissions: [], isITRole: false });
-                    }}
-                    className={`flex items-center px-4 py-2 ${darkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-600 hover:bg-blue-700"} text-white rounded-md`}
-                  >
-                    <FiPlus className="mr-2" />
-                    Add Role
-                  </button>
+                  {hasPermission("edit_permissions") && (
+                    <button
+                      onClick={() => {
+                        setShowNewRoleForm(true);
+                        setEditingRole({ id: "", name: "", description: "", permissions: [], isITRole: false });
+                      }}
+                      className={`flex items-center px-4 py-2 ${darkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-600 hover:bg-blue-700"} text-white rounded-md`}
+                    >
+                      <FiPlus className="mr-2" />
+                      Add Role
+                    </button>
+                  )}
                 </div>
 
                 {showNewRoleForm && (
@@ -617,17 +655,19 @@ const PermissionsPage: React.FC = () => {
                           {role.isITRole && <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">Production</span>}
                         </h3>
                         <div className="flex space-x-2">
-                          <button
-                            onClick={() => {
-                              setEditingRole(role);
-                              setShowNewRoleForm(true);
-                            }}
-                            className={`p-1 ${darkMode ? "text-gray-400 hover:text-blue-400" : "text-gray-500 hover:text-blue-600"}`}
-                            title="Edit"
-                          >
-                            <FiEdit2 />
-                          </button>
-                          {role.name !== "Superadmin" && (
+                          {hasPermission("edit_permissions") && (
+                            <button
+                              onClick={() => {
+                                setEditingRole(role);
+                                setShowNewRoleForm(true);
+                              }}
+                              className={`p-1 ${darkMode ? "text-gray-400 hover:text-blue-400" : "text-gray-500 hover:text-blue-600"}`}
+                              title="Edit"
+                            >
+                              <FiEdit2 />
+                            </button>
+                          )}
+                          {role.name !== "Superadmin" && hasPermission("manage_users") && (
                             <button onClick={() => deleteRole(role.id)} className={`p-1 ${darkMode ? "text-gray-400 hover:text-red-400" : "text-gray-500 hover:text-red-600"}`} title="Delete">
                               <FiTrash2 />
                             </button>
@@ -678,10 +718,12 @@ const PermissionsPage: React.FC = () => {
                         </option>
                       ))}
                     </select>
-                    <Link to="/permissions/adduser" className={`flex items-center px-4 py-2 ${darkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-600 hover:bg-blue-700"} text-white rounded-md`}>
-                      <FiUserPlus className="mr-2" />
-                      Add User
-                    </Link>
+                    {hasPermission("manage_users") && (
+                      <Link to="/permissions/adduser" className={`flex items-center px-4 py-2 ${darkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-600 hover:bg-blue-700"} text-white rounded-md`}>
+                        <FiUserPlus className="mr-2" />
+                        Add User
+                      </Link>
+                    )}
                   </div>
                 </div>
 
@@ -742,8 +784,6 @@ const PermissionsPage: React.FC = () => {
                                 <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${darkMode ? "bg-gray-700 text-gray-300" : "bg-gray-200 text-gray-800"}`}>No Role</span>
                               )}
                             </td>
-
-                            {/* Untuk custom permissions */}
                             <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>
                               {userItem.customPermissions && userItem.customPermissions.length > 0 ? (
                                 <span className={`${darkMode ? "text-blue-400" : "text-blue-600"} font-medium`}>{userItem.customPermissions.join(", ")}</span>
@@ -751,18 +791,13 @@ const PermissionsPage: React.FC = () => {
                                 <span className={darkMode ? "text-gray-500" : "text-gray-400"}>None</span>
                               )}
                             </td>
-                            <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>
-                              {(userItem.customPermissions?.length ?? 0) > 0 ? (
-                                <span className={`${darkMode ? "text-blue-400" : "text-blue-600"} font-medium`}>{userItem.customPermissions?.length ?? 0} added</span>
-                              ) : (
-                                <span className={darkMode ? "text-gray-500" : "text-gray-400"}>None</span>
-                              )}
-                            </td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                              <button onClick={() => setEditingUser(userItem)} className={`${darkMode ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-900"} mr-4`}>
-                                Edit
-                              </button>
-                              {userItem.id !== user?.id && (
+                              {hasPermission("edit_permissions") && (
+                                <button onClick={() => setEditingUser(userItem)} className={`${darkMode ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-900"} mr-4`}>
+                                  Edit
+                                </button>
+                              )}
+                              {userItem.id !== user?.id && hasPermission("manage_users") && (
                                 <button onClick={() => deleteUser(userItem.id)} className={`${darkMode ? "text-red-400 hover:text-red-300" : "text-red-600 hover:text-red-900"}`}>
                                   Delete
                                 </button>

@@ -28,25 +28,60 @@ export const permissionMapping: Record<string, PermissionName> = {
   "15": "view_permissions",
   "16": "edit_permissions",
   "17": "manage_users",
+  "18": "view_inventory",
+  "19": "view_teams",
+  "20": "view_machinehistory",
+  "21": "edit_machinehistory",
+  "22": "edit_inventory",
+  "23": "edit_workorders",
+  "24": "edit_reports",
+  "25": "edit_teams",
+  "26": "create_machine_history",
+  "27": "create_inventory",
+  "28": "create_reports",
+  "29": "create_teams",
+  "30": "delete_workorders",
+  "31": "delete_machinehistory",
+  "32": "delete_inventory",
+  "33": "delete_reports",
+  "34": "delete_teams",
 };
 
 export type PermissionName =
   | "view_dashboard"
-  | "edit_dashboard"
   | "view_assets"
-  | "create_assets"
-  | "edit_assets"
-  | "delete_assets"
   | "view_workorders"
+  | "view_reports"
+  | "view_permissions"
+  | "view_inventory"
+  | "view_teams"
+  | "view_machinehistory"
+  | "view_settings"
+  | "view_permissions"
+  | "edit_dashboard"
+  | "edit_machinehistory"
+  | "edit_inventory"
+  | "edit_workorders"
+  | "edit_reports"
+  | "edit_teams"
+  | "edit_assets"
+  | "edit_permissions"
+  | "edit_settings"
+  | "create_assets"
   | "create_workorders"
+  | "create_machine_history"
+  | "create_inventory"
+  | "create_reports"
+  | "create_teams"
+  | "delete_assets"
+  | "delete_workorders"
+  | "delete_machinehistory"
+  | "delete_inventory"
+  | "delete_reports"
+  | "delete_teams"
   | "assign_workorders"
   | "complete_workorders"
-  | "view_reports"
   | "export_reports"
-  | "view_settings"
-  | "edit_settings"
-  | "view_permissions"
-  | "edit_permissions"
   | "manage_users";
 
 export interface User {
@@ -244,14 +279,13 @@ interface AuthContextType {
   changePassword: (oldPassword: string, newPassword: string) => Promise<void>;
   fetchUser: () => Promise<User>;
   getUsers: () => Promise<User[]>;
+  hasPermission: (permission: PermissionName) => boolean;
 }
 
 const projectEnvVariables = getProjectEnvVariables();
 const AuthContext = createContext<AuthContextType | null>(null);
 const mapApiToUser = (apiUser: any): User => {
-  const mappedCustomPermissions = apiUser.customPermissions
-    ? apiUser.customPermissions.map((id: string) => permissionMapping[id]).filter(Boolean) 
-    : [];
+  const mappedCustomPermissions = apiUser.customPermissions ? apiUser.customPermissions.map((id: string) => permissionMapping[id]).filter(Boolean) : [];
 
   const mappedPermissions = apiUser.permissions ? apiUser.permissions.map((id: string) => permissionMapping[id]).filter(Boolean) : [];
 
@@ -276,6 +310,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const navigate = useNavigate();
 
   const isAuthenticated = !!token;
+
+  const hasPermission = (permission: PermissionName): boolean => {
+  if (!user) return false;
+  
+  const allUserPermissions = [
+    ...(user.permissions || []),
+    ...(user.customPermissions || [])
+  ];
+  
+  return allUserPermissions.includes(permission);
+};
 
   useEffect(() => {
     const storedToken = localStorage.getItem("token");
@@ -726,6 +771,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         changePassword,
         fetchUser,
         getUsers,
+        hasPermission,
       }}
     >
       {children}

@@ -1,18 +1,30 @@
 import { useEffect } from "react";
-import { useNavigate, Outlet } from "react-router-dom";
-import { useAuth } from "./AuthContext";
+import { useNavigate, Outlet, useLocation } from "react-router-dom";
+import { useAuth, PermissionName } from "../routes/AuthContext"; 
 
-const ProtectedRoute = () => {
-  const { token } = useAuth();
+interface ProtectedRouteProps {
+  requiredPermissions?: PermissionName[];
+}
+
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ requiredPermissions = [] }) => {
+  const { token, user, hasPermission } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     if (!token) {
-      navigate("/register");
+      navigate("/login", { state: { from: location }, replace: true });
+      return;
     }
-  }, [token, navigate]);
 
-  return token ? <Outlet /> : null;
+    if (requiredPermissions.length > 0 && !requiredPermissions.some(perm => hasPermission(perm))) {
+      navigate("/unauthorized", { state: { from: location }, replace: true });
+    }
+  }, [token, user, requiredPermissions, hasPermission, navigate, location]);
+
+  const shouldRender = token && (requiredPermissions.length === 0 || requiredPermissions.some(perm => hasPermission(perm)));
+
+  return shouldRender ? <Outlet /> : null;
 };
 
 export default ProtectedRoute;
