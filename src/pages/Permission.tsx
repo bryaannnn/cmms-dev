@@ -257,12 +257,7 @@ const PermissionsPage: React.FC = () => {
     try {
       setIsLoading(true);
 
-      // Validasi untuk admin tidak bisa edit role admin/superadmin
-      if (user?.roleId === "2" && ["2", "3"].includes(editingUser.roleId || "")) {
-        throw new Error("Admin cannot modify admin/superadmin roles");
-      }
-
-      // Superadmin bisa edit semua
+      // Superadmin can edit all users
       if (user?.roleId === "3") {
         await fetchWithAuth(`/users/${editingUser.id}`, {
           method: "PUT",
@@ -272,12 +267,11 @@ const PermissionsPage: React.FC = () => {
           }),
         });
       }
-      // Admin hanya bisa edit user di departemen yang sama
-      else if (user?.roleId === "2" && editingUser.department === user.department) {
+      // Admin can only edit users in the same department and not admin/superadmin
+      else if (user?.roleId === "2" && editingUser.department === user.department && !["2", "3"].includes(editingUser.roleId || "")) {
         await fetchWithAuth(`/users/${editingUser.id}`, {
           method: "PUT",
           body: JSON.stringify({
-            // Admin tidak bisa mengubah role
             customPermissions: editingUser.customPermissions?.map((perm) => Object.keys(permissionMapping).find((key) => permissionMapping[key] === perm)),
           }),
         });
@@ -290,21 +284,45 @@ const PermissionsPage: React.FC = () => {
       setEditingUser(null);
     } catch (error) {
       console.error("Failed to save user:", error);
+      alert(error instanceof Error ? error.message : "Failed to save user");
     } finally {
       setIsLoading(false);
     }
   };
 
   const canEditUser = (targetUser: User): boolean => {
-    if (user?.roleId === "3") return true;
-    if (user?.roleId === "2") {
+    if (!user) return false;
+
+    // Superadmin can edit all users
+    if (user.roleId === "3") return true;
+
+    // Admin can only edit users in the same department and not admin/superadmin
+    if (user.roleId === "2") {
       return targetUser.department === user.department && !["2", "3"].includes(targetUser.roleId || "");
     }
+
+    return false;
+  };
+
+  const canDeleteUser = (targetUser: User): boolean => {
+    if (!user) return false;
+
+    // Cannot delete yourself
+    if (targetUser.id === user.id) return false;
+
+    // Superadmin can delete all users
+    if (user.roleId === "3") return true;
+
+    // Admin can only delete users in the same department and not admin/superadmin
+    if (user.roleId === "2") {
+      return targetUser.department === user.department && !["2", "3"].includes(targetUser.roleId || "");
+    }
+
     return false;
   };
 
   const deleteRole = async (id: string) => {
-    if (!hasPermission("manage_users") || !window.confirm("Are you sure you want to delete this role?")) return;
+    if (!hasPermission("edit_permissions") || !window.confirm("Are you sure you want to delete this role?")) return;
 
     try {
       setIsLoading(true);
@@ -318,42 +336,25 @@ const PermissionsPage: React.FC = () => {
 
   const deleteUser = async (id: string) => {
     const userToDelete = users.find((u) => u.id === id);
+    if (!userToDelete) return;
 
-    // Superadmin bisa hapus semua user
-    if (user?.roleId === "3") {
-      if (!window.confirm("Are you sure you want to delete this user?")) return;
-
-      try {
-        setIsLoading(true);
-        await fetchWithAuth(`/users/${id}`, { method: "DELETE" });
-        const fetchedUsers = await getUsers();
-        setUsers(fetchedUsers || []);
-      } catch (error) {
-        console.error("Failed to delete user:", error);
-      } finally {
-        setIsLoading(false);
-      }
+    if (!canDeleteUser(userToDelete)) {
+      alert("You don't have permission to delete this user");
       return;
     }
 
-    // Admin hanya bisa hapus user di departemen yang sama
-    if (user?.roleId === "2" && userToDelete?.department === user.department) {
-      if (!window.confirm("Are you sure you want to delete this user?")) return;
+    if (!window.confirm("Are you sure you want to delete this user?")) return;
 
-      try {
-        setIsLoading(true);
-        await fetchWithAuth(`/users/${id}`, { method: "DELETE" });
-        const fetchedUsers = await getUsers();
-        setUsers(fetchedUsers || []);
-      } catch (error) {
-        console.error("Failed to delete user:", error);
-      } finally {
-        setIsLoading(false);
-      }
-      return;
+    try {
+      setIsLoading(true);
+      await fetchWithAuth(`/users/${id}`, { method: "DELETE" });
+      const fetchedUsers = await getUsers();
+      setUsers(fetchedUsers || []);
+    } catch (error) {
+      console.error("Failed to delete user:", error);
+    } finally {
+      setIsLoading(false);
     }
-
-    alert("You don't have permission to delete this user");
   };
 
   const getRolePermissions = (roleId: string) => {
@@ -363,12 +364,19 @@ const PermissionsPage: React.FC = () => {
 
   const uniqueDepartments = ["all", ...Array.from(new Set(users.map((u) => u.department || "").filter(Boolean)))];
 
-  const filteredUsers = users.filter(
-    (u) =>
-      user?.roleId === "3" || // Superadmin lihat semua
-      u.department === user?.department || // Admin lihat sesama department
-      (u.customPermissions?.includes("view_permissions") && hasPermission("manage_users"))
-  );
+  const filteredUsers = users
+    .filter((u) => {
+      // Superadmin sees all users
+      if (user?.roleId === "3") return true;
+
+      // Admin sees users in the same department
+      if (user?.roleId === "2") return u.department === user.department;
+
+      // Regular users can't see any users in permissions page
+      return false;
+    })
+    .filter((u) => departmentFilter === "all" || u.department === departmentFilter)
+    .filter((u) => u.name.toLowerCase().includes(searchQuery.toLowerCase()) || u.email.toLowerCase().includes(searchQuery.toLowerCase()));
 
   const NavItem: React.FC<{
     icon: React.ReactNode;
@@ -747,17 +755,29 @@ const PermissionsPage: React.FC = () => {
                       />
                       <FiUser className={`absolute left-3 top-3 ${darkMode ? "text-gray-400" : "text-gray-500"}`} />
                     </div>
-                    <select
-                      value={departmentFilter}
-                      onChange={(e) => setDepartmentFilter(e.target.value)}
-                      className={`${darkMode ? "bg-gray-700 border-gray-600 text-gray-100" : "border-gray-300"} border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                    >
-                      {uniqueDepartments.map((dept) => (
-                        <option key={dept} value={dept}>
-                          {dept === "all" ? "All Departments" : dept}
-                        </option>
-                      ))}
-                    </select>
+                    {user?.roleId === "2" && (
+                      <select
+                        value={departmentFilter}
+                        onChange={(e) => setDepartmentFilter(e.target.value)}
+                        className={`${darkMode ? "bg-gray-700 border-gray-600 text-gray-100" : "border-gray-300"} border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                      >
+                        <option value="all">All Departments</option>
+                        <option value={user.department || ""}>{user.department || "No Department"}</option>
+                      </select>
+                    )}
+                    {user?.roleId === "3" && (
+                      <select
+                        value={departmentFilter}
+                        onChange={(e) => setDepartmentFilter(e.target.value)}
+                        className={`${darkMode ? "bg-gray-700 border-gray-600 text-gray-100" : "border-gray-300"} border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                      >
+                        {uniqueDepartments.map((dept) => (
+                          <option key={dept} value={dept}>
+                            {dept === "all" ? "All Departments" : dept}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                     {hasPermission("manage_users") && (
                       <Link to="/permissions/adduser" className={`flex items-center px-4 py-2 ${darkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-600 hover:bg-blue-700"} text-white rounded-md`}>
                         <FiUserPlus className="mr-2" />
@@ -817,30 +837,14 @@ const PermissionsPage: React.FC = () => {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                               {canEditUser(userItem) && (
-                                <>
-                                  <button onClick={() => setEditingUser(userItem)} className={`${darkMode ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-900"} mr-4`}>
-                                    <FiEdit2 className="inline mr-1" /> Edit
-                                  </button>
-                                  {userItem.id !== user?.id && (
-                                    <button onClick={() => deleteUser(userItem.id)} className={`${darkMode ? "text-red-400 hover:text-red-300" : "text-red-600 hover:text-red-900"}`}>
-                                      <FiTrash2 className="inline mr-1" /> Delete
-                                    </button>
-                                  )}
-                                </>
+                                <button onClick={() => setEditingUser(userItem)} className={`${darkMode ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-900"} mr-4`}>
+                                  <FiEdit2 className="inline mr-1" /> Edit
+                                </button>
                               )}
-
-                              {/* Superadmin bisa edit semua termasuk admin/superadmin */}
-                              {user?.roleId === "3" && !canEditUser(userItem) && (
-                                <>
-                                  <button onClick={() => setEditingUser(userItem)} className={`${darkMode ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-900"} mr-4`}>
-                                    <FiEdit2 className="inline mr-1" /> Edit
-                                  </button>
-                                  {userItem.id !== user?.id && (
-                                    <button onClick={() => deleteUser(userItem.id)} className={`${darkMode ? "text-red-400 hover:text-red-300" : "text-red-600 hover:text-red-900"}`}>
-                                      <FiTrash2 className="inline mr-1" /> Delete
-                                    </button>
-                                  )}
-                                </>
+                              {canDeleteUser(userItem) && (
+                                <button onClick={() => deleteUser(userItem.id)} className={`${darkMode ? "text-red-400 hover:text-red-300" : "text-red-600 hover:text-red-900"}`}>
+                                  <FiTrash2 className="inline mr-1" /> Delete
+                                </button>
                               )}
                             </td>
                           </tr>
