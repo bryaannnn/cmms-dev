@@ -218,6 +218,10 @@ export interface WorkOrderFormData {
   description?: string | null;
 }
 
+interface EditingUser extends User {
+  department?: string;
+}
+
 function mapApiToMachineHistoryRecord(apiData: any, masterData: AllMasterData | null): MachineHistoryRecord {
   const stopTimeName = apiData.stoptime?.name || masterData?.stoptimes?.find((st) => String(st.id) === String(apiData.stoptime_id))?.name || "-";
   const itemTroubleName = apiData.itemtrouble?.name || masterData?.itemtroubles?.find((it) => String(it.id) === String(apiData.itemtrouble_id))?.name || "-";
@@ -280,6 +284,7 @@ interface AuthContextType {
   fetchUser: () => Promise<User>;
   getUsers: () => Promise<User[]>;
   hasPermission: (permission: PermissionName) => boolean;
+   setEditingUser: (user: EditingUser | null) => void;
 }
 
 const projectEnvVariables = getProjectEnvVariables();
@@ -307,20 +312,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [masterData, setMasterData] = useState<AllMasterData | null>(null);
   const [isMasterDataLoading, setIsMasterDataLoading] = useState(true);
+  const [editingUser, setEditingUser] = useState<EditingUser | null>(null);
   const navigate = useNavigate();
 
   const isAuthenticated = !!token;
 
-  const hasPermission = (permission: PermissionName): boolean => {
-  if (!user) return false;
-  
-  const allUserPermissions = [
-    ...(user.permissions || []),
-    ...(user.customPermissions || [])
-  ];
-  
-  return allUserPermissions.includes(permission);
-};
+  const hasPermission = useCallback(
+    (permission: PermissionName): boolean => {
+      if (!user) return false;
+
+      // Superadmin memiliki semua akses
+      if (user.roleId === "3") return true;
+
+      // Admin hanya bisa mengelola user di departemen yang sama
+      if (user.roleId === "2" && permission === "manage_users") {
+        return editingUser?.department === user.department;
+      }
+
+      // Permission lainnya
+      return user.permissions?.includes(permission) || false;
+    },
+    [user, editingUser]
+  );
 
   useEffect(() => {
     const storedToken = localStorage.getItem("token");
@@ -772,6 +785,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         fetchUser,
         getUsers,
         hasPermission,
+        setEditingUser
       }}
     >
       {children}

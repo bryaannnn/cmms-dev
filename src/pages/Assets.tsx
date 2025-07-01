@@ -515,29 +515,11 @@ const AssetsDashboard: React.FC = () => {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [assetsPerPage] = useState(5);
-  const { user, fetchWithAuth } = useAuth();
+  const { user, fetchWithAuth, hasPermission } = useAuth();
   const [data, setData] = useState(null);
   const navigate = useNavigate();
   const [hasInteracted, setHasInteracted] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-
-  const hasPermission = (permission: PermissionName): boolean => {
-    // Untuk user yang sedang login (dari endpoint /user)
-    if (user?.permissions?.includes(permission)) return true;
-
-    // Untuk user lain (dari endpoint /users)
-    // Di sini Anda perlu logika tambahan untuk mengecek:
-    // 1. Permission dari roleId
-    // 2. customPermissions
-
-    // Contoh sederhana (sesuaikan dengan kebutuhan Anda):
-    if (user?.roles?.includes("superadmin")) return true;
-    if (user?.roles?.includes("admin") && !["edit_permissions", "delete_users"].includes(permission)) {
-      return true;
-    }
-
-    return false;
-  };
 
   useEffect(() => {
     const handleResize = () => {
@@ -815,16 +797,15 @@ const AssetsDashboard: React.FC = () => {
             </div>
 
             <nav className="flex-1 p-4 space-y-2 overflow-y-auto custom-scrollbar">
-              <NavItem icon={<FiHome />} text="Dashboard" to="/dashboard" expanded={sidebarOpen} />
-              <NavItem icon={<FiPackage />} text="Assets" to="/assets" expanded={sidebarOpen} />
-              <NavItem icon={<FiClipboard />} text="Work Orders" to="/workorders" expanded={sidebarOpen} />
-              <NavItem icon={<FiClipboard />} text="Machine History" to="/machinehistory" expanded={sidebarOpen} />
-              <NavItem icon={<FiDatabase />} text="Inventory" to="/inventory" expanded={sidebarOpen} />
-              <NavItem icon={<FiBarChart2 />} text="Reports" to="/reports" expanded={sidebarOpen} />
-              <NavItem icon={<FiUsers />} text="Team" to="/team" expanded={sidebarOpen} />
-              <NavItem icon={<FiSettings />} text="Settings" to="/settings" expanded={sidebarOpen} />
-              {hasPermission("manage_users") && <NavItem icon={<FiKey />} text="Permissions" to="/permissions" expanded={sidebarOpen} />}
-              {/* {user?.roles.some((role) => role === "admin") && <NavItem icon={<FiKey />} text="Permissions" to="/permissions" expanded={sidebarOpen} />} */}
+              {hasPermission("view_dashboard") && <NavItem icon={<FiHome />} text="Dashboard" to="/dashboard" expanded={sidebarOpen} />}
+              {hasPermission("view_assets") && <NavItem icon={<FiPackage />} text="Assets" to="/assets" expanded={sidebarOpen} />}
+              {hasPermission("view_workorders") && <NavItem icon={<FiClipboard />} text="Work Orders" to="/workorders" expanded={sidebarOpen} />}
+              {hasPermission("view_machinehistory") && <NavItem icon={<FiClipboard />} text="Machine History" to="/machinehistory" expanded={sidebarOpen} />}
+              {hasPermission("view_inventory") && <NavItem icon={<FiDatabase />} text="Inventory" to="/inventory" expanded={sidebarOpen} />}
+              {hasPermission("view_reports") && <NavItem icon={<FiBarChart2 />} text="Reports" to="/reports" expanded={sidebarOpen} />}
+              {hasPermission("view_teams") && <NavItem icon={<FiUsers />} text="Team" to="/team" expanded={sidebarOpen} />}
+              {hasPermission("view_settings") && <NavItem icon={<FiSettings />} text="Settings" to="/settings" expanded={sidebarOpen} />}
+              {hasPermission("view_permissions") && <NavItem icon={<FiKey />} text="Permissions" to="/permissions" expanded={sidebarOpen} />}
             </nav>
 
             <div className="p-4 border-t border-blue-100">

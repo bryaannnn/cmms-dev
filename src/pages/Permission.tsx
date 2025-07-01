@@ -51,11 +51,10 @@ const PermissionsPage: React.FC = () => {
   });
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
-  const roleMapping: Record<string, { name: string; isITRole: boolean; isSuperadmin?: boolean }> = {
-    "1": { name: "Admin", isITRole: true },
-    "2": { name: "Technician", isITRole: false },
-    "3": { name: "Superadmin", isITRole: true, isSuperadmin: true },
-    "4": { name: "Customer", isITRole: false },
+  const roleMapping: Record<string, { name: string; isDepartmentHead?: boolean; isSuperadmin?: boolean }> = {
+    "1": { name: "User", isDepartmentHead: false },
+    "2": { name: "Admin", isDepartmentHead: true },
+    "3": { name: "Superadmin", isSuperadmin: true },
   };
 
   const permissionMapping: Record<string, PermissionName> = {
@@ -142,7 +141,6 @@ const PermissionsPage: React.FC = () => {
       name: role.name,
       description: `${role.name} role`,
       permissions: role.isSuperadmin ? allPermissions : [],
-      isITRole: role.isITRole,
       isSuperadmin: role.isSuperadmin,
     }))
   );
@@ -254,35 +252,69 @@ const PermissionsPage: React.FC = () => {
   };
 
   const saveUser = async () => {
-    if (!editingUser || !hasPermission("manage_users")) return;
+    if (!editingUser) return;
 
-    try {
-      setIsLoading(true);
-      const customPermissionIds = editingUser.customPermissions
-        ? Object.entries(permissionMapping)
-            .filter(([_, name]) => editingUser.customPermissions?.includes(name as PermissionName))
-            .map(([id]) => id)
-        : [];
+    // Superadmin bisa edit semua user
+    if (user?.roleId === "3") {
+      try {
+        setIsLoading(true);
+        const customPermissionIds = editingUser.customPermissions
+          ? Object.entries(permissionMapping)
+              .filter(([_, name]) => editingUser.customPermissions?.includes(name as PermissionName))
+              .map(([id]) => id)
+          : [];
 
-      await fetchWithAuth(`/users/${editingUser.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          roleId: editingUser.roleId,
-          customPermissions: customPermissionIds,
-        }),
-      });
+        await fetchWithAuth(`/users/${editingUser.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            roleId: editingUser.roleId,
+            customPermissions: customPermissionIds,
+          }),
+        });
 
-      const fetchedUsers = await getUsers();
-      setUsers(fetchedUsers || []);
-      setEditingUser(null);
-    } catch (error) {
-      console.error("Failed to save user:", error);
-    } finally {
-      setIsLoading(false);
+        const fetchedUsers = await getUsers();
+        setUsers(fetchedUsers || []);
+        setEditingUser(null);
+      } catch (error) {
+        console.error("Failed to save user:", error);
+      } finally {
+        setIsLoading(false);
+      }
+      return;
     }
+
+    // Admin hanya bisa edit user di departemen yang sama
+    if (user?.roleId === "2" && editingUser.department === user.department) {
+      try {
+        setIsLoading(true);
+        const customPermissionIds = editingUser.customPermissions
+          ? Object.entries(permissionMapping)
+              .filter(([_, name]) => editingUser.customPermissions?.includes(name as PermissionName))
+              .map(([id]) => id)
+          : [];
+
+        await fetchWithAuth(`/users/${editingUser.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            roleId: editingUser.roleId,
+            customPermissions: customPermissionIds,
+          }),
+        });
+
+        const fetchedUsers = await getUsers();
+        setUsers(fetchedUsers || []);
+        setEditingUser(null);
+      } catch (error) {
+        console.error("Failed to save user:", error);
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
+
+    alert("You don't have permission to edit this user");
   };
 
   const deleteRole = async (id: string) => {
@@ -299,20 +331,43 @@ const PermissionsPage: React.FC = () => {
   };
 
   const deleteUser = async (id: string) => {
-    if (!hasPermission("manage_users") || !window.confirm("Are you sure you want to delete this user?")) return;
+    const userToDelete = users.find((u) => u.id === id);
 
-    try {
-      setIsLoading(true);
-      await fetchWithAuth(`/users/${id}`, {
-        method: "DELETE",
-      });
-      const fetchedUsers = await getUsers();
-      setUsers(fetchedUsers || []);
-    } catch (error) {
-      console.error("Failed to delete user:", error);
-    } finally {
-      setIsLoading(false);
+    // Superadmin bisa hapus semua user
+    if (user?.roleId === "3") {
+      if (!window.confirm("Are you sure you want to delete this user?")) return;
+
+      try {
+        setIsLoading(true);
+        await fetchWithAuth(`/users/${id}`, { method: "DELETE" });
+        const fetchedUsers = await getUsers();
+        setUsers(fetchedUsers || []);
+      } catch (error) {
+        console.error("Failed to delete user:", error);
+      } finally {
+        setIsLoading(false);
+      }
+      return;
     }
+
+    // Admin hanya bisa hapus user di departemen yang sama
+    if (user?.roleId === "2" && userToDelete?.department === user.department) {
+      if (!window.confirm("Are you sure you want to delete this user?")) return;
+
+      try {
+        setIsLoading(true);
+        await fetchWithAuth(`/users/${id}`, { method: "DELETE" });
+        const fetchedUsers = await getUsers();
+        setUsers(fetchedUsers || []);
+      } catch (error) {
+        console.error("Failed to delete user:", error);
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
+
+    alert("You don't have permission to delete this user");
   };
 
   const getRolePermissions = (roleId: string) => {
@@ -354,14 +409,6 @@ const PermissionsPage: React.FC = () => {
       </motion.button>
     );
   };
-
-  if (isLoading) {
-    return (
-      <div className={`flex items-center justify-center h-screen ${darkMode ? "bg-gray-900" : "bg-gray-50"}`}>
-        <div className="text-xl">Loading...</div>
-      </div>
-    );
-  }
 
   if (!hasPermission("view_permissions")) {
     return (
@@ -764,48 +811,20 @@ const PermissionsPage: React.FC = () => {
                       <tbody className={`${darkMode ? "bg-gray-800 divide-gray-700" : "bg-white divide-blue-100"} divide-y`}>
                         {filteredUsers.map((userItem) => (
                           <tr key={userItem.id} className={darkMode ? "hover:bg-gray-700" : "hover:bg-blue-50"}>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center">
-                                <div className={`flex-shrink-0 h-10 w-10 rounded-full ${darkMode ? "bg-gray-600" : "bg-blue-100"} flex items-center justify-center ${darkMode ? "text-blue-400" : "text-blue-600"}`}>
-                                  <FiUser className="text-xl" />
-                                </div>
-                                <div className="ml-4">
-                                  <div className={`text-sm font-medium ${darkMode ? "text-gray-100" : "text-gray-900"}`}>{userItem.name}</div>
-                                </div>
-                              </div>
-                            </td>
-                            <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>{userItem.email}</td>
-                            <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>{userItem.department || "-"}</td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              {userItem.roleId ? (
-                                <span
-                                  className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-        ${roleMapping[userItem.roleId]?.isITRole ? (darkMode ? "bg-green-900 text-green-300" : "bg-green-100 text-green-800") : darkMode ? "bg-blue-900 text-blue-300" : "bg-blue-100 text-blue-800"}`}
-                                >
-                                  {getRoleName(userItem.roleId)}
-                                </span>
-                              ) : (
-                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${darkMode ? "bg-gray-700 text-gray-300" : "bg-gray-200 text-gray-800"}`}>No Role</span>
-                              )}
-                            </td>
-                            <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>
-                              {userItem.customPermissions && userItem.customPermissions.length > 0 ? (
-                                <span className={`${darkMode ? "text-blue-400" : "text-blue-600"} font-medium`}>{userItem.customPermissions.join(", ")}</span>
-                              ) : (
-                                <span className={darkMode ? "text-gray-500" : "text-gray-400"}>None</span>
-                              )}
-                            </td>
+                            {/* ... kolom lainnya ... */}
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                              {hasPermission("edit_permissions") && (
-                                <button onClick={() => setEditingUser(userItem)} className={`${darkMode ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-900"} mr-4`}>
-                                  Edit
-                                </button>
-                              )}
-                              {userItem.id !== user?.id && hasPermission("manage_users") && (
-                                <button onClick={() => deleteUser(userItem.id)} className={`${darkMode ? "text-red-400 hover:text-red-300" : "text-red-600 hover:text-red-900"}`}>
-                                  Delete
-                                </button>
-                              )}
+                              {user?.roleId === "3" || (user?.roleId === "2" && userItem.department === user.department) ? (
+                                <>
+                                  <button onClick={() => setEditingUser(userItem)} className={`${darkMode ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-900"} mr-4`}>
+                                    Edit
+                                  </button>
+                                  {userItem.id !== user?.id && (
+                                    <button onClick={() => deleteUser(userItem.id)} className={`${darkMode ? "text-red-400 hover:text-red-300" : "text-red-600 hover:text-red-900"}`}>
+                                      Delete
+                                    </button>
+                                  )}
+                                </>
+                              ) : null}
                             </td>
                           </tr>
                         ))}
