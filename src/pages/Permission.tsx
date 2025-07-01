@@ -158,7 +158,7 @@ const PermissionsPage: React.FC = () => {
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const [departmentFilter, setDepartmentFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>(allRoles);
 
@@ -182,13 +182,11 @@ const PermissionsPage: React.FC = () => {
   useEffect(() => {
     const fetchUsersData = async () => {
       try {
-        setIsLoading(true);
         const fetchedUsers = await getUsers();
         setUsers(fetchedUsers || []);
       } catch (error) {
         console.error("Failed to fetch users:", error);
       } finally {
-        setIsLoading(false);
       }
     };
 
@@ -235,7 +233,6 @@ const PermissionsPage: React.FC = () => {
     if (!editingRole || !hasPermission("edit_permissions")) return;
 
     try {
-      setIsLoading(true);
       if (editingRole.id) {
         setRoles((prev) => prev.map((role) => (role.id === editingRole.id ? editingRole : role)));
       } else {
@@ -247,7 +244,6 @@ const PermissionsPage: React.FC = () => {
     } catch (error) {
       console.error("Failed to save role:", error);
     } finally {
-      setIsLoading(false);
     }
   };
 
@@ -257,7 +253,6 @@ const PermissionsPage: React.FC = () => {
     // Superadmin bisa edit semua user
     if (user?.roleId === "3") {
       try {
-        setIsLoading(true);
         const customPermissionIds = editingUser.customPermissions
           ? Object.entries(permissionMapping)
               .filter(([_, name]) => editingUser.customPermissions?.includes(name as PermissionName))
@@ -279,7 +274,7 @@ const PermissionsPage: React.FC = () => {
       } catch (error) {
         console.error("Failed to save user:", error);
       } finally {
-        setIsLoading(false);
+        
       }
       return;
     }
@@ -287,7 +282,7 @@ const PermissionsPage: React.FC = () => {
     // Admin hanya bisa edit user di departemen yang sama
     if (user?.roleId === "2" && editingUser.department === user.department) {
       try {
-        setIsLoading(true);
+        
         const customPermissionIds = editingUser.customPermissions
           ? Object.entries(permissionMapping)
               .filter(([_, name]) => editingUser.customPermissions?.includes(name as PermissionName))
@@ -309,7 +304,7 @@ const PermissionsPage: React.FC = () => {
       } catch (error) {
         console.error("Failed to save user:", error);
       } finally {
-        setIsLoading(false);
+        
       }
       return;
     }
@@ -321,12 +316,12 @@ const PermissionsPage: React.FC = () => {
     if (!hasPermission("manage_users") || !window.confirm("Are you sure you want to delete this role?")) return;
 
     try {
-      setIsLoading(true);
+      
       setRoles((prev) => prev.filter((role) => role.id !== id));
     } catch (error) {
       console.error("Failed to delete role:", error);
     } finally {
-      setIsLoading(false);
+     
     }
   };
 
@@ -338,14 +333,14 @@ const PermissionsPage: React.FC = () => {
       if (!window.confirm("Are you sure you want to delete this user?")) return;
 
       try {
-        setIsLoading(true);
+       
         await fetchWithAuth(`/users/${id}`, { method: "DELETE" });
         const fetchedUsers = await getUsers();
         setUsers(fetchedUsers || []);
       } catch (error) {
         console.error("Failed to delete user:", error);
       } finally {
-        setIsLoading(false);
+        
       }
       return;
     }
@@ -355,14 +350,14 @@ const PermissionsPage: React.FC = () => {
       if (!window.confirm("Are you sure you want to delete this user?")) return;
 
       try {
-        setIsLoading(true);
+       
         await fetchWithAuth(`/users/${id}`, { method: "DELETE" });
         const fetchedUsers = await getUsers();
         setUsers(fetchedUsers || []);
       } catch (error) {
         console.error("Failed to delete user:", error);
       } finally {
-        setIsLoading(false);
+       
       }
       return;
     }
