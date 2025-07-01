@@ -36,6 +36,7 @@ type Role = {
   description: string;
   permissions: PermissionName[];
   isITRole?: boolean;
+  isSuperadmin?: boolean;
 };
 
 const PermissionsPage: React.FC = () => {
@@ -50,10 +51,10 @@ const PermissionsPage: React.FC = () => {
   });
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
-  const roleMapping: Record<string, { name: string; isITRole: boolean }> = {
+  const roleMapping: Record<string, { name: string; isITRole: boolean; isSuperadmin?: boolean }> = {
     "1": { name: "Admin", isITRole: true },
     "2": { name: "Technician", isITRole: false },
-    "3": { name: "Superadmin", isITRole: true },
+    "3": { name: "Superadmin", isITRole: true, isSuperadmin: true },
     "4": { name: "Customer", isITRole: false },
   };
 
@@ -140,8 +141,9 @@ const PermissionsPage: React.FC = () => {
       id,
       name: role.name,
       description: `${role.name} role`,
-      permissions: [],
+      permissions: role.isSuperadmin ? allPermissions : [],
       isITRole: role.isITRole,
+      isSuperadmin: role.isSuperadmin,
     }))
   );
 
@@ -211,27 +213,23 @@ const PermissionsPage: React.FC = () => {
   };
 
   const handleRolePermissionToggle = (permissionId: PermissionName) => {
-    if (!editingRole) return;
+    if (!editingRole || editingRole.isSuperadmin) return;
 
     setEditingRole((prev) => {
       if (!prev) return null;
-      const newPermissions = prev.permissions.includes(permissionId)
-        ? prev.permissions.filter((id) => id !== permissionId)
-        : [...prev.permissions, permissionId];
+      const newPermissions = prev.permissions.includes(permissionId) ? prev.permissions.filter((id) => id !== permissionId) : [...prev.permissions, permissionId];
       return { ...prev, permissions: newPermissions };
     });
   };
 
   const handleUserPermissionToggle = (permissionId: PermissionName) => {
-    if (!editingUser) return;
+    if (!editingUser || editingUser.roleId === "3") return;
 
     setEditingUser((prev) => {
       if (!prev) return null;
-      const currentPermissions = prev.permissions || [];
-      const newPermissions = currentPermissions.includes(permissionId)
-        ? currentPermissions.filter((id) => id !== permissionId)
-        : [...currentPermissions, permissionId];
-      return { ...prev, permissions: newPermissions };
+      const currentPermissions = prev.customPermissions || [];
+      const newPermissions = currentPermissions.includes(permissionId) ? currentPermissions.filter((id) => id !== permissionId) : [...currentPermissions, permissionId];
+      return { ...prev, customPermissions: newPermissions };
     });
   };
 
@@ -606,12 +604,18 @@ const PermissionsPage: React.FC = () => {
                                     <input
                                       type="checkbox"
                                       id={`perm-${permission}`}
-                                      checked={editingRole?.permissions.includes(permission) || false}
+                                      checked={editingRole?.isSuperadmin || editingRole?.permissions.includes(permission) || false}
                                       onChange={() => handleRolePermissionToggle(permission)}
-                                      className={`h-4 w-4 ${darkMode ? "text-blue-400 bg-gray-700 border-gray-600" : "text-blue-600"} rounded focus:ring-blue-500`}
+                                      disabled={editingRole?.isSuperadmin}
+                                      className={`h-4 w-4 ${
+                                        editingRole?.isSuperadmin ? (darkMode ? "text-blue-400 bg-gray-700 border-gray-600" : "text-blue-600") : darkMode ? "text-blue-400 bg-gray-700 border-gray-600" : "text-blue-600"
+                                      } rounded focus:ring-blue-500`}
                                     />
                                     <label htmlFor={`perm-${permission}`} className={`ml-2 text-sm ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
-                                      <div className="font-medium">{permission}</div>
+                                      <div className="font-medium">
+                                        {permission}
+                                        {editingRole?.isSuperadmin && <span className={`ml-2 text-xs ${darkMode ? "bg-blue-900 text-blue-300" : "bg-blue-100 text-blue-800"} px-2 py-0.5 rounded`}>Superadmin</span>}
+                                      </div>
                                     </label>
                                   </div>
                                 ))}
@@ -655,7 +659,7 @@ const PermissionsPage: React.FC = () => {
                           {role.isITRole && <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">Production</span>}
                         </h3>
                         <div className="flex space-x-2">
-                          {hasPermission("edit_permissions") && (
+                          {!role.isSuperadmin && hasPermission("edit_permissions") && (
                             <button
                               onClick={() => {
                                 setEditingRole(role);
@@ -667,7 +671,7 @@ const PermissionsPage: React.FC = () => {
                               <FiEdit2 />
                             </button>
                           )}
-                          {role.name !== "Superadmin" && hasPermission("manage_users") && (
+                          {!role.isSuperadmin && hasPermission("manage_users") && (
                             <button onClick={() => deleteRole(role.id)} className={`p-1 ${darkMode ? "text-gray-400 hover:text-red-400" : "text-gray-500 hover:text-red-600"}`} title="Delete">
                               <FiTrash2 />
                             </button>
@@ -876,24 +880,38 @@ const PermissionsPage: React.FC = () => {
                           >
                             {perms.map((permission) => {
                               const roleHasPermission = editingUser.roleId ? roles.find((r) => r.id === editingUser.roleId)?.permissions.includes(permission) || false : false;
-                              const userHasPermission = editingUser.customPermissions?.includes(permission) || false;
-                              const isDisabled = roleHasPermission;
+                              const isSuperadmin = editingUser.roleId === "3";
+                              const userHasPermission = isSuperadmin || editingUser.customPermissions?.includes(permission) || false;
+                              const isDisabled = roleHasPermission || isSuperadmin;
 
                               return (
                                 <div key={permission} className={`flex items-center ${isDisabled ? "opacity-50" : ""}`}>
                                   <input
                                     type="checkbox"
                                     id={`user-perm-${permission}`}
-                                    checked={userHasPermission || roleHasPermission}
+                                    checked={userHasPermission}
                                     onChange={() => !isDisabled && handleUserPermissionToggle(permission)}
                                     disabled={isDisabled}
                                     className={`h-4 w-4 rounded focus:ring-blue-500 
-                                      ${roleHasPermission ? (darkMode ? "text-purple-400 bg-gray-700 border-gray-600" : "text-purple-600") : darkMode ? "text-blue-400 bg-gray-700 border-gray-600" : "text-blue-600"}`}
+                                      ${
+                                        isSuperadmin
+                                          ? darkMode
+                                            ? "text-blue-400 bg-gray-700 border-gray-600"
+                                            : "text-blue-600"
+                                          : roleHasPermission
+                                          ? darkMode
+                                            ? "text-purple-400 bg-gray-700 border-gray-600"
+                                            : "text-purple-600"
+                                          : darkMode
+                                          ? "text-blue-400 bg-gray-700 border-gray-600"
+                                          : "text-blue-600"
+                                      }`}
                                   />
                                   <label htmlFor={`user-perm-${permission}`} className={`ml-2 text-sm ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
                                     <div className="font-medium flex items-center">
                                       {permission}
-                                      {roleHasPermission && <span className={`ml-2 text-xs ${darkMode ? "bg-purple-900 text-purple-300" : "bg-purple-100 text-purple-800"} px-2 py-0.5 rounded`}>from role</span>}
+                                      {isSuperadmin && <span className={`ml-2 text-xs ${darkMode ? "bg-blue-900 text-blue-300" : "bg-blue-100 text-blue-800"} px-2 py-0.5 rounded`}>Superadmin</span>}
+                                      {roleHasPermission && !isSuperadmin && <span className={`ml-2 text-xs ${darkMode ? "bg-purple-900 text-purple-300" : "bg-purple-100 text-purple-800"} px-2 py-0.5 rounded`}>from role</span>}
                                     </div>
                                   </label>
                                 </div>
