@@ -826,6 +826,7 @@ const PermissionsPage: React.FC = () => {
                                 <span className="italic text-gray-400">No custom permissions</span>
                               )}
                             </td>
+                            {/* Only one td for actions - remove the empty one above this */}
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                               {user?.roleId === "3" || (user?.roleId === "2" && userItem.department === user.department) ? (
                                 <>
