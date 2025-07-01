@@ -284,7 +284,7 @@ interface AuthContextType {
   fetchUser: () => Promise<User>;
   getUsers: () => Promise<User[]>;
   hasPermission: (permission: PermissionName) => boolean;
-   setEditingUser: (user: EditingUser | null) => void;
+  setEditingUser: (user: EditingUser | null) => void;
 }
 
 const projectEnvVariables = getProjectEnvVariables();
@@ -785,7 +785,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         fetchUser,
         getUsers,
         hasPermission,
-        setEditingUser
+        setEditingUser,
       }}
     >
       {children}
@@ -796,5 +796,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) throw new Error("useAuth must be used within AuthProvider");
-  return context;
+
+  return {
+    ...context,
+    hasPermission: (permission: PermissionName) => {
+      if (!context.user) return false;
+      if (context.user.roleId === "3") return true; // Superadmin punya semua akses
+      return context.user.permissions?.includes(permission) || false;
+    },
+    canEditUser: (targetUser: User) => {
+      if (!context.user) return false;
+
+      // Superadmin bisa edit semua user
+      if (context.user.roleId === "3") return true;
+
+      // Admin hanya bisa edit user di departemen yang sama dan bukan admin/superadmin
+      if (context.user.roleId === "2") {
+        return targetUser.department === context.user.department && targetUser.roleId !== "2" && targetUser.roleId !== "3";
+      }
+
+      return false;
+    },
+  };
 };

@@ -254,67 +254,53 @@ const PermissionsPage: React.FC = () => {
   const saveUser = async () => {
     if (!editingUser) return;
 
-    // Superadmin bisa edit semua user
-    if (user?.roleId === "3") {
-      try {
-        setIsLoading(true);
-        const customPermissionIds = editingUser.customPermissions
-          ? Object.entries(permissionMapping)
-              .filter(([_, name]) => editingUser.customPermissions?.includes(name as PermissionName))
-              .map(([id]) => id)
-          : [];
+    try {
+      setIsLoading(true);
 
+      // Validasi untuk admin tidak bisa edit role admin/superadmin
+      if (user?.roleId === "2" && ["2", "3"].includes(editingUser.roleId || "")) {
+        throw new Error("Admin cannot modify admin/superadmin roles");
+      }
+
+      // Superadmin bisa edit semua
+      if (user?.roleId === "3") {
         await fetchWithAuth(`/users/${editingUser.id}`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             roleId: editingUser.roleId,
-            customPermissions: customPermissionIds,
+            customPermissions: editingUser.customPermissions?.map((perm) => Object.keys(permissionMapping).find((key) => permissionMapping[key] === perm)),
           }),
         });
-
-        const fetchedUsers = await getUsers();
-        setUsers(fetchedUsers || []);
-        setEditingUser(null);
-      } catch (error) {
-        console.error("Failed to save user:", error);
-      } finally {
-        setIsLoading(false);
       }
-      return;
-    }
-
-    // Admin hanya bisa edit user di departemen yang sama
-    if (user?.roleId === "2" && editingUser.department === user.department) {
-      try {
-        setIsLoading(true);
-        const customPermissionIds = editingUser.customPermissions
-          ? Object.entries(permissionMapping)
-              .filter(([_, name]) => editingUser.customPermissions?.includes(name as PermissionName))
-              .map(([id]) => id)
-          : [];
-
+      // Admin hanya bisa edit user di departemen yang sama
+      else if (user?.roleId === "2" && editingUser.department === user.department) {
         await fetchWithAuth(`/users/${editingUser.id}`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            roleId: editingUser.roleId,
-            customPermissions: customPermissionIds,
+            // Admin tidak bisa mengubah role
+            customPermissions: editingUser.customPermissions?.map((perm) => Object.keys(permissionMapping).find((key) => permissionMapping[key] === perm)),
           }),
         });
-
-        const fetchedUsers = await getUsers();
-        setUsers(fetchedUsers || []);
-        setEditingUser(null);
-      } catch (error) {
-        console.error("Failed to save user:", error);
-      } finally {
-        setIsLoading(false);
+      } else {
+        throw new Error("Unauthorized access");
       }
-      return;
-    }
 
-    alert("You don't have permission to edit this user");
+      const fetchedUsers = await getUsers();
+      setUsers(fetchedUsers || []);
+      setEditingUser(null);
+    } catch (error) {
+      console.error("Failed to save user:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const canEditUser = (targetUser: User): boolean => {
+    if (user?.roleId === "3") return true;
+    if (user?.roleId === "2") {
+      return targetUser.department === user.department && !["2", "3"].includes(targetUser.roleId || "");
+    }
+    return false;
   };
 
   const deleteRole = async (id: string) => {
@@ -377,9 +363,12 @@ const PermissionsPage: React.FC = () => {
 
   const uniqueDepartments = ["all", ...Array.from(new Set(users.map((u) => u.department || "").filter(Boolean)))];
 
-  const filteredUsers = users
-    .filter((user) => departmentFilter === "all" || user.department === departmentFilter)
-    .filter((user) => user.name.toLowerCase().includes(searchQuery.toLowerCase()) || user.email.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredUsers = users.filter(
+    (u) =>
+      user?.roleId === "3" || // Superadmin lihat semua
+      u.department === user?.department || // Admin lihat sesama department
+      (u.customPermissions?.includes("view_permissions") && hasPermission("manage_users"))
+  );
 
   const NavItem: React.FC<{
     icon: React.ReactNode;
@@ -827,19 +816,31 @@ const PermissionsPage: React.FC = () => {
                               )}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                              {user?.roleId === "3" || (user?.roleId === "2" && userItem.department === user?.department) ? (
+                              {canEditUser(userItem) && (
                                 <>
                                   <button onClick={() => setEditingUser(userItem)} className={`${darkMode ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-900"} mr-4`}>
-                                    Edit
+                                    <FiEdit2 className="inline mr-1" /> Edit
                                   </button>
                                   {userItem.id !== user?.id && (
                                     <button onClick={() => deleteUser(userItem.id)} className={`${darkMode ? "text-red-400 hover:text-red-300" : "text-red-600 hover:text-red-900"}`}>
-                                      Delete
+                                      <FiTrash2 className="inline mr-1" /> Delete
                                     </button>
                                   )}
                                 </>
-                              ) : (
-                                <span className={`italic ${darkMode ? "text-gray-500" : "text-gray-400"}`}>No actions</span>
+                              )}
+
+                              {/* Superadmin bisa edit semua termasuk admin/superadmin */}
+                              {user?.roleId === "3" && !canEditUser(userItem) && (
+                                <>
+                                  <button onClick={() => setEditingUser(userItem)} className={`${darkMode ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-900"} mr-4`}>
+                                    <FiEdit2 className="inline mr-1" /> Edit
+                                  </button>
+                                  {userItem.id !== user?.id && (
+                                    <button onClick={() => deleteUser(userItem.id)} className={`${darkMode ? "text-red-400 hover:text-red-300" : "text-red-600 hover:text-red-900"}`}>
+                                      <FiTrash2 className="inline mr-1" /> Delete
+                                    </button>
+                                  )}
+                                </>
                               )}
                             </td>
                           </tr>
@@ -883,16 +884,30 @@ const PermissionsPage: React.FC = () => {
                     <label className={`block text-sm font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Role</label>
                     <select
                       value={editingUser.roleId || ""}
-                      onChange={(e) => setEditingUser((prev) => (prev ? { ...prev, roleId: e.target.value } : null))}
+                      onChange={(e) => {
+                        // Blokir admin mengubah role ke admin/superadmin
+                        if (user?.roleId !== "3" && ["2", "3"].includes(e.target.value)) {
+                          return;
+                        }
+                        setEditingUser((prev) => (prev ? { ...prev, roleId: e.target.value } : null));
+                      }}
+                      disabled={user?.roleId !== "3"} // Hanya superadmin yang bisa edit role
                       className={`w-full ${darkMode ? "bg-gray-700 border-gray-600 text-gray-100" : "border-gray-300"} border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500`}
                     >
                       <option value="">No Role</option>
-                      {roles.map((role) => (
-                        <option key={role.id} value={role.id}>
-                          {role.name}
-                        </option>
-                      ))}
+                      {roles
+                        .filter(
+                          (role) =>
+                            user?.roleId === "3" || // Superadmin bisa pilih semua role
+                            !["2", "3"].includes(role.id) // Admin hanya bisa pilih role selain admin/superadmin
+                        )
+                        .map((role) => (
+                          <option key={role.id} value={role.id}>
+                            {role.name}
+                          </option>
+                        ))}
                     </select>
+                    {user?.roleId !== "3" && ["2", "3"].includes(editingUser.roleId || "") && <p className={`mt-1 text-sm ${darkMode ? "text-yellow-300" : "text-yellow-600"}`}>You cannot change admin/superadmin roles</p>}
                   </div>
                 </div>
 
