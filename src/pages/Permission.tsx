@@ -811,7 +811,21 @@ const PermissionsPage: React.FC = () => {
                       <tbody className={`${darkMode ? "bg-gray-800 divide-gray-700" : "bg-white divide-blue-100"} divide-y`}>
                         {filteredUsers.map((userItem) => (
                           <tr key={userItem.id} className={darkMode ? "hover:bg-gray-700" : "hover:bg-blue-50"}>
-                            {/* ... kolom lainnya ... */}
+                            <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-200" : "text-gray-900"}`}>{userItem.name}</td>
+                            <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>{userItem.email}</td>
+                            <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>{userItem.department || "-"}</td>
+                            <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>{getRoleName(userItem.roleId || "")}</td>
+                            <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>
+                              {userItem.roleId === "3" ? (
+                                <span className={`px-2 py-1 text-xs rounded-full ${darkMode ? "bg-blue-900 text-blue-200" : "bg-blue-100 text-blue-800"}`}>All permissions</span>
+                              ) : userItem.customPermissions?.length ? (
+                                <span className="cursor-help border-b border-dashed border-gray-400" title={userItem.customPermissions.join("\n")}>
+                                  {userItem.customPermissions.length} custom permission(s)
+                                </span>
+                              ) : (
+                                <span className="italic text-gray-400">No custom permissions</span>
+                              )}
+                            </td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                               {user?.roleId === "3" || (user?.roleId === "2" && userItem.department === user.department) ? (
                                 <>
