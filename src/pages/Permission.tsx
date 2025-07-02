@@ -275,7 +275,7 @@ const PermissionsPage: React.FC = () => {
       };
 
       // Use fetchWithAuth directly with proper error handling
-      const response = await fetchWithAuth(`/users/${editingUser.id}/permissions`, {
+      const response = await fetchWithAuth(`/users/${editingUser.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
