@@ -102,7 +102,7 @@ export interface User {
   customPermissions?: string[]; // Dari endpoint /users
   permissions?: PermissionName[]; // Dari endpoint /user
   department?: string | null;
-  rolePermissions?: string[]; 
+  rolePermissions?: string[];
 }
 
 export interface Mesin {
@@ -402,44 +402,44 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const fetchWithAuth = useCallback(
     async (url: string, options: RequestInit = {}) => {
-      const authToken = token || localStorage.getItem("token");
+      try {
+        const authToken = token || localStorage.getItem("token");
 
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        ...(options.headers as Record<string, string>),
-      };
-
-      if (authToken) {
-        headers.Authorization = `Bearer ${authToken}`;
-      }
-
-      const fullUrl = `${projectEnvVariables.envVariables.VITE_REACT_API_URL}${url}`;
-
-      const fetchOptions: RequestInit = {
-        ...options,
-        headers: headers,
-      };
-
-      const response = await fetch(fullUrl, fetchOptions);
-
-      if (response.status === 401) {
-        try {
-          await logout();
-        } catch (logoutError) {
-          console.error("Error during automatic logout after 401:", logoutError);
+        if (!authToken) {
+          throw new Error("No authentication token found");
         }
-        throw new Error("Sesi berakhir. Silakan login kembali.");
-      }
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Permintaan gagal dengan status: ${response.status}`);
-      }
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          ...(options.headers as Record<string, string>),
+          Authorization: `Bearer ${authToken}`,
+        };
 
-      return response.json();
+        const fullUrl = `${projectEnvVariables.envVariables.VITE_REACT_API_URL}${url}`;
+
+        const response = await fetch(fullUrl, {
+          ...options,
+          headers,
+        });
+
+        if (response.status === 401) {
+          await logout();
+          throw new Error("Session expired. Please login again.");
+        }
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || `Request failed with status ${response.status}`);
+        }
+
+        return response.json();
+      } catch (error) {
+        console.error("Fetch error:", error);
+        throw error;
+      }
     },
-    [token, navigate, logout]
+    [token, logout]
   );
 
   const fetchUser = useCallback(async (): Promise<User> => {
@@ -907,7 +907,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         createRole,
         updateRole,
         deleteRole,
-        updateUserPermissions
+        updateUserPermissions,
       }}
     >
       {children}

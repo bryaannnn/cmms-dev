@@ -41,7 +41,7 @@ type User = {
   id: string;
   name: string;
   email: string;
-  roleId?: string; // Make it explicitly accept null
+  roleId?: string | null; // Make it explicitly accept null
   customPermissions: string[];
   department: string;
   rolePermissions?: string[];
@@ -153,7 +153,7 @@ const PermissionsPage: React.FC = () => {
           id: String(user.id),
           name: user.name,
           email: user.email,
-          roleId: user.roleId || "",
+          roleId: user.roleId || null, // Changed from empty string to null
           customPermissions: user.customPermissions || [],
           department: user.department || "none",
         }));
@@ -265,15 +265,18 @@ const PermissionsPage: React.FC = () => {
   };
 
   const saveUser = async () => {
-    if (!editingUser) return;
+    if (!editingUser || !fetchWithAuth) {
+      console.error("Editing user or fetchWithAuth not available");
+      return;
+    }
 
     try {
       const payload = {
         id: editingUser.id,
         name: editingUser.name,
         email: editingUser.email,
-        role_id: editingUser.roleId || null,
-        custom_permissions: editingUser.customPermissions || [],
+        roleId: editingUser.roleId || null, // Changed from role_id
+        customPermissions: editingUser.customPermissions || [], // Changed from custom_permissions
         department: editingUser.department || "none",
       };
 
@@ -286,7 +289,7 @@ const PermissionsPage: React.FC = () => {
         body: JSON.stringify(payload),
       });
 
-      const contentType = response.headers.get("content-type");
+      const contentType = response.headers?.get("content-type");
       const responseData = contentType?.includes("application/json") ? await response.json() : { message: await response.text() };
 
       if (!response.ok) {
@@ -298,8 +301,8 @@ const PermissionsPage: React.FC = () => {
         id: String(user.id),
         name: user.name,
         email: user.email,
-        roleId: user.roleId, 
-        customPermissions: user.customPermissions || [], 
+        roleId: user.roleId || null, // Now accepts null
+        customPermissions: user.customPermissions || [],
         department: user.department || "none",
       }));
 
@@ -313,7 +316,7 @@ const PermissionsPage: React.FC = () => {
   };
 
   const deleteRole = async (id: string) => {
-    if (!hasPermission("manage_users") || !window.confirm("Are you sure you want to delete this role?")) return;
+    if (!hasPermission("manage_users") || !window.confirm("Are you sure you want to delete this role?") || !fetchWithAuth) return;
 
     try {
       await fetchWithAuth(`/roles/${id}`, { method: "DELETE" });
@@ -335,7 +338,7 @@ const PermissionsPage: React.FC = () => {
   };
 
   const deleteUser = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this user?")) return;
+    if (!window.confirm("Are you sure you want to delete this user?") || !fetchWithAuth) return;
 
     try {
       await fetchWithAuth(`/users/${id}`, { method: "DELETE" });
@@ -356,10 +359,10 @@ const PermissionsPage: React.FC = () => {
     }
   };
 
-  const getRoleName = (roleId?: string): string => {
-    if (!roleId) return "No Role";
+  const getRoleName = (roleId?: string | null): string => {
+    if (!roleId) return "No Role"; // Menangani null, undefined, atau empty string
     const role = roles.find((r) => r.id === roleId);
-    return role ? role.name : "No Role";
+    return role ? role.name : "No Role"; // Fallback jika role tidak ditemukan
   };
 
   const uniqueDepartments = ["all", ...Array.from(new Set(users.map((u) => u.department || "").filter(Boolean)))];
