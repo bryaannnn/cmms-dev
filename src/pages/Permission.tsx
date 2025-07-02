@@ -262,31 +262,28 @@ const PermissionsPage: React.FC = () => {
   };
 
   const saveUser = async () => {
-    if (!editingUser || !fetchWithAuth) return;
+    if (!editingUser) return;
 
     try {
+      // Include all required fields in the payload
       const payload = {
         id: editingUser.id,
-        name: editingUser.name,
-        email: editingUser.email,
+        name: editingUser.name, // Required field
+        email: editingUser.email, // Required field
         role_id: editingUser.roleId,
         custom_permissions: editingUser.customPermissions,
         department: editingUser.department || "none",
       };
 
-      // Use fetchWithAuth directly with proper error handling
       const response = await fetchWithAuth(`/users/${editingUser.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          role_id: editingUser.roleId,
-          custom_permissions: editingUser.customPermissions,
-        }),
+        body: JSON.stringify(payload),
       });
 
-      // If we get here, fetchWithAuth already handled the response parsing
+      // Refresh user list
       const fetchedUsers = await getUsers();
       const mappedUsers = fetchedUsers.map((user) => ({
         id: String(user.id),
@@ -301,7 +298,24 @@ const PermissionsPage: React.FC = () => {
       setEditingUser(null);
     } catch (error) {
       console.error("Update error:", error);
-      alert(`Update failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+
+      // Type-safe error handling
+      if (error instanceof Error) {
+        // Standard Error object
+        alert(`Update failed: ${error.message}`);
+      } else if (typeof error === "object" && error !== null && "response" in error) {
+        // Axios-style error
+        const err = error as { response?: { data?: { errors?: Record<string, string[]> } } };
+        if (err.response?.data?.errors) {
+          const errorMessages = Object.values(err.response.data.errors).flat();
+          alert(`Validation failed:\n${errorMessages.join("\n")}`);
+        } else {
+          alert("Update failed with unknown server error");
+        }
+      } else {
+        // Fallback for other error types
+        alert("An unexpected error occurred");
+      }
     }
   };
 
