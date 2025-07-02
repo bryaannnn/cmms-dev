@@ -32,7 +32,7 @@ import logoWida from "../assets/logo-wida.png";
 type Role = {
   id: string;
   name: string;
-  description: string | null;
+  description: string;
   permissions: string[];
   isSuperadmin?: boolean;
 };
@@ -41,9 +41,10 @@ type User = {
   id: string;
   name: string;
   email: string;
-  roleId?: string;
+  roleId?: string; // Make it explicitly accept null
   customPermissions: string[];
   department: string;
+  rolePermissions?: string[];
 };
 
 const pagePermissionMapping: Record<string, Record<string, string>> = {
@@ -253,9 +254,13 @@ const PermissionsPage: React.FC = () => {
   };
 
   const handleEditUser = (user: User) => {
+    const userRole = roles.find((r) => r.id === user.roleId);
+
     setEditingUser({
       ...user,
+      roleId: user.roleId || "",
       customPermissions: user.customPermissions || [],
+      rolePermissions: userRole?.permissions || [],
     });
   };
 
@@ -263,17 +268,14 @@ const PermissionsPage: React.FC = () => {
     if (!editingUser) return;
 
     try {
-      // Format payload sesuai dengan struktur data dari response /users
       const payload = {
         id: editingUser.id,
         name: editingUser.name,
         email: editingUser.email,
-        role_id: editingUser.roleId || null, // Convert empty string to null
+        role_id: editingUser.roleId || null,
         custom_permissions: editingUser.customPermissions || [],
-        department: editingUser.department || "none", // Default value sesuai response
+        department: editingUser.department || "none",
       };
-
-      console.log("Payload to be sent:", payload); // Debugging
 
       const response = await fetchWithAuth(`/users/${editingUser.id}`, {
         method: "PUT",
@@ -284,19 +286,20 @@ const PermissionsPage: React.FC = () => {
         body: JSON.stringify(payload),
       });
 
+      const contentType = response.headers.get("content-type");
+      const responseData = contentType?.includes("application/json") ? await response.json() : { message: await response.text() };
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Update failed");
+        throw new Error(responseData.message || "Failed to update user");
       }
 
-      // Refresh user list
-      const updatedUsers = await getUsers();
-      const mappedUsers = updatedUsers.map((user) => ({
+      const fetchedUsers = await getUsers();
+      const mappedUsers = fetchedUsers.map((user) => ({
         id: String(user.id),
         name: user.name,
         email: user.email,
-        roleId: user.roleId || "", // Sesuaikan dengan response
-        customPermissions: user.customPermissions || [], // Sesuaikan dengan response
+        roleId: user.roleId, 
+        customPermissions: user.customPermissions || [], 
         department: user.department || "none",
       }));
 
@@ -305,6 +308,7 @@ const PermissionsPage: React.FC = () => {
       alert("User updated successfully!");
     } catch (error) {
       console.error("Update error:", error);
+      alert(`Update failed: ${error instanceof Error ? error.message : "Unknown error"}`);
     }
   };
 
@@ -342,7 +346,7 @@ const PermissionsPage: React.FC = () => {
         name: user.name,
         email: user.email,
         roleId: user.roleId || "",
-        customPermissions: user.customPermissions || [], // Handle undefined case
+        customPermissions: user.customPermissions || [],
         department: user.department || "none",
       }));
       setUsers(mappedUsers);
@@ -353,7 +357,6 @@ const PermissionsPage: React.FC = () => {
   };
 
   const getRoleName = (roleId?: string): string => {
-    // Make parameter optional
     if (!roleId) return "No Role";
     const role = roles.find((r) => r.id === roleId);
     return role ? role.name : "No Role";
@@ -826,6 +829,12 @@ const PermissionsPage: React.FC = () => {
               </div>
 
               <div className="p-6">
+                {!editingUser.roleId && (
+                  <div className={`p-3 ${darkMode ? "bg-gray-700" : "bg-yellow-50"} rounded-md mb-4`}>
+                    <p className={darkMode ? "text-yellow-300" : "text-yellow-700"}>⚠️ This user has no role assigned. Permissions will come only from custom permissions.</p>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                   <div>
                     <label className={`block text-sm font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Name</label>
@@ -843,9 +852,22 @@ const PermissionsPage: React.FC = () => {
                     <label className={`block text-sm font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Role</label>
                     <select
                       value={editingUser.roleId || ""}
-                      onChange={(e) => setEditingUser((prev) => (prev ? { ...prev, roleId: e.target.value } : null))}
+                      onChange={(e) => {
+                        const newRoleId = e.target.value;
+                        const newRole = roles.find((r) => r.id === newRoleId);
+                        setEditingUser((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                roleId: newRoleId || undefined,
+                                rolePermissions: newRole?.permissions || [],
+                              }
+                            : null
+                        );
+                      }}
                       className={`w-full ${darkMode ? "bg-gray-700 border-gray-600 text-gray-100" : "border-gray-300"} border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500`}
                     >
+                      <option value="">No Role</option>
                       {roles.map((role) => (
                         <option key={role.id} value={role.id}>
                           {role.name}
@@ -873,9 +895,9 @@ const PermissionsPage: React.FC = () => {
                             className={`p-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 ${darkMode ? "bg-gray-800" : "bg-white"}`}
                           >
                             {Object.entries(permissions).map(([action, permissionId]) => {
-                              const roleHasPermission = editingUser.roleId ? roles.find((r) => r.id === editingUser.roleId)?.permissions.includes(permissionId) || false : false;
+                              const roleHasPermission = editingUser.rolePermissions?.includes(permissionId) || false;
                               const isSuperadmin = editingUser.roleId === "3";
-                              const userHasPermission = isSuperadmin || editingUser.customPermissions?.includes(permissionId) || false;
+                              const userHasCustomPermission = editingUser.customPermissions?.includes(permissionId) || false;
                               const isDisabled = roleHasPermission || isSuperadmin;
 
                               return (
@@ -883,8 +905,8 @@ const PermissionsPage: React.FC = () => {
                                   <input
                                     type="checkbox"
                                     id={`user-perm-${permissionId}`}
-                                    checked={userHasPermission}
-                                    onChange={() => !isDisabled && handleUserPermissionToggle(permissionId)}
+                                    checked={isSuperadmin || roleHasPermission || userHasCustomPermission}
+                                    onChange={() => handleUserPermissionToggle(permissionId)}
                                     disabled={isDisabled}
                                     className={`h-4 w-4 rounded focus:ring-blue-500 
                                       ${

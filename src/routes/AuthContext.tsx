@@ -85,6 +85,14 @@ export type PermissionName =
   | "edit_permissions"
   | "manage_users";
 
+export interface Role {
+  id: string;
+  name: string;
+  description: string;
+  permissions: string[];
+  isSuperadmin?: boolean;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -94,6 +102,7 @@ export interface User {
   customPermissions?: string[]; // Dari endpoint /users
   permissions?: PermissionName[]; // Dari endpoint /user
   department?: string | null;
+  rolePermissions?: string[]; 
 }
 
 export interface Mesin {
@@ -286,6 +295,17 @@ interface AuthContextType {
   getUsers: () => Promise<User[]>;
   hasPermission: (permission: string | PermissionName) => boolean;
   setEditingUser: (user: EditingUser | null) => void;
+  getRoles: () => Promise<Role[]>;
+  createRole: (role: Omit<Role, "id">) => Promise<Role>;
+  updateRole: (id: string, role: Partial<Role>) => Promise<Role>;
+  deleteRole: (id: string) => Promise<void>;
+  updateUserPermissions: (
+    userId: string,
+    data: {
+      roleId?: string;
+      customPermissions?: string[];
+    }
+  ) => Promise<User>;
 }
 
 const projectEnvVariables = getProjectEnvVariables();
@@ -754,6 +774,106 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     [fetchWithAuth]
   );
 
+  const getRoles = useCallback(async (): Promise<Role[]> => {
+    try {
+      const response = await fetchWithAuth("/roles");
+      return response.map((role: any) => ({
+        id: String(role.id),
+        name: role.name,
+        description: role.description || `${role.name} role`,
+        permissions: role.permissions.map(String),
+        isSuperadmin: role.name === "superadmin",
+      }));
+    } catch (error) {
+      console.error("Failed to fetch roles:", error);
+      throw error;
+    }
+  }, [fetchWithAuth]);
+
+  const createRole = useCallback(
+    async (role: Omit<Role, "id">): Promise<Role> => {
+      try {
+        const response = await fetchWithAuth("/roles", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: role.name,
+            description: role.description,
+            permissions: role.permissions.map(Number),
+          }),
+        });
+        return {
+          id: String(response.id),
+          name: response.name,
+          description: response.description,
+          permissions: response.permissions.map(String),
+        };
+      } catch (error) {
+        console.error("Failed to create role:", error);
+        throw error;
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const updateRole = useCallback(
+    async (id: string, role: Partial<Role>): Promise<Role> => {
+      try {
+        const response = await fetchWithAuth(`/roles/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: role.name,
+            description: role.description,
+            permissions: role.permissions?.map(Number),
+          }),
+        });
+        return {
+          id: String(response.id),
+          name: response.name,
+          description: response.description,
+          permissions: response.permissions.map(String),
+        };
+      } catch (error) {
+        console.error("Failed to update role:", error);
+        throw error;
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const deleteRole = useCallback(
+    async (id: string): Promise<void> => {
+      try {
+        await fetchWithAuth(`/roles/${id}`, { method: "DELETE" });
+      } catch (error) {
+        console.error("Failed to delete role:", error);
+        throw error;
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const updateUserPermissions = useCallback(
+    async (userId: string, data: { roleId?: string; customPermissions?: string[] }): Promise<User> => {
+      try {
+        const response = await fetchWithAuth(`/users/${userId}/permissions`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            role_id: data.roleId,
+            custom_permissions: data.customPermissions,
+          }),
+        });
+        return mapApiToUser(response);
+      } catch (error) {
+        console.error("Failed to update user permissions:", error);
+        throw error;
+      }
+    },
+    [fetchWithAuth]
+  );
+
   return (
     <AuthContext.Provider
       value={{
@@ -783,6 +903,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         getUsers,
         hasPermission,
         setEditingUser,
+        getRoles,
+        createRole,
+        updateRole,
+        deleteRole,
+        updateUserPermissions
       }}
     >
       {children}
