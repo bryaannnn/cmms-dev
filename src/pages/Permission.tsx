@@ -263,29 +263,48 @@ const PermissionsPage: React.FC = () => {
     if (!editingUser) return;
 
     try {
-      await fetchWithAuth(`/users/${editingUser.id}`, {
+      // Format payload sesuai dengan struktur data dari response /users
+      const payload = {
+        id: editingUser.id,
+        name: editingUser.name,
+        email: editingUser.email,
+        role_id: editingUser.roleId || null, // Convert empty string to null
+        custom_permissions: editingUser.customPermissions || [],
+        department: editingUser.department || "none", // Default value sesuai response
+      };
+
+      console.log("Payload to be sent:", payload); // Debugging
+
+      const response = await fetchWithAuth(`/users/${editingUser.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          roleId: editingUser.roleId || "", 
-          customPermissions: editingUser.customPermissions,
-        }),
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(payload),
       });
 
-      const fetchedUsers = await getUsers();
-      const mappedUsers = (fetchedUsers || []).map((user: AuthUser) => ({
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Update failed");
+      }
+
+      // Refresh user list
+      const updatedUsers = await getUsers();
+      const mappedUsers = updatedUsers.map((user) => ({
         id: String(user.id),
         name: user.name,
         email: user.email,
-        roleId: user.roleId || "",
-        customPermissions: user.customPermissions || [],
+        roleId: user.roleId || "", // Sesuaikan dengan response
+        customPermissions: user.customPermissions || [], // Sesuaikan dengan response
         department: user.department || "none",
       }));
+
       setUsers(mappedUsers);
       setEditingUser(null);
+      alert("User updated successfully!");
     } catch (error) {
-      console.error("Failed to save user:", error);
-      alert("Failed to save user. Please try again.");
+      console.error("Update error:", error);
     }
   };
 
