@@ -11,7 +11,6 @@ import {
   FiChevronDown,
   FiChevronUp,
   FiPlus,
-  FiCheck,
   FiChevronLeft,
   FiChevronRight,
   FiHome,
@@ -39,6 +38,73 @@ type Role = {
   isSuperadmin?: boolean;
 };
 
+type RoleMapping = {
+  [key: string]: {
+    name: string;
+    isDepartmentHead?: boolean;
+    isSuperadmin?: boolean;
+  };
+};
+
+const pagePermissionMapping = {
+  dashboard: {
+    view: "view_dashboard" as PermissionName,
+    edit: "edit_dashboard" as PermissionName,
+  },
+  assets: {
+    view: "view_assets" as PermissionName,
+    create: "create_assets" as PermissionName,
+    edit: "edit_assets" as PermissionName,
+    delete: "delete_assets" as PermissionName,
+  },
+  workorders: {
+    view: "view_workorders" as PermissionName,
+    create: "create_workorders" as PermissionName,
+    assign: "assign_workorders" as PermissionName,
+    complete: "complete_workorders" as PermissionName,
+    edit: "edit_workorders" as PermissionName,
+    delete: "delete_workorders" as PermissionName,
+  },
+  machinehistory: {
+    view: "view_machinehistory" as PermissionName,
+    edit: "edit_machinehistory" as PermissionName,
+    create: "create_machine_history" as PermissionName,
+    delete: "delete_machinehistory" as PermissionName,
+  },
+  inventory: {
+    view: "view_inventory" as PermissionName,
+    edit: "edit_inventory" as PermissionName,
+    create: "create_inventory" as PermissionName,
+    delete: "delete_inventory" as PermissionName,
+  },
+  reports: {
+    view: "view_reports" as PermissionName,
+    edit: "edit_reports" as PermissionName,
+    create: "create_reports" as PermissionName,
+    export: "export_reports" as PermissionName,
+    delete: "delete_reports" as PermissionName,
+  },
+  teams: {
+    view: "view_teams" as PermissionName,
+    edit: "edit_teams" as PermissionName,
+    create: "create_teams" as PermissionName,
+    delete: "delete_teams" as PermissionName,
+  },
+  settings: {
+    view: "view_settings" as PermissionName,
+    edit: "edit_settings" as PermissionName,
+  },
+  permissions: {
+    view: "view_permissions" as PermissionName,
+    edit: "edit_permissions" as PermissionName,
+  },
+  users: {
+    manage: "manage_users" as PermissionName,
+  },
+};
+
+const allPermissions = Object.values(pagePermissionMapping).flatMap((pagePerms) => Object.values(pagePerms)) as PermissionName[];
+
 const PermissionsPage: React.FC = () => {
   const { user, logout, fetchWithAuth, getUsers, hasPermission } = useAuth();
   const navigate = useNavigate();
@@ -51,85 +117,11 @@ const PermissionsPage: React.FC = () => {
   });
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
-  const roleMapping: Record<string, { name: string; isDepartmentHead?: boolean; isSuperadmin?: boolean }> = {
+  const roleMapping: RoleMapping = {
     "1": { name: "User", isDepartmentHead: false },
     "2": { name: "Admin", isDepartmentHead: true },
     "3": { name: "Superadmin", isSuperadmin: true },
   };
-
-  const permissionMapping: Record<string, PermissionName> = {
-    "1": "view_dashboard",
-    "2": "edit_dashboard",
-    "3": "view_assets",
-    "4": "create_assets",
-    "5": "edit_assets",
-    "6": "delete_assets",
-    "7": "view_workorders",
-    "8": "create_workorders",
-    "9": "assign_workorders",
-    "10": "complete_workorders",
-    "11": "view_reports",
-    "12": "export_reports",
-    "13": "view_settings",
-    "14": "edit_settings",
-    "15": "view_permissions",
-    "16": "edit_permissions",
-    "17": "manage_users",
-    "18": "view_inventory",
-    "19": "view_teams",
-    "20": "view_machinehistory",
-    "21": "edit_machinehistory",
-    "22": "edit_inventory",
-    "23": "edit_workorders",
-    "24": "edit_reports",
-    "25": "edit_teams",
-    "26": "create_machine_history",
-    "27": "create_inventory",
-    "28": "create_reports",
-    "29": "create_teams",
-    "30": "delete_workorders",
-    "31": "delete_machinehistory",
-    "32": "delete_inventory",
-    "33": "delete_reports",
-    "34": "delete_teams",
-  };
-
-  const allPermissions: PermissionName[] = [
-    "view_dashboard",
-    "view_assets",
-    "view_workorders",
-    "view_reports",
-    "view_permissions",
-    "view_inventory",
-    "view_teams",
-    "view_machinehistory",
-    "view_settings",
-    "edit_dashboard",
-    "edit_machinehistory",
-    "edit_inventory",
-    "edit_workorders",
-    "edit_reports",
-    "edit_teams",
-    "edit_assets",
-    "edit_permissions",
-    "edit_settings",
-    "create_assets",
-    "create_workorders",
-    "create_machine_history",
-    "create_inventory",
-    "create_reports",
-    "create_teams",
-    "delete_assets",
-    "delete_workorders",
-    "delete_machinehistory",
-    "delete_inventory",
-    "delete_reports",
-    "delete_teams",
-    "assign_workorders",
-    "complete_workorders",
-    "export_reports",
-    "manage_users",
-  ];
 
   const getRoleName = (roleId: string): string => {
     return roleMapping[roleId]?.name || "No Role";
@@ -145,12 +137,6 @@ const PermissionsPage: React.FC = () => {
     }))
   );
 
-  const permissionCategories = Array.from(new Set(allPermissions.map((p) => p.split("_")[0])));
-
-  const getPermissionsByCategory = (category: string): PermissionName[] => {
-    return allPermissions.filter((p) => p.startsWith(category));
-  };
-
   const [activeTab, setActiveTab] = useState<"roles" | "users">("roles");
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -158,14 +144,8 @@ const PermissionsPage: React.FC = () => {
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const [departmentFilter, setDepartmentFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [isLoading] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>(allRoles);
-
-  const permissionsByCategory = permissionCategories.reduce<Record<string, PermissionName[]>>((acc, category) => {
-    acc[category] = getPermissionsByCategory(category);
-    return acc;
-  }, {});
 
   useEffect(() => {
     const handleResize = () => {
@@ -181,13 +161,8 @@ const PermissionsPage: React.FC = () => {
 
   useEffect(() => {
     const fetchUsersData = async () => {
-      try {
-        const fetchedUsers = await getUsers();
-        setUsers(fetchedUsers || []);
-      } catch (error) {
-        console.error("Failed to fetch users:", error);
-      } finally {
-      }
+      const fetchedUsers = await getUsers();
+      setUsers(fetchedUsers || []);
     };
 
     if (hasPermission("manage_users")) {
@@ -232,80 +207,48 @@ const PermissionsPage: React.FC = () => {
   const saveRole = async () => {
     if (!editingRole || !hasPermission("edit_permissions")) return;
 
-    try {
-      if (editingRole.id) {
-        setRoles((prev) => prev.map((role) => (role.id === editingRole.id ? editingRole : role)));
-      } else {
-        const newId = `role-${Date.now()}`;
-        setRoles((prev) => [...prev, { ...editingRole, id: newId }]);
-      }
-      setEditingRole(null);
-      setShowNewRoleForm(false);
-    } catch (error) {
-      console.error("Failed to save role:", error);
-    } finally {
+    if (editingRole.id) {
+      setRoles((prev) => prev.map((role) => (role.id === editingRole.id ? editingRole : role)));
+    } else {
+      const newId = `role-${Date.now()}`;
+      setRoles((prev) => [...prev, { ...editingRole, id: newId }]);
     }
+    setEditingRole(null);
+    setShowNewRoleForm(false);
   };
 
   const saveUser = async () => {
     if (!editingUser) return;
 
-    // Superadmin bisa edit semua user
     if (user?.roleId === "3") {
-      try {
-        const customPermissionIds = editingUser.customPermissions
-          ? Object.entries(permissionMapping)
-              .filter(([_, name]) => editingUser.customPermissions?.includes(name as PermissionName))
-              .map(([id]) => id)
-          : [];
+      await fetchWithAuth(`/users/${editingUser.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          roleId: editingUser.roleId,
+          customPermissions: editingUser.customPermissions || [],
+        }),
+      });
 
-        await fetchWithAuth(`/users/${editingUser.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            roleId: editingUser.roleId,
-            customPermissions: customPermissionIds,
-          }),
-        });
-
-        const fetchedUsers = await getUsers();
-        setUsers(fetchedUsers || []);
-        setEditingUser(null);
-      } catch (error) {
-        console.error("Failed to save user:", error);
-      } finally {
-        
-      }
+      const fetchedUsers = await getUsers();
+      setUsers(fetchedUsers || []);
+      setEditingUser(null);
       return;
     }
 
-    // Admin hanya bisa edit user di departemen yang sama
     if (user?.roleId === "2" && editingUser.department === user.department) {
-      try {
-        
-        const customPermissionIds = editingUser.customPermissions
-          ? Object.entries(permissionMapping)
-              .filter(([_, name]) => editingUser.customPermissions?.includes(name as PermissionName))
-              .map(([id]) => id)
-          : [];
+      await fetchWithAuth(`/users/${editingUser.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          roleId: editingUser.roleId,
+          customPermissions: editingUser.customPermissions || [],
+        }),
+      });
 
-        await fetchWithAuth(`/users/${editingUser.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            roleId: editingUser.roleId,
-            customPermissions: customPermissionIds,
-          }),
-        });
-
-        const fetchedUsers = await getUsers();
-        setUsers(fetchedUsers || []);
-        setEditingUser(null);
-      } catch (error) {
-        console.error("Failed to save user:", error);
-      } finally {
-        
-      }
+      const fetchedUsers = await getUsers();
+      setUsers(fetchedUsers || []);
+      setEditingUser(null);
       return;
     }
 
@@ -314,51 +257,25 @@ const PermissionsPage: React.FC = () => {
 
   const deleteRole = async (id: string) => {
     if (!hasPermission("manage_users") || !window.confirm("Are you sure you want to delete this role?")) return;
-
-    try {
-      
-      setRoles((prev) => prev.filter((role) => role.id !== id));
-    } catch (error) {
-      console.error("Failed to delete role:", error);
-    } finally {
-     
-    }
+    setRoles((prev) => prev.filter((role) => role.id !== id));
   };
 
   const deleteUser = async (id: string) => {
     const userToDelete = users.find((u) => u.id === id);
 
-    // Superadmin bisa hapus semua user
     if (user?.roleId === "3") {
       if (!window.confirm("Are you sure you want to delete this user?")) return;
-
-      try {
-       
-        await fetchWithAuth(`/users/${id}`, { method: "DELETE" });
-        const fetchedUsers = await getUsers();
-        setUsers(fetchedUsers || []);
-      } catch (error) {
-        console.error("Failed to delete user:", error);
-      } finally {
-        
-      }
+      await fetchWithAuth(`/users/${id}`, { method: "DELETE" });
+      const fetchedUsers = await getUsers();
+      setUsers(fetchedUsers || []);
       return;
     }
 
-    // Admin hanya bisa hapus user di departemen yang sama
     if (user?.roleId === "2" && userToDelete?.department === user.department) {
       if (!window.confirm("Are you sure you want to delete this user?")) return;
-
-      try {
-       
-        await fetchWithAuth(`/users/${id}`, { method: "DELETE" });
-        const fetchedUsers = await getUsers();
-        setUsers(fetchedUsers || []);
-      } catch (error) {
-        console.error("Failed to delete user:", error);
-      } finally {
-       
-      }
+      await fetchWithAuth(`/users/${id}`, { method: "DELETE" });
+      const fetchedUsers = await getUsers();
+      setUsers(fetchedUsers || []);
       return;
     }
 
@@ -626,14 +543,14 @@ const PermissionsPage: React.FC = () => {
 
                     <h4 className={`font-medium mb-3 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Permissions</h4>
                     <div className="space-y-4">
-                      {Object.entries(permissionsByCategory).map(([category, perms]) => (
-                        <div key={category} className={`${darkMode ? "border-gray-700" : "border-gray-200"} border rounded-lg overflow-hidden`}>
-                          <button onClick={() => toggleCategory(category)} className={`w-full flex justify-between items-center p-3 ${darkMode ? "bg-gray-700 hover:bg-gray-600" : "bg-gray-50 hover:bg-gray-100"}`}>
-                            <span className={`font-medium ${darkMode ? "text-gray-200" : "text-gray-700"}`}>{category}</span>
-                            {expandedCategories[category] ? <FiChevronUp /> : <FiChevronDown />}
+                      {Object.entries(pagePermissionMapping).map(([page, permissions]) => (
+                        <div key={page} className={`${darkMode ? "border-gray-700" : "border-gray-200"} border rounded-lg overflow-hidden`}>
+                          <button onClick={() => toggleCategory(page)} className={`w-full flex justify-between items-center p-3 ${darkMode ? "bg-gray-700 hover:bg-gray-600" : "bg-gray-50 hover:bg-gray-100"}`}>
+                            <span className={`font-medium capitalize ${darkMode ? "text-gray-200" : "text-gray-700"}`}>{page.replace(/([A-Z])/g, " $1").trim()}</span>
+                            {expandedCategories[page] ? <FiChevronUp /> : <FiChevronDown />}
                           </button>
                           <AnimatePresence>
-                            {expandedCategories[category] && (
+                            {expandedCategories[page] && (
                               <motion.div
                                 initial={{ opacity: 0, height: 0 }}
                                 animate={{ opacity: 1, height: "auto" }}
@@ -641,7 +558,7 @@ const PermissionsPage: React.FC = () => {
                                 transition={{ duration: 0.2 }}
                                 className={`p-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 ${darkMode ? "bg-gray-800" : "bg-white"}`}
                               >
-                                {perms.map((permission) => (
+                                {Object.entries(permissions).map(([action, permission]) => (
                                   <div key={permission} className="flex items-center">
                                     <input
                                       type="checkbox"
@@ -655,7 +572,7 @@ const PermissionsPage: React.FC = () => {
                                     />
                                     <label htmlFor={`perm-${permission}`} className={`ml-2 text-sm ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
                                       <div className="font-medium">
-                                        {permission}
+                                        {action} {page.replace(/([A-Z])/g, " $1").trim()}
                                         {editingRole?.isSuperadmin && <span className={`ml-2 text-xs ${darkMode ? "bg-blue-900 text-blue-300" : "bg-blue-100 text-blue-800"} px-2 py-0.5 rounded`}>Superadmin</span>}
                                       </div>
                                     </label>
@@ -893,14 +810,14 @@ const PermissionsPage: React.FC = () => {
 
                 <h4 className={`font-medium mb-3 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Custom Permissions (in addition to role permissions)</h4>
                 <div className="space-y-4">
-                  {Object.entries(permissionsByCategory).map(([category, perms]) => (
-                    <div key={category} className={`${darkMode ? "border-gray-700" : "border-gray-200"} border rounded-lg overflow-hidden`}>
-                      <button onClick={() => toggleCategory(category)} className={`w-full flex justify-between items-center p-3 ${darkMode ? "bg-gray-700 hover:bg-gray-600" : "bg-gray-50 hover:bg-gray-100"}`}>
-                        <span className={`font-medium ${darkMode ? "text-gray-200" : "text-gray-700"}`}>{category}</span>
-                        {expandedCategories[category] ? <FiChevronUp /> : <FiChevronDown />}
+                  {Object.entries(pagePermissionMapping).map(([page, permissions]) => (
+                    <div key={page} className={`${darkMode ? "border-gray-700" : "border-gray-200"} border rounded-lg overflow-hidden`}>
+                      <button onClick={() => toggleCategory(page)} className={`w-full flex justify-between items-center p-3 ${darkMode ? "bg-gray-700 hover:bg-gray-600" : "bg-gray-50 hover:bg-gray-100"}`}>
+                        <span className={`font-medium capitalize ${darkMode ? "text-gray-200" : "text-gray-700"}`}>{page.replace(/([A-Z])/g, " $1").trim()}</span>
+                        {expandedCategories[page] ? <FiChevronUp /> : <FiChevronDown />}
                       </button>
                       <AnimatePresence>
-                        {expandedCategories[category] && (
+                        {expandedCategories[page] && (
                           <motion.div
                             initial={{ opacity: 0, height: 0 }}
                             animate={{ opacity: 1, height: "auto" }}
@@ -908,7 +825,7 @@ const PermissionsPage: React.FC = () => {
                             transition={{ duration: 0.2 }}
                             className={`p-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 ${darkMode ? "bg-gray-800" : "bg-white"}`}
                           >
-                            {perms.map((permission) => {
+                            {Object.entries(permissions).map(([action, permission]) => {
                               const roleHasPermission = editingUser.roleId ? roles.find((r) => r.id === editingUser.roleId)?.permissions.includes(permission) || false : false;
                               const isSuperadmin = editingUser.roleId === "3";
                               const userHasPermission = isSuperadmin || editingUser.customPermissions?.includes(permission) || false;
@@ -939,7 +856,7 @@ const PermissionsPage: React.FC = () => {
                                   />
                                   <label htmlFor={`user-perm-${permission}`} className={`ml-2 text-sm ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
                                     <div className="font-medium flex items-center">
-                                      {permission}
+                                      {action} {page.replace(/([A-Z])/g, " $1").trim()}
                                       {isSuperadmin && <span className={`ml-2 text-xs ${darkMode ? "bg-blue-900 text-blue-300" : "bg-blue-100 text-blue-800"} px-2 py-0.5 rounded`}>Superadmin</span>}
                                       {roleHasPermission && !isSuperadmin && <span className={`ml-2 text-xs ${darkMode ? "bg-purple-900 text-purple-300" : "bg-purple-100 text-purple-800"} px-2 py-0.5 rounded`}>from role</span>}
                                     </div>
