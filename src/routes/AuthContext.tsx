@@ -3,85 +3,86 @@ import { useNavigate } from "react-router-dom";
 import { getProjectEnvVariables } from "../shared/projectEnvVariables";
 
 // Tambahkan di bagian atas file AuthContext.tsx
-export const roleMapping: Record<string, { name: string; isITRole: boolean }> = {
-  "1": { name: "Admin", isITRole: true },
-  "2": { name: "Technician", isITRole: false },
-  "3": { name: "Superadmin", isITRole: true },
-  "4": { name: "Customer", isITRole: false },
+export const roleMapping: Record<string, { name: string; isDepartmentHead?: boolean; isSuperadmin?: boolean }> = {
+  "1": { name: "admin", isDepartmentHead: true },
+  "2": { name: "user", isDepartmentHead: false },
+  "3": { name: "superadmin", isSuperadmin: true },
 };
 
-export const permissionMapping: Record<string, PermissionName> = {
-  "1": "view_dashboard",
-  "2": "edit_dashboard",
-  "3": "view_assets",
-  "4": "create_assets",
-  "5": "edit_assets",
-  "6": "delete_assets",
-  "7": "view_workorders",
-  "8": "create_workorders",
-  "9": "assign_workorders",
-  "10": "complete_workorders",
-  "11": "view_reports",
-  "12": "export_reports",
-  "13": "view_settings",
-  "14": "edit_settings",
-  "15": "view_permissions",
-  "16": "edit_permissions",
-  "17": "manage_users",
-  "18": "view_inventory",
-  "19": "view_teams",
-  "20": "view_machinehistory",
-  "21": "edit_machinehistory",
-  "22": "edit_inventory",
-  "23": "edit_workorders",
-  "24": "edit_reports",
-  "25": "edit_teams",
-  "26": "create_machine_history",
-  "27": "create_inventory",
-  "28": "create_reports",
-  "29": "create_teams",
-  "30": "delete_workorders",
-  "31": "delete_machinehistory",
-  "32": "delete_inventory",
-  "33": "delete_reports",
-  "34": "delete_teams",
+export const getPermissionNameById = (id: string): PermissionName | null => {
+  const mapping: Record<string, PermissionName> = {
+    "1": "view_dashboard",
+    "2": "edit_dashboard",
+    "3": "view_assets",
+    "4": "create_assets",
+    "5": "edit_assets",
+    "6": "delete_assets",
+    "7": "view_workorders",
+    "8": "create_workorders",
+    "9": "assign_workorders",
+    "10": "complete_workorders",
+    "11": "view_reports",
+    "12": "export_reports",
+    "13": "view_settings",
+    "14": "edit_settings",
+    "15": "view_permissions",
+    "16": "edit_permissions",
+    "17": "manage_users",
+    "18": "edit_workorders",
+    "19": "delete_workorders",
+    "20": "create_reports",
+    "21": "edit_reports",
+    "22": "delete_reports",
+    "23": "view_inventory",
+    "24": "create_inventory",
+    "25": "edit_inventory",
+    "26": "delete_inventory",
+    "27": "view_teams",
+    "28": "create_teams",
+    "29": "edit_teams",
+    "30": "delete_teams",
+    "31": "view_machinehistory",
+    "32": "create_machine_history",
+    "33": "edit_machinehistory",
+    "34": "delete_machinehistory",
+  };
+  return mapping[id] || null;
 };
 
 export type PermissionName =
   | "view_dashboard"
-  | "view_assets"
-  | "view_workorders"
-  | "view_reports"
-  | "view_permissions"
-  | "view_inventory"
-  | "view_teams"
-  | "view_machinehistory"
-  | "view_settings"
-  | "view_permissions"
   | "edit_dashboard"
-  | "edit_machinehistory"
-  | "edit_inventory"
-  | "edit_workorders"
-  | "edit_reports"
-  | "edit_teams"
-  | "edit_assets"
-  | "edit_permissions"
-  | "edit_settings"
+  | "view_assets"
   | "create_assets"
-  | "create_workorders"
-  | "create_machine_history"
-  | "create_inventory"
-  | "create_reports"
-  | "create_teams"
+  | "edit_assets"
   | "delete_assets"
-  | "delete_workorders"
-  | "delete_machinehistory"
-  | "delete_inventory"
-  | "delete_reports"
-  | "delete_teams"
+  | "view_workorders"
+  | "create_workorders"
   | "assign_workorders"
   | "complete_workorders"
+  | "edit_workorders"
+  | "delete_workorders"
+  | "view_machinehistory"
+  | "edit_machinehistory"
+  | "create_machine_history"
+  | "delete_machinehistory"
+  | "view_inventory"
+  | "edit_inventory"
+  | "create_inventory"
+  | "delete_inventory"
+  | "view_reports"
+  | "edit_reports"
+  | "create_reports"
   | "export_reports"
+  | "delete_reports"
+  | "view_teams"
+  | "edit_teams"
+  | "create_teams"
+  | "delete_teams"
+  | "view_settings"
+  | "edit_settings"
+  | "view_permissions"
+  | "edit_permissions"
   | "manage_users";
 
 export interface User {
@@ -283,26 +284,25 @@ interface AuthContextType {
   changePassword: (oldPassword: string, newPassword: string) => Promise<void>;
   fetchUser: () => Promise<User>;
   getUsers: () => Promise<User[]>;
-  hasPermission: (permission: PermissionName) => boolean;
+  hasPermission: (permission: string | PermissionName) => boolean;
   setEditingUser: (user: EditingUser | null) => void;
 }
 
 const projectEnvVariables = getProjectEnvVariables();
 const AuthContext = createContext<AuthContextType | null>(null);
 const mapApiToUser = (apiUser: any): User => {
-  const mappedCustomPermissions = apiUser.customPermissions ? apiUser.customPermissions.map((id: string) => permissionMapping[id]).filter(Boolean) : [];
-
-  const mappedPermissions = apiUser.permissions ? apiUser.permissions.map((id: string) => permissionMapping[id]).filter(Boolean) : [];
+  const mappedCustomPermissions = apiUser.customPermissions || [];
+  const mappedPermissions = apiUser.permissions || [];
 
   return {
     id: String(apiUser.id),
     name: apiUser.name,
     email: apiUser.email,
-    roleId: apiUser.roleId,
+    roleId: apiUser.roleId || "",
     roles: apiUser.roles || [],
-    customPermissions: mappedCustomPermissions,
-    permissions: mappedPermissions,
-    department: apiUser.department || null,
+    customPermissions: apiUser.customPermissions || [],
+    permissions: apiUser.permissions || [],
+    department: apiUser.department || "none",
   };
 };
 
@@ -318,21 +318,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const isAuthenticated = !!token;
 
   const hasPermission = useCallback(
-    (permission: PermissionName): boolean => {
+    (permission: string | PermissionName): boolean => {
       if (!user) return false;
 
-      // Superadmin memiliki semua akses
-      if (user.roleId === "3") return true;
+      // Jika permission adalah ID (string angka), convert ke PermissionName
+      const permissionName = /^\d+$/.test(permission as string) ? getPermissionNameById(permission as string) : (permission as PermissionName);
 
-      // Admin hanya bisa mengelola user di departemen yang sama
-      if (user.roleId === "2" && permission === "manage_users") {
-        return editingUser?.department === user.department;
-      }
+      if (!permissionName) return false;
 
-      // Permission lainnya
-      return user.permissions?.includes(permission) || false;
+      if (user.roleId === "3") return true; // Superadmin
+      return user.permissions?.includes(permissionName) || false;
     },
-    [user, editingUser]
+    [user]
   );
 
   useEffect(() => {
