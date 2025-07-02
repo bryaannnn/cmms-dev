@@ -272,6 +272,7 @@ const PermissionsPage: React.FC = () => {
         roleId: editingUser.roleId,
         customPermissions: editingUser.customPermissions,
         department: editingUser.department || "none",
+        guard: 'web'
       };
 
       const response = await fetchWithAuth(`/users/${editingUser.id}`, {
