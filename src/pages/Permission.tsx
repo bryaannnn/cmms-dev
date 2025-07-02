@@ -263,24 +263,17 @@ const PermissionsPage: React.FC = () => {
     if (!editingUser) return;
 
     try {
-      // Pastikan semua field required ada sebelum mengirim
-      const userData = {
-        name: editingUser.name,
-        email: editingUser.email,
-        role_id: editingUser.roleId || "", // Sesuaikan dengan nama field yang diharapkan backend
-        custom_permissions: editingUser.customPermissions || [], // Sesuaikan format jika perlu
-        department: editingUser.department || "none",
-      };
-
       await fetchWithAuth(`/users/${editingUser.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(userData), // Kirim semua data yang diperlukan
+        body: JSON.stringify({
+          roleId: editingUser.roleId || "", 
+          customPermissions: editingUser.customPermissions,
+        }),
       });
 
-      // Refresh data setelah update
       const fetchedUsers = await getUsers();
-      const mappedUsers = fetchedUsers.map((user) => ({
+      const mappedUsers = (fetchedUsers || []).map((user: AuthUser) => ({
         id: String(user.id),
         name: user.name,
         email: user.email,
@@ -292,7 +285,7 @@ const PermissionsPage: React.FC = () => {
       setEditingUser(null);
     } catch (error) {
       console.error("Failed to save user:", error);
-      alert("Failed to save user. Please check all required fields and try again.");
+      alert("Failed to save user. Please try again.");
     }
   };
 
