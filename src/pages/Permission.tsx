@@ -274,20 +274,19 @@ const PermissionsPage: React.FC = () => {
         department: editingUser.department || "none",
       };
 
-      const response = await fetchWithAuth(`/users/${editingUser.id}`, {
+      // Use fetchWithAuth directly with proper error handling
+      const response = await fetchWithAuth(`/users/${editingUser.id}/permissions`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Accept: "application/json",
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          role_id: editingUser.roleId,
+          custom_permissions: editingUser.customPermissions,
+        }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || "Failed to update user");
-      }
-
+      // If we get here, fetchWithAuth already handled the response parsing
       const fetchedUsers = await getUsers();
       const mappedUsers = fetchedUsers.map((user) => ({
         id: String(user.id),
