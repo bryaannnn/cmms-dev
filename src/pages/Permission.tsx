@@ -39,15 +39,16 @@ interface Role {
   name: string;
   description: string | null;
   permissions: string[];
+  isSuperadmin?: boolean;
 }
 
 interface User {
   id: string;
   name: string;
   email: string;
-  roleId?: string;
-  permissions?: string[];
-  department?: string | null;
+  roleId: string;
+  allPermissions: string[];
+  department: string | null;
   customPermissions?: string[];
 }
 
@@ -65,7 +66,7 @@ const pagePermissionMapping = {
 };
 
 const PermissionsPage: React.FC = () => {
-  const { user: currentUser, logout, fetchWithAuth, updateUserPermissions, getRoles } = useAuth();
+  const { user: currentUser, logout, fetchWithAuth } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -102,20 +103,20 @@ const PermissionsPage: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [usersResponse, rolesResponse] = await Promise.all([fetchWithAuth("/users"), getRoles()]);
+        const [usersResponse, rolesResponse] = await Promise.all([fetchWithAuth("/users"), fetchWithAuth("/roles")]);
 
         const usersData = await usersResponse.json();
-        const rolesData = rolesResponse;
+        const rolesData = await rolesResponse.json();
 
         setUsers(
           usersData.map((user: any) => ({
             id: String(user.id),
             name: user.name,
             email: user.email,
-            roleId: user.roleId ? String(user.roleId) : undefined,
-            permissions: user.permissions || [],
+            roleId: user.roleId ? String(user.roleId) : "",
+            allPermissions: user.allPermissions || [],
             department: user.department || null,
-            customPermissions: user.permissions || [],
+            customPermissions: user.allPermissions || [],
           }))
         );
 
@@ -125,6 +126,7 @@ const PermissionsPage: React.FC = () => {
             name: role.name,
             description: role.description,
             permissions: role.permissions.map(String),
+            isSuperadmin: role.name === "superadmin",
           }))
         );
       } catch (error) {
@@ -133,7 +135,7 @@ const PermissionsPage: React.FC = () => {
     };
 
     fetchData();
-  }, [fetchWithAuth, getRoles]);
+  }, [fetchWithAuth]);
 
   const toggleSidebar = () => {
     setSidebarOpen((prev: boolean) => !prev);
@@ -157,10 +159,11 @@ const PermissionsPage: React.FC = () => {
 
   const handleUserPermissionToggle = (permissionId: string) => {
     if (!editingUser) return;
+    if (editingUser.roleId === "3") return;
 
     setEditingUser((prev) => ({
       ...prev!,
-      customPermissions: prev!.customPermissions?.includes(permissionId) ? prev!.customPermissions?.filter((id) => id !== permissionId) : [...(prev!.customPermissions || []), permissionId],
+      customPermissions: prev!.customPermissions?.includes(permissionId) ? prev!.customPermissions.filter((id) => id !== permissionId) : [...(prev!.customPermissions || []), permissionId],
     }));
   };
 
@@ -186,12 +189,13 @@ const PermissionsPage: React.FC = () => {
         }),
       });
 
-      const rolesResponse = await getRoles();
-      const mappedRoles = rolesResponse.map((role: any) => ({
+      const fetchedRoles = await fetchWithAuth("/roles");
+      const mappedRoles = (await fetchedRoles.json()).map((role: any) => ({
         id: String(role.id),
         name: role.name,
         description: role.description,
         permissions: role.permissions.map(String),
+        isSuperadmin: role.name === "superadmin",
       }));
 
       setRoles(mappedRoles);
@@ -199,14 +203,13 @@ const PermissionsPage: React.FC = () => {
       setShowNewRoleForm(false);
     } catch (error) {
       console.error("Failed to save role:", error);
-      alert("Failed to save role");
     }
   };
 
   const handleEditUser = (user: User) => {
     setEditingUser({
       ...user,
-      customPermissions: user.permissions || [],
+      customPermissions: user.allPermissions || [],
     });
   };
 
@@ -214,9 +217,13 @@ const PermissionsPage: React.FC = () => {
     if (!editingUser) return;
 
     try {
-      await updateUserPermissions(editingUser.id, {
-        roleId: editingUser.roleId || undefined,
-        customPermissions: editingUser.customPermissions || [],
+      await fetchWithAuth(`/users/${editingUser.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          roleId: editingUser.roleId,
+          permissions: editingUser.customPermissions || [],
+        }),
       });
 
       setUsers(
@@ -225,15 +232,14 @@ const PermissionsPage: React.FC = () => {
             ? {
                 ...u,
                 roleId: editingUser.roleId,
-                permissions: editingUser.customPermissions || [],
+                allPermissions: editingUser.customPermissions || [],
               }
             : u
         )
       );
       setEditingUser(null);
     } catch (error) {
-      console.error("Failed to save user:", error);
-      alert("Failed to save changes");
+      console.error("Failed to save changes:", error);
     }
   };
 
@@ -245,7 +251,6 @@ const PermissionsPage: React.FC = () => {
       setRoles(roles.filter((role) => role.id !== id));
     } catch (error) {
       console.error("Failed to delete role:", error);
-      alert("Failed to delete role");
     }
   };
 
@@ -257,7 +262,6 @@ const PermissionsPage: React.FC = () => {
       setUsers(users.filter((user) => user.id !== id));
     } catch (error) {
       console.error("Failed to delete user:", error);
-      alert("Failed to delete user");
     }
   };
 
@@ -296,7 +300,7 @@ const PermissionsPage: React.FC = () => {
     );
   };
 
-  if (!currentUser?.permissions?.includes("view_permissions")) {
+  if (!currentUser?.allPermissions?.includes("15")) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-50">
         <div className="text-xl">You don't have permission to access this page</div>
@@ -331,15 +335,15 @@ const PermissionsPage: React.FC = () => {
             </div>
 
             <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-              {currentUser.permissions?.includes("view_dashboard") && <NavItem icon={<FiHome />} text="Dashboard" to="/dashboard" expanded={sidebarOpen} />}
-              {currentUser.permissions?.includes("view_assets") && <NavItem icon={<FiPackage />} text="Assets" to="/assets" expanded={sidebarOpen} />}
-              {currentUser.permissions?.includes("view_workorders") && <NavItem icon={<FiClipboard />} text="Work Orders" to="/workorders" expanded={sidebarOpen} />}
-              {currentUser.permissions?.includes("view_machinehistory") && <NavItem icon={<FiClipboard />} text="Machine History" to="/machinehistory" expanded={sidebarOpen} />}
-              {currentUser.permissions?.includes("view_inventory") && <NavItem icon={<FiDatabase />} text="Inventory" to="/inventory" expanded={sidebarOpen} />}
-              {currentUser.permissions?.includes("view_reports") && <NavItem icon={<FiBarChart2 />} text="Reports" to="/reports" expanded={sidebarOpen} />}
-              {currentUser.permissions?.includes("view_teams") && <NavItem icon={<FiUsers />} text="Team" to="/team" expanded={sidebarOpen} />}
-              {currentUser.permissions?.includes("view_settings") && <NavItem icon={<FiSettings />} text="Settings" to="/settings" expanded={sidebarOpen} />}
-              {currentUser.permissions?.includes("view_permissions") && <NavItem icon={<FiKey />} text="Permissions" to="/permissions" expanded={sidebarOpen} />}
+              {currentUser.allPermissions.includes("1") && <NavItem icon={<FiHome />} text="Dashboard" to="/dashboard" expanded={sidebarOpen} />}
+              {currentUser.allPermissions.includes("3") && <NavItem icon={<FiPackage />} text="Assets" to="/assets" expanded={sidebarOpen} />}
+              {currentUser.allPermissions.includes("7") && <NavItem icon={<FiClipboard />} text="Work Orders" to="/workorders" expanded={sidebarOpen} />}
+              {currentUser.allPermissions.includes("31") && <NavItem icon={<FiClipboard />} text="Machine History" to="/machinehistory" expanded={sidebarOpen} />}
+              {currentUser.allPermissions.includes("23") && <NavItem icon={<FiDatabase />} text="Inventory" to="/inventory" expanded={sidebarOpen} />}
+              {currentUser.allPermissions.includes("11") && <NavItem icon={<FiBarChart2 />} text="Reports" to="/reports" expanded={sidebarOpen} />}
+              {currentUser.allPermissions.includes("27") && <NavItem icon={<FiUsers />} text="Team" to="/team" expanded={sidebarOpen} />}
+              {currentUser.allPermissions.includes("13") && <NavItem icon={<FiSettings />} text="Settings" to="/settings" expanded={sidebarOpen} />}
+              {currentUser.allPermissions.includes("15") && <NavItem icon={<FiKey />} text="Permissions" to="/permissions" expanded={sidebarOpen} />}
             </nav>
 
             <div className={`p-4 ${darkMode ? "border-gray-700" : "border-blue-100"} border-t`}>
@@ -444,7 +448,7 @@ const PermissionsPage: React.FC = () => {
               <div>
                 <div className="flex justify-between items-center mb-6">
                   <h2 className={`text-xl font-semibold ${darkMode ? "text-gray-100" : "text-gray-900"}`}>Roles</h2>
-                  {currentUser.permissions?.includes("edit_permissions") && (
+                  {currentUser.allPermissions.includes("16") && (
                     <button
                       onClick={() => {
                         setShowNewRoleForm(true);
@@ -559,12 +563,12 @@ const PermissionsPage: React.FC = () => {
                       <div className="flex justify-between items-start mb-2">
                         <h3 className={`text-lg font-semibold ${darkMode ? "text-gray-100" : "text-gray-900"}`}>{role.name}</h3>
                         <div className="flex space-x-2">
-                          {currentUser.permissions?.includes("edit_permissions") && (
+                          {currentUser.allPermissions?.includes("16") && (
                             <button onClick={() => handleEditRole(role)} className={`p-1 ${darkMode ? "text-gray-400 hover:text-blue-400" : "text-gray-500 hover:text-blue-600"}`}>
                               <FiEdit2 />
                             </button>
                           )}
-                          {currentUser.permissions?.includes("manage_users") && (
+                          {currentUser.allPermissions?.includes("17") && (
                             <button onClick={() => deleteRole(role.id)} className={`p-1 ${darkMode ? "text-gray-400 hover:text-red-400" : "text-gray-500 hover:text-red-600"}`}>
                               <FiTrash2 />
                             </button>
@@ -615,7 +619,7 @@ const PermissionsPage: React.FC = () => {
                         </option>
                       ))}
                     </select>
-                    {currentUser.permissions?.includes("manage_users") && (
+                    {currentUser.allPermissions.includes("17") && (
                       <Link to="/permissions/adduser" className={`flex items-center px-4 py-2 ${darkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-600 hover:bg-blue-700"} text-white rounded-md`}>
                         <FiUserPlus className="mr-2" />
                         Add User
@@ -651,22 +655,22 @@ const PermissionsPage: React.FC = () => {
                             <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>{getRoleName(userItem.roleId)}</td>
                             <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>
                               {userItem.roleId === "3" ? (
-                                <span className={`px-2 py-1 text-xs rounded-full ${darkMode ? "bg-blue-900 text-blue-200" : "bg-blue-100 text-blue-800"}`}>Superadmin (All permissions)</span>
-                              ) : userItem.permissions?.length ? (
-                                <span className="cursor-help border-b border-dashed border-gray-400" title={userItem.permissions?.join(", ")}>
-                                  {userItem.permissions?.length} permission(s)
+                                <span className={`px-2 py-1 text-xs rounded-full ${darkMode ? "bg-blue-900 text-blue-200" : "bg-blue-100 text-blue-800"}`}>All permissions</span>
+                              ) : userItem.allPermissions?.length ? (
+                                <span className="cursor-help border-b border-dashed border-gray-400" title={userItem.allPermissions.join(", ")}>
+                                  {userItem.allPermissions.length} permission(s)
                                 </span>
                               ) : (
                                 <span className="italic text-gray-400">No permissions</span>
                               )}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                              {currentUser.permissions?.includes("edit_permissions") && (
+                              {currentUser.allPermissions?.includes("16") && (
                                 <>
                                   <button onClick={() => handleEditUser(userItem)} className={`${darkMode ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-900"} mr-4`}>
                                     Edit
                                   </button>
-                                  {userItem.id !== currentUser?.id && currentUser.permissions?.includes("manage_users") && (
+                                  {userItem.id !== currentUser?.id && currentUser.allPermissions.includes("17") && (
                                     <button onClick={() => deleteUser(userItem.id)} className={`${darkMode ? "text-red-400 hover:text-red-300" : "text-red-600 hover:text-red-900"}`}>
                                       Delete
                                     </button>
@@ -722,11 +726,11 @@ const PermissionsPage: React.FC = () => {
                     <select
                       value={editingUser.roleId || ""}
                       onChange={(e) => {
-                        const newRoleId = e.target.value || undefined;
-                        setEditingUser((prev) => ({
-                          ...prev!,
+                        const newRoleId = e.target.value || "";
+                        setEditingUser({
+                          ...editingUser,
                           roleId: newRoleId,
-                        }));
+                        });
                       }}
                       className={`w-full ${darkMode ? "bg-gray-700 border-gray-600 text-gray-100" : "border-gray-300"} border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500`}
                     >
