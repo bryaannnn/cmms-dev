@@ -39,7 +39,6 @@ interface Role {
   name: string;
   description: string | null;
   permissions: string[];
-  isSuperadmin?: boolean;
 }
 
 interface User {
@@ -47,7 +46,7 @@ interface User {
   name: string;
   email: string;
   roleId: string;
-  allPermissions: string[];
+  allPermissions?: string[];
   department: string | null;
   customPermissions?: string[];
 }
@@ -85,6 +84,11 @@ const PermissionsPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
+  const [loading, setLoading] = useState({
+    users: false,
+    roles: false,
+    saving: false,
+  });
 
   useEffect(() => {
     const handleResize = () => {
@@ -103,13 +107,11 @@ const PermissionsPage: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        setLoading((prev) => ({ ...prev, users: true, roles: true }));
         const [usersResponse, rolesResponse] = await Promise.all([fetchWithAuth("/users"), fetchWithAuth("/roles")]);
 
-        const usersData = await usersResponse.json();
-        const rolesData = await rolesResponse.json();
-
         setUsers(
-          usersData.map((user: any) => ({
+          usersResponse.map((user: any) => ({
             id: String(user.id),
             name: user.name,
             email: user.email,
@@ -121,16 +123,17 @@ const PermissionsPage: React.FC = () => {
         );
 
         setRoles(
-          rolesData.map((role: any) => ({
+          rolesResponse.map((role: any) => ({
             id: String(role.id),
             name: role.name,
             description: role.description,
             permissions: role.permissions.map(String),
-            isSuperadmin: role.name === "superadmin",
           }))
         );
       } catch (error) {
         console.error("Failed to fetch data:", error);
+      } finally {
+        setLoading((prev) => ({ ...prev, users: false, roles: false }));
       }
     };
 
@@ -159,7 +162,6 @@ const PermissionsPage: React.FC = () => {
 
   const handleUserPermissionToggle = (permissionId: string) => {
     if (!editingUser) return;
-    if (editingUser.roleId === "3") return;
 
     setEditingUser((prev) => ({
       ...prev!,
@@ -176,6 +178,7 @@ const PermissionsPage: React.FC = () => {
     if (!editingRole) return;
 
     try {
+      setLoading((prev) => ({ ...prev, saving: true }));
       const method = editingRole.id ? "PUT" : "POST";
       const url = editingRole.id ? `/roles/${editingRole.id}` : "/roles";
 
@@ -185,17 +188,16 @@ const PermissionsPage: React.FC = () => {
         body: JSON.stringify({
           name: editingRole.name,
           description: editingRole.description,
-          permissions: editingRole.permissions.map(Number),
+          permissions: editingRole.permissions,
         }),
       });
 
       const fetchedRoles = await fetchWithAuth("/roles");
-      const mappedRoles = (await fetchedRoles.json()).map((role: any) => ({
+      const mappedRoles = (await fetchedRoles).map((role: any) => ({
         id: String(role.id),
         name: role.name,
         description: role.description,
         permissions: role.permissions.map(String),
-        isSuperadmin: role.name === "superadmin",
       }));
 
       setRoles(mappedRoles);
@@ -203,6 +205,8 @@ const PermissionsPage: React.FC = () => {
       setShowNewRoleForm(false);
     } catch (error) {
       console.error("Failed to save role:", error);
+    } finally {
+      setLoading((prev) => ({ ...prev, saving: false }));
     }
   };
 
@@ -217,6 +221,7 @@ const PermissionsPage: React.FC = () => {
     if (!editingUser) return;
 
     try {
+      setLoading((prev) => ({ ...prev, saving: true }));
       await fetchWithAuth(`/users/${editingUser.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -240,6 +245,8 @@ const PermissionsPage: React.FC = () => {
       setEditingUser(null);
     } catch (error) {
       console.error("Failed to save changes:", error);
+    } finally {
+      setLoading((prev) => ({ ...prev, saving: false }));
     }
   };
 
@@ -265,7 +272,7 @@ const PermissionsPage: React.FC = () => {
     }
   };
 
-  const getRoleName = (roleId?: string) => {
+  const getRoleName = (roleId: string | undefined) => {
     if (!roleId) return "No Role";
     const role = roles.find((r) => r.id === roleId);
     return role ? role.name : "No Role";
@@ -545,51 +552,63 @@ const PermissionsPage: React.FC = () => {
                       >
                         Cancel
                       </motion.button>
-                      <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={saveRole} className={`px-4 py-2 ${darkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-600 hover:bg-blue-700"} text-white rounded-md`}>
-                        Save Role
+                      <motion.button
+                        whileHover={{ scale: 1.03 }}
+                        whileTap={{ scale: 0.97 }}
+                        onClick={saveRole}
+                        disabled={loading.saving}
+                        className={`px-4 py-2 ${darkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-600 hover:bg-blue-700"} text-white rounded-md ${loading.saving ? "opacity-50 cursor-not-allowed" : ""}`}
+                      >
+                        {loading.saving ? "Saving..." : "Save Role"}
                       </motion.button>
                     </div>
                   </motion.div>
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {roles.map((role) => (
-                    <motion.div
-                      key={role.id}
-                      whileHover={{ y: -2, boxShadow: "0 4px 6px rgba(0, 0, 0, 0.05)" }}
-                      transition={{ type: "spring", stiffness: 300 }}
-                      className={`${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-blue-100"} rounded-xl shadow-sm p-6 border h-full`}
-                    >
-                      <div className="flex justify-between items-start mb-2">
-                        <h3 className={`text-lg font-semibold ${darkMode ? "text-gray-100" : "text-gray-900"}`}>{role.name}</h3>
-                        <div className="flex space-x-2">
-                          {currentUser.allPermissions?.includes("16") && (
-                            <button onClick={() => handleEditRole(role)} className={`p-1 ${darkMode ? "text-gray-400 hover:text-blue-400" : "text-gray-500 hover:text-blue-600"}`}>
-                              <FiEdit2 />
-                            </button>
-                          )}
-                          {currentUser.allPermissions?.includes("17") && (
-                            <button onClick={() => deleteRole(role.id)} className={`p-1 ${darkMode ? "text-gray-400 hover:text-red-400" : "text-gray-500 hover:text-red-600"}`}>
-                              <FiTrash2 />
-                            </button>
-                          )}
+                {loading.roles ? (
+                  <div className="flex justify-center items-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {roles.map((role) => (
+                      <motion.div
+                        key={role.id}
+                        whileHover={{ y: -2, boxShadow: "0 4px 6px rgba(0, 0, 0, 0.05)" }}
+                        transition={{ type: "spring", stiffness: 300 }}
+                        className={`${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-blue-100"} rounded-xl shadow-sm p-6 border h-full`}
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <h3 className={`text-lg font-semibold ${darkMode ? "text-gray-100" : "text-gray-900"}`}>{role.name}</h3>
+                          <div className="flex space-x-2">
+                            {currentUser?.allPermissions?.includes("16") && (
+                              <button onClick={() => handleEditRole(role)} className={`p-1 ${darkMode ? "text-gray-400 hover:text-blue-400" : "text-gray-500 hover:text-blue-600"}`}>
+                                <FiEdit2 />
+                              </button>
+                            )}
+                            {currentUser?.allPermissions?.includes("17") && (
+                              <button onClick={() => deleteRole(role.id)} className={`p-1 ${darkMode ? "text-gray-400 hover:text-red-400" : "text-gray-500 hover:text-red-600"}`}>
+                                <FiTrash2 />
+                              </button>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      <p className={`${darkMode ? "text-gray-400" : "text-gray-600"} text-sm mb-4`}>{role.description}</p>
+                        <p className={`${darkMode ? "text-gray-400" : "text-gray-600"} text-sm mb-4`}>{role.description}</p>
 
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className={darkMode ? "text-gray-400" : "text-gray-500"}>Permissions:</span>
-                          <span className={`font-medium ${darkMode ? "text-gray-200" : "text-gray-900"}`}>{role.permissions.length}</span>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className={darkMode ? "text-gray-400" : "text-gray-500"}>Permissions:</span>
+                            <span className={`font-medium ${darkMode ? "text-gray-200" : "text-gray-900"}`}>{role.permissions.length}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className={darkMode ? "text-gray-400" : "text-gray-500"}>Users with this role:</span>
+                            <span className={`font-medium ${darkMode ? "text-gray-200" : "text-gray-900"}`}>{users.filter((u) => u.roleId === role.id).length}</span>
+                          </div>
                         </div>
-                        <div className="flex items-center justify-between text-sm">
-                          <span className={darkMode ? "text-gray-400" : "text-gray-500"}>Users with this role:</span>
-                          <span className={`font-medium ${darkMode ? "text-gray-200" : "text-gray-900"}`}>{users.filter((u) => u.roleId === role.id).length}</span>
-                        </div>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -628,62 +647,68 @@ const PermissionsPage: React.FC = () => {
                   </div>
                 </div>
 
-                <motion.div
-                  whileHover={{ y: -2, boxShadow: "0 4px 6px rgba(0, 0, 0, 0.05)" }}
-                  transition={{ type: "spring", stiffness: 300 }}
-                  className={`${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-blue-100"} rounded-xl shadow-sm p-6 mb-6 border`}
-                >
-                  <h3 className={`text-lg font-semibold mb-4 ${darkMode ? "text-gray-100" : "text-gray-900"}`}>User Permissions</h3>
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-blue-100">
-                      <thead className={darkMode ? "bg-gray-700" : "bg-gray-50"}>
-                        <tr>
-                          <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>Name</th>
-                          <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>Email</th>
-                          <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>Department</th>
-                          <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>Role</th>
-                          <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>Permissions</th>
-                          <th className={`px-6 py-3 text-right text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className={`${darkMode ? "bg-gray-800 divide-gray-700" : "bg-white divide-blue-100"} divide-y`}>
-                        {filteredUsers.map((userItem) => (
-                          <tr key={userItem.id} className={darkMode ? "hover:bg-gray-700" : "hover:bg-blue-50"}>
-                            <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-200" : "text-gray-900"}`}>{userItem.name}</td>
-                            <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>{userItem.email}</td>
-                            <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>{userItem.department || "-"}</td>
-                            <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>{getRoleName(userItem.roleId)}</td>
-                            <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>
-                              {userItem.roleId === "3" ? (
-                                <span className={`px-2 py-1 text-xs rounded-full ${darkMode ? "bg-blue-900 text-blue-200" : "bg-blue-100 text-blue-800"}`}>All permissions</span>
-                              ) : userItem.allPermissions?.length ? (
-                                <span className="cursor-help border-b border-dashed border-gray-400" title={userItem.allPermissions.join(", ")}>
-                                  {userItem.allPermissions.length} permission(s)
-                                </span>
-                              ) : (
-                                <span className="italic text-gray-400">No permissions</span>
-                              )}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                              {currentUser.allPermissions?.includes("16") && (
-                                <>
-                                  <button onClick={() => handleEditUser(userItem)} className={`${darkMode ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-900"} mr-4`}>
-                                    Edit
-                                  </button>
-                                  {userItem.id !== currentUser?.id && currentUser.allPermissions.includes("17") && (
-                                    <button onClick={() => deleteUser(userItem.id)} className={`${darkMode ? "text-red-400 hover:text-red-300" : "text-red-600 hover:text-red-900"}`}>
-                                      Delete
-                                    </button>
-                                  )}
-                                </>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                {loading.users ? (
+                  <div className="flex justify-center items-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
                   </div>
-                </motion.div>
+                ) : (
+                  <motion.div
+                    whileHover={{ y: -2, boxShadow: "0 4px 6px rgba(0, 0, 0, 0.05)" }}
+                    transition={{ type: "spring", stiffness: 300 }}
+                    className={`${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-blue-100"} rounded-xl shadow-sm p-6 mb-6 border`}
+                  >
+                    <h3 className={`text-lg font-semibold mb-4 ${darkMode ? "text-gray-100" : "text-gray-900"}`}>User Permissions</h3>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-blue-100">
+                        <thead className={darkMode ? "bg-gray-700" : "bg-gray-50"}>
+                          <tr>
+                            <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>Name</th>
+                            <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>Email</th>
+                            <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>Department</th>
+                            <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>Role</th>
+                            <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>Permissions</th>
+                            <th className={`px-6 py-3 text-right text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className={`${darkMode ? "bg-gray-800 divide-gray-700" : "bg-white divide-blue-100"} divide-y`}>
+                          {filteredUsers.map((userItem) => (
+                            <tr key={userItem.id} className={darkMode ? "hover:bg-gray-700" : "hover:bg-blue-50"}>
+                              <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-200" : "text-gray-900"}`}>{userItem.name}</td>
+                              <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>{userItem.email}</td>
+                              <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>{userItem.department || "-"}</td>
+                              <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>{getRoleName(userItem.roleId)}</td>
+                              <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>
+                                {userItem.roleId === "3" ? (
+                                  <span className={`px-2 py-1 text-xs rounded-full ${darkMode ? "bg-blue-900 text-blue-200" : "bg-blue-100 text-blue-800"}`}>All permissions</span>
+                                ) : userItem.allPermissions?.length ? (
+                                  <span className="cursor-help border-b border-dashed border-gray-400" title={userItem.allPermissions.join(", ")}>
+                                    {userItem.allPermissions.length} permission(s)
+                                  </span>
+                                ) : (
+                                  <span className="italic text-gray-400">No permissions</span>
+                                )}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                {currentUser?.allPermissions?.includes("16") && (
+                                  <>
+                                    <button onClick={() => handleEditUser(userItem)} className={`${darkMode ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-900"} mr-4`}>
+                                      Edit
+                                    </button>
+                                    {userItem.id !== currentUser?.id && currentUser.allPermissions.includes("17") && (
+                                      <button onClick={() => deleteUser(userItem.id)} className={`${darkMode ? "text-red-400 hover:text-red-300" : "text-red-600 hover:text-red-900"}`}>
+                                        Delete
+                                      </button>
+                                    )}
+                                  </>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </motion.div>
+                )}
               </div>
             )}
           </div>
@@ -804,8 +829,14 @@ const PermissionsPage: React.FC = () => {
                 >
                   Cancel
                 </motion.button>
-                <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={saveUser} className={`px-4 py-2 ${darkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-600 hover:bg-blue-700"} text-white rounded-md`}>
-                  Save Changes
+                <motion.button
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={saveUser}
+                  disabled={loading.saving}
+                  className={`px-4 py-2 ${darkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-600 hover:bg-blue-700"} text-white rounded-md ${loading.saving ? "opacity-50 cursor-not-allowed" : ""}`}
+                >
+                  {loading.saving ? "Saving..." : "Save Changes"}
                 </motion.button>
               </div>
             </motion.div>
