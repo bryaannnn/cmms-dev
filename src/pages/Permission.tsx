@@ -46,7 +46,7 @@ interface User {
   name: string;
   email: string;
   roleId: string;
-  allPermissions?: string[];
+  allPermissions: string[];
   department: string | null;
   customPermissions?: string[];
 }
