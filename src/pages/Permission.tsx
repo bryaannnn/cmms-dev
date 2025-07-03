@@ -144,7 +144,7 @@ const PermissionsPage: React.FC = () => {
     return <div className="flex items-center justify-center h-screen">Loading...</div>;
   }
 
-  if (!currentUser.allPermissions.includes("15")) {
+  if (!currentUser.allPermissions.includes("15") && currentUser.roleId !== "3") {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-xl">You don't have permission to access this page</div>
