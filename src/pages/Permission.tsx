@@ -25,12 +25,21 @@ import {
   FiMoon,
 } from "react-icons/fi";
 import { motion, AnimatePresence } from "framer-motion";
-import { useAuth, PermissionName, User as AuthUser } from "../routes/AuthContext";
+import { useAuth } from "../routes/AuthContext";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import logoWida from "../assets/logo-wida.png";
 
+// Define types
+type Permission = {
+  [key: string]: string;
+};
+
+type PagePermissions = {
+  [key: string]: Permission;
+};
+
 type Role = {
-  id: number;
+  id: string;
   name: string;
   description: string;
   permissions: string[];
@@ -41,13 +50,20 @@ type User = {
   id: string;
   name: string;
   email: string;
-  roleId: number | null;
+  roleId: string | null;
   customPermissions: string[];
   department: string;
   rolePermissions?: string[];
 };
 
-const pagePermissionMapping: Record<string, Record<string, string>> = {
+type NavItemProps = {
+  icon: React.ReactNode;
+  text: string;
+  to: string;
+  expanded: boolean;
+};
+
+const pagePermissionMapping: PagePermissions = {
   dashboard: {
     view: "1",
     edit: "2",
@@ -105,24 +121,23 @@ const pagePermissionMapping: Record<string, Record<string, string>> = {
 };
 
 const PermissionsPage: React.FC = () => {
-  const { user, logout, fetchWithAuth, getUsers, hasPermission } = useAuth();
+  const { user, logout, fetchWithAuth, getUsers, hasPermission, updateUserPermissions } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState<boolean>(false);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
     const stored = localStorage.getItem("sidebarOpen");
     return stored ? JSON.parse(stored) : false;
   });
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-
+  const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768);
   const [activeTab, setActiveTab] = useState<"roles" | "users">("roles");
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [showNewRoleForm, setShowNewRoleForm] = useState(false);
+  const [showNewRoleForm, setShowNewRoleForm] = useState<boolean>(false);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const [departmentFilter, setDepartmentFilter] = useState<string>("all");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
 
@@ -147,17 +162,17 @@ const PermissionsPage: React.FC = () => {
       try {
         const [fetchedUsers, fetchedRoles] = await Promise.all([getUsers(), fetchWithAuth("/roles")]);
 
-        const mappedUsers = fetchedUsers.map((user) => ({
+        const mappedUsers: User[] = fetchedUsers.map((user: any) => ({
           id: String(user.id),
           name: user.name,
           email: user.email,
-          roleId: user.roleId ? Number(user.roleId) : null,
+          roleId: user.roleId ? String(user.roleId) : null,
           customPermissions: user.customPermissions || [],
           department: user.department || "none",
         }));
 
-        const mappedRoles = fetchedRoles.map((role: any) => ({
-          id: role.id,
+        const mappedRoles: Role[] = fetchedRoles.map((role: any) => ({
+          id: String(role.id),
           name: role.name,
           description: role.description || `${role.name} role`,
           permissions: role.permissions.map(String),
@@ -171,7 +186,7 @@ const PermissionsPage: React.FC = () => {
       }
     };
 
-    if (hasPermission("view_permissions" as PermissionName)) {
+    if (hasPermission("view_permissions")) {
       fetchData();
     }
   }, [getUsers, fetchWithAuth, hasPermission]);
@@ -200,7 +215,7 @@ const PermissionsPage: React.FC = () => {
   };
 
   const handleUserPermissionToggle = (permissionId: string) => {
-    if (!editingUser || editingUser.roleId === 3) return;
+    if (!editingUser || editingUser.roleId === "3") return;
 
     setEditingUser((prev) => {
       if (!prev) return null;
@@ -233,8 +248,8 @@ const PermissionsPage: React.FC = () => {
       });
 
       const fetchedRoles = await fetchWithAuth("/roles");
-      const mappedRoles = fetchedRoles.map((role: any) => ({
-        id: role.id,
+      const mappedRoles: Role[] = fetchedRoles.map((role: any) => ({
+        id: String(role.id),
         name: role.name,
         description: role.description,
         permissions: role.permissions.map(String),
@@ -251,10 +266,13 @@ const PermissionsPage: React.FC = () => {
   };
 
   const handleEditUser = (user: User) => {
-    const userRole = roles.find((r) => r.id === user.roleId);
+    const userRole = roles.find((r) => String(r.id) === String(user.roleId));
 
     setEditingUser({
-      ...user,
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      department: user.department,
       roleId: user.roleId || null,
       customPermissions: user.customPermissions || [],
       rolePermissions: userRole?.permissions || [],
@@ -265,69 +283,42 @@ const PermissionsPage: React.FC = () => {
     if (!editingUser) return;
 
     try {
-      // Include all required fields in the payload
-      const payload = {
-        id: editingUser.id,
-        name: editingUser.name, // Required field
-        email: editingUser.email, // Required field
-        role_id: editingUser.roleId,
-        custom_permissions: editingUser.customPermissions,
-        department: editingUser.department || "none",
-      };
+      // Convert null to undefined to match the expected type
+      const roleId = editingUser.roleId !== null ? editingUser.roleId : undefined;
 
-      const response = await fetchWithAuth(`/users/${editingUser.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
+      const updatedUser = await updateUserPermissions(editingUser.id, {
+        roleId,
+        customPermissions: editingUser.customPermissions || [],
       });
 
-      // Refresh user list
-      const fetchedUsers = await getUsers();
-      const mappedUsers = fetchedUsers.map((user) => ({
-        id: String(user.id),
-        name: user.name,
-        email: user.email,
-        roleId: user.roleId ? Number(user.roleId) : null,
-        customPermissions: user.customPermissions || [],
-        department: user.department || "none",
-      }));
+      setUsers((prevUsers) =>
+        prevUsers.map((user) =>
+          user.id === updatedUser.id
+            ? {
+                ...user,
+                roleId: updatedUser.roleId || null, // Keep null in state
+                customPermissions: updatedUser.customPermissions || [],
+              }
+            : user
+        )
+      );
 
-      setUsers(mappedUsers);
       setEditingUser(null);
     } catch (error) {
       console.error("Update error:", error);
-
-      // Type-safe error handling
-      if (error instanceof Error) {
-        // Standard Error object
-        alert(`Update failed: ${error.message}`);
-      } else if (typeof error === "object" && error !== null && "response" in error) {
-        // Axios-style error
-        const err = error as { response?: { data?: { errors?: Record<string, string[]> } } };
-        if (err.response?.data?.errors) {
-          const errorMessages = Object.values(err.response.data.errors).flat();
-          alert(`Validation failed:\n${errorMessages.join("\n")}`);
-        } else {
-          alert("Update failed with unknown server error");
-        }
-      } else {
-        // Fallback for other error types
-        alert("An unexpected error occurred");
-      }
+      alert("Failed to save changes. Please try again.");
     }
   };
 
-  const deleteRole = async (id: number) => {
+  const deleteRole = async (id: string) => {
     if (!hasPermission("manage_users") || !window.confirm("Are you sure you want to delete this role?")) return;
 
     try {
       await fetchWithAuth(`/roles/${id}`, { method: "DELETE" });
 
       const fetchedRoles = await fetchWithAuth("/roles");
-      const mappedRoles = fetchedRoles.map((role: any) => ({
-        id: role.id,
+      const mappedRoles: Role[] = fetchedRoles.map((role: any) => ({
+        id: String(role.id),
         name: role.name,
         description: role.description,
         permissions: role.permissions.map(String),
@@ -348,11 +339,11 @@ const PermissionsPage: React.FC = () => {
       await fetchWithAuth(`/users/${id}`, { method: "DELETE" });
 
       const fetchedUsers = await getUsers();
-      const mappedUsers = fetchedUsers.map((user) => ({
+      const mappedUsers: User[] = fetchedUsers.map((user: any) => ({
         id: String(user.id),
         name: user.name,
         email: user.email,
-        roleId: user.roleId ? Number(user.roleId) : null,
+        roleId: user.roleId ? String(user.roleId) : null,
         customPermissions: user.customPermissions || [],
         department: user.department || "none",
       }));
@@ -363,9 +354,9 @@ const PermissionsPage: React.FC = () => {
     }
   };
 
-  const getRoleName = (roleId: number | null): string => {
+  const getRoleName = (roleId: string | null): string => {
     if (!roleId) return "No Role";
-    const role = roles.find((r) => r.id === roleId);
+    const role = roles.find((r) => String(r.id) === String(roleId));
     return role ? role.name : "No Role";
   };
 
@@ -375,13 +366,7 @@ const PermissionsPage: React.FC = () => {
     .filter((user) => departmentFilter === "all" || user.department === departmentFilter)
     .filter((user) => user.name.toLowerCase().includes(searchQuery.toLowerCase()) || user.email.toLowerCase().includes(searchQuery.toLowerCase()));
 
-  const NavItem: React.FC<{
-    icon: React.ReactNode;
-    text: string;
-    to: string;
-    expanded: boolean;
-  }> = ({ icon, text, to, expanded }) => {
-    const navigate = useNavigate();
+  const NavItem: React.FC<NavItemProps> = ({ icon, text, to, expanded }) => {
     const active = location.pathname === to;
 
     return (
@@ -403,7 +388,7 @@ const PermissionsPage: React.FC = () => {
     );
   };
 
-  if (!hasPermission("view_permissions" as PermissionName)) {
+  if (!hasPermission("view_permissions")) {
     return (
       <div className={`flex items-center justify-center h-screen ${darkMode ? "bg-gray-900" : "bg-gray-50"}`}>
         <div className="text-xl">You don't have permission to access this page</div>
@@ -567,7 +552,7 @@ const PermissionsPage: React.FC = () => {
                     <button
                       onClick={() => {
                         setShowNewRoleForm(true);
-                        setEditingRole({ id: 0, name: "", description: "", permissions: [] });
+                        setEditingRole({ id: "0", name: "", description: "", permissions: [] });
                       }}
                       className={`flex items-center px-4 py-2 ${darkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-600 hover:bg-blue-700"} text-white rounded-md`}
                     >
@@ -788,7 +773,7 @@ const PermissionsPage: React.FC = () => {
                             <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>{userItem.department || "-"}</td>
                             <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>{getRoleName(userItem.roleId) || ""}</td>
                             <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>
-                              {userItem.roleId === 3 ? (
+                              {userItem.roleId === "3" ? (
                                 <span className={`px-2 py-1 text-xs rounded-full ${darkMode ? "bg-blue-900 text-blue-200" : "bg-blue-100 text-blue-800"}`}>All permissions</span>
                               ) : userItem.customPermissions?.length ? (
                                 <span className="cursor-help border-b border-dashed border-gray-400" title={userItem.customPermissions.join(", ")}>
@@ -858,25 +843,24 @@ const PermissionsPage: React.FC = () => {
                   <div>
                     <label className={`block text-sm font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Role</label>
                     <select
-                      value={editingUser.roleId || ""}
+                      value={editingUser?.roleId || ""}
                       onChange={(e) => {
-                        const newRoleId = e.target.value ? Number(e.target.value) : null;
-                        const newRole = roles.find((r) => r.id === newRoleId);
-                        setEditingUser((prev) =>
-                          prev
-                            ? {
-                                ...prev,
-                                roleId: newRoleId,
-                                rolePermissions: newRole?.permissions || [],
-                              }
-                            : null
-                        );
+                        if (!editingUser) return;
+
+                        const newRoleId = e.target.value || null;
+                        const newRole = roles.find((r) => String(r.id) === String(newRoleId));
+
+                        setEditingUser({
+                          ...editingUser,
+                          roleId: newRoleId,
+                          rolePermissions: newRole?.permissions || [],
+                        });
                       }}
                       className={`w-full ${darkMode ? "bg-gray-700 border-gray-600 text-gray-100" : "border-gray-300"} border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500`}
                     >
                       <option value="">No Role</option>
                       {roles.map((role) => (
-                        <option key={role.id} value={role.id}>
+                        <option key={role.id} value={String(role.id)}>
                           {role.name}
                         </option>
                       ))}
@@ -903,7 +887,7 @@ const PermissionsPage: React.FC = () => {
                           >
                             {Object.entries(permissions).map(([action, permissionId]) => {
                               const roleHasPermission = editingUser.rolePermissions?.includes(permissionId) || false;
-                              const isSuperadmin = editingUser.roleId === 3;
+                              const isSuperadmin = editingUser.roleId === "3";
                               const userHasCustomPermission = editingUser.customPermissions?.includes(permissionId) || false;
                               const isDisabled = roleHasPermission || isSuperadmin;
 
