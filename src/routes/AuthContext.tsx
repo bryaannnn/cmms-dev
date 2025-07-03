@@ -299,13 +299,7 @@ interface AuthContextType {
   createRole: (role: Omit<Role, "id">) => Promise<Role>;
   updateRole: (id: string, role: Partial<Role>) => Promise<Role>;
   deleteRole: (id: string) => Promise<void>;
-  updateUserPermissions: (
-    userId: string,
-    data: {
-      roleId?: string;
-      customPermissions?: string[];
-    }
-  ) => Promise<User>;
+  updateUserPermissions: (userId: string, data: { roleId?: string | null; customPermissions?: string[] }) => Promise<User>;
 }
 
 const projectEnvVariables = getProjectEnvVariables();
@@ -855,24 +849,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   );
 
   const updateUserPermissions = useCallback(
-    async (userId: string, data: { roleId?: string; customPermissions?: string[] }): Promise<User> => {
-      try {
-        const response = await fetchWithAuth(`/users/${userId}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            role_id: data.roleId,
-            custom_permissions: data.customPermissions,
-          }),
-        });
-        return mapApiToUser(response);
-      } catch (error) {
-        console.error("Failed to update user permissions:", error);
-        throw error;
-      }
-    },
-    [fetchWithAuth]
-  );
+  async (userId: string, data: { roleId?: string | null; customPermissions?: string[] }): Promise<User> => {
+    try {
+      const currentUser = await fetchWithAuth(`/users/${userId}`);
+      
+      const response = await fetchWithAuth(`/users/${userId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: currentUser.name,
+          email: currentUser.email,
+          department: currentUser.department,
+          role_id: data.roleId || null,
+          custom_permissions: data.customPermissions || []
+        })
+      });
+      
+      return mapApiToUser(response);
+    } catch (error) {
+      throw error;
+    }
+  },
+  [fetchWithAuth]
+);
 
   return (
     <AuthContext.Provider

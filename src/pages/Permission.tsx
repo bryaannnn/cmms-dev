@@ -29,24 +29,23 @@ import { useAuth } from "../routes/AuthContext";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import logoWida from "../assets/logo-wida.png";
 
-// Define types
-type Permission = {
+interface Permission {
   [key: string]: string;
-};
+}
 
-type PagePermissions = {
+interface PagePermissions {
   [key: string]: Permission;
-};
+}
 
-type Role = {
+interface Role {
   id: string;
   name: string;
   description: string;
   permissions: string[];
-  isSuperadmin?: boolean;
-};
+  isSuperadmin: boolean;
+}
 
-type User = {
+interface User {
   id: string;
   name: string;
   email: string;
@@ -54,70 +53,26 @@ type User = {
   customPermissions: string[];
   department: string;
   rolePermissions?: string[];
-};
+}
 
-type NavItemProps = {
+interface NavItemProps {
   icon: React.ReactNode;
   text: string;
   to: string;
   expanded: boolean;
-};
+}
 
 const pagePermissionMapping: PagePermissions = {
-  dashboard: {
-    view: "1",
-    edit: "2",
-  },
-  assets: {
-    view: "3",
-    create: "4",
-    edit: "5",
-    delete: "6",
-  },
-  workorders: {
-    view: "7",
-    create: "8",
-    assign: "9",
-    complete: "10",
-    edit: "18",
-    delete: "19",
-  },
-  machinehistory: {
-    view: "31",
-    create: "32",
-    edit: "33",
-    delete: "34",
-  },
-  inventory: {
-    view: "23",
-    create: "24",
-    edit: "25",
-    delete: "26",
-  },
-  reports: {
-    view: "11",
-    create: "20",
-    edit: "21",
-    export: "12",
-    delete: "22",
-  },
-  teams: {
-    view: "27",
-    create: "28",
-    edit: "29",
-    delete: "30",
-  },
-  settings: {
-    view: "13",
-    edit: "14",
-  },
-  permissions: {
-    view: "15",
-    edit: "16",
-  },
-  users: {
-    manage: "17",
-  },
+  dashboard: { view: "1", edit: "2" },
+  assets: { view: "3", create: "4", edit: "5", delete: "6" },
+  workorders: { view: "7", create: "8", assign: "9", complete: "10", edit: "18", delete: "19" },
+  machinehistory: { view: "31", create: "32", edit: "33", delete: "34" },
+  inventory: { view: "23", create: "24", edit: "25", delete: "26" },
+  reports: { view: "11", create: "20", edit: "21", export: "12", delete: "22" },
+  teams: { view: "27", create: "28", edit: "29", delete: "30" },
+  settings: { view: "13", edit: "14" },
+  permissions: { view: "15", edit: "16" },
+  users: { manage: "17" },
 };
 
 const PermissionsPage: React.FC = () => {
@@ -125,28 +80,26 @@ const PermissionsPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [darkMode, setDarkMode] = useState<boolean>(false);
-  const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
+  const [darkMode, setDarkMode] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
     const stored = localStorage.getItem("sidebarOpen");
     return stored ? JSON.parse(stored) : false;
   });
-  const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [activeTab, setActiveTab] = useState<"roles" | "users">("roles");
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [showNewRoleForm, setShowNewRoleForm] = useState<boolean>(false);
+  const [showNewRoleForm, setShowNewRoleForm] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
-  const [departmentFilter, setDepartmentFilter] = useState<string>("all");
-  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [departmentFilter, setDepartmentFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
 
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768);
-      if (window.innerWidth < 768) {
-        setSidebarOpen(false);
-      }
+      if (window.innerWidth < 768) setSidebarOpen(false);
     };
 
     window.addEventListener("resize", handleResize);
@@ -162,7 +115,7 @@ const PermissionsPage: React.FC = () => {
       try {
         const [fetchedUsers, fetchedRoles] = await Promise.all([getUsers(), fetchWithAuth("/roles")]);
 
-        const mappedUsers: User[] = fetchedUsers.map((user: any) => ({
+        const mappedUsers = fetchedUsers.map((user: any) => ({
           id: String(user.id),
           name: user.name,
           email: user.email,
@@ -171,7 +124,7 @@ const PermissionsPage: React.FC = () => {
           department: user.department || "none",
         }));
 
-        const mappedRoles: Role[] = fetchedRoles.map((role: any) => ({
+        const mappedRoles = fetchedRoles.map((role: any) => ({
           id: String(role.id),
           name: role.name,
           description: role.description || `${role.name} role`,
@@ -186,15 +139,11 @@ const PermissionsPage: React.FC = () => {
       }
     };
 
-    if (hasPermission("view_permissions")) {
-      fetchData();
-    }
+    if (hasPermission("view_permissions")) fetchData();
   }, [getUsers, fetchWithAuth, hasPermission]);
 
   const toggleSidebar = () => {
-    const newState = !sidebarOpen;
-    setSidebarOpen(newState);
-    localStorage.setItem("sidebarOpen", JSON.stringify(newState));
+    setSidebarOpen((prev: boolean) => !prev);
   };
 
   const toggleCategory = (category: string) => {
@@ -207,22 +156,19 @@ const PermissionsPage: React.FC = () => {
   const handleRolePermissionToggle = (permissionId: string) => {
     if (!editingRole || editingRole.isSuperadmin) return;
 
-    setEditingRole((prev) => {
-      if (!prev) return null;
-      const newPermissions = prev.permissions.includes(permissionId) ? prev.permissions.filter((id) => id !== permissionId) : [...prev.permissions, permissionId];
-      return { ...prev, permissions: newPermissions };
-    });
+    setEditingRole((prev: Role | null) => ({
+      ...prev!,
+      permissions: prev!.permissions.includes(permissionId) ? prev!.permissions.filter((id) => id !== permissionId) : [...prev!.permissions, permissionId],
+    }));
   };
 
   const handleUserPermissionToggle = (permissionId: string) => {
     if (!editingUser || editingUser.roleId === "3") return;
 
-    setEditingUser((prev) => {
-      if (!prev) return null;
-      const currentPermissions = prev.customPermissions || [];
-      const newPermissions = currentPermissions.includes(permissionId) ? currentPermissions.filter((id) => id !== permissionId) : [...currentPermissions, permissionId];
-      return { ...prev, customPermissions: newPermissions };
-    });
+    setEditingUser((prev) => ({
+      ...prev!,
+      customPermissions: prev!.customPermissions.includes(permissionId) ? prev!.customPermissions.filter((id) => id !== permissionId) : [...prev!.customPermissions, permissionId],
+    }));
   };
 
   const handleEditRole = (role: Role) => {
@@ -248,7 +194,7 @@ const PermissionsPage: React.FC = () => {
       });
 
       const fetchedRoles = await fetchWithAuth("/roles");
-      const mappedRoles: Role[] = fetchedRoles.map((role: any) => ({
+      const mappedRoles = fetchedRoles.map((role: any) => ({
         id: String(role.id),
         name: role.name,
         description: role.description,
@@ -260,21 +206,14 @@ const PermissionsPage: React.FC = () => {
       setEditingRole(null);
       setShowNewRoleForm(false);
     } catch (error) {
-      console.error("Failed to save role:", error);
-      alert("Failed to save role. Please try again.");
+      alert("Failed to save role");
     }
   };
 
   const handleEditUser = (user: User) => {
     const userRole = roles.find((r) => String(r.id) === String(user.roleId));
-
     setEditingUser({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      department: user.department,
-      roleId: user.roleId || null,
-      customPermissions: user.customPermissions || [],
+      ...user,
       rolePermissions: userRole?.permissions || [],
     });
   };
@@ -283,30 +222,25 @@ const PermissionsPage: React.FC = () => {
     if (!editingUser) return;
 
     try {
-      // Convert null to undefined to match the expected type
-      const roleId = editingUser.roleId !== null ? editingUser.roleId : undefined;
-
-      const updatedUser = await updateUserPermissions(editingUser.id, {
-        roleId,
+      const updatedUser = (await updateUserPermissions(editingUser.id, {
+        roleId: editingUser.roleId || null,
         customPermissions: editingUser.customPermissions || [],
-      });
+      })) as User; // Type assertion ke User
 
-      setUsers((prevUsers) =>
-        prevUsers.map((user) =>
-          user.id === updatedUser.id
+      setUsers(
+        users.map((u: User) =>
+          u.id === updatedUser.id
             ? {
-                ...user,
-                roleId: updatedUser.roleId || null, // Keep null in state
-                customPermissions: updatedUser.customPermissions || [],
+                ...updatedUser,
+                roleId: updatedUser.roleId || null, // Pastikan roleId tidak undefined
+                customPermissions: updatedUser.customPermissions || [], // Pastikan array tidak undefined
               }
-            : user
+            : u
         )
       );
-
       setEditingUser(null);
     } catch (error) {
-      console.error("Update error:", error);
-      alert("Failed to save changes. Please try again.");
+      alert("Failed to save changes");
     }
   };
 
@@ -315,20 +249,17 @@ const PermissionsPage: React.FC = () => {
 
     try {
       await fetchWithAuth(`/roles/${id}`, { method: "DELETE" });
-
       const fetchedRoles = await fetchWithAuth("/roles");
-      const mappedRoles: Role[] = fetchedRoles.map((role: any) => ({
+      const mappedRoles = fetchedRoles.map((role: any) => ({
         id: String(role.id),
         name: role.name,
         description: role.description,
         permissions: role.permissions.map(String),
         isSuperadmin: role.name === "superadmin",
       }));
-
       setRoles(mappedRoles);
     } catch (error) {
-      console.error("Failed to delete role:", error);
-      alert("Failed to delete role. Please try again.");
+      alert("Failed to delete role");
     }
   };
 
@@ -337,46 +268,41 @@ const PermissionsPage: React.FC = () => {
 
     try {
       await fetchWithAuth(`/users/${id}`, { method: "DELETE" });
-
       const fetchedUsers = await getUsers();
-      const mappedUsers: User[] = fetchedUsers.map((user: any) => ({
-        id: String(user.id),
-        name: user.name,
-        email: user.email,
-        roleId: user.roleId ? String(user.roleId) : null,
-        customPermissions: user.customPermissions || [],
-        department: user.department || "none",
-      }));
-      setUsers(mappedUsers);
+      setUsers(
+        fetchedUsers.map((user: any) => ({
+          id: String(user.id),
+          name: user.name,
+          email: user.email,
+          roleId: user.roleId ? String(user.roleId) : null,
+          customPermissions: user.customPermissions || [],
+          department: user.department || "none",
+        }))
+      );
     } catch (error) {
-      console.error("Failed to delete user:", error);
-      alert("Failed to delete user. Please try again.");
+      alert("Failed to delete user");
     }
   };
 
-  const getRoleName = (roleId: string | null): string => {
+  const getRoleName = (roleId: string | null) => {
     if (!roleId) return "No Role";
     const role = roles.find((r) => String(r.id) === String(roleId));
     return role ? role.name : "No Role";
   };
 
-  const uniqueDepartments = ["all", ...Array.from(new Set(users.map((u) => u.department || "").filter(Boolean)))];
-
+  const uniqueDepartments = ["all", ...new Set(users.map((u) => u.department || "").filter(Boolean))];
   const filteredUsers = users
     .filter((user) => departmentFilter === "all" || user.department === departmentFilter)
     .filter((user) => user.name.toLowerCase().includes(searchQuery.toLowerCase()) || user.email.toLowerCase().includes(searchQuery.toLowerCase()));
 
   const NavItem: React.FC<NavItemProps> = ({ icon, text, to, expanded }) => {
     const active = location.pathname === to;
-
     return (
       <motion.button
         onClick={() => navigate(to)}
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
-        className={`w-full text-left flex items-center p-2 rounded-lg transition-all duration-200
-          ${active ? "bg-blue-50 text-blue-700 font-semibold" : "hover:bg-blue-50 text-gray-700"}
-        `}
+        className={`w-full text-left flex items-center p-2 rounded-lg transition-all duration-200 ${active ? "bg-blue-50 text-blue-700 font-semibold" : "hover:bg-blue-50 text-gray-700"}`}
       >
         <span className="text-xl">{icon}</span>
         {expanded && (
@@ -390,7 +316,7 @@ const PermissionsPage: React.FC = () => {
 
   if (!hasPermission("view_permissions")) {
     return (
-      <div className={`flex items-center justify-center h-screen ${darkMode ? "bg-gray-900" : "bg-gray-50"}`}>
+      <div className="flex items-center justify-center h-screen bg-gray-50">
         <div className="text-xl">You don't have permission to access this page</div>
       </div>
     );
@@ -402,9 +328,7 @@ const PermissionsPage: React.FC = () => {
         {(!isMobile || sidebarOpen) && (
           <motion.div
             initial={{ width: isMobile ? 0 : sidebarOpen ? 256 : 80 }}
-            animate={{
-              width: isMobile ? (sidebarOpen ? 256 : 0) : sidebarOpen ? 256 : 80,
-            }}
+            animate={{ width: isMobile ? (sidebarOpen ? 256 : 0) : sidebarOpen ? 256 : 80 }}
             exit={{ width: 0 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
             className={`${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-blue-100"} border-r flex flex-col shadow-md overflow-hidden ${isMobile ? "fixed z-50 h-full" : ""}`}
@@ -419,16 +343,12 @@ const PermissionsPage: React.FC = () => {
                 <img src={logoWida} alt="Logo Wida" className="h-6 w-auto" />
               )}
 
-              <button
-                onClick={toggleSidebar}
-                className={`p-2 rounded-full ${darkMode ? "text-gray-300 hover:bg-gray-700" : "text-gray-600 hover:bg-blue-50"} transition-colors duration-200`}
-                aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
-              >
+              <button onClick={toggleSidebar} className={`p-2 rounded-full ${darkMode ? "text-gray-300 hover:bg-gray-700" : "text-gray-600 hover:bg-blue-50"} transition-colors duration-200`}>
                 {sidebarOpen ? <FiChevronLeft className="text-xl" /> : <FiChevronRight className="text-xl" />}
               </button>
             </div>
 
-            <nav className="flex-1 p-4 space-y-2 overflow-y-auto custom-scrollbar">
+            <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
               {hasPermission("1") && <NavItem icon={<FiHome />} text="Dashboard" to="/dashboard" expanded={sidebarOpen} />}
               {hasPermission("3") && <NavItem icon={<FiPackage />} text="Assets" to="/assets" expanded={sidebarOpen} />}
               {hasPermission("7") && <NavItem icon={<FiClipboard />} text="Work Orders" to="/workorders" expanded={sidebarOpen} />}
@@ -487,17 +407,11 @@ const PermissionsPage: React.FC = () => {
               whileTap={{ scale: 0.9 }}
               onClick={() => setDarkMode(!darkMode)}
               className={`p-2 rounded-full ${darkMode ? "text-gray-300 hover:bg-gray-700" : "text-gray-600 hover:bg-blue-50"} transition-colors duration-200`}
-              aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
             >
               {darkMode ? <FiSun className="text-yellow-400 text-xl" /> : <FiMoon className="text-xl" />}
             </motion.button>
 
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              className={`p-2 rounded-full ${darkMode ? "text-gray-300 hover:bg-gray-700" : "text-gray-600 hover:bg-blue-50"} transition-colors duration-200 relative`}
-              aria-label="Notifications"
-            >
+            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className={`p-2 rounded-full ${darkMode ? "text-gray-300 hover:bg-gray-700" : "text-gray-600 hover:bg-blue-50"} transition-colors duration-200 relative`}>
               <FiBell className="text-xl" />
               <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></span>
             </motion.button>
@@ -552,7 +466,7 @@ const PermissionsPage: React.FC = () => {
                     <button
                       onClick={() => {
                         setShowNewRoleForm(true);
-                        setEditingRole({ id: "0", name: "", description: "", permissions: [] });
+                        setEditingRole({ id: "0", name: "", description: "", permissions: [], isSuperadmin: false });
                       }}
                       className={`flex items-center px-4 py-2 ${darkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-600 hover:bg-blue-700"} text-white rounded-md`}
                     >
@@ -576,7 +490,7 @@ const PermissionsPage: React.FC = () => {
                         <input
                           type="text"
                           value={editingRole?.name || ""}
-                          onChange={(e) => setEditingRole((prev) => (prev ? { ...prev, name: e.target.value } : null))}
+                          onChange={(e) => setEditingRole((prev) => ({ ...prev!, name: e.target.value }))}
                           className={`w-full ${darkMode ? "bg-gray-700 border-gray-600 text-gray-100" : "border-gray-300"} border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500`}
                           placeholder="e.g., IT Manager"
                         />
@@ -586,7 +500,7 @@ const PermissionsPage: React.FC = () => {
                         <input
                           type="text"
                           value={editingRole?.description || ""}
-                          onChange={(e) => setEditingRole((prev) => (prev ? { ...prev, description: e.target.value } : null))}
+                          onChange={(e) => setEditingRole((prev) => ({ ...prev!, description: e.target.value }))}
                           className={`w-full ${darkMode ? "bg-gray-700 border-gray-600 text-gray-100" : "border-gray-300"} border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500`}
                           placeholder="Brief description of the role"
                         />
@@ -671,12 +585,12 @@ const PermissionsPage: React.FC = () => {
                         </h3>
                         <div className="flex space-x-2">
                           {!role.isSuperadmin && hasPermission("16") && (
-                            <button onClick={() => handleEditRole(role)} className={`p-1 ${darkMode ? "text-gray-400 hover:text-blue-400" : "text-gray-500 hover:text-blue-600"}`} title="Edit">
+                            <button onClick={() => handleEditRole(role)} className={`p-1 ${darkMode ? "text-gray-400 hover:text-blue-400" : "text-gray-500 hover:text-blue-600"}`}>
                               <FiEdit2 />
                             </button>
                           )}
                           {!role.isSuperadmin && hasPermission("17") && (
-                            <button onClick={() => deleteRole(role.id)} className={`p-1 ${darkMode ? "text-gray-400 hover:text-red-400" : "text-gray-500 hover:text-red-600"}`} title="Delete">
+                            <button onClick={() => deleteRole(role.id)} className={`p-1 ${darkMode ? "text-gray-400 hover:text-red-400" : "text-gray-500 hover:text-red-600"}`}>
                               <FiTrash2 />
                             </button>
                           )}
@@ -745,24 +659,12 @@ const PermissionsPage: React.FC = () => {
                     <table className="min-w-full divide-y divide-blue-100">
                       <thead className={darkMode ? "bg-gray-700" : "bg-gray-50"}>
                         <tr>
-                          <th scope="col" className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>
-                            Name
-                          </th>
-                          <th scope="col" className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>
-                            Email
-                          </th>
-                          <th scope="col" className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>
-                            Department
-                          </th>
-                          <th scope="col" className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>
-                            Role
-                          </th>
-                          <th scope="col" className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>
-                            Custom Permissions
-                          </th>
-                          <th scope="col" className={`px-6 py-3 text-right text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>
-                            Actions
-                          </th>
+                          <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>Name</th>
+                          <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>Email</th>
+                          <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>Department</th>
+                          <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>Role</th>
+                          <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>Custom Permissions</th>
+                          <th className={`px-6 py-3 text-right text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>Actions</th>
                         </tr>
                       </thead>
                       <tbody className={`${darkMode ? "bg-gray-800 divide-gray-700" : "bg-white divide-blue-100"} divide-y`}>
@@ -771,7 +673,7 @@ const PermissionsPage: React.FC = () => {
                             <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-200" : "text-gray-900"}`}>{userItem.name}</td>
                             <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>{userItem.email}</td>
                             <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>{userItem.department || "-"}</td>
-                            <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>{getRoleName(userItem.roleId) || ""}</td>
+                            <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>{getRoleName(userItem.roleId)}</td>
                             <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>
                               {userItem.roleId === "3" ? (
                                 <span className={`px-2 py-1 text-xs rounded-full ${darkMode ? "bg-blue-900 text-blue-200" : "bg-blue-100 text-blue-800"}`}>All permissions</span>
@@ -843,13 +745,10 @@ const PermissionsPage: React.FC = () => {
                   <div>
                     <label className={`block text-sm font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Role</label>
                     <select
-                      value={editingUser?.roleId || ""}
+                      value={editingUser.roleId || ""}
                       onChange={(e) => {
-                        if (!editingUser) return;
-
                         const newRoleId = e.target.value || null;
                         const newRole = roles.find((r) => String(r.id) === String(newRoleId));
-
                         setEditingUser({
                           ...editingUser,
                           roleId: newRoleId,
@@ -868,7 +767,7 @@ const PermissionsPage: React.FC = () => {
                   </div>
                 </div>
 
-                <h4 className={`font-medium mb-3 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Custom Permissions (in addition to role permissions)</h4>
+                <h4 className={`font-medium mb-3 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Custom Permissions</h4>
                 <div className="space-y-4">
                   {Object.entries(pagePermissionMapping).map(([page, permissions]) => (
                     <div key={page} className={`${darkMode ? "border-gray-700" : "border-gray-200"} border rounded-lg overflow-hidden`}>
@@ -888,31 +787,30 @@ const PermissionsPage: React.FC = () => {
                             {Object.entries(permissions).map(([action, permissionId]) => {
                               const roleHasPermission = editingUser.rolePermissions?.includes(permissionId) || false;
                               const isSuperadmin = editingUser.roleId === "3";
-                              const userHasCustomPermission = editingUser.customPermissions?.includes(permissionId) || false;
-                              const isDisabled = roleHasPermission || isSuperadmin;
+                              const isChecked = isSuperadmin || roleHasPermission || editingUser.customPermissions?.includes(permissionId);
+                              const isDisabled = isSuperadmin || roleHasPermission;
 
                               return (
                                 <div key={permissionId} className={`flex items-center ${isDisabled ? "opacity-50" : ""}`}>
                                   <input
                                     type="checkbox"
                                     id={`user-perm-${permissionId}`}
-                                    checked={isSuperadmin || roleHasPermission || userHasCustomPermission}
+                                    checked={isChecked}
                                     onChange={() => handleUserPermissionToggle(permissionId)}
                                     disabled={isDisabled}
-                                    className={`h-4 w-4 rounded focus:ring-blue-500 
-                                      ${
-                                        isSuperadmin
-                                          ? darkMode
-                                            ? "text-blue-400 bg-gray-700 border-gray-600"
-                                            : "text-blue-600"
-                                          : roleHasPermission
-                                          ? darkMode
-                                            ? "text-purple-400 bg-gray-700 border-gray-600"
-                                            : "text-purple-600"
-                                          : darkMode
+                                    className={`h-4 w-4 rounded focus:ring-blue-500 ${
+                                      isSuperadmin
+                                        ? darkMode
                                           ? "text-blue-400 bg-gray-700 border-gray-600"
                                           : "text-blue-600"
-                                      }`}
+                                        : roleHasPermission
+                                        ? darkMode
+                                          ? "text-purple-400 bg-gray-700 border-gray-600"
+                                          : "text-purple-600"
+                                        : darkMode
+                                        ? "text-blue-400 bg-gray-700 border-gray-600"
+                                        : "text-blue-600"
+                                    }`}
                                   />
                                   <label htmlFor={`user-perm-${permissionId}`} className={`ml-2 text-sm ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
                                     <div className="font-medium flex items-center">
