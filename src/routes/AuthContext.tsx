@@ -857,7 +857,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const updateUserPermissions = useCallback(
     async (userId: string, data: { roleId?: string; customPermissions?: string[] }): Promise<User> => {
       try {
-        const response = await fetchWithAuth(`/users/${userId}/permissions`, {
+        const response = await fetchWithAuth(`/users/${userId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
