@@ -140,6 +140,18 @@ const PermissionsPage: React.FC = () => {
     fetchData();
   }, [fetchWithAuth]);
 
+  if (!currentUser || !Array.isArray(currentUser.allPermissions)) {
+    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+  }
+
+  if (!currentUser.allPermissions.includes("15")) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-xl">You don't have permission to access this page</div>
+      </div>
+    );
+  }
+
   const toggleSidebar = () => {
     setSidebarOpen((prev: boolean) => !prev);
   };
@@ -272,7 +284,7 @@ const PermissionsPage: React.FC = () => {
     }
   };
 
-  const getRoleName = (roleId: string | undefined) => {
+  const getRoleName = (roleId: string | undefined): string => {
     if (!roleId) return "No Role";
     const role = roles.find((r) => r.id === roleId);
     return role ? role.name : "No Role";
@@ -306,14 +318,6 @@ const PermissionsPage: React.FC = () => {
       </motion.button>
     );
   };
-
-  if (!currentUser?.allPermissions?.includes("15")) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-gray-50">
-        <div className="text-xl">You don't have permission to access this page</div>
-      </div>
-    );
-  }
 
   return (
     <div className={`flex h-screen font-sans ${darkMode ? "bg-gray-900 text-gray-100" : "bg-gray-50 text-gray-900"}`}>
@@ -359,7 +363,7 @@ const PermissionsPage: React.FC = () => {
                 {sidebarOpen && (
                   <div>
                     <p className={`font-medium ${darkMode ? "text-gray-100" : "text-gray-900"}`}>{currentUser?.name}</p>
-                    <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>{getRoleName(currentUser.roleId)}</p>
+                    <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>{getRoleName(currentUser?.roleId)}</p>
                   </div>
                 )}
               </div>
@@ -581,12 +585,12 @@ const PermissionsPage: React.FC = () => {
                         <div className="flex justify-between items-start mb-2">
                           <h3 className={`text-lg font-semibold ${darkMode ? "text-gray-100" : "text-gray-900"}`}>{role.name}</h3>
                           <div className="flex space-x-2">
-                            {currentUser?.allPermissions?.includes("16") && (
+                            {currentUser.allPermissions?.includes("16") && (
                               <button onClick={() => handleEditRole(role)} className={`p-1 ${darkMode ? "text-gray-400 hover:text-blue-400" : "text-gray-500 hover:text-blue-600"}`}>
                                 <FiEdit2 />
                               </button>
                             )}
-                            {currentUser?.allPermissions?.includes("17") && (
+                            {currentUser.allPermissions?.includes("17") && (
                               <button onClick={() => deleteRole(role.id)} className={`p-1 ${darkMode ? "text-gray-400 hover:text-red-400" : "text-gray-500 hover:text-red-600"}`}>
                                 <FiTrash2 />
                               </button>
@@ -689,7 +693,7 @@ const PermissionsPage: React.FC = () => {
                                 )}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                {currentUser?.allPermissions?.includes("16") && (
+                                {currentUser.allPermissions?.includes("16") && (
                                   <>
                                     <button onClick={() => handleEditUser(userItem)} className={`${darkMode ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-900"} mr-4`}>
                                       Edit
