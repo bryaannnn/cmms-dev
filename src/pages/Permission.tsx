@@ -39,6 +39,7 @@ interface Role {
   name: string;
   description: string | null;
   permissions: string[];
+  isSuperadmin?: boolean;
 }
 
 interface User {
@@ -116,9 +117,9 @@ const PermissionsPage: React.FC = () => {
             name: user.name,
             email: user.email,
             roleId: user.roleId ? String(user.roleId) : "",
-            allPermissions: user.allPermissions || [],
+            allPermissions: (user.allPermissions || []).map(String),
             department: user.department || null,
-            customPermissions: user.allPermissions || [],
+            customPermissions: (user.allPermissions || []).map(String),
           }))
         );
 
@@ -128,6 +129,7 @@ const PermissionsPage: React.FC = () => {
             name: role.name,
             description: role.description,
             permissions: role.permissions.map(String),
+            isSuperadmin: role.id === 3,
           }))
         );
       } catch (error) {
@@ -139,18 +141,6 @@ const PermissionsPage: React.FC = () => {
 
     fetchData();
   }, [fetchWithAuth]);
-
-  if (!currentUser || !Array.isArray(currentUser.allPermissions)) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
-  }
-
-  if (!currentUser.allPermissions.includes("15") && currentUser.roleId !== "3") {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-xl">You don't have permission to access this page</div>
-      </div>
-    );
-  }
 
   const toggleSidebar = () => {
     setSidebarOpen((prev: boolean) => !prev);
@@ -200,16 +190,17 @@ const PermissionsPage: React.FC = () => {
         body: JSON.stringify({
           name: editingRole.name,
           description: editingRole.description,
-          permissions: editingRole.permissions,
+          permissions: editingRole.permissions.map(Number),
         }),
       });
 
       const fetchedRoles = await fetchWithAuth("/roles");
-      const mappedRoles = (await fetchedRoles).map((role: any) => ({
+      const mappedRoles = fetchedRoles.map((role: any) => ({
         id: String(role.id),
         name: role.name,
         description: role.description,
         permissions: role.permissions.map(String),
+        isSuperadmin: role.id === 3,
       }));
 
       setRoles(mappedRoles);
@@ -239,7 +230,7 @@ const PermissionsPage: React.FC = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           roleId: editingUser.roleId,
-          permissions: editingUser.customPermissions || [],
+          permissions: (editingUser.customPermissions || []).map(Number),
         }),
       });
 
@@ -250,6 +241,7 @@ const PermissionsPage: React.FC = () => {
                 ...u,
                 roleId: editingUser.roleId,
                 allPermissions: editingUser.customPermissions || [],
+                customPermissions: editingUser.customPermissions || [],
               }
             : u
         )
@@ -318,6 +310,21 @@ const PermissionsPage: React.FC = () => {
       </motion.button>
     );
   };
+
+  if (!currentUser || !Array.isArray(currentUser.allPermissions)) {
+    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+  }
+
+  const isSuperadmin = currentUser.roleId === "3";
+  const hasViewPermission = currentUser.allPermissions?.includes("15") || false;
+
+  if (!hasViewPermission && !isSuperadmin) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-xl">You don't have permission to access this page</div>
+      </div>
+    );
+  }
 
   return (
     <div className={`flex h-screen font-sans ${darkMode ? "bg-gray-900 text-gray-100" : "bg-gray-50 text-gray-900"}`}>
@@ -585,12 +592,12 @@ const PermissionsPage: React.FC = () => {
                         <div className="flex justify-between items-start mb-2">
                           <h3 className={`text-lg font-semibold ${darkMode ? "text-gray-100" : "text-gray-900"}`}>{role.name}</h3>
                           <div className="flex space-x-2">
-                            {currentUser.allPermissions?.includes("16") && (
+                            {currentUser.allPermissions?.includes("16") && !role.isSuperadmin && (
                               <button onClick={() => handleEditRole(role)} className={`p-1 ${darkMode ? "text-gray-400 hover:text-blue-400" : "text-gray-500 hover:text-blue-600"}`}>
                                 <FiEdit2 />
                               </button>
                             )}
-                            {currentUser.allPermissions?.includes("17") && (
+                            {currentUser.allPermissions?.includes("17") && !role.isSuperadmin && (
                               <button onClick={() => deleteRole(role.id)} className={`p-1 ${darkMode ? "text-gray-400 hover:text-red-400" : "text-gray-500 hover:text-red-600"}`}>
                                 <FiTrash2 />
                               </button>
@@ -698,7 +705,7 @@ const PermissionsPage: React.FC = () => {
                                     <button onClick={() => handleEditUser(userItem)} className={`${darkMode ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-900"} mr-4`}>
                                       Edit
                                     </button>
-                                    {userItem.id !== currentUser?.id && currentUser.allPermissions.includes("17") && (
+                                    {userItem.id !== currentUser?.id && currentUser.allPermissions?.includes("17") && (
                                       <button onClick={() => deleteUser(userItem.id)} className={`${darkMode ? "text-red-400 hover:text-red-300" : "text-red-600 hover:text-red-900"}`}>
                                         Delete
                                       </button>
@@ -792,7 +799,7 @@ const PermissionsPage: React.FC = () => {
                           >
                             {Object.entries(permissions).map(([action, permissionId]) => {
                               const isSuperadmin = editingUser.roleId === "3";
-                              const isChecked = isSuperadmin || editingUser.customPermissions?.includes(permissionId);
+                              const isChecked = isSuperadmin || (editingUser.customPermissions?.includes(permissionId) ?? false);
                               const isDisabled = isSuperadmin;
 
                               return (
@@ -801,7 +808,7 @@ const PermissionsPage: React.FC = () => {
                                     type="checkbox"
                                     id={`user-perm-${permissionId}`}
                                     checked={isChecked}
-                                    onChange={() => handleUserPermissionToggle(permissionId)}
+                                    onChange={() => !isDisabled && handleUserPermissionToggle(permissionId)}
                                     disabled={isDisabled}
                                     className={`h-4 w-4 rounded focus:ring-blue-500 ${
                                       isSuperadmin ? (darkMode ? "text-blue-400 bg-gray-700 border-gray-600" : "text-blue-600") : darkMode ? "text-blue-400 bg-gray-700 border-gray-600" : "text-blue-600"

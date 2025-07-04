@@ -273,12 +273,12 @@ const mapApiToUser = (apiUser: any): User => {
     id: String(apiUser.id),
     name: apiUser.name,
     email: apiUser.email,
-    roleId: apiUser.roleId || "",
+    roleId: apiUser.roleId ? String(apiUser.roleId) : "",
     roles: apiUser.roles || [],
-    customPermissions: apiUser.customPermissions || [],
+    customPermissions: apiUser.customPermissions ? apiUser.customPermissions.map(String) : [],
     permissions: apiUser.permissions || [],
     department: apiUser.department || null,
-    allPermissions: apiUser.allPermissions || apiUser.customPermissions || [],
+    allPermissions: apiUser.allPermissions ? apiUser.allPermissions.map(String) : apiUser.customPermissions ? apiUser.customPermissions.map(String) : [],
   };
 };
 
@@ -719,7 +719,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           email: currentUser.email,
           department: currentUser.department,
           role_id: data.roleId || null,
-          custom_permissions: data.customPermissions || [],
+          custom_permissions: data.customPermissions?.map(Number) || [],
         }),
       });
       return mapApiToUser(response);
