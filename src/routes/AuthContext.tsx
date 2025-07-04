@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from "rea
 import { useNavigate } from "react-router-dom";
 import { getProjectEnvVariables } from "../shared/projectEnvVariables";
 
+// Tambahkan di bagian atas file AuthContext.tsx
 export const roleMapping: Record<string, { name: string; isDepartmentHead?: boolean; isSuperadmin?: boolean }> = {
   "1": { name: "admin", isDepartmentHead: true },
   "2": { name: "user", isDepartmentHead: false },
@@ -96,12 +97,12 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  roleId?: string;
-  roles?: string[];
-  customPermissions?: string[];
-  permissions?: PermissionName[];
+  roleId?: string; // Dari endpoint /users
+  roles?: string[]; // Dari endpoint /user
+  customPermissions?: string[]; // Dari endpoint /users
+  permissions?: PermissionName[]; // Dari endpoint /user
   department?: string | null;
-  allPermissions?: string[];
+  rolePermissions?: string[];
 }
 
 export interface Mesin {
@@ -231,6 +232,42 @@ interface EditingUser extends User {
   department?: string;
 }
 
+function mapApiToMachineHistoryRecord(apiData: any, masterData: AllMasterData | null): MachineHistoryRecord {
+  const stopTimeName = apiData.stoptime?.name || masterData?.stoptimes?.find((st) => String(st.id) === String(apiData.stoptime_id))?.name || "-";
+  const itemTroubleName = apiData.itemtrouble?.name || masterData?.itemtroubles?.find((it) => String(it.id) === String(apiData.itemtrouble_id))?.name || "-";
+  const jenisAktivitasName = apiData.jenisaktifitas?.name || masterData?.jenisaktivitas?.find((ja) => String(ja.id) === String(apiData.jenisaktifitas_id))?.name || "-";
+  const kegiatanName = apiData.kegiatan?.name || masterData?.kegiatans?.find((keg) => String(keg.id) === String(apiData.kegiatan_id))?.name || "-";
+  const unitSparePartName = apiData.unitsp?.name || masterData?.unitspareparts?.find((usp) => String(usp.id) === String(apiData.unitsp_id))?.name || "-";
+
+  return {
+    id: String(apiData.id),
+    date: apiData.date,
+    shift: apiData.shift?.name || "-",
+    group: apiData.group?.name || "-",
+    unit: apiData.unit?.name || "-",
+    mesin: apiData.mesin?.name || "-",
+    stopJam: apiData.startstop?.stop_time_hh ?? null,
+    stopMenit: apiData.startstop?.stop_time_mm ?? null,
+    startJam: apiData.startstop?.start_time_hh ?? null,
+    startMenit: apiData.startstop?.start_time_mm ?? null,
+    stopTime: stopTimeName,
+    runningHour: apiData.running_hour ?? 0,
+    itemTrouble: itemTroubleName,
+    jenisGangguan: apiData.jenis_gangguan || "",
+    bentukTindakan: apiData.bentuk_tindakan || "",
+    perbaikanPerawatan: apiData.jenisaktifitas?.name === "Perbaikan" ? "Perbaikan" : "Perawatan",
+    rootCause: apiData.root_cause || "",
+    jenisAktivitas: jenisAktivitasName,
+    kegiatan: kegiatanName,
+    kodePart: apiData.kode_part || "",
+    sparePart: apiData.spare_part || "",
+    idPart: apiData.id_part || "",
+    jumlah: apiData.jumlah ?? 0,
+    unitSparePart: unitSparePartName,
+    startstop: apiData.startstop ?? null,
+  };
+}
+
 interface AuthContextType {
   user: User | null;
   token: string | null;
@@ -267,54 +304,19 @@ interface AuthContextType {
 
 const projectEnvVariables = getProjectEnvVariables();
 const AuthContext = createContext<AuthContextType | null>(null);
-
 const mapApiToUser = (apiUser: any): User => {
+  const mappedCustomPermissions = apiUser.customPermissions || [];
+  const mappedPermissions = apiUser.permissions || [];
+
   return {
     id: String(apiUser.id),
     name: apiUser.name,
     email: apiUser.email,
-    roleId: apiUser.roleId ? String(apiUser.roleId) : "",
+    roleId: apiUser.roleId || "",
     roles: apiUser.roles || [],
-    customPermissions: apiUser.customPermissions ? apiUser.customPermissions.map(String) : [],
+    customPermissions: apiUser.customPermissions || [],
     permissions: apiUser.permissions || [],
-    department: apiUser.department || null,
-    allPermissions: apiUser.allPermissions ? apiUser.allPermissions.map(String) : apiUser.customPermissions ? apiUser.customPermissions.map(String) : [],
-  };
-};
-
-const mapApiToMachineHistoryRecord = (apiData: any, masterData: AllMasterData | null): MachineHistoryRecord => {
-  const stopTimeName = apiData.stoptime?.name || masterData?.stoptimes?.find((st) => String(st.id) === String(apiData.stoptime_id))?.name || "-";
-  const itemTroubleName = apiData.itemtrouble?.name || masterData?.itemtroubles?.find((it) => String(it.id) === String(apiData.itemtrouble_id))?.name || "-";
-  const jenisAktivitasName = apiData.jenisaktifitas?.name || masterData?.jenisaktivitas?.find((ja) => String(ja.id) === String(apiData.jenisaktifitas_id))?.name || "-";
-  const kegiatanName = apiData.kegiatan?.name || masterData?.kegiatans?.find((keg) => String(keg.id) === String(apiData.kegiatan_id))?.name || "-";
-  const unitSparePartName = apiData.unitsp?.name || masterData?.unitspareparts?.find((usp) => String(usp.id) === String(apiData.unitsp_id))?.name || "-";
-
-  return {
-    id: String(apiData.id),
-    date: apiData.date,
-    shift: apiData.shift?.name || "-",
-    group: apiData.group?.name || "-",
-    unit: apiData.unit?.name || "-",
-    mesin: apiData.mesin?.name || "-",
-    stopJam: apiData.startstop?.stop_time_hh ?? null,
-    stopMenit: apiData.startstop?.stop_time_mm ?? null,
-    startJam: apiData.startstop?.start_time_hh ?? null,
-    startMenit: apiData.startstop?.start_time_mm ?? null,
-    stopTime: stopTimeName,
-    runningHour: apiData.running_hour ?? 0,
-    itemTrouble: itemTroubleName,
-    jenisGangguan: apiData.jenis_gangguan || "",
-    bentukTindakan: apiData.bentuk_tindakan || "",
-    perbaikanPerawatan: apiData.jenisaktifitas?.name === "Perbaikan" ? "Perbaikan" : "Perawatan",
-    rootCause: apiData.root_cause || "",
-    jenisAktivitas: jenisAktivitasName,
-    kegiatan: kegiatanName,
-    kodePart: apiData.kode_part || "",
-    sparePart: apiData.spare_part || "",
-    idPart: apiData.id_part || "",
-    jumlah: apiData.jumlah ?? 0,
-    unitSparePart: unitSparePartName,
-    startstop: apiData.startstop ?? null,
+    department: apiUser.department || "none",
   };
 };
 
@@ -332,13 +334,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const hasPermission = useCallback(
     (permission: string | PermissionName): boolean => {
       if (!user) return false;
-      if (user.roleId === "3" || user.roles?.includes("superadmin")) return true;
 
+      // Jika permission adalah ID (string angka), convert ke PermissionName
       const permissionName = /^\d+$/.test(permission as string) ? getPermissionNameById(permission as string) : (permission as PermissionName);
 
       if (!permissionName) return false;
 
-      return user.permissions?.includes(permissionName) || user.customPermissions?.includes(permission as string) || false;
+      if (user.roleId === "3") return true; // Superadmin
+      return user.permissions?.includes(permissionName) || false;
     },
     [user]
   );
@@ -352,6 +355,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       try {
         setUser(JSON.parse(storedUser));
       } catch (e) {
+        console.error("Failed to parse user from localStorage", e);
         localStorage.removeItem("user");
         localStorage.removeItem("token");
         setUser(null);
@@ -366,14 +370,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setIsLoggingOut(true);
     try {
       if (token) {
+        const logoutHeaders: Record<string, string> = {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        };
+
         await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/logout`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+          headers: logoutHeaders,
         });
       }
+    } catch (error) {
+      console.error("Error API logout:", error);
     } finally {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
@@ -388,71 +396,105 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const fetchWithAuth = useCallback(
     async (url: string, options: RequestInit = {}) => {
-      const authToken = token || localStorage.getItem("token");
-      if (!authToken) throw new Error("No authentication token found");
+      try {
+        const authToken = token || localStorage.getItem("token");
 
-      const response = await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}${url}`, {
-        ...options,
-        headers: {
+        if (!authToken) {
+          throw new Error("No authentication token found");
+        }
+
+        const headers: Record<string, string> = {
           "Content-Type": "application/json",
           Accept: "application/json",
-          Authorization: `Bearer ${authToken}`,
           ...(options.headers as Record<string, string>),
-        },
-      });
+          Authorization: `Bearer ${authToken}`,
+        };
 
-      if (response.status === 401) {
-        await logout();
-        throw new Error("Session expired. Please login again.");
+        const fullUrl = `${projectEnvVariables.envVariables.VITE_REACT_API_URL}${url}`;
+
+        const response = await fetch(fullUrl, {
+          ...options,
+          headers,
+        });
+
+        if (response.status === 401) {
+          await logout();
+          throw new Error("Session expired. Please login again.");
+        }
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || `Request failed with status ${response.status}`);
+        }
+
+        return response.json();
+      } catch (error) {
+        console.error("Fetch error:", error);
+        throw error;
       }
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Request failed with status ${response.status}`);
-      }
-
-      return response.json();
     },
     [token, logout]
   );
 
   const fetchUser = useCallback(async (): Promise<User> => {
-    const userData = await fetchWithAuth("/user");
-    const mappedUser = mapApiToUser(userData);
-    setUser(mappedUser);
-    localStorage.setItem("user", JSON.stringify(mappedUser));
-    return mappedUser;
-  }, [fetchWithAuth]);
+    try {
+      const userData = await fetchWithAuth("/users/profile");
+      const mappedUser: User = {
+        id: String(userData.id),
+        name: userData.name,
+        email: userData.email,
+        roles: userData.roles, // Directly use the string array
+        permissions: userData.permissions || [],
+      };
+      setUser(mappedUser);
+      localStorage.setItem("user", JSON.stringify(mappedUser));
+      return mappedUser;
+    } catch (error) {
+      console.error("Failed to fetch user:", error);
+      await logout();
+      throw error;
+    }
+  }, [fetchWithAuth, logout]);
 
   const getUsers = useCallback(async (): Promise<User[]> => {
-    const response = await fetchWithAuth("/users");
-    return response.map((apiUser: any) => mapApiToUser(apiUser));
+    try {
+      const response = await fetchWithAuth("/users");
+      return response.map((apiUser: any) => mapApiToUser(apiUser));
+    } catch (error) {
+      console.error("Failed to fetch users:", error);
+      throw error;
+    }
   }, [fetchWithAuth]);
 
   const getAllMasterData = useCallback(async (): Promise<AllMasterData> => {
-    const [mesins, groups, shifts, units, unitspareparts, itemtroubles, jenisaktivitas, kegiatans, stoptimes] = await Promise.all([
-      fetchWithAuth("/mesin"),
-      fetchWithAuth("/group"),
-      fetchWithAuth("/shift"),
-      fetchWithAuth("/unit"),
-      fetchWithAuth("/unitsp"),
-      fetchWithAuth("/itemtrouble"),
-      fetchWithAuth("/jenisaktifitas"),
-      fetchWithAuth("/kegiatan"),
-      fetchWithAuth("/stoptime"),
-    ]);
+    try {
+      const [mesins, groups, shifts, units, unitspareparts, itemtroubles, jenisaktivitas, kegiatans, stoptimes] = await Promise.all([
+        fetchWithAuth("/mesin"),
+        fetchWithAuth("/group"),
+        fetchWithAuth("/shift"),
+        fetchWithAuth("/unit"),
+        fetchWithAuth("/unitsp"),
+        fetchWithAuth("/itemtrouble"),
+        fetchWithAuth("/jenisaktifitas"),
+        fetchWithAuth("/kegiatan"),
+        fetchWithAuth("/stoptime"),
+      ]);
 
-    return {
-      mesin: mesins,
-      shifts: shifts,
-      groups: groups,
-      stoptimes: stoptimes,
-      units: units,
-      itemtroubles: itemtroubles,
-      jenisaktivitas: jenisaktivitas,
-      kegiatans: kegiatans,
-      unitspareparts: unitspareparts,
-    };
+      return {
+        mesin: mesins,
+        shifts: shifts,
+        groups: groups,
+        stoptimes: stoptimes,
+        units: units,
+        itemtroubles: itemtroubles,
+        jenisaktivitas: jenisaktivitas,
+        kegiatans: kegiatans,
+        unitspareparts: unitspareparts,
+      };
+    } catch (error) {
+      console.error("Gagal mengambil semua data master:", error);
+      throw error;
+    }
   }, [fetchWithAuth]);
 
   useEffect(() => {
@@ -463,7 +505,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           const data = await getAllMasterData();
           setMasterData(data);
         } catch (error) {
-          console.error("Failed to load master data:", error);
+          console.error("Gagal memuat data master:", error);
         } finally {
           setIsMasterDataLoading(false);
         }
@@ -478,251 +520,355 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [isAuthenticated, masterData, getAllMasterData]);
 
   const register = async (name: string, email: string, password: string) => {
-    const response = await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/register`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ name, email, password }),
-    });
+    try {
+      const response = await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name, email, password }),
+      });
 
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.message || "Registration failed");
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Pendaftaran gagal");
 
-    if (data.token) {
-      localStorage.setItem("token", data.token);
-      setToken(data.token);
-      const freshUser = await fetchUser();
-      setUser(freshUser);
-      navigate("/dashboard");
-    } else {
-      throw new Error("Token not received after registration.");
+      if (data.token) {
+        localStorage.setItem("token", data.token);
+        setToken(data.token);
+
+        const freshUser = await fetchUser();
+        setUser(freshUser);
+
+        navigate("/dashboard");
+      } else {
+        throw new Error("Token tidak diterima setelah pendaftaran.");
+      }
+    } catch (error) {
+      console.error("Error pendaftaran:", error);
+      throw error;
     }
   };
 
   const login = async (email: string, password: string) => {
-    const response = await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/login`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ email, password }),
-    });
+    try {
+      const response = await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
 
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.message || "Login failed");
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Login gagal");
 
-    if (data.token) {
-      localStorage.setItem("token", data.token);
-      setToken(data.token);
-      const freshUser = await fetchUser();
-      setUser(freshUser);
-      navigate("/dashboard");
-    } else {
-      throw new Error("Token not received after login.");
+      if (data.token) {
+        localStorage.setItem("token", data.token);
+        setToken(data.token);
+
+        const freshUser = await fetchUser();
+        setUser(freshUser);
+
+        navigate("/dashboard");
+      } else {
+        throw new Error("Token tidak diterima setelah login.");
+      }
+    } catch (error) {
+      console.error("Error login:", error);
+      throw error;
     }
   };
 
   const submitMachineHistory = useCallback(
     async (data: MachineHistoryFormData) => {
-      const responseData = await fetchWithAuth("/mhs", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-      });
-      return responseData;
+      try {
+        const responseData = await fetchWithAuth("/mhs", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(data),
+        });
+        return responseData;
+      } catch (error) {
+        console.error("Gagal menyimpan data history mesin:", error);
+        throw error;
+      }
     },
     [fetchWithAuth]
   );
 
   const getMachineHistories = useCallback(async (): Promise<MachineHistoryRecord[]> => {
-    const response = await fetchWithAuth("/mhs");
-    if (response && response.data && Array.isArray(response.data)) {
-      return response.data.map((apiDataItem: any) => mapApiToMachineHistoryRecord(apiDataItem, masterData));
+    try {
+      const response = await fetchWithAuth("/mhs");
+
+      if (response && response.data && Array.isArray(response.data)) {
+        if (!masterData) {
+          console.warn("Master data belum dimuat saat mengambil daftar history. Beberapa field mungkin menampilkan '-'.");
+        }
+        return response.data.map((apiDataItem: any) => mapApiToMachineHistoryRecord(apiDataItem, masterData));
+      }
+
+      console.error("Invalid response format:", response);
+      return [];
+    } catch (error) {
+      console.error("Gagal mengambil daftar history mesin:", error);
+      return [];
     }
-    return [];
   }, [fetchWithAuth, masterData]);
 
   const getMachineHistoryById = useCallback(
     async (id: string): Promise<any> => {
-      const data = await fetchWithAuth(`/mhs/${id}`);
-      return data;
+      try {
+        const data = await fetchWithAuth(`/mhs/${id}`);
+        return data;
+      } catch (error) {
+        console.error(`Gagal mengambil history mesin dengan ID ${id}:`, error);
+        throw error;
+      }
     },
     [fetchWithAuth]
   );
 
   const updateMachineHistory = useCallback(
     async (id: string, data: MachineHistoryFormData): Promise<any> => {
-      const responseData = await fetchWithAuth(`/mhs/${id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-      });
-      return responseData;
+      try {
+        const responseData = await fetchWithAuth(`/mhs/${id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(data),
+        });
+        return responseData;
+      } catch (error) {
+        console.error(`Gagal mengupdate history mesin dengan ID ${id}:`, error);
+        throw error;
+      }
     },
     [fetchWithAuth]
   );
 
   const deleteMachineHistory = useCallback(
     async (id: string): Promise<any> => {
-      const responseData = await fetchWithAuth(`/mhs/${id}`, {
-        method: "DELETE",
-      });
-      return responseData;
+      try {
+        const responseData = await fetchWithAuth(`/mhs/${id}`, {
+          method: "DELETE",
+        });
+        return responseData;
+      } catch (error) {
+        console.error(`Gagal menghapus history mesin dengan ID ${id}:`, error);
+        throw error;
+      }
     },
     [fetchWithAuth]
   );
 
   const submitWorkOrder = useCallback(
     async (data: WorkOrderFormData): Promise<WorkOrder> => {
-      const responseData = await fetchWithAuth("/wos", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-      });
-      return responseData.data;
+      try {
+        const responseData = await fetchWithAuth("/wos", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(data),
+        });
+        return responseData.data;
+      } catch (error) {
+        console.error("Gagal menyimpan Work Order:", error);
+        throw error;
+      }
     },
     [fetchWithAuth]
   );
 
   const getWorkOrders = useCallback(async (): Promise<WorkOrder[]> => {
-    const response = await fetchWithAuth("/wos");
-    if (response && response.data && Array.isArray(response.data)) {
-      return response.data;
+    try {
+      const response = await fetchWithAuth("/wos");
+      if (response && response.data && Array.isArray(response.data)) {
+        return response.data;
+      }
+      console.error("Format respons Work Order tidak valid:", response);
+      return [];
+    } catch (error) {
+      console.error("Gagal mengambil daftar Work Order:", error);
+      return [];
     }
-    return [];
   }, [fetchWithAuth]);
 
   const getWorkOrderById = useCallback(
     async (id: string | number): Promise<WorkOrder> => {
-      const responseData = await fetchWithAuth(`/wos/${id}`);
-      return responseData.data;
+      try {
+        const responseData = await fetchWithAuth(`/wos/${id}`);
+        return responseData.data;
+      } catch (error) {
+        console.error(`Gagal mengambil Work Order dengan ID ${id}:`, error);
+        throw error;
+      }
     },
     [fetchWithAuth]
   );
 
   const updateWorkOrder = useCallback(
     async (id: string | number, data: WorkOrderFormData): Promise<WorkOrder> => {
-      const responseData = await fetchWithAuth(`/wos/${id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-      });
-      return responseData.data;
+      try {
+        const responseData = await fetchWithAuth(`/wos/${id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(data),
+        });
+        return responseData.data;
+      } catch (error) {
+        console.error(`Gagal mengupdate Work Order dengan ID ${id}:`, error);
+        throw error;
+      }
     },
     [fetchWithAuth]
   );
 
   const deleteWorkOrder = useCallback(
     async (id: string | number): Promise<any> => {
-      const responseData = await fetchWithAuth(`/wos/${id}`, {
-        method: "DELETE",
-      });
-      return responseData;
+      try {
+        const responseData = await fetchWithAuth(`/wos/${id}`, {
+          method: "DELETE",
+        });
+        return responseData;
+      } catch (error) {
+        console.error(`Gagal menghapus Work Order dengan ID ${id}:`, error);
+        throw error;
+      }
     },
     [fetchWithAuth]
   );
 
   const changePassword = useCallback(
     async (oldPassword: string, newPassword: string) => {
-      await fetchWithAuth("/user/password-update", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          current_password: oldPassword,
-          new_password: newPassword,
-          new_password_confirmation: newPassword,
-        }),
-      });
+      try {
+        const response = await fetchWithAuth("/user/password-update", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            current_password: oldPassword,
+            new_password: newPassword,
+            new_password_confirmation: newPassword,
+          }),
+        });
+
+        console.log("Password changed successfully:", response);
+      } catch (error: any) {
+        console.error("Failed to change password:", error);
+        throw new Error(error.message || "An unexpected error occurred during password change.");
+      }
     },
     [fetchWithAuth]
   );
 
   const getRoles = useCallback(async (): Promise<Role[]> => {
-    const response = await fetchWithAuth("/roles");
-    return response.map((role: any) => ({
-      id: String(role.id),
-      name: role.name,
-      description: role.description || `${role.name} role`,
-      permissions: role.permissions.map(String),
-      isSuperadmin: role.name === "superadmin",
-    }));
+    try {
+      const response = await fetchWithAuth("/roles");
+      return response.map((role: any) => ({
+        id: String(role.id),
+        name: role.name,
+        description: role.description || `${role.name} role`,
+        permissions: role.permissions.map(String),
+        isSuperadmin: role.name === "superadmin",
+      }));
+    } catch (error) {
+      console.error("Failed to fetch roles:", error);
+      throw error;
+    }
   }, [fetchWithAuth]);
 
   const createRole = useCallback(
     async (role: Omit<Role, "id">): Promise<Role> => {
-      const response = await fetchWithAuth("/roles", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: role.name,
-          description: role.description,
-          permissions: role.permissions.map(Number),
-        }),
-      });
-      return {
-        id: String(response.id),
-        name: response.name,
-        description: response.description,
-        permissions: response.permissions.map(String),
-      };
+      try {
+        const response = await fetchWithAuth("/roles", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: role.name,
+            description: role.description,
+            permissions: role.permissions.map(Number),
+          }),
+        });
+        return {
+          id: String(response.id),
+          name: response.name,
+          description: response.description,
+          permissions: response.permissions.map(String),
+        };
+      } catch (error) {
+        console.error("Failed to create role:", error);
+        throw error;
+      }
     },
     [fetchWithAuth]
   );
 
   const updateRole = useCallback(
     async (id: string, role: Partial<Role>): Promise<Role> => {
-      const response = await fetchWithAuth(`/roles/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: role.name,
-          description: role.description,
-          permissions: role.permissions?.map(Number),
-        }),
-      });
-      return {
-        id: String(response.id),
-        name: response.name,
-        description: response.description,
-        permissions: response.permissions.map(String),
-      };
+      try {
+        const response = await fetchWithAuth(`/roles/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: role.name,
+            description: role.description,
+            permissions: role.permissions?.map(Number),
+          }),
+        });
+        return {
+          id: String(response.id),
+          name: response.name,
+          description: response.description,
+          permissions: response.permissions.map(String),
+        };
+      } catch (error) {
+        console.error("Failed to update role:", error);
+        throw error;
+      }
     },
     [fetchWithAuth]
   );
 
   const deleteRole = useCallback(
     async (id: string): Promise<void> => {
-      await fetchWithAuth(`/roles/${id}`, { method: "DELETE" });
+      try {
+        await fetchWithAuth(`/roles/${id}`, { method: "DELETE" });
+      } catch (error) {
+        console.error("Failed to delete role:", error);
+        throw error;
+      }
     },
     [fetchWithAuth]
   );
 
   const updateUserPermissions = useCallback(
     async (userId: string, data: { roleId?: string | null; customPermissions?: string[] }): Promise<User> => {
-      const currentUser = await fetchWithAuth(`/users/${userId}`);
-      const response = await fetchWithAuth(`/users/${userId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: currentUser.name,
-          email: currentUser.email,
-          department: currentUser.department,
-          role_id: data.roleId || null,
-          custom_permissions: data.customPermissions?.map(Number) || [],
-        }),
-      });
-      return mapApiToUser(response);
+      try {
+        const currentUser = await fetchWithAuth(`/users/${userId}`);
+
+        const response = await fetchWithAuth(`/users/${userId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: currentUser.name,
+            email: currentUser.email,
+            department: currentUser.department,
+            role_id: data.roleId || null,
+            custom_permissions: data.customPermissions || [],
+          }),
+        });
+
+        return mapApiToUser(response);
+      } catch (error) {
+        throw error;
+      }
     },
     [fetchWithAuth]
   );

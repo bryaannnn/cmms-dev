@@ -30,29 +30,39 @@ import { useNavigate, useLocation, Link } from "react-router-dom";
 import logoWida from "../assets/logo-wida.png";
 
 interface Permission {
-  id: string;
-  name: string;
+  [key: string]: string;
+}
+
+interface PagePermissions {
+  [key: string]: Permission;
 }
 
 interface Role {
   id: string;
   name: string;
-  description: string | null;
+  description: string;
   permissions: string[];
-  isSuperadmin?: boolean;
+  isSuperadmin: boolean;
 }
 
 interface User {
   id: string;
   name: string;
   email: string;
-  roleId: string;
-  allPermissions: string[];
-  department: string | null;
-  customPermissions?: string[];
+  roleId: string | null;
+  customPermissions: string[];
+  department: string;
+  rolePermissions?: string[];
 }
 
-const pagePermissionMapping = {
+interface NavItemProps {
+  icon: React.ReactNode;
+  text: string;
+  to: string;
+  expanded: boolean;
+}
+
+const pagePermissionMapping: PagePermissions = {
   dashboard: { view: "1", edit: "2" },
   assets: { view: "3", create: "4", edit: "5", delete: "6" },
   workorders: { view: "7", create: "8", assign: "9", complete: "10", edit: "18", delete: "19" },
@@ -66,7 +76,7 @@ const pagePermissionMapping = {
 };
 
 const PermissionsPage: React.FC = () => {
-  const { user: currentUser, logout, fetchWithAuth } = useAuth();
+  const { user, logout, fetchWithAuth, getUsers, hasPermission, updateUserPermissions } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -85,11 +95,6 @@ const PermissionsPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
-  const [loading, setLoading] = useState({
-    users: false,
-    roles: false,
-    saving: false,
-  });
 
   useEffect(() => {
     const handleResize = () => {
@@ -108,51 +113,34 @@ const PermissionsPage: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        setLoading((prev) => ({ ...prev, users: true, roles: true }));
-        const [usersResponse, rolesResponse] = await Promise.all([fetchWithAuth("/users"), fetchWithAuth("/roles")]);
+        const [fetchedUsers, fetchedRoles] = await Promise.all([getUsers(), fetchWithAuth("/roles")]);
 
-        setUsers(
-          usersResponse.map((user: any) => ({
-            id: String(user.id),
-            name: user.name,
-            email: user.email,
-            roleId: user.roleId ? String(user.roleId) : "",
-            allPermissions: (user.allPermissions || []).map(String),
-            department: user.department || null,
-            customPermissions: (user.allPermissions || []).map(String),
-          }))
-        );
+        const mappedUsers = fetchedUsers.map((user: any) => ({
+          id: String(user.id),
+          name: user.name,
+          email: user.email,
+          roleId: user.roleId ? String(user.roleId) : null,
+          customPermissions: user.customPermissions || [],
+          department: user.department || "none",
+        }));
 
-        setRoles(
-          rolesResponse.map((role: any) => ({
-            id: String(role.id),
-            name: role.name,
-            description: role.description,
-            permissions: role.permissions.map(String),
-            isSuperadmin: role.id === 3,
-          }))
-        );
+        const mappedRoles = fetchedRoles.map((role: any) => ({
+          id: String(role.id),
+          name: role.name,
+          description: role.description || `${role.name} role`,
+          permissions: role.permissions.map(String),
+          isSuperadmin: role.name === "superadmin",
+        }));
+
+        setUsers(mappedUsers);
+        setRoles(mappedRoles);
       } catch (error) {
         console.error("Failed to fetch data:", error);
-      } finally {
-        setLoading((prev) => ({ ...prev, users: false, roles: false }));
       }
     };
 
-    fetchData();
-  }, [fetchWithAuth]);
-
-  if (!currentUser || !Array.isArray(currentUser.allPermissions)) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
-  }
-
-  if (!currentUser.allPermissions.includes("15") && currentUser.roleId !== "3") {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-xl">You don't have permission to access this page</div>
-      </div>
-    );
-  }
+    if (hasPermission("view_permissions")) fetchData();
+  }, [getUsers, fetchWithAuth, hasPermission]);
 
   const toggleSidebar = () => {
     setSidebarOpen((prev: boolean) => !prev);
@@ -166,20 +154,20 @@ const PermissionsPage: React.FC = () => {
   };
 
   const handleRolePermissionToggle = (permissionId: string) => {
-    if (!editingRole) return;
+    if (!editingRole || editingRole.isSuperadmin) return;
 
-    setEditingRole((prev) => ({
+    setEditingRole((prev: Role | null) => ({
       ...prev!,
       permissions: prev!.permissions.includes(permissionId) ? prev!.permissions.filter((id) => id !== permissionId) : [...prev!.permissions, permissionId],
     }));
   };
 
   const handleUserPermissionToggle = (permissionId: string) => {
-    if (!editingUser) return;
+    if (!editingUser || editingUser.roleId === "3") return;
 
     setEditingUser((prev) => ({
       ...prev!,
-      customPermissions: prev!.customPermissions?.includes(permissionId) ? prev!.customPermissions.filter((id) => id !== permissionId) : [...(prev!.customPermissions || []), permissionId],
+      customPermissions: prev!.customPermissions.includes(permissionId) ? prev!.customPermissions.filter((id) => id !== permissionId) : [...prev!.customPermissions, permissionId],
     }));
   };
 
@@ -189,10 +177,9 @@ const PermissionsPage: React.FC = () => {
   };
 
   const saveRole = async () => {
-    if (!editingRole) return;
+    if (!editingRole || !hasPermission("edit_permissions")) return;
 
     try {
-      setLoading((prev) => ({ ...prev, saving: true }));
       const method = editingRole.id ? "PUT" : "POST";
       const url = editingRole.id ? `/roles/${editingRole.id}` : "/roles";
 
@@ -212,23 +199,22 @@ const PermissionsPage: React.FC = () => {
         name: role.name,
         description: role.description,
         permissions: role.permissions.map(String),
-        isSuperadmin: role.id === 3,
+        isSuperadmin: role.name === "superadmin",
       }));
 
       setRoles(mappedRoles);
       setEditingRole(null);
       setShowNewRoleForm(false);
     } catch (error) {
-      console.error("Failed to save role:", error);
-    } finally {
-      setLoading((prev) => ({ ...prev, saving: false }));
+      alert("Failed to save role");
     }
   };
 
   const handleEditUser = (user: User) => {
+    const userRole = roles.find((r) => String(r.id) === String(user.roleId));
     setEditingUser({
       ...user,
-      customPermissions: user.allPermissions || [],
+      rolePermissions: userRole?.permissions || [],
     });
   };
 
@@ -236,44 +222,44 @@ const PermissionsPage: React.FC = () => {
     if (!editingUser) return;
 
     try {
-      setLoading((prev) => ({ ...prev, saving: true }));
-      await fetchWithAuth(`/users/${editingUser.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          roleId: editingUser.roleId,
-          permissions: (editingUser.customPermissions || []).map(Number),
-        }),
-      });
+      const updatedUser = (await updateUserPermissions(editingUser.id, {
+        roleId: editingUser.roleId || null,
+        customPermissions: editingUser.customPermissions || [],
+      })) as User; // Type assertion ke User
 
       setUsers(
-        users.map((u) =>
-          u.id === editingUser.id
+        users.map((u: User) =>
+          u.id === updatedUser.id
             ? {
-                ...u,
-                roleId: editingUser.roleId,
-                allPermissions: editingUser.customPermissions || [],
-                customPermissions: editingUser.customPermissions || [],
+                ...updatedUser,
+                roleId: updatedUser.roleId || null, // Pastikan roleId tidak undefined
+                customPermissions: updatedUser.customPermissions || [], // Pastikan array tidak undefined
               }
             : u
         )
       );
       setEditingUser(null);
     } catch (error) {
-      console.error("Failed to save changes:", error);
-    } finally {
-      setLoading((prev) => ({ ...prev, saving: false }));
+      alert("Failed to save changes");
     }
   };
 
   const deleteRole = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this role?")) return;
+    if (!hasPermission("manage_users") || !window.confirm("Are you sure you want to delete this role?")) return;
 
     try {
       await fetchWithAuth(`/roles/${id}`, { method: "DELETE" });
-      setRoles(roles.filter((role) => role.id !== id));
+      const fetchedRoles = await fetchWithAuth("/roles");
+      const mappedRoles = fetchedRoles.map((role: any) => ({
+        id: String(role.id),
+        name: role.name,
+        description: role.description,
+        permissions: role.permissions.map(String),
+        isSuperadmin: role.name === "superadmin",
+      }));
+      setRoles(mappedRoles);
     } catch (error) {
-      console.error("Failed to delete role:", error);
+      alert("Failed to delete role");
     }
   };
 
@@ -282,34 +268,34 @@ const PermissionsPage: React.FC = () => {
 
     try {
       await fetchWithAuth(`/users/${id}`, { method: "DELETE" });
-      setUsers(users.filter((user) => user.id !== id));
+      const fetchedUsers = await getUsers();
+      setUsers(
+        fetchedUsers.map((user: any) => ({
+          id: String(user.id),
+          name: user.name,
+          email: user.email,
+          roleId: user.roleId ? String(user.roleId) : null,
+          customPermissions: user.customPermissions || [],
+          department: user.department || "none",
+        }))
+      );
     } catch (error) {
-      console.error("Failed to delete user:", error);
+      alert("Failed to delete user");
     }
   };
 
-  const getRoleName = (roleId: string | undefined): string => {
+  const getRoleName = (roleId: string | null) => {
     if (!roleId) return "No Role";
-    const role = roles.find((r) => r.id === roleId);
+    const role = roles.find((r) => String(r.id) === String(roleId));
     return role ? role.name : "No Role";
   };
 
   const uniqueDepartments = ["all", ...new Set(users.map((u) => u.department || "").filter(Boolean))];
   const filteredUsers = users
-    .filter((user) => {
-      if (currentUser.roleId === "3") return true;
-      if (currentUser.roleId === "1") return user.department === currentUser.department;
-      return false;
-    })
     .filter((user) => departmentFilter === "all" || user.department === departmentFilter)
     .filter((user) => user.name.toLowerCase().includes(searchQuery.toLowerCase()) || user.email.toLowerCase().includes(searchQuery.toLowerCase()));
 
-  const NavItem: React.FC<{
-    icon: React.ReactNode;
-    text: string;
-    to: string;
-    expanded: boolean;
-  }> = ({ icon, text, to, expanded }) => {
+  const NavItem: React.FC<NavItemProps> = ({ icon, text, to, expanded }) => {
     const active = location.pathname === to;
     return (
       <motion.button
@@ -327,6 +313,14 @@ const PermissionsPage: React.FC = () => {
       </motion.button>
     );
   };
+
+  if (!hasPermission("view_permissions")) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="text-xl">You don't have permission to access this page</div>
+      </div>
+    );
+  }
 
   return (
     <div className={`flex h-screen font-sans ${darkMode ? "bg-gray-900 text-gray-100" : "bg-gray-50 text-gray-900"}`}>
@@ -355,15 +349,15 @@ const PermissionsPage: React.FC = () => {
             </div>
 
             <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-              {currentUser.allPermissions.includes("1") && <NavItem icon={<FiHome />} text="Dashboard" to="/dashboard" expanded={sidebarOpen} />}
-              {currentUser.allPermissions.includes("3") && <NavItem icon={<FiPackage />} text="Assets" to="/assets" expanded={sidebarOpen} />}
-              {currentUser.allPermissions.includes("7") && <NavItem icon={<FiClipboard />} text="Work Orders" to="/workorders" expanded={sidebarOpen} />}
-              {currentUser.allPermissions.includes("31") && <NavItem icon={<FiClipboard />} text="Machine History" to="/machinehistory" expanded={sidebarOpen} />}
-              {currentUser.allPermissions.includes("23") && <NavItem icon={<FiDatabase />} text="Inventory" to="/inventory" expanded={sidebarOpen} />}
-              {currentUser.allPermissions.includes("11") && <NavItem icon={<FiBarChart2 />} text="Reports" to="/reports" expanded={sidebarOpen} />}
-              {currentUser.allPermissions.includes("27") && <NavItem icon={<FiUsers />} text="Team" to="/team" expanded={sidebarOpen} />}
-              {currentUser.allPermissions.includes("13") && <NavItem icon={<FiSettings />} text="Settings" to="/settings" expanded={sidebarOpen} />}
-              {(currentUser.allPermissions.includes("15") || currentUser.roleId === "3") && <NavItem icon={<FiKey />} text="Permissions" to="/permissions" expanded={sidebarOpen} />}
+              {hasPermission("1") && <NavItem icon={<FiHome />} text="Dashboard" to="/dashboard" expanded={sidebarOpen} />}
+              {hasPermission("3") && <NavItem icon={<FiPackage />} text="Assets" to="/assets" expanded={sidebarOpen} />}
+              {hasPermission("7") && <NavItem icon={<FiClipboard />} text="Work Orders" to="/workorders" expanded={sidebarOpen} />}
+              {hasPermission("31") && <NavItem icon={<FiClipboard />} text="Machine History" to="/machinehistory" expanded={sidebarOpen} />}
+              {hasPermission("23") && <NavItem icon={<FiDatabase />} text="Inventory" to="/inventory" expanded={sidebarOpen} />}
+              {hasPermission("11") && <NavItem icon={<FiBarChart2 />} text="Reports" to="/reports" expanded={sidebarOpen} />}
+              {hasPermission("27") && <NavItem icon={<FiUsers />} text="Team" to="/team" expanded={sidebarOpen} />}
+              {hasPermission("13") && <NavItem icon={<FiSettings />} text="Settings" to="/settings" expanded={sidebarOpen} />}
+              {hasPermission("15") && <NavItem icon={<FiKey />} text="Permissions" to="/permissions" expanded={sidebarOpen} />}
             </nav>
 
             <div className={`p-4 ${darkMode ? "border-gray-700" : "border-blue-100"} border-t`}>
@@ -371,8 +365,8 @@ const PermissionsPage: React.FC = () => {
                 <img src="https://placehold.co/40x40/0078D7/FFFFFF?text=AD" alt="User Avatar" className={`w-10 h-10 rounded-full border-2 ${darkMode ? "border-blue-400" : "border-blue-500"}`} />
                 {sidebarOpen && (
                   <div>
-                    <p className={`font-medium ${darkMode ? "text-gray-100" : "text-gray-900"}`}>{currentUser?.name}</p>
-                    <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>{getRoleName(currentUser?.roleId)}</p>
+                    <p className={`font-medium ${darkMode ? "text-gray-100" : "text-gray-900"}`}>{user?.name}</p>
+                    <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>{user?.roleId}</p>
                   </div>
                 )}
               </div>
@@ -424,7 +418,7 @@ const PermissionsPage: React.FC = () => {
 
             <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className={`flex items-center space-x-2 cursor-pointer p-2 rounded-lg ${darkMode ? "hover:bg-gray-700" : "hover:bg-blue-50"} transition-colors duration-200`}>
               <img src="https://placehold.co/32x32/0078D7/FFFFFF?text=AD" alt="User Avatar" className={`w-8 h-8 rounded-full ${darkMode ? "border-gray-600" : "border-blue-200"} border`} />
-              <span className={`font-medium ${darkMode ? "text-gray-100" : "text-gray-900"} hidden sm:inline`}>{currentUser?.name}</span>
+              <span className={`font-medium ${darkMode ? "text-gray-100" : "text-gray-900"} hidden sm:inline`}>{user?.name}</span>
               <FiChevronDown className={darkMode ? "text-gray-400" : "text-gray-500"} />
             </motion.div>
           </div>
@@ -468,11 +462,11 @@ const PermissionsPage: React.FC = () => {
               <div>
                 <div className="flex justify-between items-center mb-6">
                   <h2 className={`text-xl font-semibold ${darkMode ? "text-gray-100" : "text-gray-900"}`}>Roles</h2>
-                  {(currentUser.allPermissions.includes("16") || currentUser.roleId === "3") && (
+                  {hasPermission("16") && (
                     <button
                       onClick={() => {
                         setShowNewRoleForm(true);
-                        setEditingRole({ id: "", name: "", description: "", permissions: [] });
+                        setEditingRole({ id: "0", name: "", description: "", permissions: [], isSuperadmin: false });
                       }}
                       className={`flex items-center px-4 py-2 ${darkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-600 hover:bg-blue-700"} text-white rounded-md`}
                     >
@@ -535,13 +529,17 @@ const PermissionsPage: React.FC = () => {
                                     <input
                                       type="checkbox"
                                       id={`perm-${permissionId}`}
-                                      checked={editingRole?.permissions.includes(permissionId) || false}
+                                      checked={editingRole?.isSuperadmin || editingRole?.permissions.includes(permissionId) || false}
                                       onChange={() => handleRolePermissionToggle(permissionId)}
-                                      className={`h-4 w-4 ${darkMode ? "text-blue-400 bg-gray-700 border-gray-600" : "text-blue-600"} rounded focus:ring-blue-500`}
+                                      disabled={editingRole?.isSuperadmin}
+                                      className={`h-4 w-4 ${
+                                        editingRole?.isSuperadmin ? (darkMode ? "text-blue-400 bg-gray-700 border-gray-600" : "text-blue-600") : darkMode ? "text-blue-400 bg-gray-700 border-gray-600" : "text-blue-600"
+                                      } rounded focus:ring-blue-500`}
                                     />
                                     <label htmlFor={`perm-${permissionId}`} className={`ml-2 text-sm ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
                                       <div className="font-medium">
                                         {action} {page.replace(/([A-Z])/g, " $1").trim()}
+                                        {editingRole?.isSuperadmin && <span className={`ml-2 text-xs ${darkMode ? "bg-blue-900 text-blue-300" : "bg-blue-100 text-blue-800"} px-2 py-0.5 rounded`}>Superadmin</span>}
                                       </div>
                                     </label>
                                   </div>
@@ -565,63 +563,54 @@ const PermissionsPage: React.FC = () => {
                       >
                         Cancel
                       </motion.button>
-                      <motion.button
-                        whileHover={{ scale: 1.03 }}
-                        whileTap={{ scale: 0.97 }}
-                        onClick={saveRole}
-                        disabled={loading.saving}
-                        className={`px-4 py-2 ${darkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-600 hover:bg-blue-700"} text-white rounded-md ${loading.saving ? "opacity-50 cursor-not-allowed" : ""}`}
-                      >
-                        {loading.saving ? "Saving..." : "Save Role"}
+                      <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={saveRole} className={`px-4 py-2 ${darkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-600 hover:bg-blue-700"} text-white rounded-md`}>
+                        Save Role
                       </motion.button>
                     </div>
                   </motion.div>
                 )}
 
-                {loading.roles ? (
-                  <div className="flex justify-center items-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {roles.map((role) => (
-                      <motion.div
-                        key={role.id}
-                        whileHover={{ y: -2, boxShadow: "0 4px 6px rgba(0, 0, 0, 0.05)" }}
-                        transition={{ type: "spring", stiffness: 300 }}
-                        className={`${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-blue-100"} rounded-xl shadow-sm p-6 border h-full`}
-                      >
-                        <div className="flex justify-between items-start mb-2">
-                          <h3 className={`text-lg font-semibold ${darkMode ? "text-gray-100" : "text-gray-900"}`}>{role.name}</h3>
-                          <div className="flex space-x-2">
-                            {(currentUser.allPermissions!.includes("16") || currentUser.roleId === "3") && !role.isSuperadmin && (
-                              <button onClick={() => handleEditRole(role)} className={`p-1 ${darkMode ? "text-gray-400 hover:text-blue-400" : "text-gray-500 hover:text-blue-600"}`}>
-                                <FiEdit2 />
-                              </button>
-                            )}
-                            {(currentUser.allPermissions!.includes("17") || currentUser.roleId === "3") && !role.isSuperadmin && (
-                              <button onClick={() => deleteRole(role.id)} className={`p-1 ${darkMode ? "text-gray-400 hover:text-red-400" : "text-gray-500 hover:text-red-600"}`}>
-                                <FiTrash2 />
-                              </button>
-                            )}
-                          </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {roles.map((role) => (
+                    <motion.div
+                      key={role.id}
+                      whileHover={{ y: -2, boxShadow: "0 4px 6px rgba(0, 0, 0, 0.05)" }}
+                      transition={{ type: "spring", stiffness: 300 }}
+                      className={`${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-blue-100"} rounded-xl shadow-sm p-6 border h-full`}
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <h3 className={`text-lg font-semibold ${darkMode ? "text-gray-100" : "text-gray-900"}`}>
+                          {role.name}
+                          {role.isSuperadmin && <span className={`ml-2 text-xs ${darkMode ? "bg-blue-900 text-blue-300" : "bg-blue-100 text-blue-800"} px-2 py-0.5 rounded`}>Superadmin</span>}
+                        </h3>
+                        <div className="flex space-x-2">
+                          {!role.isSuperadmin && hasPermission("16") && (
+                            <button onClick={() => handleEditRole(role)} className={`p-1 ${darkMode ? "text-gray-400 hover:text-blue-400" : "text-gray-500 hover:text-blue-600"}`}>
+                              <FiEdit2 />
+                            </button>
+                          )}
+                          {!role.isSuperadmin && hasPermission("17") && (
+                            <button onClick={() => deleteRole(role.id)} className={`p-1 ${darkMode ? "text-gray-400 hover:text-red-400" : "text-gray-500 hover:text-red-600"}`}>
+                              <FiTrash2 />
+                            </button>
+                          )}
                         </div>
-                        <p className={`${darkMode ? "text-gray-400" : "text-gray-600"} text-sm mb-4`}>{role.description}</p>
+                      </div>
+                      <p className={`${darkMode ? "text-gray-400" : "text-gray-600"} text-sm mb-4`}>{role.description}</p>
 
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className={darkMode ? "text-gray-400" : "text-gray-500"}>Permissions:</span>
-                            <span className={`font-medium ${darkMode ? "text-gray-200" : "text-gray-900"}`}>{role.permissions.length}</span>
-                          </div>
-                          <div className="flex items-center justify-between text-sm">
-                            <span className={darkMode ? "text-gray-400" : "text-gray-500"}>Users with this role:</span>
-                            <span className={`font-medium ${darkMode ? "text-gray-200" : "text-gray-900"}`}>{users.filter((u) => u.roleId === role.id).length}</span>
-                          </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className={darkMode ? "text-gray-400" : "text-gray-500"}>Permissions:</span>
+                          <span className={`font-medium ${darkMode ? "text-gray-200" : "text-gray-900"}`}>{role.permissions.length}</span>
                         </div>
-                      </motion.div>
-                    ))}
-                  </div>
-                )}
+                        <div className="flex items-center justify-between text-sm">
+                          <span className={darkMode ? "text-gray-400" : "text-gray-500"}>Users with this role:</span>
+                          <span className={`font-medium ${darkMode ? "text-gray-200" : "text-gray-900"}`}>{users.filter((u) => u.roleId === role.id).length}</span>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -651,7 +640,7 @@ const PermissionsPage: React.FC = () => {
                         </option>
                       ))}
                     </select>
-                    {(currentUser.allPermissions.includes("17") || currentUser.roleId === "3") && (
+                    {hasPermission("17") && (
                       <Link to="/permissions/adduser" className={`flex items-center px-4 py-2 ${darkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-600 hover:bg-blue-700"} text-white rounded-md`}>
                         <FiUserPlus className="mr-2" />
                         Add User
@@ -660,68 +649,62 @@ const PermissionsPage: React.FC = () => {
                   </div>
                 </div>
 
-                {loading.users ? (
-                  <div className="flex justify-center items-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                  </div>
-                ) : (
-                  <motion.div
-                    whileHover={{ y: -2, boxShadow: "0 4px 6px rgba(0, 0, 0, 0.05)" }}
-                    transition={{ type: "spring", stiffness: 300 }}
-                    className={`${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-blue-100"} rounded-xl shadow-sm p-6 mb-6 border`}
-                  >
-                    <h3 className={`text-lg font-semibold mb-4 ${darkMode ? "text-gray-100" : "text-gray-900"}`}>User Permissions</h3>
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-blue-100">
-                        <thead className={darkMode ? "bg-gray-700" : "bg-gray-50"}>
-                          <tr>
-                            <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>Name</th>
-                            <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>Email</th>
-                            <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>Department</th>
-                            <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>Role</th>
-                            <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>Permissions</th>
-                            <th className={`px-6 py-3 text-right text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody className={`${darkMode ? "bg-gray-800 divide-gray-700" : "bg-white divide-blue-100"} divide-y`}>
-                          {filteredUsers.map((userItem) => (
-                            <tr key={userItem.id} className={darkMode ? "hover:bg-gray-700" : "hover:bg-blue-50"}>
-                              <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-200" : "text-gray-900"}`}>{userItem.name}</td>
-                              <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>{userItem.email}</td>
-                              <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>{userItem.department || "-"}</td>
-                              <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>{getRoleName(userItem.roleId)}</td>
-                              <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>
-                                {userItem.roleId === "3" ? (
-                                  <span className={`px-2 py-1 text-xs rounded-full ${darkMode ? "bg-blue-900 text-blue-200" : "bg-blue-100 text-blue-800"}`}>All permissions</span>
-                                ) : userItem.allPermissions?.length ? (
-                                  <span className="cursor-help border-b border-dashed border-gray-400" title={userItem.allPermissions.join(", ")}>
-                                    {userItem.allPermissions.length} permission(s)
-                                  </span>
-                                ) : (
-                                  <span className="italic text-gray-400">No permissions</span>
-                                )}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                {(currentUser.allPermissions!.includes("16") || currentUser.roleId === "3") && (
-                                  <>
-                                    <button onClick={() => handleEditUser(userItem)} className={`${darkMode ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-900"} mr-4`} disabled={userItem.roleId === "3"}>
-                                      Edit
+                <motion.div
+                  whileHover={{ y: -2, boxShadow: "0 4px 6px rgba(0, 0, 0, 0.05)" }}
+                  transition={{ type: "spring", stiffness: 300 }}
+                  className={`${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-blue-100"} rounded-xl shadow-sm p-6 mb-6 border`}
+                >
+                  <h3 className={`text-lg font-semibold mb-4 ${darkMode ? "text-gray-100" : "text-gray-900"}`}>User Permissions</h3>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-blue-100">
+                      <thead className={darkMode ? "bg-gray-700" : "bg-gray-50"}>
+                        <tr>
+                          <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>Name</th>
+                          <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>Email</th>
+                          <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>Department</th>
+                          <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>Role</th>
+                          <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>Custom Permissions</th>
+                          <th className={`px-6 py-3 text-right text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className={`${darkMode ? "bg-gray-800 divide-gray-700" : "bg-white divide-blue-100"} divide-y`}>
+                        {filteredUsers.map((userItem) => (
+                          <tr key={userItem.id} className={darkMode ? "hover:bg-gray-700" : "hover:bg-blue-50"}>
+                            <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-200" : "text-gray-900"}`}>{userItem.name}</td>
+                            <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>{userItem.email}</td>
+                            <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>{userItem.department || "-"}</td>
+                            <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>{getRoleName(userItem.roleId)}</td>
+                            <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>
+                              {userItem.roleId === "3" ? (
+                                <span className={`px-2 py-1 text-xs rounded-full ${darkMode ? "bg-blue-900 text-blue-200" : "bg-blue-100 text-blue-800"}`}>All permissions</span>
+                              ) : userItem.customPermissions?.length ? (
+                                <span className="cursor-help border-b border-dashed border-gray-400" title={userItem.customPermissions.join(", ")}>
+                                  {userItem.customPermissions.length} custom permission(s)
+                                </span>
+                              ) : (
+                                <span className="italic text-gray-400">No custom permissions</span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                              {hasPermission("edit_permissions") && (
+                                <>
+                                  <button onClick={() => handleEditUser(userItem)} className={`${darkMode ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-900"} mr-4`}>
+                                    Edit
+                                  </button>
+                                  {userItem.id !== user?.id && hasPermission("manage_users") && (
+                                    <button onClick={() => deleteUser(userItem.id)} className={`${darkMode ? "text-red-400 hover:text-red-300" : "text-red-600 hover:text-red-900"}`}>
+                                      Delete
                                     </button>
-                                    {userItem.id !== currentUser?.id && (currentUser.allPermissions!.includes("17") || currentUser.roleId === "3") && userItem.roleId !== "3" && (
-                                      <button onClick={() => deleteUser(userItem.id)} className={`${darkMode ? "text-red-400 hover:text-red-300" : "text-red-600 hover:text-red-900"}`}>
-                                        Delete
-                                      </button>
-                                    )}
-                                  </>
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </motion.div>
-                )}
+                                  )}
+                                </>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </motion.div>
               </div>
             )}
           </div>
@@ -764,18 +747,19 @@ const PermissionsPage: React.FC = () => {
                     <select
                       value={editingUser.roleId || ""}
                       onChange={(e) => {
-                        const newRoleId = e.target.value || "";
+                        const newRoleId = e.target.value || null;
+                        const newRole = roles.find((r) => String(r.id) === String(newRoleId));
                         setEditingUser({
                           ...editingUser,
                           roleId: newRoleId,
+                          rolePermissions: newRole?.permissions || [],
                         });
                       }}
                       className={`w-full ${darkMode ? "bg-gray-700 border-gray-600 text-gray-100" : "border-gray-300"} border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                      disabled={editingUser.roleId === "3"}
                     >
                       <option value="">No Role</option>
                       {roles.map((role) => (
-                        <option key={role.id} value={role.id} disabled={role.isSuperadmin && currentUser.roleId !== "3"}>
+                        <option key={role.id} value={String(role.id)}>
                           {role.name}
                         </option>
                       ))}
@@ -783,7 +767,7 @@ const PermissionsPage: React.FC = () => {
                   </div>
                 </div>
 
-                <h4 className={`font-medium mb-3 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Permissions</h4>
+                <h4 className={`font-medium mb-3 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Custom Permissions</h4>
                 <div className="space-y-4">
                   {Object.entries(pagePermissionMapping).map(([page, permissions]) => (
                     <div key={page} className={`${darkMode ? "border-gray-700" : "border-gray-200"} border rounded-lg overflow-hidden`}>
@@ -801,9 +785,10 @@ const PermissionsPage: React.FC = () => {
                             className={`p-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 ${darkMode ? "bg-gray-800" : "bg-white"}`}
                           >
                             {Object.entries(permissions).map(([action, permissionId]) => {
+                              const roleHasPermission = editingUser.rolePermissions?.includes(permissionId) || false;
                               const isSuperadmin = editingUser.roleId === "3";
-                              const isChecked = isSuperadmin || (editingUser.customPermissions?.includes(permissionId) ?? false);
-                              const isDisabled = isSuperadmin;
+                              const isChecked = isSuperadmin || roleHasPermission || editingUser.customPermissions?.includes(permissionId);
+                              const isDisabled = isSuperadmin || roleHasPermission;
 
                               return (
                                 <div key={permissionId} className={`flex items-center ${isDisabled ? "opacity-50" : ""}`}>
@@ -811,16 +796,27 @@ const PermissionsPage: React.FC = () => {
                                     type="checkbox"
                                     id={`user-perm-${permissionId}`}
                                     checked={isChecked}
-                                    onChange={() => !isDisabled && handleUserPermissionToggle(permissionId)}
+                                    onChange={() => handleUserPermissionToggle(permissionId)}
                                     disabled={isDisabled}
                                     className={`h-4 w-4 rounded focus:ring-blue-500 ${
-                                      isSuperadmin ? (darkMode ? "text-blue-400 bg-gray-700 border-gray-600" : "text-blue-600") : darkMode ? "text-blue-400 bg-gray-700 border-gray-600" : "text-blue-600"
+                                      isSuperadmin
+                                        ? darkMode
+                                          ? "text-blue-400 bg-gray-700 border-gray-600"
+                                          : "text-blue-600"
+                                        : roleHasPermission
+                                        ? darkMode
+                                          ? "text-purple-400 bg-gray-700 border-gray-600"
+                                          : "text-purple-600"
+                                        : darkMode
+                                        ? "text-blue-400 bg-gray-700 border-gray-600"
+                                        : "text-blue-600"
                                     }`}
                                   />
                                   <label htmlFor={`user-perm-${permissionId}`} className={`ml-2 text-sm ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
                                     <div className="font-medium flex items-center">
                                       {action} {page.replace(/([A-Z])/g, " $1").trim()}
                                       {isSuperadmin && <span className={`ml-2 text-xs ${darkMode ? "bg-blue-900 text-blue-300" : "bg-blue-100 text-blue-800"} px-2 py-0.5 rounded`}>Superadmin</span>}
+                                      {roleHasPermission && !isSuperadmin && <span className={`ml-2 text-xs ${darkMode ? "bg-purple-900 text-purple-300" : "bg-purple-100 text-purple-800"} px-2 py-0.5 rounded`}>from role</span>}
                                     </div>
                                   </label>
                                 </div>
@@ -843,14 +839,8 @@ const PermissionsPage: React.FC = () => {
                 >
                   Cancel
                 </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={saveUser}
-                  disabled={loading.saving}
-                  className={`px-4 py-2 ${darkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-600 hover:bg-blue-700"} text-white rounded-md ${loading.saving ? "opacity-50 cursor-not-allowed" : ""}`}
-                >
-                  {loading.saving ? "Saving..." : "Save Changes"}
+                <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={saveUser} className={`px-4 py-2 ${darkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-600 hover:bg-blue-700"} text-white rounded-md`}>
+                  Save Changes
                 </motion.button>
               </div>
             </motion.div>
