@@ -315,17 +315,6 @@ const PermissionsPage: React.FC = () => {
     return <div className="flex items-center justify-center h-screen">Loading...</div>;
   }
 
-  const isSuperadmin = currentUser.roleId === "3";
-  const hasViewPermission = currentUser.allPermissions?.includes("15") || false;
-
-  if (!hasViewPermission && !isSuperadmin) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-xl">You don't have permission to access this page</div>
-      </div>
-    );
-  }
-
   return (
     <div className={`flex h-screen font-sans ${darkMode ? "bg-gray-900 text-gray-100" : "bg-gray-50 text-gray-900"}`}>
       <AnimatePresence>
