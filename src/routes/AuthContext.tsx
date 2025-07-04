@@ -338,7 +338,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (!permissionName) return false;
 
-      return user.permissions?.includes(permissionName) || false || user.customPermissions?.includes(permission as string) || false;
+      return user.permissions?.includes(permissionName) || user.customPermissions?.includes(permission as string) || false;
     },
     [user]
   );

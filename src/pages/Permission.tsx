@@ -142,6 +142,18 @@ const PermissionsPage: React.FC = () => {
     fetchData();
   }, [fetchWithAuth]);
 
+  if (!currentUser || !Array.isArray(currentUser.allPermissions)) {
+    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+  }
+
+  if (!currentUser.allPermissions.includes("15") && currentUser.roleId !== "3") {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-xl">You don't have permission to access this page</div>
+      </div>
+    );
+  }
+
   const toggleSidebar = () => {
     setSidebarOpen((prev: boolean) => !prev);
   };
@@ -284,6 +296,11 @@ const PermissionsPage: React.FC = () => {
 
   const uniqueDepartments = ["all", ...new Set(users.map((u) => u.department || "").filter(Boolean))];
   const filteredUsers = users
+    .filter((user) => {
+      if (currentUser.roleId === "3") return true;
+      if (currentUser.roleId === "1") return user.department === currentUser.department;
+      return false;
+    })
     .filter((user) => departmentFilter === "all" || user.department === departmentFilter)
     .filter((user) => user.name.toLowerCase().includes(searchQuery.toLowerCase()) || user.email.toLowerCase().includes(searchQuery.toLowerCase()));
 
@@ -310,10 +327,6 @@ const PermissionsPage: React.FC = () => {
       </motion.button>
     );
   };
-
-  if (!currentUser || !Array.isArray(currentUser.allPermissions)) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
-  }
 
   return (
     <div className={`flex h-screen font-sans ${darkMode ? "bg-gray-900 text-gray-100" : "bg-gray-50 text-gray-900"}`}>
@@ -350,7 +363,7 @@ const PermissionsPage: React.FC = () => {
               {currentUser.allPermissions.includes("11") && <NavItem icon={<FiBarChart2 />} text="Reports" to="/reports" expanded={sidebarOpen} />}
               {currentUser.allPermissions.includes("27") && <NavItem icon={<FiUsers />} text="Team" to="/team" expanded={sidebarOpen} />}
               {currentUser.allPermissions.includes("13") && <NavItem icon={<FiSettings />} text="Settings" to="/settings" expanded={sidebarOpen} />}
-              {currentUser.allPermissions.includes("15") && <NavItem icon={<FiKey />} text="Permissions" to="/permissions" expanded={sidebarOpen} />}
+              {(currentUser.allPermissions.includes("15") || currentUser.roleId === "3") && <NavItem icon={<FiKey />} text="Permissions" to="/permissions" expanded={sidebarOpen} />}
             </nav>
 
             <div className={`p-4 ${darkMode ? "border-gray-700" : "border-blue-100"} border-t`}>
@@ -455,7 +468,7 @@ const PermissionsPage: React.FC = () => {
               <div>
                 <div className="flex justify-between items-center mb-6">
                   <h2 className={`text-xl font-semibold ${darkMode ? "text-gray-100" : "text-gray-900"}`}>Roles</h2>
-                  {currentUser.allPermissions.includes("16") && (
+                  {(currentUser.allPermissions.includes("16") || currentUser.roleId === "3") && (
                     <button
                       onClick={() => {
                         setShowNewRoleForm(true);
@@ -581,12 +594,12 @@ const PermissionsPage: React.FC = () => {
                         <div className="flex justify-between items-start mb-2">
                           <h3 className={`text-lg font-semibold ${darkMode ? "text-gray-100" : "text-gray-900"}`}>{role.name}</h3>
                           <div className="flex space-x-2">
-                            {currentUser.allPermissions?.includes("16") && !role.isSuperadmin && (
+                            {(currentUser.allPermissions!.includes("16") || currentUser.roleId === "3") && !role.isSuperadmin && (
                               <button onClick={() => handleEditRole(role)} className={`p-1 ${darkMode ? "text-gray-400 hover:text-blue-400" : "text-gray-500 hover:text-blue-600"}`}>
                                 <FiEdit2 />
                               </button>
                             )}
-                            {currentUser.allPermissions?.includes("17") && !role.isSuperadmin && (
+                            {(currentUser.allPermissions!.includes("17") || currentUser.roleId === "3") && !role.isSuperadmin && (
                               <button onClick={() => deleteRole(role.id)} className={`p-1 ${darkMode ? "text-gray-400 hover:text-red-400" : "text-gray-500 hover:text-red-600"}`}>
                                 <FiTrash2 />
                               </button>
@@ -638,7 +651,7 @@ const PermissionsPage: React.FC = () => {
                         </option>
                       ))}
                     </select>
-                    {currentUser.allPermissions.includes("17") && (
+                    {(currentUser.allPermissions.includes("17") || currentUser.roleId === "3") && (
                       <Link to="/permissions/adduser" className={`flex items-center px-4 py-2 ${darkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-600 hover:bg-blue-700"} text-white rounded-md`}>
                         <FiUserPlus className="mr-2" />
                         Add User
@@ -689,12 +702,12 @@ const PermissionsPage: React.FC = () => {
                                 )}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                {currentUser.allPermissions?.includes("16") && (
+                                {(currentUser.allPermissions!.includes("16") || currentUser.roleId === "3") && (
                                   <>
-                                    <button onClick={() => handleEditUser(userItem)} className={`${darkMode ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-900"} mr-4`}>
+                                    <button onClick={() => handleEditUser(userItem)} className={`${darkMode ? "text-blue-400 hover:text-blue-300" : "text-blue-600 hover:text-blue-900"} mr-4`} disabled={userItem.roleId === "3"}>
                                       Edit
                                     </button>
-                                    {userItem.id !== currentUser?.id && currentUser.allPermissions?.includes("17") && (
+                                    {userItem.id !== currentUser?.id && (currentUser.allPermissions!.includes("17") || currentUser.roleId === "3") && userItem.roleId !== "3" && (
                                       <button onClick={() => deleteUser(userItem.id)} className={`${darkMode ? "text-red-400 hover:text-red-300" : "text-red-600 hover:text-red-900"}`}>
                                         Delete
                                       </button>
@@ -758,10 +771,11 @@ const PermissionsPage: React.FC = () => {
                         });
                       }}
                       className={`w-full ${darkMode ? "bg-gray-700 border-gray-600 text-gray-100" : "border-gray-300"} border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                      disabled={editingUser.roleId === "3"}
                     >
                       <option value="">No Role</option>
                       {roles.map((role) => (
-                        <option key={role.id} value={role.id}>
+                        <option key={role.id} value={role.id} disabled={role.isSuperadmin && currentUser.roleId !== "3"}>
                           {role.name}
                         </option>
                       ))}
