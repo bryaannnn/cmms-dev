@@ -438,7 +438,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const fetchUser = useCallback(async (): Promise<User> => {
     try {
-      const userData = await fetchWithAuth("/users/profile");
+      const userData = await fetchWithAuth("/user/profile");
       const mappedUser: User = {
         id: String(userData.id),
         name: userData.name,
