@@ -315,7 +315,7 @@ const mapApiToUser = (apiUser: any): User => {
     roleId: apiUser.roleId || "",
     roles: apiUser.roles || [],
     customPermissions: apiUser.customPermissions || [],
-    permissions: apiUser.permissions || [],
+    permissions: apiUser.allPermissions || [],
     department: apiUser.department || "none",
   };
 };

@@ -779,56 +779,35 @@ const PermissionsPage: React.FC = () => {
                         <span className={`font-medium capitalize ${darkMode ? "text-gray-200" : "text-gray-700"}`}>{page.replace(/([A-Z])/g, " $1").trim()}</span>
                         {expandedCategories[page] ? <FiChevronUp /> : <FiChevronDown />}
                       </button>
-                      <AnimatePresence>
-                        {expandedCategories[page] && (
-                          <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: "auto" }}
-                            exit={{ opacity: 0, height: 0 }}
-                            transition={{ duration: 0.2 }}
-                            className={`p-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 ${darkMode ? "bg-gray-800" : "bg-white"}`}
-                          >
-                            {Object.entries(permissions).map(([action, permissionId]) => {
-                              const roleHasPermission = editingUser.rolePermissions?.includes(permissionId) || false;
-                              const isSuperadmin = editingUser.roleId === "3";
-                              const isChecked = isSuperadmin || roleHasPermission || editingUser.customPermissions?.includes(permissionId);
-                              const isDisabled = isSuperadmin || roleHasPermission;
 
-                              return (
-                                <div key={permissionId} className={`flex items-center ${isDisabled ? "opacity-50" : ""}`}>
-                                  <input
-                                    type="checkbox"
-                                    id={`user-perm-${permissionId}`}
-                                    checked={isChecked}
-                                    onChange={() => !isDisabled && handleUserPermissionToggle(permissionId)}
-                                    disabled={isDisabled}
-                                    className={`h-4 w-4 rounded focus:ring-blue-500 ${
-                                      isSuperadmin
-                                        ? darkMode
-                                          ? "text-blue-400 bg-gray-700 border-gray-600"
-                                          : "text-blue-600"
-                                        : roleHasPermission
-                                        ? darkMode
-                                          ? "text-purple-400 bg-gray-700 border-gray-600"
-                                          : "text-purple-600"
-                                        : darkMode
-                                        ? "text-blue-400 bg-gray-700 border-gray-600"
-                                        : "text-blue-600"
-                                    }`}
-                                  />
-                                  <label htmlFor={`user-perm-${permissionId}`} className={`ml-2 text-sm ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
-                                    <div className="font-medium flex items-center">
-                                      {action} {page.replace(/([A-Z])/g, " $1").trim()}
-                                      {isSuperadmin && <span className={`ml-2 text-xs ${darkMode ? "bg-blue-900 text-blue-300" : "bg-blue-100 text-blue-800"} px-2 py-0.5 rounded`}>Superadmin</span>}
-                                      {roleHasPermission && !isSuperadmin && <span className={`ml-2 text-xs ${darkMode ? "bg-purple-900 text-purple-300" : "bg-purple-100 text-purple-800"} px-2 py-0.5 rounded`}>from role</span>}
-                                    </div>
-                                  </label>
-                                </div>
-                              );
-                            })}
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
+                      {expandedCategories[page] && (
+                        <motion.div>
+                          {Object.entries(permissions).map(([action, permissionId]) => {
+                            const isSuperadmin = editingUser?.roleId === "3";
+                            const isRolePermission = editingUser?.rolePermissions?.includes(permissionId) || false;
+                            const isCustomPermission = editingUser?.customPermissions?.includes(permissionId) || false;
+                            const isChecked = isSuperadmin || isRolePermission || isCustomPermission;
+                            const isDisabled = isSuperadmin || isRolePermission;
+
+                            return (
+                              <div key={permissionId} className={`flex items-center ${isDisabled ? "opacity-50" : ""}`}>
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => !isDisabled && handleUserPermissionToggle(permissionId)}
+                                  disabled={isDisabled}
+                                  className={`h-4 w-4 rounded ${isSuperadmin ? "text-blue-600" : isRolePermission ? "text-purple-600" : "text-blue-600"}`}
+                                />
+                                <label className="ml-2 text-sm">
+                                  {action} {page}
+                                  {isSuperadmin && <span className="ml-2 bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs">Superadmin</span>}
+                                  {isRolePermission && !isSuperadmin && <span className="ml-2 bg-purple-100 text-purple-800 px-2 py-0.5 rounded text-xs">from role</span>}
+                                </label>
+                              </div>
+                            );
+                          })}
+                        </motion.div>
+                      )}
                     </div>
                   ))}
                 </div>
