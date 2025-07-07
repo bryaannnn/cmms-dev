@@ -316,7 +316,7 @@ const mapApiToUser = (apiUser: any): User => {
     roles: apiUser.roles || [],
     customPermissions: apiUser.customPermissions || [],
     permissions: apiUser.permissions || [],
-    department: apiUser.department || "none",
+    department: apiUser.department || undefined,
   };
 };
 
@@ -851,15 +851,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const updateUserPermissions = useCallback(
     async (userId: string, data: { roleId?: string | null; customPermissions?: string[] }): Promise<User> => {
       try {
-        const currentUser = await fetchWithAuth(`/users/${userId}`);
-
         const response = await fetchWithAuth(`/users/${userId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            name: currentUser.name,
-            email: currentUser.email,
-            department: currentUser.department,
             role_id: data.roleId || null,
             custom_permissions: data.customPermissions || [],
           }),
@@ -867,6 +862,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         return mapApiToUser(response);
       } catch (error) {
+        console.error("Failed to update user permissions:", error);
         throw error;
       }
     },

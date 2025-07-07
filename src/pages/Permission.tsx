@@ -51,7 +51,7 @@ interface User {
   email: string;
   roleId: string | null;
   customPermissions: string[];
-  department: string;
+  department?: string | null;
   rolePermissions?: string[];
 }
 
@@ -222,24 +222,28 @@ const PermissionsPage: React.FC = () => {
     if (!editingUser) return;
 
     try {
-      const updatedUser = (await updateUserPermissions(editingUser.id, {
+      const updatedUser = await updateUserPermissions(editingUser.id, {
         roleId: editingUser.roleId || null,
         customPermissions: editingUser.customPermissions || [],
-      })) as User; // Type assertion ke User
+      });
 
+      // Update local state
       setUsers(
-        users.map((u: User) =>
+        users.map((u) =>
           u.id === updatedUser.id
             ? {
                 ...updatedUser,
-                roleId: updatedUser.roleId || null, // Pastikan roleId tidak undefined
-                customPermissions: updatedUser.customPermissions || [], // Pastikan array tidak undefined
+                roleId: updatedUser.roleId || null,
+                customPermissions: updatedUser.customPermissions || [],
+                rolePermissions: roles.find((r) => String(r.id) === String(updatedUser.roleId))?.permissions || [],
               }
             : u
         )
       );
+
       setEditingUser(null);
     } catch (error) {
+      console.error("Failed to save user:", error);
       alert("Failed to save changes");
     }
   };
@@ -796,7 +800,7 @@ const PermissionsPage: React.FC = () => {
                                     type="checkbox"
                                     id={`user-perm-${permissionId}`}
                                     checked={isChecked}
-                                    onChange={() => handleUserPermissionToggle(permissionId)}
+                                    onChange={() => !isDisabled && handleUserPermissionToggle(permissionId)}
                                     disabled={isDisabled}
                                     className={`h-4 w-4 rounded focus:ring-blue-500 ${
                                       isSuperadmin
