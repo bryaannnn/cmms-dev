@@ -103,6 +103,7 @@ export interface User {
   permissions?: PermissionName[]; // Dari endpoint /user
   department?: string | null;
   rolePermissions?: string[];
+  allPermissions?: string[];
 }
 
 export interface Mesin {
@@ -314,7 +315,7 @@ const mapApiToUser = (apiUser: any): User => {
     email: apiUser.email,
     roleId: apiUser.roleId || "",
     roles: apiUser.roles || [],
-    customPermissions: apiUser.customPermissions || [],
+    allPermissions: apiUser.allPermissions || [],
     permissions: apiUser.permissions || [],
     department: apiUser.department || "none",
   };
