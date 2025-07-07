@@ -74,7 +74,7 @@ const SettingsPage: React.FC = () => {
 
   const [formData, setFormData] = useState({
     name: "Admin User",
-    email: "admin@company.com",
+    nik: "12345678910111213141516",
     language: "en",
     notifications: true,
     billingEmail: "billing@company.com",
@@ -336,7 +336,7 @@ const SettingsPage: React.FC = () => {
                           </div>
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                            <input type="email" name="email" value={user?.email} onChange={handleInputChange} className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
+                            <input type="nik" name="nik" value={user?.nik} onChange={handleInputChange} className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
                           </div>
                         </div>
                         <div className="flex justify-end space-x-3 mt-6">
@@ -351,7 +351,7 @@ const SettingsPage: React.FC = () => {
                     ) : (
                       <>
                         <SettingItem label="Name" value={user?.name} onEdit={() => setIsEditing(true)} />
-                        <SettingItem label="Email" value={user?.email} onEdit={() => setIsEditing(true)} />
+                        <SettingItem label="Email" value={user?.nik} onEdit={() => setIsEditing(true)} />
                         <SettingItem label="Role" value={user?.roles?.[0]} editable={false} />
                         <SettingItem label="Member since" value="none" editable={false} />
                       </>
@@ -372,7 +372,7 @@ const SettingsPage: React.FC = () => {
                     <div className="flex items-center justify-between py-4 border-b border-blue-100">
                       <div>
                         <p className="font-medium text-gray-700">Email notifications</p>
-                        <p className="text-gray-600">Receive email notifications</p>
+                        <p className="text-gray-600">Receive nik notifications</p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input type="checkbox" name="notifications" checked={formData.notifications} onChange={handleInputChange} className="sr-only peer" />
@@ -402,7 +402,7 @@ const SettingsPage: React.FC = () => {
 
                 {activeTab === "billing" && (
                   <SettingCard title="Billing Information">
-                    <SettingItem label="Billing email" value={formData.billingEmail} onEdit={() => {}} />
+                    <SettingItem label="Billing nik" value={formData.billingEmail} onEdit={() => {}} />
                     <SettingItem label="Payment method" value="Visa ending in 4242" onEdit={() => {}} />
                     <SettingItem label="Plan" value="Premium ($29/month)" onEdit={() => {}} />
                   </SettingCard>

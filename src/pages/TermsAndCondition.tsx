@@ -44,7 +44,7 @@ type TeamMemberRole = "admin" | "manager" | "supervisor" | "technician" | "opera
 interface TeamMember {
   id: string;
   name: string;
-  email: string;
+  nik: number;
   phone: string;
   role: TeamMemberRole;
   department: string;
@@ -94,7 +94,7 @@ const TeamDashboard: React.FC = () => {
     {
       id: "TM-001",
       name: "Budi Santoso",
-      email: "budi.santoso@company.com",
+      nik: 1234567890123456,
       phone: "+62 812-3456-7890",
       role: "supervisor",
       department: "Maintenance",
@@ -238,7 +238,7 @@ const TeamDashboard: React.FC = () => {
   const AddTeamMemberForm: React.FC<{ onAddMember: (member: Omit<TeamMember, "id" | "avatar">) => void }> = ({ onAddMember }) => {
     const [formData, setFormData] = useState<Omit<TeamMember, "id" | "avatar">>({
       name: "",
-      email: "",
+      nik: 0,
       phone: "",
       role: "technician",
       department: "Maintenance",

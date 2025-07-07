@@ -6,7 +6,7 @@ import logoWida from "../assets/logo-wida.png";
 import { FiEye, FiEyeOff } from "react-icons/fi";
 
 const LoginForm = () => {
-  const [email, setEmail] = useState("");
+  const [nik, setNik] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
@@ -20,7 +20,7 @@ const LoginForm = () => {
     setIsSubmitting(true);
 
     try { 
-      await login(email, password);
+      await login(nik, password);
       navigate("/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
@@ -84,17 +84,17 @@ const LoginForm = () => {
           <div className="space-y-5">
             <div>
               <label
-                htmlFor="email"
+                htmlFor="nik"
                 className="block text-sm font-medium text-gray-700 mb-1"
               >
-                Work Email
+                NIK
               </label>
               <input
-                id="email"
-                type="email"
-                placeholder="name@company.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="nik"
+                type="nik"
+                placeholder="Masukkan sebanyak 16 angka..."
+                value={nik}
+                onChange={(e) => setNik(e.target.value)}
                 required
                 autoComplete="username"
                 className="w-full px-4 py-2.5 text-sm rounded-md border border-gray-300

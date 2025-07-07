@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { FiUser, FiUserPlus, FiKey, FiSave, FiX, FiChevronDown, FiChevronUp, FiArrowLeft, FiSun, FiMoon } from "react-icons/fi";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -18,116 +18,88 @@ interface Role {
   permissions: string[];
 }
 
-interface User {
-  id: string;
-  name: string;
-  nik: string;
-  roleId: string;
-  customPermissions: string[];
-  department?: string;
-  position?: string;
-  password: string;
-  confirmPassword: string;
-}
-
 interface Department {
   id: string;
   name: string;
 }
 
+const permissionCategories = ["Dashboard", "Assets", "Work Orders", "Machine History", "Inventory", "Reports", "Team", "Settings", "Permissions", "Users"];
+
+const permissions: Permission[] = [
+  { id: "1", name: "View Dashboard", description: "Can view dashboard", category: "Dashboard" },
+  { id: "2", name: "Edit Dashboard", description: "Can edit dashboard", category: "Dashboard" },
+  { id: "3", name: "View Assets", description: "Can view assets", category: "Assets" },
+  { id: "4", name: "Create Assets", description: "Can create assets", category: "Assets" },
+  { id: "5", name: "Edit Assets", description: "Can edit assets", category: "Assets" },
+  { id: "6", name: "Delete Assets", description: "Can delete assets", category: "Assets" },
+  { id: "7", name: "View Work Orders", description: "Can view work orders", category: "Work Orders" },
+  { id: "8", name: "Create Work Orders", description: "Can create work orders", category: "Work Orders" },
+  { id: "9", name: "Assign Work Orders", description: "Can assign work orders", category: "Work Orders" },
+  { id: "10", name: "Complete Work Orders", description: "Can complete work orders", category: "Work Orders" },
+  { id: "31", name: "View Machine History", description: "Can view machine history", category: "Machine History" },
+  { id: "32", name: "Create Machine History", description: "Can create machine history", category: "Machine History" },
+  { id: "33", name: "Edit Machine History", description: "Can edit machine history", category: "Machine History" },
+  { id: "34", name: "Delete Machine History", description: "Can delete machine history", category: "Machine History" },
+  { id: "23", name: "View Inventory", description: "Can view inventory", category: "Inventory" },
+  { id: "24", name: "Create Inventory", description: "Can create inventory", category: "Inventory" },
+  { id: "25", name: "Edit Inventory", description: "Can edit inventory", category: "Inventory" },
+  { id: "26", name: "Delete Inventory", description: "Can delete inventory", category: "Inventory" },
+  { id: "11", name: "View Reports", description: "Can view reports", category: "Reports" },
+  { id: "12", name: "Export Reports", description: "Can export reports", category: "Reports" },
+  { id: "27", name: "View Team", description: "Can view team", category: "Team" },
+  { id: "28", name: "Create Team", description: "Can create team", category: "Team" },
+  { id: "29", name: "Edit Team", description: "Can edit team", category: "Team" },
+  { id: "30", name: "Delete Team", description: "Can delete team", category: "Team" },
+  { id: "13", name: "View Settings", description: "Can view settings", category: "Settings" },
+  { id: "14", name: "Edit Settings", description: "Can edit settings", category: "Settings" },
+  { id: "15", name: "View Permissions", description: "Can view permissions", category: "Permissions" },
+  { id: "16", name: "Edit Permissions", description: "Can edit permissions", category: "Permissions" },
+  { id: "17", name: "Manage Users", description: "Can manage users", category: "Users" },
+];
+
 const AddUserPage: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
-
+  const { user, register, getRoles, getUsers } = useAuth();
   const [darkMode, setDarkMode] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
 
-  const departments: Department[] = [
-    { id: "d1", name: "IT" },
-    { id: "d2", name: "Production" },
-    { id: "d3", name: "Quality Control" },
-    { id: "d4", name: "TD" },
-    { id: "d5", name: "Management" },
-    { id: "d5", name: "Finance" },
-  ];
-
-  // Permission categories and permissions structure
-  const permissionCategories = ["Dashboard", "Assets", "Work Orders", "Reports", "Settings", "Permissions", "Users"];
-
-  const permissions: Permission[] = [
-    { id: "view_dashboard", name: "View Dashboard", description: "View dashboard page", category: "Dashboard" },
-    { id: "edit_dashboard", name: "Edit Dashboard", description: "Edit dashboard widgets", category: "Dashboard" },
-    { id: "view_assets", name: "View Assets", description: "View assets page", category: "Assets" },
-    { id: "create_assets", name: "Create Assets", description: "Create new assets", category: "Assets" },
-    { id: "edit_assets", name: "Edit Assets", description: "Edit existing assets", category: "Assets" },
-    { id: "delete_assets", name: "Delete Assets", description: "Delete assets", category: "Assets" },
-    { id: "view_workorders", name: "View Work Orders", description: "View work orders", category: "Work Orders" },
-    { id: "create_workorders", name: "Create Work Orders", description: "Create work orders", category: "Work Orders" },
-    { id: "assign_workorders", name: "Assign Work Orders", description: "Assign work orders", category: "Work Orders" },
-    { id: "complete_workorders", name: "Complete Work Orders", description: "Mark work orders as complete", category: "Work Orders" },
-    { id: "view_reports", name: "View Reports", description: "View reports", category: "Reports" },
-    { id: "export_reports", name: "Export Reports", description: "Export reports", category: "Reports" },
-    { id: "view_settings", name: "View Settings", description: "View settings page", category: "Settings" },
-    { id: "edit_settings", name: "Edit Settings", description: "Edit system settings", category: "Settings" },
-    { id: "view_permissions", name: "View Permissions", description: "View permissions page", category: "Permissions" },
-    { id: "edit_permissions", name: "Edit Permissions", description: "Edit permissions", category: "Permissions" },
-    { id: "view_users", name: "View Users", description: "View users page", category: "Users" },
-    { id: "create_users", name: "Create Users", description: "Create new users", category: "Users" },
-    { id: "edit_users", name: "Edit Users", description: "Edit existing users", category: "Users" },
-    { id: "delete_users", name: "Delete Users", description: "Delete users", category: "Users" },
-  ];
-
-  // Simplified role structure with user, admin, superadmin
-  const roles: Role[] = [
-    {
-      id: "user",
-      name: "User",
-      description: "Basic user with limited access",
-      permissions: ["view_dashboard", "view_assets", "view_workorders", "machine_operation"],
-    },
-    {
-      id: "admin",
-      name: "Admin",
-      description: "Administrator with management access",
-      permissions: [
-        "view_dashboard",
-        "edit_dashboard",
-        "view_assets",
-        "create_assets",
-        "edit_assets",
-        "view_workorders",
-        "create_workorders",
-        "assign_workorders",
-        "complete_workorders",
-        "view_reports",
-        "export_reports",
-        "view_settings",
-        "view_users",
-        "create_users",
-        "edit_users",
-      ],
-    },
-    {
-      id: "superadmin",
-      name: "Super Admin",
-      description: "Full system access with all permissions",
-      permissions: permissions.map((p) => p.id),
-    },
-  ];
-
-  const [newUser, setNewUser] = useState<User>({
-    id: "",
+  const [newUser, setNewUser] = useState({
     name: "",
     nik: "",
     roleId: "",
-    customPermissions: [],
+    customPermissions: [] as string[],
     department: "",
     position: "",
     password: "",
     confirmPassword: "",
   });
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const fetchedRoles = await getRoles();
+        setRoles(fetchedRoles);
+
+        // Fetch departments from your API or define them statically
+        const fetchedDepartments = [
+          { id: "1", name: "IT" },
+          { id: "2", name: "HR" },
+          { id: "3", name: "Finance" },
+          { id: "4", name: "Operations" },
+          { id: "5", name: "Maintenance" },
+        ];
+        setDepartments(fetchedDepartments);
+      } catch (error) {
+        console.error("Failed to fetch data:", error);
+      }
+    };
+
+    fetchData();
+  }, [getRoles]);
 
   const permissionsByCategory = permissionCategories.reduce<Record<string, Permission[]>>((acc, category) => {
     acc[category] = permissions.filter((p) => p.category === category);
@@ -161,7 +133,7 @@ const AddUserPage: React.FC = () => {
     if (!newUser.nik.trim()) newErrors.nik = "NIK is required";
     else if (!/^\d+$/.test(newUser.nik)) newErrors.nik = "NIK must be numeric";
     if (!newUser.password) newErrors.password = "Password is required";
-    else if (newUser.password.length < 8) newErrors.password = "Password must be at least 8 characters";
+    else if (newUser.password.length < 6) newErrors.password = "Password must be at least 6 characters";
     if (newUser.password !== newUser.confirmPassword) newErrors.confirmPassword = "Passwords do not match";
     if (!newUser.department) newErrors.department = "Department is required";
     if (!newUser.roleId) newErrors.roleId = "Role is required";
@@ -170,16 +142,25 @@ const AddUserPage: React.FC = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
 
     setIsSubmitting(true);
-    setTimeout(() => {
-      console.log("New user created:", newUser);
-      setIsSubmitting(false);
+    try {
+      await register(newUser.name, newUser.nik, newUser.password, newUser.department, newUser.position);
+
+      // If you need to assign custom permissions, you'll need to update the user after creation
+      // This would require getting the newly created user's ID and then updating their permissions
+      // For now, we'll just navigate back to the permissions page
+
       navigate("/permissions", { state: { userAdded: true } });
-    }, 1500);
+    } catch (error) {
+      console.error("Failed to create user:", error);
+      setErrors({ form: "Failed to create user. Please try again." });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const getRolePermissions = (roleId: string): string[] => {
@@ -265,6 +246,7 @@ const AddUserPage: React.FC = () => {
                       onChange={handleInputChange}
                       className={`w-full ${darkMode ? "bg-gray-700 border-gray-600 text-gray-100" : "border-gray-300"} border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500`}
                     >
+                      <option value="">Select Department</option>
                       {departments.map((dept) => (
                         <option key={dept.id} value={dept.name}>
                           {dept.name}
@@ -292,7 +274,7 @@ const AddUserPage: React.FC = () => {
                       value={newUser.password}
                       onChange={handleInputChange}
                       className={`w-full ${darkMode ? "bg-gray-700 border-gray-600 text-gray-100" : "border-gray-300"} border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                      placeholder="Enter password (min 8 chars)"
+                      placeholder="Enter password (min 6 chars)"
                     />
                     {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password}</p>}
                   </div>
@@ -316,6 +298,7 @@ const AddUserPage: React.FC = () => {
                       onChange={handleInputChange}
                       className={`w-full ${darkMode ? "bg-gray-700 border-gray-600 text-gray-100" : "border-gray-300"} border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500`}
                     >
+                      <option value="">Select Role</option>
                       {roles.map((role) => (
                         <option key={role.id} value={role.id}>
                           {role.name}

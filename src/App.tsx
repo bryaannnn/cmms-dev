@@ -1,6 +1,6 @@
 import { Routes, Route } from "react-router-dom";
 import LoginForm from "./pages/LoginForm";
-import RegisterForm from "./pages/RegisterForm";
+// import RegisterForm from "./pages/RegisterForm";
 import Dashboard from "./pages/Dashboard";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import TermsAndConditions from "./pages/TermsAndCondition";
@@ -29,7 +29,7 @@ import UnauthorizedPage from "./pages/Unauthorized";
 function App() {
   return (
     // <Routes>
-    //   <Route path="/register" element={<RegisterForm />} />
+    //   {/* <Route path="/register" element={<RegisterForm />} /> */}
     //   <Route path="/login" element={<LoginForm />} />
     //   {/* <Route path="/machinehistory/edit" element={<EditFormMesin />} /> */}
     //   {/* <Route path="/workorders/input" element={<FormWorkOrders />} /> */}
@@ -61,7 +61,7 @@ function App() {
     <Routes>
       {/* Public Routes */}
       <Route path="/login" element={<LoginForm />} />
-      <Route path="/register" element={<RegisterForm />} />
+      {/* <Route path="/register" element={<RegisterForm />} /> */}
       <Route path="/terms" element={<TermsAndConditions />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/privacy-policy" element={<PrivacyPolicy />} />

@@ -96,7 +96,7 @@ export interface Role {
 export interface User {
   id: string;
   name: string;
-  email: string;
+  nik: string;
   roleId?: string; // Dari endpoint /users
   roles?: string[]; // Dari endpoint /user
   customPermissions?: string[]; // Dari endpoint /users
@@ -272,8 +272,8 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string) => Promise<void>;
+  login: (nik: string, password: string) => Promise<void>;
+  register: (name: string, nik: string, password: string, department?: string, position?: string) => Promise<void>;
   logout: () => Promise<void>;
   isLoggingOut: boolean;
   fetchWithAuth: (url: string, options?: RequestInit) => Promise<any>;
@@ -311,7 +311,7 @@ const mapApiToUser = (apiUser: any): User => {
   return {
     id: String(apiUser.id),
     name: apiUser.name,
-    email: apiUser.email,
+    nik: apiUser.nik,
     roleId: apiUser.roleId || "",
     roles: apiUser.roles || [],
     customPermissions: apiUser.customPermissions || [],
@@ -442,7 +442,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const mappedUser: User = {
         id: String(userData.id),
         name: userData.name,
-        email: userData.email,
+        nik: userData.nik,
         roles: userData.roles, // Directly use the string array
         permissions: userData.permissions || [],
       };
@@ -519,14 +519,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     loadMasterData();
   }, [isAuthenticated, masterData, getAllMasterData]);
 
-  const register = async (name: string, email: string, password: string) => {
+  const register = async (name: string, nik: string, password: string, department?: string, position?: string) => {
     try {
       const response = await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ name, nik, password, department, position }),
       });
 
       const data = await response.json();
@@ -549,14 +549,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const login = async (email: string, password: string) => {
+  const login = async (nik: string, password: string) => {
     try {
       const response = await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ nik, password }),
       });
 
       const data = await response.json();
@@ -858,7 +858,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             name: currentUser.name,
-            email: currentUser.email,
+            nik: currentUser.nik,
             department: currentUser.department,
             roleId: data.roleId || null,
             customPermissions: data.customPermissions || [],

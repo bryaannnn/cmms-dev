@@ -103,7 +103,7 @@ const TeamDashboard: React.FC = () => {
   
   const [newUser, setNewUser] = useState({
     name: "",
-    email: "",
+    nik: "",
     role: "technician",
     department: "maintenance",
     phone: "",
@@ -114,7 +114,7 @@ const TeamDashboard: React.FC = () => {
     {
       id: 1,
       name: "Budi Santoso",
-      email: "budi.santoso@company.com",
+      nik: "1234567890123456",
       role: "Maintenance Supervisor",
       department: "Facility Management",
       phone: "+62 812-3456-7890",
@@ -126,7 +126,7 @@ const TeamDashboard: React.FC = () => {
     {
       id: 2,
       name: "Ani Wijaya",
-      email: "ani.wijaya@company.com",
+      nik: "1234567890123456",
       role: "Maintenance Technician",
       department: "Mechanical",
       phone: "+62 813-4567-8901",
@@ -138,7 +138,7 @@ const TeamDashboard: React.FC = () => {
     {
       id: 3,
       name: "Rudi Hermawan",
-      email: "rudi.hermawan@company.com",
+      nik: "1234567890123456",
       role: "Electrical Engineer",
       department: "Electrical",
       phone: "+62 814-5678-9012",
@@ -150,7 +150,7 @@ const TeamDashboard: React.FC = () => {
     {
       id: 4,
       name: "Citra Dewi",
-      email: "citra.dewi@company.com",
+      nik: "1234567890123456",
       role: "Inventory Manager",
       department: "Logistics",
       phone: "+62 815-6789-0123",
@@ -162,7 +162,7 @@ const TeamDashboard: React.FC = () => {
     {
       id: 5,
       name: "Dodi Pratama",
-      email: "dodi.pratama@company.com",
+      nik: "1234567890123456",
       role: "Facility Manager",
       department: "Facility Management",
       phone: "+62 816-7890-1234",
@@ -174,7 +174,7 @@ const TeamDashboard: React.FC = () => {
     {
       id: 6,
       name: "Eka Putri",
-      email: "eka.putri@company.com",
+      nik: "1234567890123456",
       role: "Maintenance Technician",
       department: "HVAC",
       phone: "+62 817-8901-2345",
@@ -208,7 +208,7 @@ const TeamDashboard: React.FC = () => {
       {
         id: newId,
         name: newUser.name,
-        email: newUser.email,
+        nik: newUser.nik,
         role: newUser.role,
         department: newUser.department,
         phone: newUser.phone,
@@ -221,7 +221,7 @@ const TeamDashboard: React.FC = () => {
     setShowAddModal(false);
     setNewUser({
       name: "",
-      email: "",
+      nik: "",
       role: "technician",
       department: "maintenance",
       phone: "",
@@ -243,7 +243,7 @@ const TeamDashboard: React.FC = () => {
   };
 
   const filteredMembers = teamMembers.filter((member) => {
-    const matchesSearch = member.name.toLowerCase().includes(searchTerm.toLowerCase()) || member.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = member.name.toLowerCase().includes(searchTerm.toLowerCase()) || member.nik.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesTab = activeTab === "all" || (activeTab === "active" && member.status === "Active") || (activeTab === "on leave" && member.status === "On Leave");
 
@@ -467,7 +467,7 @@ const TeamDashboard: React.FC = () => {
                             </div>
                             <div className="ml-4">
                               <div className="text-sm font-medium text-gray-900">{member.name}</div>
-                              <div className="text-sm text-gray-500">{member.email}</div>
+                              <div className="text-sm text-gray-500">{member.nik}</div>
                             </div>
                           </div>
                         </td>
@@ -496,7 +496,7 @@ const TeamDashboard: React.FC = () => {
                                 setSelectedUser(member);
                                 setNewUser({
                                   name: member.name,
-                                  email: member.email,
+                                  nik: member.nik,
                                   role: member.role.toLowerCase(),
                                   department: member.department.toLowerCase(),
                                   phone: member.phone,
@@ -584,7 +584,7 @@ const TeamDashboard: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                  <input type="email" className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} />
+                  <input type="nik" className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" value={newUser.nik} onChange={(e) => setNewUser({ ...newUser, nik: e.target.value })} />
                 </div>
 
                 <div>

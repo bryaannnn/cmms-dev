@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import logoWida from '../assets/logo-wida.png';
 
 const ForgotPassword = () => {
-  const [email, setEmail] = useState('');
+  const [nik, setNik] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -16,8 +16,8 @@ const ForgotPassword = () => {
 
     try {
       await new Promise(resolve => setTimeout(resolve, 1000));
-      setSuccess(`Password reset link sent to ${email}`);
-      setEmail('');
+      setSuccess(`Password reset link sent to ${nik}`);
+      setNik('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send reset link');
     } finally {
@@ -47,7 +47,7 @@ const ForgotPassword = () => {
             Reset Password
           </h2>
           <p className="text-sm text-gray-500 text-center mb-8">
-            Enter your email to receive a reset link
+            Enter your NIK to receive a reset link
           </p>
 
           {error && (
@@ -70,15 +70,15 @@ const ForgotPassword = () => {
 
           <div className="space-y-5">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                Work Email
+              <label htmlFor="nik" className="block text-sm font-medium text-gray-700 mb-1">
+                NIK
               </label>
               <input
-                id="email"
-                type="email"
-                placeholder="name@company.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="nik"
+                type="nik"
+                placeholder="12345678910111213141516"
+                value={nik}
+                onChange={(e) => setNik(e.target.value)}
                 required
                 className="w-full px-4 py-2.5 text-sm rounded-md border border-gray-300 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors"
               />

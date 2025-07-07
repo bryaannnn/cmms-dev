@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   FiUsers,
   FiUser,
@@ -48,8 +48,9 @@ interface Role {
 interface User {
   id: string;
   name: string;
-  email: string;
+  nik: string;
   roleId: string | null;
+  permissions: string[];
   customPermissions: string[];
   department?: string | null;
   rolePermissions?: string[];
@@ -118,10 +119,11 @@ const PermissionsPage: React.FC = () => {
         const mappedUsers = fetchedUsers.map((user: any) => ({
           id: String(user.id),
           name: user.name,
-          email: user.email,
+          nik: user.nik,
           roleId: user.roleId ? String(user.roleId) : null,
           customPermissions: user.customPermissions || [],
           department: user.department || "none",
+          permissions: user.allPermissions,
         }));
 
         const mappedRoles = fetchedRoles.map((role: any) => ({
@@ -165,10 +167,18 @@ const PermissionsPage: React.FC = () => {
   const handleUserPermissionToggle = (permissionId: string) => {
     if (!editingUser || editingUser.roleId === "3") return;
 
-    setEditingUser((prev) => ({
-      ...prev!,
-      customPermissions: prev!.customPermissions.includes(permissionId) ? prev!.customPermissions.filter((id) => id !== permissionId) : [...prev!.customPermissions, permissionId],
-    }));
+    setEditingUser((prev) => {
+      if (!prev) return null;
+
+      const newCustomPermissions = prev.customPermissions.includes(permissionId) ? prev.customPermissions.filter((id) => id !== permissionId) : [...prev.customPermissions, permissionId];
+
+      return {
+        ...prev,
+        customPermissions: newCustomPermissions,
+        // Update permissions untuk mencerminkan perubahan
+        permissions: [...new Set([...(prev.rolePermissions || []), ...newCustomPermissions])],
+      };
+    });
   };
 
   const handleEditRole = (role: Role) => {
@@ -215,6 +225,9 @@ const PermissionsPage: React.FC = () => {
     setEditingUser({
       ...user,
       rolePermissions: userRole?.permissions || [],
+      // Tambahkan ini untuk memastikan permissions dari API digunakan
+      customPermissions: user.customPermissions || [],
+      permissions: user.permissions || [],
     });
   };
 
@@ -229,16 +242,26 @@ const PermissionsPage: React.FC = () => {
 
       // Update local state
       setUsers(
-        users.map((u) =>
-          u.id === updatedUser.id
-            ? {
-                ...updatedUser,
-                roleId: updatedUser.roleId || null,
-                customPermissions: updatedUser.customPermissions || [],
-                rolePermissions: roles.find((r) => String(r.id) === String(updatedUser.roleId))?.permissions || [],
-              }
-            : u
-        )
+        users.map((u) => {
+          if (u.id === updatedUser.id) {
+            const newRoleId = updatedUser.roleId || null;
+            const newRole = roles.find((r) => String(r.id) === String(newRoleId));
+            const newRolePermissions = newRole?.permissions || [];
+            const newCustomPermissions = updatedUser.customPermissions || [];
+
+            // Calculate the combined permissions for the updated user
+            const combinedPermissions = [...new Set([...newRolePermissions, ...newCustomPermissions])];
+
+            return {
+              ...updatedUser,
+              roleId: newRoleId,
+              customPermissions: newCustomPermissions,
+              rolePermissions: newRolePermissions, // This is for internal use, not part of User interface but useful
+              permissions: combinedPermissions, // Ensure this matches the User interface
+            };
+          }
+          return u;
+        })
       );
 
       setEditingUser(null);
@@ -277,9 +300,10 @@ const PermissionsPage: React.FC = () => {
         fetchedUsers.map((user: any) => ({
           id: String(user.id),
           name: user.name,
-          email: user.email,
+          nik: user.nik,
           roleId: user.roleId ? String(user.roleId) : null,
           customPermissions: user.customPermissions || [],
+          permissions: user.allPermissions,
           department: user.department || "none",
         }))
       );
@@ -297,7 +321,7 @@ const PermissionsPage: React.FC = () => {
   const uniqueDepartments = ["all", ...new Set(users.map((u) => u.department || "").filter(Boolean))];
   const filteredUsers = users
     .filter((user) => departmentFilter === "all" || user.department === departmentFilter)
-    .filter((user) => user.name.toLowerCase().includes(searchQuery.toLowerCase()) || user.email.toLowerCase().includes(searchQuery.toLowerCase()));
+    .filter((user) => user.name.toLowerCase().includes(searchQuery.toLowerCase()) || user.nik.toLowerCase().includes(searchQuery.toLowerCase()));
 
   const NavItem: React.FC<NavItemProps> = ({ icon, text, to, expanded }) => {
     const active = location.pathname === to;
@@ -664,7 +688,7 @@ const PermissionsPage: React.FC = () => {
                       <thead className={darkMode ? "bg-gray-700" : "bg-gray-50"}>
                         <tr>
                           <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>Name</th>
-                          <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>Email</th>
+                          <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>NIK</th>
                           <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>Department</th>
                           <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>Role</th>
                           <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? "text-gray-300" : "text-gray-500"}`}>Custom Permissions</th>
@@ -675,7 +699,7 @@ const PermissionsPage: React.FC = () => {
                         {filteredUsers.map((userItem) => (
                           <tr key={userItem.id} className={darkMode ? "hover:bg-gray-700" : "hover:bg-blue-50"}>
                             <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-200" : "text-gray-900"}`}>{userItem.name}</td>
-                            <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>{userItem.email}</td>
+                            <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>{userItem.nik}</td>
                             <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>{userItem.department || "-"}</td>
                             <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>{getRoleName(userItem.roleId)}</td>
                             <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? "text-gray-300" : "text-gray-500"}`}>
@@ -739,8 +763,8 @@ const PermissionsPage: React.FC = () => {
                     <div className={`${darkMode ? "text-gray-100" : "text-gray-900"} font-medium`}>{editingUser.name}</div>
                   </div>
                   <div>
-                    <label className={`block text-sm font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Email</label>
-                    <div className={darkMode ? "text-gray-300" : "text-gray-600"}>{editingUser.email}</div>
+                    <label className={`block text-sm font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>NIK</label>
+                    <div className={darkMode ? "text-gray-300" : "text-gray-600"}>{editingUser.nik}</div>
                   </div>
                   <div>
                     <label className={`block text-sm font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Department</label>
@@ -779,35 +803,56 @@ const PermissionsPage: React.FC = () => {
                         <span className={`font-medium capitalize ${darkMode ? "text-gray-200" : "text-gray-700"}`}>{page.replace(/([A-Z])/g, " $1").trim()}</span>
                         {expandedCategories[page] ? <FiChevronUp /> : <FiChevronDown />}
                       </button>
+                      <AnimatePresence>
+                        {expandedCategories[page] && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className={`p-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 ${darkMode ? "bg-gray-800" : "bg-white"}`}
+                          >
+                            {Object.entries(permissions).map(([action, permissionId]) => {
+                              const roleHasPermission = editingUser.rolePermissions?.includes(permissionId) || false;
+                              const isSuperadmin = editingUser.roleId === "3";
+                              const isChecked = isSuperadmin || roleHasPermission || editingUser.customPermissions?.includes(permissionId);
+                              const isDisabled = isSuperadmin || roleHasPermission;
 
-                      {expandedCategories[page] && (
-                        <motion.div>
-                          {Object.entries(permissions).map(([action, permissionId]) => {
-                            const isSuperadmin = editingUser?.roleId === "3";
-                            const isRolePermission = editingUser?.rolePermissions?.includes(permissionId) || false;
-                            const isCustomPermission = editingUser?.customPermissions?.includes(permissionId) || false;
-                            const isChecked = isSuperadmin || isRolePermission || isCustomPermission;
-                            const isDisabled = isSuperadmin || isRolePermission;
-
-                            return (
-                              <div key={permissionId} className={`flex items-center ${isDisabled ? "opacity-50" : ""}`}>
-                                <input
-                                  type="checkbox"
-                                  checked={isChecked}
-                                  onChange={() => !isDisabled && handleUserPermissionToggle(permissionId)}
-                                  disabled={isDisabled}
-                                  className={`h-4 w-4 rounded ${isSuperadmin ? "text-blue-600" : isRolePermission ? "text-purple-600" : "text-blue-600"}`}
-                                />
-                                <label className="ml-2 text-sm">
-                                  {action} {page}
-                                  {isSuperadmin && <span className="ml-2 bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs">Superadmin</span>}
-                                  {isRolePermission && !isSuperadmin && <span className="ml-2 bg-purple-100 text-purple-800 px-2 py-0.5 rounded text-xs">from role</span>}
-                                </label>
-                              </div>
-                            );
-                          })}
-                        </motion.div>
-                      )}
+                              return (
+                                <div key={permissionId} className={`flex items-center ${isDisabled ? "opacity-50" : ""}`}>
+                                  <input
+                                    type="checkbox"
+                                    id={`user-perm-${permissionId}`}
+                                    checked={isChecked}
+                                    onChange={() => !isDisabled && handleUserPermissionToggle(permissionId)}
+                                    disabled={isDisabled}
+                                    className={`h-4 w-4 rounded focus:ring-blue-500 ${
+                                      isSuperadmin
+                                        ? darkMode
+                                          ? "text-blue-400 bg-gray-700 border-gray-600"
+                                          : "text-blue-600"
+                                        : roleHasPermission
+                                        ? darkMode
+                                          ? "text-purple-400 bg-gray-700 border-gray-600"
+                                          : "text-purple-600"
+                                        : darkMode
+                                        ? "text-blue-400 bg-gray-700 border-gray-600"
+                                        : "text-blue-600"
+                                    }`}
+                                  />
+                                  <label htmlFor={`user-perm-${permissionId}`} className={`ml-2 text-sm ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
+                                    <div className="font-medium flex items-center">
+                                      {action} {page.replace(/([A-Z])/g, " $1").trim()}
+                                      {isSuperadmin && <span className={`ml-2 text-xs ${darkMode ? "bg-blue-900 text-blue-300" : "bg-blue-100 text-blue-800"} px-2 py-0.5 rounded`}>Superadmin</span>}
+                                      {roleHasPermission && !isSuperadmin && <span className={`ml-2 text-xs ${darkMode ? "bg-purple-900 text-purple-300" : "bg-purple-100 text-purple-800"} px-2 py-0.5 rounded`}>from role</span>}
+                                    </div>
+                                  </label>
+                                </div>
+                              );
+                            })}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   ))}
                 </div>
