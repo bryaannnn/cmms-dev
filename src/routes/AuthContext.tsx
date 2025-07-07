@@ -849,7 +849,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   );
 
   const updateUserPermissions = useCallback(
-    async (userId: string, data: { roleId?: string | null; allPermissions?: string[] }): Promise<User> => {
+    async (userId: string, data: { roleId?: string | null; customPermissions?: string[] }): Promise<User> => {
       try {
         const currentUser = await fetchWithAuth(`/users/${userId}`);
 
@@ -861,7 +861,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             email: currentUser.email,
             department: currentUser.department,
             roleId: data.roleId || null,
-            allPermissions: data.allPermissions || [],
+            customPermissions: data.customPermissions || [],
           }),
         });
 
