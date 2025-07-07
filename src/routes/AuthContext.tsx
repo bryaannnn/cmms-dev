@@ -520,42 +520,34 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [isAuthenticated, masterData, getAllMasterData]);
 
   const register = async (name: string, nik: string, password: string, department?: string, position?: string, roleId?: string, customPermissions?: string[]) => {
-  try {
-    const response = await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/register`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        name,
-        nik,
-        password,
-        department,
-        position,
-        roleId: roleId || null, // Pass roleId, use null if not provided
-        customPermissions: customPermissions ? customPermissions.map(Number) : [], // Convert to numbers and send
-      }),
-    });
+    try {
+      const response = await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name, nik, password, department, position, roleId, customPermissions }),
+      });
 
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.message || "Pendaftaran gagal");
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Pendaftaran gagal");
 
-    if (data.token) {
-      localStorage.setItem("token", data.token);
-      setToken(data.token);
+      if (data.token) {
+        localStorage.setItem("token", data.token);
+        setToken(data.token);
 
-      const freshUser = await fetchUser();
-      setUser(freshUser);
+        const freshUser = await fetchUser();
+        setUser(freshUser);
 
-      navigate("/dashboard");
-    } else {
-      throw new Error("Token tidak diterima setelah pendaftaran.");
+        navigate("/dashboard");
+      } else {
+        throw new Error("Token tidak diterima setelah pendaftaran.");
+      }
+    } catch (error) {
+      console.error("Error pendaftaran:", error);
+      throw error;
     }
-  } catch (error) {
-    console.error("Error pendaftaran:", error);
-    throw error;
-  }
-};
+  };
 
   const login = async (nik: string, password: string) => {
     try {
