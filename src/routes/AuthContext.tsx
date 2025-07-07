@@ -273,7 +273,7 @@ interface AuthContextType {
   token: string | null;
   isAuthenticated: boolean;
   login: (nik: string, password: string) => Promise<void>;
-  register: (name: string, nik: string, password: string, department?: string, position?: string) => Promise<void>;
+  register: (name: string, nik: string, password: string, department?: string, position?: string, roleId?: string, customPermissions?: string[]) => Promise<void>;
   logout: () => Promise<void>;
   isLoggingOut: boolean;
   fetchWithAuth: (url: string, options?: RequestInit) => Promise<any>;
@@ -519,35 +519,43 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     loadMasterData();
   }, [isAuthenticated, masterData, getAllMasterData]);
 
-  const register = async (name: string, nik: string, password: string, department?: string, position?: string) => {
-    try {
-      const response = await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/register`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ name, nik, password, department, position }),
-      });
+  const register = async (name: string, nik: string, password: string, department?: string, position?: string, roleId?: string, customPermissions?: string[]) => {
+  try {
+    const response = await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/register`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name,
+        nik,
+        password,
+        department,
+        position,
+        roleId: roleId || null, // Pass roleId, use null if not provided
+        customPermissions: customPermissions ? customPermissions.map(Number) : [], // Convert to numbers and send
+      }),
+    });
 
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || "Pendaftaran gagal");
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || "Pendaftaran gagal");
 
-      if (data.token) {
-        localStorage.setItem("token", data.token);
-        setToken(data.token);
+    if (data.token) {
+      localStorage.setItem("token", data.token);
+      setToken(data.token);
 
-        const freshUser = await fetchUser();
-        setUser(freshUser);
+      const freshUser = await fetchUser();
+      setUser(freshUser);
 
-        navigate("/dashboard");
-      } else {
-        throw new Error("Token tidak diterima setelah pendaftaran.");
-      }
-    } catch (error) {
-      console.error("Error pendaftaran:", error);
-      throw error;
+      navigate("/dashboard");
+    } else {
+      throw new Error("Token tidak diterima setelah pendaftaran.");
     }
-  };
+  } catch (error) {
+    console.error("Error pendaftaran:", error);
+    throw error;
+  }
+};
 
   const login = async (nik: string, password: string) => {
     try {

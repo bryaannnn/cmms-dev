@@ -199,8 +199,8 @@ const LoginForm = () => {
             </button>
             <p className="text-sm text-center mt-4">
               Belum punya akun?{" "}
-              <Link to="/register" className="text-blue-500 hover:underline">
-                Daftar di sini
+              <Link to="" className="text-blue-500 hover:underline">
+                Loh kok bisa? 
               </Link>
             </p>
           </div>

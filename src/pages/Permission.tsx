@@ -25,7 +25,7 @@ import {
   FiMoon,
 } from "react-icons/fi";
 import { motion, AnimatePresence } from "framer-motion";
-import { useAuth } from "../routes/AuthContext";
+import { useAuth, getPermissionNameById } from "../routes/AuthContext";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import logoWida from "../assets/logo-wida.png";
 
@@ -154,6 +154,7 @@ const PermissionsPage: React.FC = () => {
       [category]: !prev[category],
     }));
   };
+
 
   const handleRolePermissionToggle = (permissionId: string) => {
     if (!editingRole || editingRole.isSuperadmin) return;

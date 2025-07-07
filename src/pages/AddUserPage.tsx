@@ -148,11 +148,15 @@ const AddUserPage: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      await register(newUser.name, newUser.nik, newUser.password, newUser.department, newUser.position);
-
-      // If you need to assign custom permissions, you'll need to update the user after creation
-      // This would require getting the newly created user's ID and then updating their permissions
-      // For now, we'll just navigate back to the permissions page
+      await register(
+        newUser.name,
+        newUser.nik,
+        newUser.password,
+        newUser.department,
+        newUser.position,
+        newUser.roleId, // Pass roleId
+        newUser.customPermissions // Pass customPermissions
+      );
 
       navigate("/permissions", { state: { userAdded: true } });
     } catch (error) {
