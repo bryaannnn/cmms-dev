@@ -2,12 +2,19 @@ import { createContext, useContext, useState, useEffect, useCallback } from "rea
 import { useNavigate } from "react-router-dom";
 import { getProjectEnvVariables } from "../shared/projectEnvVariables";
 
-// Tambahkan di bagian atas file AuthContext.tsx
+// --- Bagian Konstanta dan Interfaces (Tidak Berubah) ---
 export const roleMapping: Record<string, { name: string; isDepartmentHead?: boolean; isSuperadmin?: boolean }> = {
   "1": { name: "admin", isDepartmentHead: true },
   "2": { name: "user", isDepartmentHead: false },
   "3": { name: "superadmin", isSuperadmin: true },
 };
+
+interface RoleApiPayload {
+  name: string;
+  description: string;
+  permissions: number[]; // Penting: Ini harus number[]
+  isSuperadmin?: boolean; // Tambahkan jika relevan
+}
 
 export const getPermissionNameById = (id: string): PermissionName | null => {
   const mapping: Record<string, PermissionName> = {
@@ -273,6 +280,7 @@ interface AuthContextType {
   token: string | null;
   isAuthenticated: boolean;
   login: (nik: string, password: string) => Promise<void>;
+  // MODIFIKASI: Hapus shouldLoginAfterRegister
   register: (name: string, nik: string, password: string, department?: string, position?: string, roleId?: string, customPermissions?: string[]) => Promise<void>;
   logout: () => Promise<void>;
   isLoggingOut: boolean;
@@ -300,6 +308,8 @@ interface AuthContextType {
   updateRole: (id: string, role: Partial<Role>) => Promise<Role>;
   deleteRole: (id: string) => Promise<void>;
   updateUserPermissions: (userId: string, data: { roleId?: string | null; customPermissions?: string[] }) => Promise<User>;
+  deleteUser: (id: string) => Promise<void>;
+  isAuthLoading: boolean;
 }
 
 const projectEnvVariables = getProjectEnvVariables();
@@ -315,7 +325,7 @@ const mapApiToUser = (apiUser: any): User => {
     roleId: apiUser.roleId || "",
     roles: apiUser.roles || [],
     customPermissions: apiUser.customPermissions || [],
-    permissions: apiUser.allPermissions || [],
+    permissions: apiUser.allPermissions || [], // Pastikan ini sesuai dengan respons API
     department: apiUser.department || "none",
   };
 };
@@ -326,45 +336,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [masterData, setMasterData] = useState<AllMasterData | null>(null);
   const [isMasterDataLoading, setIsMasterDataLoading] = useState(true);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [editingUser, setEditingUser] = useState<EditingUser | null>(null);
   const navigate = useNavigate();
 
   const isAuthenticated = !!token;
-
-  const hasPermission = useCallback(
-    (permission: string | PermissionName): boolean => {
-      if (!user) return false;
-
-      // Jika permission adalah ID (string angka), convert ke PermissionName
-      const permissionName = /^\d+$/.test(permission as string) ? getPermissionNameById(permission as string) : (permission as PermissionName);
-
-      if (!permissionName) return false;
-
-      if (user.roleId === "3") return true; // Superadmin
-      return user.permissions?.includes(permissionName) || false;
-    },
-    [user]
-  );
-
-  useEffect(() => {
-    const storedToken = localStorage.getItem("token");
-    const storedUser = localStorage.getItem("user");
-
-    if (storedToken && storedUser) {
-      setToken(storedToken);
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (e) {
-        console.error("Failed to parse user from localStorage", e);
-        localStorage.removeItem("user");
-        localStorage.removeItem("token");
-        setUser(null);
-        setToken(null);
-      }
-    } else {
-      setIsMasterDataLoading(false);
-    }
-  }, []);
 
   const logout = useCallback(async () => {
     setIsLoggingOut(true);
@@ -394,74 +370,112 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [token, navigate]);
 
+  // Di dalam AuthContext.tsx, cari fungsi fetchWithAuth Anda:
   const fetchWithAuth = useCallback(
     async (url: string, options: RequestInit = {}) => {
       try {
         const authToken = token || localStorage.getItem("token");
 
         if (!authToken) {
+          console.error("Tidak ada token otentikasi ditemukan. Mengarahkan ke login.");
+          await logout();
           throw new Error("No authentication token found");
         }
 
-        const headers: Record<string, string> = {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          ...(options.headers as Record<string, string>),
-          Authorization: `Bearer ${authToken}`,
-        };
+        // --- Perbaikan Konstruksi Headers ---
+        // Gunakan objek Headers untuk penanganan header yang lebih robust
+        const headers = new Headers(options.headers);
+
+        if (!headers.has("Content-Type")) {
+          // Tambahkan Content-Type jika belum ada
+          headers.set("Content-Type", "application/json");
+        }
+        if (!headers.has("Accept")) {
+          // Tambahkan Accept jika belum ada
+          headers.set("Accept", "application/json");
+        }
+
+        headers.set("Authorization", `Bearer ${authToken}`);
+        // --- Akhir Perbaikan Konstruksi Headers ---
 
         const fullUrl = `${projectEnvVariables.envVariables.VITE_REACT_API_URL}${url}`;
 
         const response = await fetch(fullUrl, {
           ...options,
-          headers,
+          headers, // Gunakan objek Headers yang sudah benar
         });
 
         if (response.status === 401) {
+          console.warn("Respons 401 diterima. Sesi kedaluwarsa, keluar.");
           await logout();
           throw new Error("Session expired. Please login again.");
         }
 
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.message || `Request failed with status ${response.status}`);
+        // --- Perbaikan Penanganan Respons JSON/Non-JSON/204 No Content ---
+        // Tangani status 204 No Content (umum untuk DELETE yang berhasil tanpa body)
+        if (response.status === 204) {
+          return null; // Mengembalikan null untuk menandakan sukses tanpa body
         }
 
-        return response.json();
+        // Tangani respons non-OK (error dari server, 4xx/5xx)
+        if (!response.ok) {
+          let errorData: any = {};
+          const contentType = response.headers.get("content-type");
+
+          // Coba parse body error sebagai JSON hanya jika Content-Type adalah JSON
+          if (contentType && contentType.includes("application/json")) {
+            try {
+              errorData = await response.json();
+            } catch (e) {
+              console.warn("Gagal mem-parse respons error sebagai JSON, kembali ke teks biasa.", e);
+              errorData.message = await response.text(); // Ambil body sebagai teks jika gagal JSON
+            }
+          } else {
+            // Jika bukan JSON, ambil pesan dari status teks atau body teks mentah
+            errorData.message = response.statusText || (await response.text());
+          }
+
+          throw new Error(errorData.message || `Permintaan gagal dengan status ${response.status}`);
+        }
+
+        // Untuk respons OK lainnya (misalnya, 200 OK, 201 Created)
+        // Periksa Content-Type sebelum mencoba mem-parse sebagai JSON.
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          return response.json();
+        } else {
+          // Jika responsnya OK tapi bukan JSON (misal, teks biasa),
+          // log peringatan dan kembalikan teks mentah.
+          console.warn(`Diharapkan respons JSON untuk ${fullUrl} tetapi mendapatkan ${contentType || "tidak ada tipe konten"}. Mengembalikan teks mentah.`);
+          return response.text();
+        }
+        // --- Akhir Perbaikan Penanganan Respons ---
       } catch (error) {
-        console.error("Fetch error:", error);
+        console.error("Terjadi kesalahan saat fetchWithAuth:", error);
         throw error;
       }
     },
-    [token, logout]
+    [token, logout] // Pastikan 'token' dan 'logout' ada di sini jika mereka dependensi
   );
 
   const fetchUser = useCallback(async (): Promise<User> => {
     try {
       const userData = await fetchWithAuth("/user/profile");
+      console.log("Data pengguna dari API:", userData);
       const mappedUser: User = {
         id: String(userData.id),
         name: userData.name,
-        nik: userData.nik,
-        roles: userData.roles, // Directly use the string array
+        nik: userData.nik || null,
+        roles: userData.roles || [],
         permissions: userData.permissions || [],
+        department: userData.department || "none",
       };
       setUser(mappedUser);
       localStorage.setItem("user", JSON.stringify(mappedUser));
+      console.log("User state diperbarui:", mappedUser);
       return mappedUser;
     } catch (error) {
-      console.error("Failed to fetch user:", error);
-      await logout();
-      throw error;
-    }
-  }, [fetchWithAuth, logout]);
-
-  const getUsers = useCallback(async (): Promise<User[]> => {
-    try {
-      const response = await fetchWithAuth("/users");
-      return response.map((apiUser: any) => mapApiToUser(apiUser));
-    } catch (error) {
-      console.error("Failed to fetch users:", error);
+      console.error("Gagal mengambil pengguna:", error);
       throw error;
     }
   }, [fetchWithAuth]);
@@ -497,28 +511,51 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [fetchWithAuth]);
 
+  const hasPermission = useCallback(
+    (permission: string | PermissionName | string[]): boolean => {
+      if (!user) return false;
+
+      if (user.roleId === "3") return true;
+
+      if (Array.isArray(permission)) {
+        return permission.some((p) => {
+          const permName = /^\d+$/.test(p) ? getPermissionNameById(p) : (p as PermissionName);
+          return permName ? user.permissions?.includes(permName) : false;
+        });
+      }
+
+      const permissionName = /^\d+$/.test(permission as string) ? getPermissionNameById(permission as string) : (permission as PermissionName);
+
+      if (!permissionName) return false;
+
+      return user.permissions?.includes(permissionName) || false;
+    },
+    [user]
+  );
+
   useEffect(() => {
-    const loadMasterData = async () => {
-      if (isAuthenticated && !masterData) {
-        setIsMasterDataLoading(true);
+    const storedToken = localStorage.getItem("token");
+    if (storedToken) {
+      setToken(storedToken);
+      const loadInitialData = async () => {
         try {
+          console.log("Mencoba memuat user dan master data...");
+          await fetchUser();
           const data = await getAllMasterData();
           setMasterData(data);
-        } catch (error) {
-          console.error("Gagal memuat data master:", error);
+        } catch (e) {
+          console.error("Gagal memuat pengguna atau data master saat aplikasi dimuat.", e);
         } finally {
-          setIsMasterDataLoading(false);
+          setIsAuthLoading(false);
         }
-      } else if (!isAuthenticated && masterData) {
-        setMasterData(null);
-        setIsMasterDataLoading(false);
-      } else if (!isAuthenticated && !masterData) {
-        setIsMasterDataLoading(false);
-      }
-    };
-    loadMasterData();
-  }, [isAuthenticated, masterData, getAllMasterData]);
+      };
+      loadInitialData();
+    } else {
+      setIsMasterDataLoading(false);
+    }
+  }, [fetchUser, getAllMasterData]);
 
+  // MODIFIKASI: Hapus parameter shouldLoginAfterRegister dan logika login otomatis
   const register = async (name: string, nik: string, password: string, department?: string, position?: string, roleId?: string, customPermissions?: string[]) => {
     try {
       const response = await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/register`, {
@@ -526,25 +563,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ name, nik, password, department, position, roleId, customPermissions }),
+        body: JSON.stringify({
+          name,
+          nik,
+          password,
+          department,
+          position,
+          role_id: roleId || null,
+          customPermissions: customPermissions ? customPermissions.map(Number) : [],
+        }),
       });
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.message || "Pendaftaran gagal");
+      if (!response.ok) throw new Error(data.message || "Pembuatan pengguna gagal");
 
-      if (data.token) {
-        localStorage.setItem("token", data.token);
-        setToken(data.token);
-
-        const freshUser = await fetchUser();
-        setUser(freshUser);
-
-        navigate("/dashboard");
-      } else {
-        throw new Error("Token tidak diterima setelah pendaftaran.");
-      }
+      // Tidak ada lagi logika login otomatis di sini
+      // Fungsi ini hanya akan mengembalikan respons sukses dari backend
+      return data;
     } catch (error) {
-      console.error("Error pendaftaran:", error);
+      console.error("Error pembuatan pengguna:", error);
       throw error;
     }
   };
@@ -768,6 +805,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     [fetchWithAuth]
   );
 
+  const getUsers = useCallback(async (): Promise<User[]> => {
+    try {
+      const response = await fetchWithAuth("/users");
+      return response.map((apiUser: any) => mapApiToUser(apiUser));
+    } catch (error) {
+      console.error("Failed to fetch users:", error);
+      throw error;
+    }
+  }, [fetchWithAuth]);
+
   const getRoles = useCallback(async (): Promise<Role[]> => {
     try {
       const response = await fetchWithAuth("/roles");
@@ -873,6 +920,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     [fetchWithAuth]
   );
 
+  const deleteUser = useCallback(
+    async (id: string): Promise<void> => {
+      try {
+        await fetchWithAuth(`/users/${id}`, {
+          method: "DELETE",
+        });
+        console.log(`Pengguna dengan ID ${id} berhasil dihapus.`);
+      } catch (error) {
+        console.error(`Gagal menghapus pengguna dengan ID ${id}:`, error);
+        throw error;
+      }
+    },
+    [fetchWithAuth]
+  );
+
   return (
     <AuthContext.Provider
       value={{
@@ -907,6 +969,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         updateRole,
         deleteRole,
         updateUserPermissions,
+        deleteUser,
+        isAuthLoading,
       }}
     >
       {children}

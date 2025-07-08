@@ -16,6 +16,7 @@ interface Role {
   name: string;
   description: string;
   permissions: string[];
+  isSuperadmin?: boolean;
 }
 
 interface Department {
@@ -36,6 +37,8 @@ const permissions: Permission[] = [
   { id: "8", name: "Create Work Orders", description: "Can create work orders", category: "Work Orders" },
   { id: "9", name: "Assign Work Orders", description: "Can assign work orders", category: "Work Orders" },
   { id: "10", name: "Complete Work Orders", description: "Can complete work orders", category: "Work Orders" },
+  { id: "18", name: "Edit Work Orders", description: "Can edit work orders", category: "Work Orders" },
+  { id: "19", name: "Delete Work Orders", description: "Can delete work orders", category: "Work Orders" },
   { id: "31", name: "View Machine History", description: "Can view machine history", category: "Machine History" },
   { id: "32", name: "Create Machine History", description: "Can create machine history", category: "Machine History" },
   { id: "33", name: "Edit Machine History", description: "Can edit machine history", category: "Machine History" },
@@ -46,6 +49,9 @@ const permissions: Permission[] = [
   { id: "26", name: "Delete Inventory", description: "Can delete inventory", category: "Inventory" },
   { id: "11", name: "View Reports", description: "Can view reports", category: "Reports" },
   { id: "12", name: "Export Reports", description: "Can export reports", category: "Reports" },
+  { id: "20", name: "Create Reports", description: "Can create reports", category: "Reports" },
+  { id: "21", name: "Edit Reports", description: "Can edit reports", category: "Reports" },
+  { id: "22", name: "Delete Reports", description: "Can delete reports", category: "Reports" },
   { id: "27", name: "View Team", description: "Can view team", category: "Team" },
   { id: "28", name: "Create Team", description: "Can create team", category: "Team" },
   { id: "29", name: "Edit Team", description: "Can edit team", category: "Team" },
@@ -59,7 +65,7 @@ const permissions: Permission[] = [
 
 const AddUserPage: React.FC = () => {
   const navigate = useNavigate();
-  const { user, register, getRoles, getUsers } = useAuth();
+  const { user, register, getRoles, hasPermission } = useAuth();
   const [darkMode, setDarkMode] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -81,6 +87,11 @@ const AddUserPage: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        if (!hasPermission("manage_users")) {
+          navigate("/unauthorized");
+          return;
+        }
+
         const fetchedRoles = await getRoles();
         setRoles(fetchedRoles);
 
@@ -99,7 +110,7 @@ const AddUserPage: React.FC = () => {
     };
 
     fetchData();
-  }, [getRoles]);
+  }, [getRoles, hasPermission, navigate]);
 
   const permissionsByCategory = permissionCategories.reduce<Record<string, Permission[]>>((acc, category) => {
     acc[category] = permissions.filter((p) => p.category === category);
@@ -142,34 +153,37 @@ const AddUserPage: React.FC = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+  const getRolePermissions = (roleId: string): string[] => {
+    const role = roles.find((r) => r.id === roleId);
+    return role ? role.permissions : [];
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
 
     setIsSubmitting(true);
     try {
-      await register(
-        newUser.name,
-        newUser.nik,
-        newUser.password,
-        newUser.department,
-        newUser.position,
-        newUser.roleId, // Pass roleId
-        newUser.customPermissions // Pass customPermissions
-      );
+      await register(newUser.name, newUser.nik, newUser.password, newUser.department, newUser.position, newUser.roleId, newUser.customPermissions);
 
-      navigate("/permissions", { state: { userAdded: true } });
-    } catch (error) {
+      navigate("/permissions", { state: { success: "User created successfully" } });
+    } catch (error: any) {
       console.error("Failed to create user:", error);
-      setErrors({ form: "Failed to create user. Please try again." });
+      setErrors({
+        form: error.message || "Failed to create user. Please try again.",
+      });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const getRolePermissions = (roleId: string): string[] => {
-    return roles.find((r) => r.id === roleId)?.permissions || [];
-  };
+  if (!hasPermission("manage_users")) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="text-xl">You don't have permission to access this page</div>
+      </div>
+    );
+  }
 
   return (
     <div className={`flex h-screen font-sans ${darkMode ? "bg-gray-900 text-gray-100" : "bg-gray-50 text-gray-900"}`}>
@@ -208,6 +222,12 @@ const AddUserPage: React.FC = () => {
               <h1 className={`text-2xl font-bold ${darkMode ? "text-gray-100" : "text-gray-900"} mb-2`}>Create New User</h1>
               <p className={darkMode ? "text-gray-400" : "text-gray-600"}>Add a new user to the system with appropriate permissions</p>
             </motion.div>
+
+            {errors.form && (
+              <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className={`p-4 mb-6 rounded-md ${darkMode ? "bg-red-900 text-red-200" : "bg-red-100 text-red-800"}`}>
+                {errors.form}
+              </motion.div>
+            )}
 
             <form onSubmit={handleSubmit}>
               <motion.div
@@ -325,7 +345,11 @@ const AddUserPage: React.FC = () => {
                 <div className="space-y-4">
                   {Object.entries(permissionsByCategory).map(([category, perms]) => (
                     <div key={category} className={`${darkMode ? "border-gray-700" : "border-gray-200"} border rounded-lg overflow-hidden`}>
-                      <button onClick={() => toggleCategory(category)} className={`w-full flex justify-between items-center p-3 ${darkMode ? "bg-gray-700 hover:bg-gray-600" : "bg-gray-50 hover:bg-gray-100"}`}>
+                      <button
+                        type="button" // <--- TAMBAHKAN INI DI SINI!
+                        onClick={() => toggleCategory(category)}
+                        className={`w-full flex justify-between items-center p-3 ${darkMode ? "bg-gray-700 hover:bg-gray-600" : "bg-gray-50 hover:bg-gray-100"}`}
+                      >
                         <span className={`font-medium ${darkMode ? "text-gray-200" : "text-gray-700"}`}>{category}</span>
                         {expandedCategories[category] ? <FiChevronUp /> : <FiChevronDown />}
                       </button>
@@ -339,7 +363,7 @@ const AddUserPage: React.FC = () => {
                             className={`p-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 ${darkMode ? "bg-gray-800" : "bg-white"}`}
                           >
                             {perms.map((permission) => {
-                              const roleHasPermission = getRolePermissions(newUser.roleId).includes(permission.id);
+                              const roleHasPermission = newUser.roleId ? getRolePermissions(newUser.roleId).includes(permission.id) : false;
                               const userHasPermission = newUser.customPermissions.includes(permission.id);
                               const isDisabled = roleHasPermission;
 
@@ -352,7 +376,7 @@ const AddUserPage: React.FC = () => {
                                     onChange={() => !isDisabled && handlePermissionToggle(permission.id)}
                                     disabled={isDisabled}
                                     className={`h-4 w-4 rounded focus:ring-blue-500 
-                                      ${roleHasPermission ? (darkMode ? "text-purple-400 bg-gray-700 border-gray-600" : "text-purple-600") : darkMode ? "text-blue-400 bg-gray-700 border-gray-600" : "text-blue-600"}`}
+                                  ${roleHasPermission ? (darkMode ? "text-purple-400 bg-gray-700 border-gray-600" : "text-purple-600") : darkMode ? "text-blue-400 bg-gray-700 border-gray-600" : "text-blue-600"}`}
                                   />
                                   <label htmlFor={`perm-${permission.id}`} className={`ml-2 text-sm ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
                                     <div className="font-medium flex items-center">

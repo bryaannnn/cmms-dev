@@ -247,16 +247,16 @@ const Dashboard: React.FC = () => {
               </button>
             </div>
 
-            <nav className="flex-1 p-4 space-y-2 overflow-y-auto custom-scrollbar">
-              {hasPermission("view_dashboard") && <NavItem icon={<FiHome />} text="Dashboard" to="/dashboard" expanded={sidebarOpen} />}
-              {hasPermission("view_assets") && <NavItem icon={<FiPackage />} text="Assets" to="/assets" expanded={sidebarOpen} />}
-              {hasPermission("view_workorders") && <NavItem icon={<FiClipboard />} text="Work Orders" to="/workorders" expanded={sidebarOpen} />}
-              {hasPermission("view_machinehistory") && <NavItem icon={<FiClipboard />} text="Machine History" to="/machinehistory" expanded={sidebarOpen} />}
-              {hasPermission("view_inventory") && <NavItem icon={<FiDatabase />} text="Inventory" to="/inventory" expanded={sidebarOpen} />}
-              {hasPermission("view_reports") && <NavItem icon={<FiBarChart2 />} text="Reports" to="/reports" expanded={sidebarOpen} />}
-              {hasPermission("view_teams") && <NavItem icon={<FiUsers />} text="Team" to="/team" expanded={sidebarOpen} />}
-              {hasPermission("view_settings") && <NavItem icon={<FiSettings />} text="Settings" to="/settings" expanded={sidebarOpen} />}
-              {hasPermission("view_permissions") && <NavItem icon={<FiKey />} text="Permissions" to="/permissions" expanded={sidebarOpen} />}
+            <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+              {hasPermission("1") && <NavItem icon={<FiHome />} text="Dashboard" to="/dashboard" expanded={sidebarOpen} />}
+              {hasPermission("3") && <NavItem icon={<FiPackage />} text="Assets" to="/assets" expanded={sidebarOpen} />}
+              {hasPermission("7") && <NavItem icon={<FiClipboard />} text="Work Orders" to="/workorders" expanded={sidebarOpen} />}
+              {hasPermission("31") && <NavItem icon={<FiClipboard />} text="Machine History" to="/machinehistory" expanded={sidebarOpen} />}
+              {hasPermission("23") && <NavItem icon={<FiDatabase />} text="Inventory" to="/inventory" expanded={sidebarOpen} />}
+              {hasPermission("11") && <NavItem icon={<FiBarChart2 />} text="Reports" to="/reports" expanded={sidebarOpen} />}
+              {hasPermission("27") && <NavItem icon={<FiUsers />} text="Team" to="/team" expanded={sidebarOpen} />}
+              {hasPermission("13") && <NavItem icon={<FiSettings />} text="Settings" to="/settings" expanded={sidebarOpen} />}
+              {hasPermission("15") && <NavItem icon={<FiKey />} text="Permissions" to="/permissions" expanded={sidebarOpen} />}
             </nav>
 
             <div className="p-4 border-t border-blue-100">

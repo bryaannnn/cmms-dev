@@ -37,8 +37,15 @@ interface PagePermissions {
   [key: string]: Permission;
 }
 
+interface RoleApiPayload {
+  name: string;
+  description: string;
+  permissions: string[];
+  isSuperadmin?: boolean;
+}
+
 interface Role {
-  id: string;
+  id: string | null;
   name: string;
   description: string;
   permissions: string[];
@@ -77,7 +84,7 @@ const pagePermissionMapping: PagePermissions = {
 };
 
 const PermissionsPage: React.FC = () => {
-  const { user, logout, fetchWithAuth, getUsers, hasPermission, updateUserPermissions } = useAuth();
+  const { user, logout, fetchWithAuth, getUsers, hasPermission, updateUserPermissions, deleteUser, createRole, updateRole } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -96,6 +103,7 @@ const PermissionsPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     const handleResize = () => {
@@ -155,7 +163,6 @@ const PermissionsPage: React.FC = () => {
     }));
   };
 
-
   const handleRolePermissionToggle = (permissionId: string) => {
     if (!editingRole || editingRole.isSuperadmin) return;
 
@@ -187,23 +194,36 @@ const PermissionsPage: React.FC = () => {
     setShowNewRoleForm(true);
   };
 
-  const saveRole = async () => {
-    if (!editingRole || !hasPermission("edit_permissions")) return;
+  const saveRole = useCallback(async () => {
+    if (!editingRole || !hasPermission("edit_permissions")) {
+      alert("Anda tidak memiliki izin atau data peran tidak lengkap.");
+      return;
+    }
+
+    // Validasi data
+    if (!editingRole.name.trim()) {
+      alert("Nama role tidak boleh kosong!");
+      return;
+    }
 
     try {
-      const method = editingRole.id ? "PUT" : "POST";
-      const url = editingRole.id ? `/roles/${editingRole.id}` : "/roles";
+      const roleDataToSend: RoleApiPayload = {
+        name: editingRole.name,
+        description: editingRole.description,
+        permissions: editingRole.permissions, // Pastikan permissions berupa number[]
+      };
 
-      await fetchWithAuth(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: editingRole.name,
-          description: editingRole.description,
-          permissions: editingRole.permissions.map(Number),
-        }),
-      });
+      if (editingRole.id) {
+        // Update role yang sudah ada
+        await updateRole(editingRole.id, roleDataToSend);
+        alert("Role berhasil diperbarui!");
+      } else {
+        // Buat role baru (POST request)
+        await createRole(roleDataToSend);
+        alert("Role baru berhasil ditambahkan!");
+      }
 
+      // Refresh daftar role
       const fetchedRoles = await fetchWithAuth("/roles");
       const mappedRoles = fetchedRoles.map((role: any) => ({
         id: String(role.id),
@@ -212,14 +232,15 @@ const PermissionsPage: React.FC = () => {
         permissions: role.permissions.map(String),
         isSuperadmin: role.name === "superadmin",
       }));
-
       setRoles(mappedRoles);
-      setEditingRole(null);
+
+      // Reset form
       setShowNewRoleForm(false);
+      setEditingRole(null);
     } catch (error) {
-      alert("Failed to save role");
+      console.error("Gagal menyimpan role:", error);
     }
-  };
+  }, [editingRole, hasPermission, updateRole, createRole, fetchWithAuth]);
 
   const handleEditUser = (user: User) => {
     const userRole = roles.find((r) => String(r.id) === String(user.roleId));
@@ -272,7 +293,7 @@ const PermissionsPage: React.FC = () => {
     }
   };
 
-  const deleteRole = async (id: string) => {
+  const deleteRole = async (id: string | null) => {
     if (!hasPermission("manage_users") || !window.confirm("Are you sure you want to delete this role?")) return;
 
     try {
@@ -291,27 +312,31 @@ const PermissionsPage: React.FC = () => {
     }
   };
 
-  const deleteUser = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this user?")) return;
+  const handleDeleteUser = useCallback(
+    async (userId: string) => {
+      // Konfirmasi sebelum menghapus
+      if (window.confirm("Apakah Anda yakin ingin menghapus pengguna ini?")) {
+        setIsDeleting(true); // Set loading state
+        try {
+          await deleteUser(userId); // Panggil fungsi deleteUser dari AuthContext
 
-    try {
-      await fetchWithAuth(`/users/${id}`, { method: "DELETE" });
-      const fetchedUsers = await getUsers();
-      setUsers(
-        fetchedUsers.map((user: any) => ({
-          id: String(user.id),
-          name: user.name,
-          nik: user.nik,
-          roleId: user.roleId ? String(user.roleId) : null,
-          customPermissions: user.customPermissions || [],
-          permissions: user.allPermissions,
-          department: user.department || "none",
-        }))
-      );
-    } catch (error) {
-      alert("Failed to delete user");
-    }
-  };
+          // Refresh daftar pengguna setelah penghapusan berhasil
+          const updatedUsers = await getUsers(); // Asumsi getUsers() me-refresh data
+          setUsers(updatedUsers as User[]); // <<< UBAH BARIS INI
+          // Melakukan type assertion agar TypeScript tidak error.
+          // Pastikan `User` di sini merujuk ke interface User lokal Anda.
+
+          alert("Pengguna berhasil dihapus!");
+        } catch (error) {
+          console.error("Gagal menghapus pengguna:", error);
+          alert("Gagal menghapus pengguna. Silakan coba lagi.");
+        } finally {
+          setIsDeleting(false); // Reset loading state
+        }
+      }
+    },
+    [deleteUser, getUsers, setUsers]
+  );
 
   const getRoleName = (roleId: string | null) => {
     if (!roleId) return "No Role";
@@ -343,7 +368,7 @@ const PermissionsPage: React.FC = () => {
     );
   };
 
-  if (!hasPermission("view_permissions")) {
+  if (!hasPermission("15")) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-50">
         <div className="text-xl">You don't have permission to access this page</div>
@@ -495,11 +520,17 @@ const PermissionsPage: React.FC = () => {
                     <button
                       onClick={() => {
                         setShowNewRoleForm(true);
-                        setEditingRole({ id: "0", name: "", description: "", permissions: [], isSuperadmin: false });
+                        setEditingRole({
+                          id: null,
+                          name: "",
+                          description: "",
+                          permissions: [],
+                          isSuperadmin: false,
+                        });
                       }}
-                      className={`flex items-center px-4 py-2 ${darkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-600 hover:bg-blue-700"} text-white rounded-md`}
+                      className={`flex items-center px-4 py-2 rounded-md ${darkMode ? "bg-blue-600 hover:bg-blue-700 text-white" : "bg-blue-600 hover:bg-blue-700 text-white"} transition-colors duration-200`}
                     >
-                      <FiPlus className="mr-2" />
+                      <FiPlus className="mr-2" /> {/* Icon dari react-icons */}
                       Add Role
                     </button>
                   )}
@@ -721,7 +752,7 @@ const PermissionsPage: React.FC = () => {
                                     Edit
                                   </button>
                                   {userItem.id !== user?.id && hasPermission("manage_users") && (
-                                    <button onClick={() => deleteUser(userItem.id)} className={`${darkMode ? "text-red-400 hover:text-red-300" : "text-red-600 hover:text-red-900"}`}>
+                                    <button onClick={() => handleDeleteUser(userItem.id)} className={`${darkMode ? "text-red-400 hover:text-red-300" : "text-red-600 hover:text-red-900"}`}>
                                       Delete
                                     </button>
                                   )}

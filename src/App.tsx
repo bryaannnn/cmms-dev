@@ -110,6 +110,7 @@ function App() {
       </Route>
 
       <Route path="/logout" element={<Logout />} />
+      <Route path="/unauthorized" element={<UnauthorizedPage />} />
     </Routes>
   );
 }
