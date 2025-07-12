@@ -1,32 +1,36 @@
-import React, { useState, useEffect } from "react";
-import {
-  FiClock,
-  FiCheckCircle,
-  FiUsers,
-  FiBarChart2,
-  FiDatabase,
-  FiClipboard,
-  FiPackage,
-  FiChevronLeft,
-  FiHome,
-  FiChevronDown,
-  FiChevronRight,
-  FiLogOut,
-  FiSun,
-  FiMoon,
-  FiSettings,
-  FiBell,
-  FiTrendingUp,
-  FiAlertCircle,
-  FiMessageSquare,
-  FiMoreHorizontal,
-  FiKey,
-} from "react-icons/fi";
+import React, { useState, useEffect, useRef } from "react"; // Import useRef
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth, PermissionName } from "../routes/AuthContext";
 import logoWida from "../assets/logo-wida.png";
 import { motion, AnimatePresence } from "framer-motion";
 import type { User } from "../routes/AuthContext";
+
+// Import Lucide Icons for consistency with Maintenance.tsx
+import {
+  Clock,
+  CheckCircle,
+  Users,
+  BarChart2,
+  Database,
+  Clipboard,
+  Package,
+  ChevronLeft,
+  Home,
+  ChevronDown,
+  ChevronRight,
+  LogOut,
+  Sun,
+  Moon,
+  Settings,
+  Bell,
+  TrendingUp,
+  AlertTriangle,
+  MessageSquare,
+  Wrench, // For Maintenance related icon in StatCard
+  User as UserIcon, // Use 'User' from Lucide, aliased to UserIcon to avoid conflict with 'type User'
+  X, // For close button if needed in popups
+  Key
+} from "lucide-react";
 
 interface NavItemProps {
   icon: React.ReactNode;
@@ -43,15 +47,15 @@ const NavItem: React.FC<NavItemProps> = ({ icon, text, to, expanded }) => {
   return (
     <motion.button
       onClick={() => navigate(to)}
-      whileHover={{ scale: 1.02 }}
+      whileHover={{ backgroundColor: active ? undefined : "rgba(239, 246, 255, 0.6)" }} // Soft blue hover for non-active
       whileTap={{ scale: 0.98 }}
-      className={`w-full text-left flex items-center p-2 rounded-lg transition-all duration-200
-          ${active ? "bg-blue-50 text-blue-700 font-semibold" : "hover:bg-blue-50 text-gray-700"}
-        `}
+      className={`relative w-full text-left flex items-center py-3 px-4 rounded-xl transition-all duration-200 ease-in-out group
+        ${active ? "bg-blue-600 text-white shadow-lg" : "text-gray-700 hover:text-blue-700"}
+      `}
     >
-      <span className="text-xl">{icon}</span>
+      <span className={`text-xl transition-colors duration-200 ${active ? "text-white" : "text-blue-500 group-hover:text-blue-700"}`}>{icon}</span>
       {expanded && (
-        <motion.span initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.2 }} className="ml-3 text-base">
+        <motion.span initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.15 }} className="ml-4 text-base font-medium whitespace-nowrap">
           {text}
         </motion.span>
       )}
@@ -63,19 +67,25 @@ const StatCard: React.FC<{ title: string; value: string; change: string; icon: R
   const isPositive = change.startsWith("+");
 
   return (
-    <motion.div whileHover={{ y: -5, boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)" }} transition={{ type: "spring", stiffness: 300 }} className="bg-white rounded-xl shadow-sm p-5 border border-blue-100 cursor-pointer">
-      <div className="flex items-center justify-between">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
+      whileHover={{ y: -5, boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)", scale: 1.01 }} // Softer hover effect
+      className="bg-white rounded-2xl shadow-md p-6 border border-blue-50 cursor-pointer overflow-hidden transform transition-transform duration-200"
+    >
+      <div className="flex items-center justify-between z-10 relative">
         <div>
-          <p className="text-sm font-medium text-gray-600">{title}</p>
-          <p className="text-3xl font-extrabold mt-1 text-gray-900">{value}</p>
+          <p className="text-sm font-medium text-gray-500 mb-1">{title}</p>
+          <p className="text-3xl font-bold text-gray-900">{value}</p>
         </div>
-        <motion.div whileHover={{ rotate: 10, scale: 1.1 }} className="p-3 rounded-full bg-blue-50 text-blue-600 text-2xl">
+        <div className="p-2 rounded-full bg-blue-50 text-blue-600 text-2xl opacity-90 transition-all duration-200">
           {icon}
-        </motion.div>
+        </div>
       </div>
-      <motion.p animate={{ x: isPositive ? [0, 2, 0] : [0, -2, 0] }} transition={{ repeat: Infinity, duration: 2 }} className={`mt-3 text-sm font-medium ${isPositive ? "text-green-600" : "text-red-600"}`}>
+      <p className={`mt-3 text-xs font-semibold ${isPositive ? "text-green-600" : "text-red-600"}`}>
         {change} from last month
-      </motion.p>
+      </p>
     </motion.div>
   );
 };
@@ -92,7 +102,14 @@ const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [hasInteracted, setHasInteracted] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
+
+  // New state for popups
+  const [showNotificationsPopup, setShowNotificationsPopup] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+
+  // Refs for click outside
+  const notificationsRef = useRef<HTMLDivElement>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleResize = () => {
@@ -106,26 +123,43 @@ const Dashboard: React.FC = () => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // Click outside handler for popups
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
+        setShowNotificationsPopup(false);
+      }
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setShowProfileMenu(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
   const insights = [
     {
       id: 1,
       title: "Maintenance Efficiency Improved",
       description: "Preventive maintenance completion rate increased by 15% this month",
-      icon: <FiTrendingUp className="text-green-500" />,
+      icon: <TrendingUp className="text-green-500" />,
       date: "Today, 09:30 AM",
     },
     {
       id: 2,
       title: "3 Assets Requiring Attention",
       description: "Critical assets showing signs of wear need inspection",
-      icon: <FiAlertCircle className="text-yellow-500" />,
+      icon: <AlertTriangle className="text-yellow-500" />,
       date: "Yesterday, 02:15 PM",
     },
     {
       id: 3,
       title: "Monthly Maintenance Completed",
       description: "All scheduled maintenance tasks completed on time",
-      icon: <FiCheckCircle className="text-blue-500" />,
+      icon: <CheckCircle className="text-blue-500" />,
       date: "Jul 28, 2023",
     },
   ];
@@ -135,7 +169,7 @@ const Dashboard: React.FC = () => {
       id: 1,
       name: "Budi Santoso",
       role: "Maintenance Technician",
-      avatar: "https://randomuser.me/api/portraits/men/32.jpg  ",
+      avatar: "https://randomuser.me/api/portraits/men/32.jpg",
       comment: "The HVAC system in Building A needs calibration. Temperature fluctuations observed.",
       time: "2 hours ago",
     },
@@ -143,7 +177,7 @@ const Dashboard: React.FC = () => {
       id: 2,
       name: "Ani Wijaya",
       role: "Facility Manager",
-      avatar: "https://randomuser.me/api/portraits/women/44.jpg  ",
+      avatar: "https://randomuser.me/api/portraits/women/44.jpg",
       comment: "Completed generator maintenance ahead of schedule. All parameters normal.",
       time: "5 hours ago",
     },
@@ -151,7 +185,7 @@ const Dashboard: React.FC = () => {
       id: 3,
       name: "Rudi Hermawan",
       role: "Operations Supervisor",
-      avatar: "https://randomuser.me/api/portraits/men/67.jpg  ",
+      avatar: "https://randomuser.me/api/portraits/men/67.jpg",
       comment: "Requesting additional spare parts for conveyor system maintenance next week.",
       time: "1 day ago",
     },
@@ -172,31 +206,11 @@ const Dashboard: React.FC = () => {
     overdue: 5,
   };
 
-  const handleNotifications = () => {
-    alert("Showing notifications...");
-  };
-
-  const handleImport = () => {
-    alert("Import functionality is not yet implemented. This would typically involve uploading a file.");
-  };
-
   const toggleSidebar = () => {
     setHasInteracted(true);
+    localStorage.setItem("sidebarOpen", JSON.stringify(!sidebarOpen)); // Consistent storage update
     setSidebarOpen((prev) => !prev);
   };
-
-  const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
-
-  // useEffect(() => {
-  //   setCurrentPage(1);
-
-  //   if (user) {
-  //     setData(user);
-  //   }
-
-  //   document.documentElement.classList.toggle("dark", darkMode);
-  //   localStorage.setItem("sidebarOpen", JSON.stringify(sidebarOpen));
-  // }, [sidebarOpen, darkMode, user]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -214,73 +228,81 @@ const Dashboard: React.FC = () => {
 
     document.documentElement.classList.toggle("dark", darkMode);
     localStorage.setItem("sidebarOpen", JSON.stringify(sidebarOpen));
-  }, [sidebarOpen, darkMode]);
+  }, [sidebarOpen, darkMode, fetchWithAuth]);
 
   return (
-    <div className="flex h-screen font-sans bg-gray-50 text-gray-900">
+    <div className="flex h-screen font-sans antialiased bg-blue-50 text-gray-900">
       {/* Sidebar */}
       <AnimatePresence>
         {(!isMobile || sidebarOpen) && (
           <motion.div
-            initial={{ width: isMobile ? 0 : sidebarOpen ? 256 : 80 }}
+            initial={{ width: isMobile ? 0 : (sidebarOpen ? 280 : 80), opacity: 0 }}
             animate={{
-              width: isMobile ? (sidebarOpen ? 256 : 0) : sidebarOpen ? 256 : 80,
+              width: isMobile ? (sidebarOpen ? 280 : 0) : (sidebarOpen ? 280 : 80),
+              opacity: 1,
             }}
-            exit={{ width: 0 }}
-            transition={{ duration: 0.3, ease: "easeInOut" }}
-            className={`bg-white border-r border-blue-100 flex flex-col shadow-md overflow-hidden ${isMobile ? "fixed z-50 h-full" : ""}`}
+            exit={{ width: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeInOut" }}
+            className={`bg-white border-r border-gray-100 flex flex-col shadow-xl overflow-hidden ${isMobile ? "fixed z-50 h-full" : ""}`}
           >
-            <div className="p-4 flex items-center justify-between border-b border-blue-100">
+            <div className="p-4 flex items-center justify-between border-b border-gray-100">
               {sidebarOpen ? (
-                <>
-                  <div className="rounded-lg flex items-center  space-x-3">
-                    <img src={logoWida} alt="Logo Wida" className="h-10 w-auto" />
-                    <p className="text-blue-600 font-bold">CMMS</p>
-                  </div>
-                </>
+                <div className="flex items-center space-x-3">
+                  <img src={logoWida} alt="Logo Wida" className="h-9 w-auto" />
+                  <p className="text-blue-600 font-bold text-xl tracking-wide">CMMS</p>
+                </div>
               ) : (
-                <img src={logoWida} alt="Logo Wida" className="h-6 w-auto" />
+                <img src={logoWida} alt="Logo Wida" className="h-8 w-auto mx-auto" />
               )}
 
-              <button onClick={toggleSidebar} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200" aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}>
-                {sidebarOpen ? <FiChevronLeft className="text-xl" /> : <FiChevronRight className="text-xl" />}
+              <button
+                onClick={toggleSidebar}
+                className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200"
+                aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+              >
+                {sidebarOpen ? <ChevronLeft className="text-xl" /> : <ChevronRight className="text-xl" />}
               </button>
             </div>
 
-            <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-              {hasPermission("1") && <NavItem icon={<FiHome />} text="Dashboard" to="/dashboard" expanded={sidebarOpen} />}
-              {hasPermission("3") && <NavItem icon={<FiPackage />} text="Assets" to="/assets" expanded={sidebarOpen} />}
-              {hasPermission("7") && <NavItem icon={<FiClipboard />} text="Work Orders" to="/workorders" expanded={sidebarOpen} />}
-              {hasPermission("31") && <NavItem icon={<FiClipboard />} text="Machine History" to="/machinehistory" expanded={sidebarOpen} />}
-              {hasPermission("23") && <NavItem icon={<FiDatabase />} text="Inventory" to="/inventory" expanded={sidebarOpen} />}
-              {hasPermission("11") && <NavItem icon={<FiBarChart2 />} text="Reports" to="/reports" expanded={sidebarOpen} />}
-              {hasPermission("27") && <NavItem icon={<FiUsers />} text="Team" to="/team" expanded={sidebarOpen} />}
-              {hasPermission("13") && <NavItem icon={<FiSettings />} text="Settings" to="/settings" expanded={sidebarOpen} />}
-              {hasPermission("15") && <NavItem icon={<FiKey />} text="Permissions" to="/permissions" expanded={sidebarOpen} />}
+            <nav className="flex-1 p-3 space-y-1.5 overflow-y-auto custom-scrollbar">
+              {hasPermission("1") && <NavItem icon={<Home />} text="Dashboard" to="/dashboard" expanded={sidebarOpen} />}
+              {hasPermission("3") && <NavItem icon={<Package />} text="Assets" to="/assets" expanded={sidebarOpen} />}
+              {hasPermission("7") && <NavItem icon={<Clipboard />} text="Work Orders" to="/workorders" expanded={sidebarOpen} />}
+              {hasPermission("31") && <NavItem icon={<Clipboard />} text="Machine History" to="/machinehistory" expanded={sidebarOpen} />}
+              {hasPermission("23") && <NavItem icon={<Database />} text="Inventory" to="/inventory" expanded={sidebarOpen} />}
+              {hasPermission("11") && <NavItem icon={<BarChart2 />} text="Reports" to="/reports" expanded={sidebarOpen} />}
+              {hasPermission("27") && <NavItem icon={<Users />} text="Team" to="/team" expanded={sidebarOpen} />}
+              {hasPermission("13") && <NavItem icon={<Settings />} text="Settings" to="/settings" expanded={sidebarOpen} />}
+              {hasPermission("15") && <NavItem icon={<Key />} text="Permissions" to="/permissions" expanded={sidebarOpen} />}
             </nav>
 
-            <div className="p-4 border-t border-blue-100">
+            {/* Bagian Bawah Navbar: Informasi Versi & Logout Sidebar */}
+            <div className="p-4 border-t border-gray-100">
               <div className="flex items-center space-x-3">
-                <img src="https://placehold.co/40x40/0078D7/FFFFFF?text=AD" alt="User Avatar" className="w-10 h-10 rounded-full border-2 border-blue-500" />
+                <img
+                  src={`https://api.dicebear.com/7.x/initials/svg?seed=${user?.name || "User"}&backgroundColor=0081ff,3d5a80,ffc300,e0b589&backgroundType=gradientLinear&radius=50`}
+                  alt="User Avatar"
+                  className="w-10 h-10 rounded-full border-2 border-blue-400 object-cover"
+                />
                 {sidebarOpen && (
                   <div>
-                    <p className="font-medium text-gray-900">{user?.name}</p>
-                    <p className="text-sm text-gray-600">{user?.roles?.[0]}</p>
+                    <p className="font-semibold text-gray-800 text-sm">Application Version</p>
+                    <p className="text-xs text-gray-500">1.0.0</p> {/* Contoh informasi versi */}
                   </div>
                 )}
               </div>
-
-              {sidebarOpen && (
+              {/* Tombol Logout dari Sidebar TETAP DIHAPUS sesuai permintaan sebelumnya */}
+              {/* {sidebarOpen && (
                 <motion.button
-                  whileHover={{ scale: 1.02 }}
+                  whileHover={{ backgroundColor: "rgba(254, 242, 242, 0.7)" }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => navigate("/logout")}
-                  className="mt-4 w-full flex items-center justify-center space-x-2 text-red-600 hover:bg-red-50 p-2 rounded-lg transition-colors duration-200 font-medium"
+                  className="mt-4 w-full flex items-center justify-center space-x-2 text-red-600 p-2.5 rounded-lg transition-colors duration-200 font-medium text-sm"
                 >
-                  <FiLogOut className="text-xl" />
+                  <LogOut className="text-lg" />
                   <span>Logout</span>
                 </motion.button>
-              )}
+              )} */}
             </div>
           </motion.div>
         )}
@@ -289,69 +311,165 @@ const Dashboard: React.FC = () => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top Navigation */}
-        <header className="bg-white border-b border-blue-100 p-4 flex items-center justify-between shadow-sm">
-          <div className="flex items-center space-x-3">
+        <header className="bg-white border-b border-gray-100 p-4 flex items-center justify-between shadow-sm sticky top-0 z-30">
+          <div className="flex items-center space-x-4">
             {isMobile && (
-              <button onClick={toggleSidebar} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
-                <FiChevronRight className="text-xl" />
-              </button>
+              <motion.button onClick={toggleSidebar} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
+                <ChevronRight className="text-xl" />
+              </motion.button>
             )}
-            <FiHome className="text-2xl text-blue-600" />
-            <h2 className="text-xl md:text-2xl font-semibold text-blue-600">Dashboard</h2>
+            <Home className="text-xl text-blue-600" />
+            <h2 className="text-lg md:text-xl font-bold text-gray-900">Dashboard</h2>
           </div>
 
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3 relative"> {/* Added relative for dropdown positioning */}
             <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => setDarkMode(!darkMode)}
               className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200"
               aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
             >
-              {darkMode ? <FiSun className="text-yellow-400 text-xl" /> : <FiMoon className="text-xl" />}
+              {darkMode ? <Sun className="text-yellow-400 text-xl" /> : <Moon className="text-xl" />}
             </motion.button>
 
-            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={handleNotifications} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200 relative" aria-label="Notifications">
-              <FiBell className="text-xl" />
-              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></span>
-            </motion.button>
+            {/* Notifications Pop-up */}
+            <div className="relative" ref={notificationsRef}>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setShowNotificationsPopup(!showNotificationsPopup)}
+                className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200 relative"
+                aria-label="Notifications"
+              >
+                <Bell className="text-xl" />
+                <span className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full animate-pulse border border-white"></span>
+              </motion.button>
 
-            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="flex items-center space-x-2 cursor-pointer p-2 rounded-lg hover:bg-blue-50 transition-colors duration-200">
-              <img src="https://placehold.co/32x32/0078D7/FFFFFF?text=AD  " alt="User Avatar" className="w-8 h-8 rounded-full border border-blue-200" />
-              <span className="font-medium text-gray-900 hidden sm:inline">{user?.name}</span>
-              <FiChevronDown className="text-gray-500" />
-            </motion.div>
+              <AnimatePresence>
+                {showNotificationsPopup && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-lg py-2 z-40 border border-gray-100"
+                  >
+                    <div className="flex justify-between items-center px-4 py-2 border-b border-gray-100">
+                      <h4 className="font-semibold text-gray-800">Notifications</h4>
+                      <button onClick={() => setShowNotificationsPopup(false)} className="text-gray-500 hover:text-gray-700">
+                        <X size={18} />
+                      </button>
+                    </div>
+                    <div className="max-h-64 overflow-y-auto custom-scrollbar">
+                      {insights.slice(0, 3).map((notification) => ( // Using insights as placeholder for notifications
+                        <div key={notification.id} className="flex items-start px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-50 last:border-b-0">
+                          <div className="p-2 mr-3 mt-0.5 rounded-full bg-blue-50 text-blue-600">
+                            {notification.icon}
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm text-gray-800">{notification.title}</p>
+                            <p className="text-xs text-gray-600 mt-1">{notification.description}</p>
+                            <p className="text-xs text-gray-500 mt-1">{notification.date}</p>
+                          </div>
+                        </div>
+                      ))}
+                      {insights.length === 0 && (
+                        <p className="text-gray-500 text-sm px-4 py-3">No new notifications.</p>
+                      )}
+                    </div>
+                    <div className="px-4 py-2 border-t border-gray-100 text-center">
+                      <button onClick={() => {alert('View All Notifications clicked'); setShowNotificationsPopup(false);}} className="text-blue-600 hover:underline text-sm font-medium">View All</button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Profile Menu Pop-up */}
+            <div className="relative" ref={profileRef}>
+              <motion.button
+                whileHover={{ backgroundColor: "rgba(239, 246, 255, 0.7)" }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setShowProfileMenu(!showProfileMenu)}
+                className="flex items-center space-x-2 cursor-pointer p-2 rounded-lg transition-colors duration-200"
+              >
+                <img
+                  src={`https://api.dicebear.com/7.x/initials/svg?seed=${user?.name || "User"}&backgroundColor=0081ff,3d5a80,ffc300,e0b589&backgroundType=gradientLinear&radius=50`}
+                  alt="User Avatar"
+                  className="w-8 h-8 rounded-full border border-blue-200 object-cover"
+                />
+                <span className="font-medium text-gray-900 text-sm hidden sm:inline">{user?.name}</span>
+                <ChevronDown className="text-gray-500 text-base" />
+              </motion.button>
+
+              <AnimatePresence>
+                {showProfileMenu && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-40 border border-gray-100"
+                  >
+                    <div className="px-4 py-2 text-xs text-gray-500 border-b border-gray-100">Signed in as</div>
+                    <div className="px-4 py-2 font-semibold text-gray-800 border-b border-gray-100">
+                      {user?.name || "Guest User"}
+                    </div>
+                    <button
+                      onClick={() => {navigate('/profile'); setShowProfileMenu(false);}}
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 w-full text-left"
+                    >
+                      <UserIcon size={16} className="mr-2" /> My Profile
+                    </button>
+                    <button
+                      onClick={() => {navigate('/settings'); setShowProfileMenu(false);}}
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 w-full text-left"
+                    >
+                      <Settings size={16} className="mr-2" /> Settings
+                    </button>
+                    <hr className="my-1 border-gray-100" />
+                    <button
+                      onClick={() => {navigate('/logout'); setShowProfileMenu(false);}}
+                      className="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full text-left"
+                    >
+                      <LogOut size={16} className="mr-2" /> Logout
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </header>
 
         {/* Content Area */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
           {/* Welcome Banner */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-xl p-6 text-white mb-6 shadow-lg hover:shadow-xl transition-all duration-300"
+            transition={{ duration: 0.4 }}
+            className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-2xl p-6 text-white mb-6 shadow-lg hover:shadow-xl transition-all duration-300"
           >
-            <h1 className="text-xl md:text-2xl font-bold mb-2">Welcome back, {user?.name || user?.roles?.[0]}!</h1>
-            <p className="opacity-90">Here's what's happening with your assets today</p>
+            <h1 className="text-2xl md:text-3xl font-bold mb-2">Welcome back, {user?.name || user?.roles?.[0]}!</h1>
+            <p className="opacity-90 text-sm">Here's what's happening with your assets today</p>
           </motion.div>
 
           {/* Key Metrics */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6">
-            <StatCard title="Total Assets" value={assetStatus.total.toString()} change="+8%" icon={<FiPackage />} />
-            <StatCard title="Assets Running" value={assetStatus.running.toString()} change="+5%" icon={<FiCheckCircle />} />
-            <StatCard title="Work Orders" value={workOrders.total.toString()} change="-3%" icon={<FiClipboard />} />
-            <StatCard title="Overdue Tasks" value={workOrders.overdue.toString()} change="+2%" icon={<FiClock />} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
+            <StatCard title="Total Assets" value={assetStatus.total.toString()} change="+8%" icon={<Package />} />
+            <StatCard title="Assets Running" value={assetStatus.running.toString()} change="+5%" icon={<CheckCircle />} />
+            <StatCard title="Work Orders" value={workOrders.total.toString()} change="-3%" icon={<Clipboard />} />
+            <StatCard title="Overdue Tasks" value={workOrders.overdue.toString()} change="+2%" icon={<Clock />} />
           </div>
 
           {/* Main Content Area */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
             {/* Insights Section */}
             <div className="lg:col-span-2">
-              <motion.div whileHover={{ boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)" }} className="bg-white rounded-xl p-4 md:p-6 border border-blue-100 shadow-sm mb-6">
+              <motion.div whileHover={{ boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)" }} className="bg-white rounded-2xl p-4 md:p-6 border border-blue-50 shadow-md mb-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold">Recent Insights</h3>
+                  <h3 className="text-xl font-bold text-gray-900">Recent Insights</h3>
                   <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="text-blue-600 text-sm font-medium">
                     View All
                   </motion.button>
@@ -359,10 +477,12 @@ const Dashboard: React.FC = () => {
 
                 <div className="space-y-4">
                   {insights.map((insight) => (
-                    <motion.div key={insight.id} whileHover={{ x: 5 }} className="flex items-start p-3 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer">
-                      <div className="p-2 mr-3 mt-1 rounded-full bg-blue-50">{insight.icon}</div>
+                    <motion.div key={insight.id} whileHover={{ x: 5, backgroundColor: "rgba(239, 246, 255, 0.5)" }} className="flex items-start p-3 hover:bg-blue-50 rounded-xl transition-colors cursor-pointer">
+                      <div className="p-2 mr-3 mt-0.5 rounded-full bg-blue-50 text-blue-600">
+                        {insight.icon}
+                      </div>
                       <div className="flex-1">
-                        <h4 className="font-medium">{insight.title}</h4>
+                        <h4 className="font-medium text-gray-800">{insight.title}</h4>
                         <p className="text-sm text-gray-600">{insight.description}</p>
                         <p className="text-xs text-gray-500 mt-1">{insight.date}</p>
                       </div>
@@ -372,30 +492,30 @@ const Dashboard: React.FC = () => {
               </motion.div>
 
               {/* Asset Status Chart */}
-              <motion.div whileHover={{ boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)" }} className="bg-white rounded-xl p-4 md:p-6 border border-blue-100 shadow-sm">
-                <h3 className="text-lg font-semibold mb-4">Asset Status Distribution</h3>
+              <motion.div whileHover={{ boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)" }} className="bg-white rounded-2xl p-4 md:p-6 border border-blue-50 shadow-md">
+                <h3 className="text-xl font-bold text-gray-900 mb-4">Asset Status Distribution</h3>
                 <div className="h-64 bg-gray-50 rounded-lg flex items-center justify-center">
                   <div className="text-center text-gray-500">
-                    <FiBarChart2 className="mx-auto text-4xl mb-2" />
+                    <BarChart2 className="mx-auto text-4xl mb-2" />
                     <p>Asset Status Chart</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4 text-center">
                   <div>
                     <div className="h-2 w-full bg-green-500 rounded-full"></div>
-                    <p className="text-sm mt-1">Running ({Math.round((assetStatus.running / assetStatus.total) * 100)}%)</p>
+                    <p className="text-sm mt-1 text-gray-700">Running ({Math.round((assetStatus.running / assetStatus.total) * 100)}%)</p>
                   </div>
                   <div>
                     <div className="h-2 w-full bg-yellow-500 rounded-full"></div>
-                    <p className="text-sm mt-1">Maintenance ({Math.round((assetStatus.maintenance / assetStatus.total) * 100)}%)</p>
+                    <p className="text-sm mt-1 text-gray-700">Maintenance ({Math.round((assetStatus.maintenance / assetStatus.total) * 100)}%)</p>
                   </div>
                   <div>
                     <div className="h-2 w-full bg-red-500 rounded-full"></div>
-                    <p className="text-sm mt-1">Breakdown ({Math.round((assetStatus.breakdown / assetStatus.total) * 100)}%)</p>
+                    <p className="text-sm mt-1 text-gray-700">Breakdown ({Math.round((assetStatus.breakdown / assetStatus.total) * 100)}%)</p>
                   </div>
                   <div>
                     <div className="h-2 w-full bg-blue-500 rounded-full"></div>
-                    <p className="text-sm mt-1">Idle ({Math.round((assetStatus.idle / assetStatus.total) * 100)}%)</p>
+                    <p className="text-sm mt-1 text-gray-700">Idle ({Math.round((assetStatus.idle / assetStatus.total) * 100)}%)</p>
                   </div>
                 </div>
               </motion.div>
@@ -403,9 +523,9 @@ const Dashboard: React.FC = () => {
 
             {/* Employee Comments Section */}
             <div>
-              <motion.div whileHover={{ boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)" }} className="bg-white rounded-xl p-4 md:p-6 border border-blue-100 shadow-sm mb-6">
+              <motion.div whileHover={{ boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)" }} className="bg-white rounded-2xl p-4 md:p-6 border border-blue-50 shadow-md mb-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold">Team Updates</h3>
+                  <h3 className="text-xl font-bold text-gray-900">Team Updates</h3>
                   <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="text-blue-600 text-sm font-medium">
                     View All
                   </motion.button>
@@ -413,15 +533,15 @@ const Dashboard: React.FC = () => {
 
                 <div className="space-y-4">
                   {employeeComments.map((comment) => (
-                    <motion.div key={comment.id} whileHover={{ y: -3 }} className="p-3 border border-blue-100 rounded-lg cursor-pointer">
+                    <motion.div key={comment.id} whileHover={{ y: -3, boxShadow: "0 2px 10px rgba(0,0,0,0.05)" }} className="p-3 border border-blue-100 rounded-xl cursor-pointer bg-white">
                       <div className="flex items-start">
-                        <motion.img whileHover={{ rotate: 5 }} src={comment.avatar} alt={comment.name} className="w-10 h-10 rounded-full mr-3" />
+                        <motion.img whileHover={{ rotate: 5 }} src={comment.avatar} alt={comment.name} className="w-10 h-10 rounded-full mr-3 object-cover" />
                         <div>
                           <div className="flex items-center flex-wrap">
-                            <h4 className="font-medium">{comment.name}</h4>
+                            <h4 className="font-medium text-gray-900">{comment.name}</h4>
                             <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full ml-2">{comment.role}</span>
                           </div>
-                          <p className="text-sm mt-1">{comment.comment}</p>
+                          <p className="text-sm mt-1 text-gray-700">{comment.comment}</p>
                           <p className="text-xs text-gray-500 mt-1">{comment.time}</p>
                         </div>
                       </div>
@@ -431,28 +551,28 @@ const Dashboard: React.FC = () => {
               </motion.div>
 
               {/* Quick Actions */}
-              <motion.div whileHover={{ boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)" }} className="bg-white rounded-xl p-4 md:p-6 border border-blue-100 shadow-sm">
-                <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
+              <motion.div whileHover={{ boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)" }} className="bg-white rounded-2xl p-4 md:p-6 border border-blue-50 shadow-md">
+                <h3 className="text-xl font-bold text-gray-900 mb-4">Quick Actions</h3>
                 <div className="space-y-3">
                   {[
                     {
                       text: "Create Work Order",
-                      icon: <FiClipboard className="text-blue-600" />,
+                      icon: <Clipboard className="text-blue-600 text-lg" />,
                       onClick: () => navigate("/workorders"),
                     },
                     {
                       text: "Add New Asset",
-                      icon: <FiPackage className="text-blue-600" />,
+                      icon: <Package className="text-blue-600 text-lg" />,
                       onClick: () => navigate("/assets"),
                     },
                     {
                       text: "Send Announcement",
-                      icon: <FiMessageSquare className="text-blue-600" />,
+                      icon: <MessageSquare className="text-blue-600 text-lg" />,
                       onClick: () => navigate("/dashboard"),
                     },
                     {
                       text: "Generate Report",
-                      icon: <FiBarChart2 className="text-blue-600" />,
+                      icon: <BarChart2 className="text-blue-600 text-lg" />,
                       onClick: () => navigate("/reports"),
                     },
                   ].map((action, index) => (
@@ -460,10 +580,10 @@ const Dashboard: React.FC = () => {
                       key={index}
                       whileHover={{ x: 5, backgroundColor: "rgba(239, 246, 255, 1)" }}
                       whileTap={{ scale: 0.98 }}
-                      className="w-full flex items-center justify-between p-3 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                      className="w-full flex items-center justify-between p-3 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors text-gray-800 font-semibold text-sm"
                       onClick={action.onClick}
                     >
-                      <span className="font-medium">{action.text}</span>
+                      <span>{action.text}</span>
                       {action.icon}
                     </motion.button>
                   ))}

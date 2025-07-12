@@ -84,6 +84,13 @@ export type PermissionName =
   | "edit_permissions"
   | "manage_users";
 
+export interface ERPRecord {
+  // Ganti properti di bawah ini sesuai dengan struktur data dari ERP Anda
+  id: string;
+  itemName: string;
+  quantity: number;
+}
+
 export interface Role {
   id: string;
   name: string;
@@ -104,6 +111,7 @@ export interface User {
   rolePermissions?: string[];
   access_token?: string;
   refresh_token?: string;
+  isSuperadmin?: boolean;
 }
 
 export interface Mesin {
@@ -243,28 +251,28 @@ function mapApiToMachineHistoryRecord(apiData: any, masterData: AllMasterData | 
   return {
     id: String(apiData.id),
     date: apiData.date,
-    shift: apiData.shift?.name || "-",
-    group: apiData.group?.name || "-",
-    unit: apiData.unit?.name || "-",
-    mesin: apiData.mesin?.name || "-",
+    shift: apiData.shift?.name || "-", // Ambil name dari objek shift
+    group: apiData.group?.name || "-", // Ambil name dari objek group
+    unit: apiData.unit?.name || "-", // Ambil name dari objek unit
+    mesin: apiData.mesin?.name || "-", // Ambil name dari objek mesin
     stopJam: apiData.startstop?.stop_time_hh ?? null,
     stopMenit: apiData.startstop?.stop_time_mm ?? null,
     startJam: apiData.startstop?.start_time_hh ?? null,
     startMenit: apiData.startstop?.start_time_mm ?? null,
     stopTime: stopTimeName,
     runningHour: apiData.running_hour ?? 0,
-    itemTrouble: itemTroubleName,
+    itemTrouble: apiData.itemtrouble?.name || "-",
     jenisGangguan: apiData.jenis_gangguan || "",
     bentukTindakan: apiData.bentuk_tindakan || "",
     perbaikanPerawatan: apiData.jenisaktifitas?.name === "Perbaikan" ? "Perbaikan" : "Perawatan",
     rootCause: apiData.root_cause || "",
-    jenisAktivitas: jenisAktivitasName,
-    kegiatan: kegiatanName,
+    jenisAktivitas: apiData.jenisaktifitas?.name || "-",
+    kegiatan: apiData.kegiatan?.name || "-",
     kodePart: apiData.kode_part || "",
     sparePart: apiData.spare_part || "",
     idPart: apiData.id_part || "",
     jumlah: apiData.jumlah ?? 0,
-    unitSparePart: unitSparePartName,
+    unitSparePart: apiData.unitsp?.name || "-",
     startstop: apiData.startstop ?? null,
   };
 }
@@ -280,7 +288,7 @@ interface AuthContextType {
   fetchWithAuth: (url: string, options?: RequestInit) => Promise<any>;
   getAllMasterData: () => Promise<AllMasterData>;
   submitMachineHistory: (data: MachineHistoryFormData) => Promise<any>;
-  getMachineHistories: () => Promise<MachineHistoryRecord[]>;
+  getMachineHistories: (searchQuery?: string) => Promise<MachineHistoryRecord[]>;
   getMachineHistoryById: (id: string) => Promise<any>;
   updateMachineHistory: (id: string, data: MachineHistoryFormData) => Promise<any>;
   deleteMachineHistory: (id: string) => Promise<any>;
@@ -316,9 +324,11 @@ const mapApiToUser = (apiUser: any): User => {
     roleId: apiUser.roleId || null,
     roles: apiUser.roles || [],
     customPermissions: apiUser.customPermissions || [],
-    permissions: apiUser.allPermissions || [],
+    permissions: apiUser.permissions || apiUser.allPermissions || [],
     department: apiUser.department || "none",
-    refresh_token: apiUser.refresh_token || undefined,
+    access_token: apiUser.access_token,
+    refresh_token: apiUser.refresh_token,
+    isSuperadmin: apiUser.roles?.includes("superadmin") || false,
   };
 };
 
@@ -333,31 +343,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const navigate = useNavigate();
   const isRefreshingToken = useRef(false);
 
-  const initializeAuthState = useCallback(() => {
-    const storedToken = localStorage.getItem("token");
-    const storedUser = localStorage.getItem("user");
-
-    if (storedToken) {
-      setToken(storedToken);
-      if (storedUser) {
-        try {
-          setUser(JSON.parse(storedUser));
-        } catch {
-          localStorage.removeItem("user");
-        }
-      }
-    }
-  }, []);
-
   const logout = useCallback(async () => {
     setIsLoggingOut(true);
     try {
-      if (token) {
+      const currentToken = token || localStorage.getItem("token");
+      if (currentToken) {
         await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/logout`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${currentToken}`,
           },
         });
       }
@@ -396,11 +391,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       const response = await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/refresh-token`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${refreshToken}`,
+        },
         body: JSON.stringify({ refresh_token: refreshToken }),
       });
 
-      if (!response.ok) throw new Error("Token refresh failed");
+      if (!response.ok) {
+        if (response.status === 401) {
+          await logout();
+          return null;
+        }
+        throw new Error("Token refresh failed");
+      }
 
       const data = await response.json();
       const newAccessToken = data.access_token;
@@ -408,11 +412,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       localStorage.setItem("token", newAccessToken);
       localStorage.setItem("refreshToken", newRefreshToken);
+
       setToken(newAccessToken);
-      setUser((prev) => (prev ? { ...prev, access_token: newAccessToken, refresh_token: newRefreshToken } : null));
+      setUser((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          access_token: newAccessToken,
+          refresh_token: newRefreshToken,
+        };
+      });
 
       return newAccessToken;
-    } catch {
+    } catch (error) {
       await logout();
       return null;
     } finally {
@@ -425,39 +437,62 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       let currentToken = token || localStorage.getItem("token");
 
       const makeRequest = async (tokenToUse: string | null) => {
-        if (!tokenToUse) throw new Error("No authentication token available");
+        if (!tokenToUse) {
+          throw new Error("No token found");
+        }
 
-        const headers = new Headers(options.headers);
+        const headers = new Headers(options.headers || {});
         headers.set("Content-Type", "application/json");
         headers.set("Authorization", `Bearer ${tokenToUse}`);
 
+        const response = await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}${url}`, {
+          ...options,
+          headers,
+        });
+
+        // Handle empty responses
+        if (response.status === 204 || response.statusText === "No Content") {
+          return null;
+        }
+
+        // Handle non-OK responses
+        if (!response.ok) {
+          let errorData;
+          try {
+            errorData = await response.json();
+          } catch (e) {
+            errorData = await response.text();
+          }
+          throw new Error(errorData.message || `HTTP error! Status: ${response.status}`);
+        }
+
+        // Try to parse JSON, fall back to text if needed
         try {
-          const response = await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}${url}`, {
-            ...options,
-            headers,
-          });
-
-          if (response.status === 401) {
-            const newToken = await refreshAccessToken();
-            if (newToken) return makeRequest(newToken);
-            throw new Error("Session expired");
-          }
-
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.message || "Request failed");
-          }
-
-          return response.json();
-        } catch (error) {
-          throw error;
+          const responseText = await response.text();
+          return responseText ? JSON.parse(responseText) : null;
+        } catch (e) {
+          console.error("Failed to parse response as JSON:", e);
+          throw new Error("Invalid JSON response from server");
         }
       };
 
-      return makeRequest(currentToken);
+      try {
+        return await makeRequest(currentToken);
+      } catch (error) {
+        console.error("Fetch with auth error:", error);
+        if (error instanceof Error && error.message.includes("status: 401")) {
+          const newAccessToken = await refreshAccessToken();
+          if (newAccessToken) {
+            return await makeRequest(newAccessToken);
+          }
+        }
+        throw error;
+      }
     },
     [token, refreshAccessToken]
   );
+
+  // Rest of the code remains the same...
 
   const fetchUser = useCallback(async (): Promise<User> => {
     const userData = await fetchWithAuth("/user/profile");
@@ -466,6 +501,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     localStorage.setItem("user", JSON.stringify(mappedUser));
     return mappedUser;
   }, [fetchWithAuth]);
+
+  const initializeAuthState = useCallback(async () => {
+    const storedToken = localStorage.getItem("token");
+    const storedUser = localStorage.getItem("user");
+    const storedRefreshToken = localStorage.getItem("refreshToken");
+
+    if (storedToken && storedRefreshToken) {
+      setToken(storedToken);
+      try {
+        if (storedUser) {
+          const parsedUser = JSON.parse(storedUser);
+          setUser(mapApiToUser(parsedUser));
+        }
+        const freshUser = await fetchUser();
+        setUser(freshUser);
+      } catch (error) {
+        await logout();
+      }
+    }
+  }, [fetchUser, logout]);
 
   const getAllMasterData = useCallback(async (): Promise<AllMasterData> => {
     const [mesins, groups, shifts, units, unitspareparts, itemtroubles, jenisaktivitas, kegiatans, stoptimes] = await Promise.all([
@@ -512,27 +567,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   );
 
   useEffect(() => {
-    initializeAuthState();
-
     const loadInitialData = async () => {
-      if (token) {
-        try {
-          await fetchUser();
+      try {
+        await initializeAuthState();
+        if (token) {
           const data = await getAllMasterData();
           setMasterData(data);
-        } catch (error) {
-        } finally {
-          setIsAuthLoading(false);
-          setIsMasterDataLoading(false);
         }
-      } else {
+      } catch (error) {
+        await logout();
+      } finally {
         setIsAuthLoading(false);
         setIsMasterDataLoading(false);
       }
     };
 
     loadInitialData();
-  }, [token, initializeAuthState, fetchUser, getAllMasterData, refreshAccessToken, logout]);
+  }, [token, initializeAuthState, getAllMasterData, logout]);
 
   const register = async (name: string, nik: string, password: string, department?: string, position?: string, roleId?: string, customPermissions?: string[]) => {
     const response = await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/register`, {
@@ -570,7 +621,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
 
         const data = await response.json();
-        const loggedInUser = mapApiToUser(data.user);
+        const loggedInUser = mapApiToUser({
+          ...data.user,
+          access_token: data.access_token,
+          refresh_token: data.refresh_token,
+          permissions: data.user.permissions || data.user.allPermissions || [],
+        });
 
         localStorage.setItem("token", data.access_token);
         localStorage.setItem("refreshToken", data.refresh_token);
@@ -587,6 +643,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
 
         navigate("/dashboard");
+      } catch (error) {
+        throw error;
       } finally {
         setIsAuthLoading(false);
       }
@@ -606,15 +664,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     [fetchWithAuth]
   );
 
-  const getMachineHistories = useCallback(async (): Promise<MachineHistoryRecord[]> => {
-    const response = await fetchWithAuth("/mhs");
+  const getMachineHistories = useCallback(
+    async (searchQuery: string = ""): Promise<MachineHistoryRecord[]> => {
+      try {
+        const response = await fetchWithAuth(searchQuery ? `/mhs?search=${encodeURIComponent(searchQuery)}` : "/mhs");
 
-    if (response && response.data && Array.isArray(response.data)) {
-      return response.data.map((apiDataItem: any) => mapApiToMachineHistoryRecord(apiDataItem, masterData));
-    }
+        // Dapatkan masterData jika diperlukan
+        const masterData = await getAllMasterData();
 
-    return [];
-  }, [fetchWithAuth, masterData]);
+        // Pastikan response.data ada dan merupakan array
+        const data = response.data || response;
+        if (!Array.isArray(data)) {
+          throw new Error("Invalid response format");
+        }
+
+        return data.map((item) => mapApiToMachineHistoryRecord(item, masterData));
+      } catch (error) {
+        console.error("Error fetching machine histories:", error);
+        return [];
+      }
+    },
+    [fetchWithAuth, getAllMasterData]
+  );
 
   const getMachineHistoryById = useCallback(
     async (id: string): Promise<any> => {

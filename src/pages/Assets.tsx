@@ -1,36 +1,40 @@
-import React, { useState, useEffect } from "react";
-import {
-  FiPlus,
-  FiUpload,
-  FiChevronUp,
-  FiAlertTriangle,
-  FiTool,
-  FiCheckCircle,
-  FiUsers,
-  FiBarChart2,
-  FiDatabase,
-  FiClipboard,
-  FiFilter,
-  FiPackage,
-  FiChevronLeft,
-  FiHome,
-  FiX,
-  FiChevronDown,
-  FiChevronRight,
-  FiSearch,
-  FiLogOut,
-  FiSun,
-  FiMoon,
-  FiSettings,
-  FiBell,
-  FiEdit,
-  FiEye,
-  FiKey,
-} from "react-icons/fi";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth, PermissionName } from "../routes/AuthContext";
 import logoWida from "../assets/logo-wida.png";
 import { motion, AnimatePresence } from "framer-motion";
+import type { User } from "../routes/AuthContext";
+
+// Import Lucide Icons for consistency with Dashboard.tsx
+import {
+  Plus,
+  Upload,
+  ChevronUp,
+  AlertTriangle,
+  Wrench, // Changed FiTool to Wrench
+  CheckCircle,
+  Users,
+  BarChart2,
+  Database,
+  Clipboard,
+  Filter,
+  Package,
+  ChevronLeft,
+  Home,
+  X,
+  ChevronDown,
+  ChevronRight,
+  Search,
+  LogOut,
+  Sun,
+  Moon,
+  Settings,
+  Bell,
+  Edit,
+  Eye,
+  Key,
+  User as UserIcon, // Aliased to avoid conflict with 'type User'
+} from "lucide-react";
 
 type AssetStatus = "running" | "maintenance" | "breakdown" | "idle";
 type AssetType = "mechanical" | "electrical" | "vehicle" | "building";
@@ -64,15 +68,15 @@ const NavItem: React.FC<NavItemProps> = ({ icon, text, to, expanded }) => {
   return (
     <motion.button
       onClick={() => navigate(to)}
-      whileHover={{ scale: 1.02 }}
+      whileHover={{ backgroundColor: active ? undefined : "rgba(239, 246, 255, 0.6)" }} // Soft blue hover for non-active
       whileTap={{ scale: 0.98 }}
-      className={`w-full text-left flex items-center p-2 rounded-lg transition-all duration-200
-            ${active ? "bg-blue-50 text-blue-700 font-semibold" : "hover:bg-blue-50 text-gray-700"}
-          `}
+      className={`relative w-full text-left flex items-center py-3 px-4 rounded-xl transition-all duration-200 ease-in-out group
+        ${active ? "bg-blue-600 text-white shadow-lg" : "text-gray-700 hover:text-blue-700"}
+      `}
     >
-      <span className="text-xl">{icon}</span>
+      <span className={`text-xl transition-colors duration-200 ${active ? "text-white" : "text-blue-500 group-hover:text-blue-700"}`}>{icon}</span>
       {expanded && (
-        <motion.span initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.2 }} className="ml-3 text-base">
+        <motion.span initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.15 }} className="ml-4 text-base font-medium whitespace-nowrap">
           {text}
         </motion.span>
       )}
@@ -84,19 +88,25 @@ const StatCard: React.FC<{ title: string; value: string; change: string; icon: R
   const isPositive = change.startsWith("+");
 
   return (
-    <motion.div whileHover={{ y: -5, boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)" }} transition={{ type: "spring", stiffness: 300 }} className="bg-white rounded-xl shadow-sm p-5 border border-blue-100 cursor-pointer">
-      <div className="flex items-center justify-between">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
+      whileHover={{ y: -5, boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)", scale: 1.01 }} // Softer hover effect
+      className="bg-white rounded-2xl shadow-md p-6 border border-blue-50 cursor-pointer overflow-hidden transform transition-transform duration-200"
+    >
+      <div className="flex items-center justify-between z-10 relative">
         <div>
-          <p className="text-sm font-medium text-gray-600">{title}</p>
-          <p className="text-3xl font-extrabold mt-1 text-gray-900">{value}</p>
+          <p className="text-sm font-medium text-gray-500 mb-1">{title}</p>
+          <p className="text-3xl font-bold text-gray-900">{value}</p>
         </div>
-        <motion.div whileHover={{ rotate: 10, scale: 1.1 }} className="p-3 rounded-full bg-blue-50 text-blue-600 text-2xl">
+        <div className="p-2 rounded-full bg-blue-50 text-blue-600 text-2xl opacity-90 transition-all duration-200">
           {icon}
-        </motion.div>
+        </div>
       </div>
-      <motion.p animate={{ x: isPositive ? [0, 2, 0] : [0, -2, 0] }} transition={{ repeat: Infinity, duration: 2 }} className={`mt-3 text-sm font-medium ${isPositive ? "text-green-600" : "text-red-600"}`}>
+      <p className={`mt-3 text-xs font-semibold ${isPositive ? "text-green-600" : "text-red-600"}`}>
         {change} from last month
-      </motion.p>
+      </p>
     </motion.div>
   );
 };
@@ -112,12 +122,22 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
   if (!isOpen) return null;
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-      <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-auto p-6">
-        <div className="flex justify-between items-center border-b pb-3 mb-4 border-blue-100">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
+    >
+      <motion.div
+        initial={{ scale: 0.95, y: 20 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.95, y: 20 }}
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-auto p-6 border border-blue-100" // Adjusted for consistency
+      >
+        <div className="flex justify-between items-center border-b pb-3 mb-4 border-gray-100"> {/* Changed border-blue-100 to border-gray-100 */}
           <h3 className="text-2xl font-bold text-gray-900">{title}</h3>
           <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">
-            <FiX />
+            <X size={24} /> {/* Using Lucide X icon */}
           </motion.button>
         </div>
         <div>{children}</div>
@@ -175,7 +195,7 @@ const AddAssetForm: React.FC<AddAssetFormProps> = ({ onAddAsset }) => {
           value={formData.name}
           onChange={handleChange}
           required
-          className="mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+          className="mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" // Adjusted for consistency
         />
       </div>
       <div>
@@ -188,7 +208,7 @@ const AddAssetForm: React.FC<AddAssetFormProps> = ({ onAddAsset }) => {
           value={formData.type}
           onChange={handleChange}
           required
-          className="mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+          className="mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" // Adjusted for consistency
         >
           <option value="mechanical">Mechanical</option>
           <option value="electrical">Electrical</option>
@@ -207,7 +227,7 @@ const AddAssetForm: React.FC<AddAssetFormProps> = ({ onAddAsset }) => {
           value={formData.make}
           onChange={handleChange}
           required
-          className="mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+          className="mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" // Adjusted for consistency
         />
       </div>
       <div>
@@ -221,7 +241,7 @@ const AddAssetForm: React.FC<AddAssetFormProps> = ({ onAddAsset }) => {
           value={formData.model}
           onChange={handleChange}
           required
-          className="mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+          className="mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" // Adjusted for consistency
         />
       </div>
       <div>
@@ -235,7 +255,7 @@ const AddAssetForm: React.FC<AddAssetFormProps> = ({ onAddAsset }) => {
           value={formData.location}
           onChange={handleChange}
           required
-          className="mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+          className="mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" // Adjusted for consistency
         />
       </div>
       <div>
@@ -248,7 +268,7 @@ const AddAssetForm: React.FC<AddAssetFormProps> = ({ onAddAsset }) => {
           name="lastMaintenance"
           value={formData.lastMaintenance}
           onChange={handleChange}
-          className="mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+          className="mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" // Adjusted for consistency
         />
       </div>
       <div>
@@ -261,7 +281,7 @@ const AddAssetForm: React.FC<AddAssetFormProps> = ({ onAddAsset }) => {
           name="nextMaintenance"
           value={formData.nextMaintenance}
           onChange={handleChange}
-          className="mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+          className="mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500 transition-all duration-200" // Adjusted for consistency
         />
       </div>
       <div className="flex justify-end space-x-3 mt-6">
@@ -313,7 +333,7 @@ const AssetDetailsForm: React.FC<AssetDetailsFormProps> = ({ asset, isEditing, o
         <label htmlFor="detail-id" className="block text-sm font-medium text-gray-700">
           Asset ID
         </label>
-        <input type="text" id="detail-id" value={formData.id} readOnly className="mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 bg-blue-50 cursor-not-allowed transition-all duration-200" />
+        <input type="text" id="detail-id" value={formData.id} readOnly className="mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 bg-blue-50 cursor-not-allowed transition-all duration-200" /> {/* Adjusted for consistency */}
       </div>
       <div>
         <label htmlFor="detail-name" className="block text-sm font-medium text-gray-700">
@@ -327,7 +347,7 @@ const AssetDetailsForm: React.FC<AssetDetailsFormProps> = ({ asset, isEditing, o
           onChange={handleChange}
           readOnly={!isEditing}
           required
-          className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
+          className={`mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`} // Adjusted for consistency
         />
       </div>
       <div>
@@ -341,7 +361,7 @@ const AssetDetailsForm: React.FC<AssetDetailsFormProps> = ({ asset, isEditing, o
           onChange={handleChange}
           disabled={!isEditing}
           required
-          className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
+          className={`mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`} // Adjusted for consistency
         >
           <option value="mechanical">Mechanical</option>
           <option value="electrical">Electrical</option>
@@ -361,7 +381,7 @@ const AssetDetailsForm: React.FC<AssetDetailsFormProps> = ({ asset, isEditing, o
           onChange={handleChange}
           readOnly={!isEditing}
           required
-          className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
+          className={`mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`} // Adjusted for consistency
         />
       </div>
       <div>
@@ -376,7 +396,7 @@ const AssetDetailsForm: React.FC<AssetDetailsFormProps> = ({ asset, isEditing, o
           onChange={handleChange}
           readOnly={!isEditing}
           required
-          className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
+          className={`mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`} // Adjusted for consistency
         />
       </div>
       <div>
@@ -390,7 +410,7 @@ const AssetDetailsForm: React.FC<AssetDetailsFormProps> = ({ asset, isEditing, o
           onChange={handleChange}
           disabled={!isEditing}
           required
-          className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
+          className={`mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`} // Adjusted for consistency
         >
           <option value="running">Running</option>
           <option value="maintenance">Maintenance</option>
@@ -409,7 +429,7 @@ const AssetDetailsForm: React.FC<AssetDetailsFormProps> = ({ asset, isEditing, o
           value={formData.lastMaintenance}
           onChange={handleChange}
           readOnly={!isEditing}
-          className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
+          className={`mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`} // Adjusted for consistency
         />
       </div>
       <div>
@@ -423,7 +443,7 @@ const AssetDetailsForm: React.FC<AssetDetailsFormProps> = ({ asset, isEditing, o
           value={formData.nextMaintenance}
           onChange={handleChange}
           readOnly={!isEditing}
-          className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
+          className={`mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`} // Adjusted for consistency
         />
       </div>
       <div>
@@ -438,7 +458,7 @@ const AssetDetailsForm: React.FC<AssetDetailsFormProps> = ({ asset, isEditing, o
           onChange={handleChange}
           readOnly={!isEditing}
           required
-          className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
+          className={`mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`} // Adjusted for consistency
         />
       </div>
       <div>
@@ -452,7 +472,7 @@ const AssetDetailsForm: React.FC<AssetDetailsFormProps> = ({ asset, isEditing, o
           value={formData.workOrders}
           onChange={handleChange}
           readOnly={!isEditing}
-          className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
+          className={`mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`} // Adjusted for consistency
         />
       </div>
       <div>
@@ -468,7 +488,7 @@ const AssetDetailsForm: React.FC<AssetDetailsFormProps> = ({ asset, isEditing, o
           readOnly={!isEditing}
           min="0"
           max="100"
-          className={`mt-1 block w-full border border-blue-200 rounded-md shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
+          className={`mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`} // Adjusted for consistency
         />
       </div>
 
@@ -478,7 +498,7 @@ const AssetDetailsForm: React.FC<AssetDetailsFormProps> = ({ asset, isEditing, o
           onClick={onCancel}
           whileHover={{ scale: 1.03 }}
           whileTap={{ scale: 0.97 }}
-          className="inline-flex items-center px-5 py-2.5 border border-blue-200 text-base font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+          className="inline-flex items-center px-5 py-2.5 border border-gray-200 text-base font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200" // Adjusted for consistency
         >
           {isEditing ? "Cancel" : "Close"}
         </motion.button>
@@ -516,10 +536,18 @@ const AssetsDashboard: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [assetsPerPage] = useState(5);
   const { user, fetchWithAuth, hasPermission } = useAuth();
-  const [data, setData] = useState(null);
+  const [data, setData] = useState<User | null>(null); // Type for data consistent with Dashboard.tsx
   const navigate = useNavigate();
   const [hasInteracted, setHasInteracted] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  // New state for popups (Notifications and Profile)
+  const [showNotificationsPopup, setShowNotificationsPopup] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+
+  // Refs for click outside
+  const notificationsRef = useRef<HTMLDivElement>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleResize = () => {
@@ -531,6 +559,23 @@ const AssetsDashboard: React.FC = () => {
 
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // Click outside handler for popups
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
+        setShowNotificationsPopup(false);
+      }
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setShowProfileMenu(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
   }, []);
 
   const [assets, setAssets] = useState<Asset[]>([
@@ -666,13 +711,29 @@ const AssetsDashboard: React.FC = () => {
     },
   ]);
 
-  const handleNotifications = () => {
-    alert("Showing notifications...");
-  };
-
-  const handleImport = () => {
-    alert("Import functionality is not yet implemented. This would typically involve uploading a file.");
-  };
+  const insights = [ // Placeholder for notifications
+    {
+      id: 1,
+      title: "Maintenance Efficiency Improved",
+      description: "Preventive maintenance completion rate increased by 15% this month",
+      icon: <CheckCircle className="text-green-500" />, // Changed to CheckCircle from TrendingUp for asset context
+      date: "Today, 09:30 AM",
+    },
+    {
+      id: 2,
+      title: "3 Assets Requiring Attention",
+      description: "Critical assets showing signs of wear need inspection",
+      icon: <AlertTriangle className="text-yellow-500" />,
+      date: "Yesterday, 02:15 PM",
+    },
+    {
+      id: 3,
+      title: "Monthly Maintenance Completed",
+      description: "All scheduled maintenance tasks completed on time",
+      icon: <CheckCircle className="text-blue-500" />,
+      date: "Jul 28, 2023",
+    },
+  ];
 
   const getStatusColor = (status: AssetStatus) => {
     switch (status) {
@@ -730,6 +791,7 @@ const AssetsDashboard: React.FC = () => {
 
   const toggleSidebar = () => {
     setHasInteracted(true);
+    localStorage.setItem("sidebarOpen", JSON.stringify(!sidebarOpen)); // Consistent storage update
     setSidebarOpen((prev) => !prev);
   };
 
@@ -762,73 +824,71 @@ const AssetsDashboard: React.FC = () => {
 
     fetchData();
 
+    document.documentElement.classList.toggle("dark", darkMode); // Added dark mode toggle
     localStorage.setItem("sidebarOpen", JSON.stringify(sidebarOpen));
-  }, [searchQuery, statusFilter, typeFilter, sidebarOpen]);
+  }, [searchQuery, statusFilter, typeFilter, sidebarOpen, darkMode, fetchWithAuth]); // Added darkMode and fetchWithAuth dependency
 
   return (
-    <div className="flex h-screen font-sans bg-gray-50 text-gray-900">
+    <div className="flex h-screen font-sans antialiased bg-blue-50 text-gray-900">
       {/* Sidebar */}
       <AnimatePresence>
         {(!isMobile || sidebarOpen) && (
           <motion.div
-            initial={{ width: isMobile ? 0 : sidebarOpen ? 256 : 80 }}
+            initial={{ width: isMobile ? 0 : (sidebarOpen ? 280 : 80), opacity: 0 }}
             animate={{
-              width: isMobile ? (sidebarOpen ? 256 : 0) : sidebarOpen ? 256 : 80,
+              width: isMobile ? (sidebarOpen ? 280 : 0) : (sidebarOpen ? 280 : 80),
+              opacity: 1,
             }}
-            exit={{ width: 0 }}
-            transition={{ duration: 0.3, ease: "easeInOut" }}
-            className={`bg-white border-r border-blue-100 flex flex-col shadow-md overflow-hidden ${isMobile ? "fixed z-50 h-full" : ""}`}
+            exit={{ width: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeInOut" }}
+            className={`bg-white border-r border-gray-100 flex flex-col shadow-xl overflow-hidden ${isMobile ? "fixed z-50 h-full" : ""}`}
           >
-            <div className="p-4 flex items-center justify-between border-b border-blue-100">
+            <div className="p-4 flex items-center justify-between border-b border-gray-100">
               {sidebarOpen ? (
-                <>
-                  <div className="rounded-lg flex items-center space-x-3">
-                    <img src={logoWida} alt="Logo Wida" className="h-10 w-auto" />
-                    <p className="text-blue-600 font-bold">CMMS</p>
-                  </div>
-                </>
+                <div className="flex items-center space-x-3">
+                  <img src={logoWida} alt="Logo Wida" className="h-9 w-auto" />
+                  <p className="text-blue-600 font-bold text-xl tracking-wide">CMMS</p>
+                </div>
               ) : (
-                <img src={logoWida} alt="Logo Wida" className="h-6 w-auto" />
+                <img src={logoWida} alt="Logo Wida" className="h-8 w-auto mx-auto" />
               )}
 
-              <button onClick={toggleSidebar} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200" aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}>
-                {sidebarOpen ? <FiChevronLeft className="text-xl" /> : <FiChevronRight className="text-xl" />}
+              <button
+                onClick={toggleSidebar}
+                className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200"
+                aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+              >
+                {sidebarOpen ? <ChevronLeft className="text-xl" /> : <ChevronRight className="text-xl" />}
               </button>
             </div>
 
-            <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-              {hasPermission("1") && <NavItem icon={<FiHome />} text="Dashboard" to="/dashboard" expanded={sidebarOpen} />}
-              {hasPermission("3") && <NavItem icon={<FiPackage />} text="Assets" to="/assets" expanded={sidebarOpen} />}
-              {hasPermission("7") && <NavItem icon={<FiClipboard />} text="Work Orders" to="/workorders" expanded={sidebarOpen} />}
-              {hasPermission("31") && <NavItem icon={<FiClipboard />} text="Machine History" to="/machinehistory" expanded={sidebarOpen} />}
-              {hasPermission("23") && <NavItem icon={<FiDatabase />} text="Inventory" to="/inventory" expanded={sidebarOpen} />}
-              {hasPermission("11") && <NavItem icon={<FiBarChart2 />} text="Reports" to="/reports" expanded={sidebarOpen} />}
-              {hasPermission("27") && <NavItem icon={<FiUsers />} text="Team" to="/team" expanded={sidebarOpen} />}
-              {hasPermission("13") && <NavItem icon={<FiSettings />} text="Settings" to="/settings" expanded={sidebarOpen} />}
-              {hasPermission("15") && <NavItem icon={<FiKey />} text="Permissions" to="/permissions" expanded={sidebarOpen} />}
+            <nav className="flex-1 p-3 space-y-1.5 overflow-y-auto custom-scrollbar">
+              {hasPermission("1") && <NavItem icon={<Home />} text="Dashboard" to="/dashboard" expanded={sidebarOpen} />}
+              {hasPermission("3") && <NavItem icon={<Package />} text="Assets" to="/assets" expanded={sidebarOpen} />}
+              {hasPermission("7") && <NavItem icon={<Clipboard />} text="Work Orders" to="/workorders" expanded={sidebarOpen} />}
+              {hasPermission("31") && <NavItem icon={<Clipboard />} text="Machine History" to="/machinehistory" expanded={sidebarOpen} />}
+              {hasPermission("23") && <NavItem icon={<Database />} text="Inventory" to="/inventory" expanded={sidebarOpen} />}
+              {hasPermission("11") && <NavItem icon={<BarChart2 />} text="Reports" to="/reports" expanded={sidebarOpen} />}
+              {hasPermission("27") && <NavItem icon={<Users />} text="Team" to="/team" expanded={sidebarOpen} />}
+              {hasPermission("13") && <NavItem icon={<Settings />} text="Settings" to="/settings" expanded={sidebarOpen} />}
+              {hasPermission("15") && <NavItem icon={<Key />} text="Permissions" to="/permissions" expanded={sidebarOpen} />}
             </nav>
 
-            <div className="p-4 border-t border-blue-100">
+            {/* Bagian Bawah Navbar: Informasi Versi & Logout Sidebar */}
+            <div className="p-4 border-t border-gray-100">
               <div className="flex items-center space-x-3">
-                <img src="https://placehold.co/40x40/0078D7/FFFFFF?text=AD" alt="User Avatar" className="w-10 h-10 rounded-full border-2 border-blue-500" />
+                <img
+                  src={`https://api.dicebear.com/7.x/initials/svg?seed=${user?.name || "User"}&backgroundColor=0081ff,3d5a80,ffc300,e0b589&backgroundType=gradientLinear&radius=50`}
+                  alt="User Avatar"
+                  className="w-10 h-10 rounded-full border-2 border-blue-400 object-cover"
+                />
                 {sidebarOpen && (
                   <div>
-                    <p className="font-medium text-gray-900">{user?.name}</p>
-                    <p className="text-sm text-gray-600">{user?.roles?.[0]}</p>
+                    <p className="font-semibold text-gray-800 text-sm">Application Version</p>
+                    <p className="text-xs text-gray-500">1.0.0</p>
                   </div>
                 )}
               </div>
-              {sidebarOpen && (
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => navigate("/logout")}
-                  className="mt-4 w-full flex items-center justify-center space-x-2 text-red-600 hover:bg-red-50 p-2 rounded-lg transition-colors duration-200 font-medium"
-                >
-                  <FiLogOut className="text-xl" />
-                  <span>Logout</span>
-                </motion.button>
-              )}
             </div>
           </motion.div>
         )}
@@ -837,43 +897,139 @@ const AssetsDashboard: React.FC = () => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top Navigation */}
-        <header className="bg-white border-b border-blue-100 p-4 flex items-center justify-between shadow-sm">
-          <div className="flex items-center space-x-3">
+        <header className="bg-white border-b border-gray-100 p-4 flex items-center justify-between shadow-sm sticky top-0 z-30">
+          <div className="flex items-center space-x-4">
             {isMobile && (
-              <motion.button onClick={toggleSidebar} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
-                <FiChevronRight className="text-xl" />
+              <motion.button onClick={toggleSidebar} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
+                <ChevronRight className="text-xl" />
               </motion.button>
             )}
-            <FiPackage className="text-2xl text-blue-600" />
-            <h2 className="text-xl md:text-2xl font-semibold text-blue-600">Assets</h2>
+            <Package className="text-xl text-blue-600" /> {/* Changed FiPackage to Package */}
+            <h2 className="text-lg md:text-xl font-bold text-gray-900">Assets</h2> {/* Adjusted font size and color */}
           </div>
 
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3 relative">
             <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => setDarkMode(!darkMode)}
               className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200"
               aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
             >
-              {darkMode ? <FiSun className="text-yellow-400 text-xl" /> : <FiMoon className="text-xl" />}
+              {darkMode ? <Sun className="text-yellow-400 text-xl" /> : <Moon className="text-xl" />}
             </motion.button>
 
-            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={handleNotifications} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200 relative" aria-label="Notifications">
-              <FiBell className="text-xl" />
-              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></span>
-            </motion.button>
+            {/* Notifications Pop-up */}
+            <div className="relative" ref={notificationsRef}>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setShowNotificationsPopup(!showNotificationsPopup)}
+                className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200 relative"
+                aria-label="Notifications"
+              >
+                <Bell className="text-xl" />
+                <span className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full animate-pulse border border-white"></span>
+              </motion.button>
 
-            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="flex items-center space-x-2 cursor-pointer p-2 rounded-lg hover:bg-blue-50 transition-colors duration-200">
-              <img src="https://placehold.co/32x32/0078D7/FFFFFF?text=AD" alt="User Avatar" className="w-8 h-8 rounded-full border border-blue-200" />
-              <span className="font-medium text-gray-900 hidden sm:inline">{user?.name}</span>
-              <FiChevronDown className="text-gray-500" />
-            </motion.div>
+              <AnimatePresence>
+                {showNotificationsPopup && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-lg py-2 z-40 border border-gray-100"
+                  >
+                    <div className="flex justify-between items-center px-4 py-2 border-b border-gray-100">
+                      <h4 className="font-semibold text-gray-800">Notifications</h4>
+                      <button onClick={() => setShowNotificationsPopup(false)} className="text-gray-500 hover:text-gray-700">
+                        <X size={18} />
+                      </button>
+                    </div>
+                    <div className="max-h-64 overflow-y-auto custom-scrollbar">
+                      {insights.slice(0, 3).map((notification) => (
+                        <div key={notification.id} className="flex items-start px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-50 last:border-b-0">
+                          <div className="p-2 mr-3 mt-0.5 rounded-full bg-blue-50 text-blue-600">
+                            {notification.icon}
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm text-gray-800">{notification.title}</p>
+                            <p className="text-xs text-gray-600 mt-1">{notification.description}</p>
+                            <p className="text-xs text-gray-500 mt-1">{notification.date}</p>
+                          </div>
+                        </div>
+                      ))}
+                      {insights.length === 0 && (
+                        <p className="text-gray-500 text-sm px-4 py-3">No new notifications.</p>
+                      )}
+                    </div>
+                    <div className="px-4 py-2 border-t border-gray-100 text-center">
+                      <button onClick={() => {alert('View All Notifications clicked'); setShowNotificationsPopup(false);}} className="text-blue-600 hover:underline text-sm font-medium">View All</button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Profile Menu Pop-up */}
+            <div className="relative" ref={profileRef}>
+              <motion.button
+                whileHover={{ backgroundColor: "rgba(239, 246, 255, 0.7)" }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setShowProfileMenu(!showProfileMenu)}
+                className="flex items-center space-x-2 cursor-pointer p-2 rounded-lg transition-colors duration-200"
+              >
+                <img
+                  src={`https://api.dicebear.com/7.x/initials/svg?seed=${user?.name || "User"}&backgroundColor=0081ff,3d5a80,ffc300,e0b589&backgroundType=gradientLinear&radius=50`}
+                  alt="User Avatar"
+                  className="w-8 h-8 rounded-full border border-blue-200 object-cover"
+                />
+                <span className="font-medium text-gray-900 text-sm hidden sm:inline">{user?.name}</span>
+                <ChevronDown className="text-gray-500 text-base" />
+              </motion.button>
+
+              <AnimatePresence>
+                {showProfileMenu && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-40 border border-gray-100"
+                  >
+                    <div className="px-4 py-2 text-xs text-gray-500 border-b border-gray-100">Signed in as</div>
+                    <div className="px-4 py-2 font-semibold text-gray-800 border-b border-gray-100">
+                      {user?.name || "Guest User"}
+                    </div>
+                    <button
+                      onClick={() => {navigate('/profile'); setShowProfileMenu(false);}}
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 w-full text-left"
+                    >
+                      <UserIcon size={16} className="mr-2" /> My Profile
+                    </button>
+                    <button
+                      onClick={() => {navigate('/settings'); setShowProfileMenu(false);}}
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 w-full text-left"
+                    >
+                      <Settings size={16} className="mr-2" /> Settings
+                    </button>
+                    <hr className="my-1 border-gray-100" />
+                    <button
+                      onClick={() => {navigate('/logout'); setShowProfileMenu(false);}}
+                      className="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full text-left"
+                    >
+                      <LogOut size={16} className="mr-2" /> Logout
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </header>
 
         {/* Content Area */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
           {/* Header and Actions */}
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
             <div>
@@ -888,17 +1044,17 @@ const AssetsDashboard: React.FC = () => {
                 whileTap={{ scale: 0.95 }}
                 className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md"
               >
-                <FiPlus className="text-lg" />
+                <Plus className="text-lg" /> {/* Changed FiPlus to Plus */}
                 <span className="font-semibold">Add Asset</span>
               </motion.button>
 
               <motion.button
-                onClick={handleImport}
+                onClick={() => alert("Import functionality is not yet implemented. This would typically involve uploading a file.")} // Changed handleImport to direct alert
                 whileHover={{ scale: 1.05, boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)" }}
                 whileTap={{ scale: 0.95 }}
-                className="flex items-center space-x-2 bg-white border border-blue-200 text-gray-800 px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md"
+                className="flex items-center space-x-2 bg-white border border-gray-200 text-gray-800 px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md" // Changed border-blue-200 to border-gray-200
               >
-                <FiUpload className="text-lg" />
+                <Upload className="text-lg" /> {/* Changed FiUpload to Upload */}
                 <span className="font-semibold">Import</span>
               </motion.button>
 
@@ -906,32 +1062,32 @@ const AssetsDashboard: React.FC = () => {
                 onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
                 whileHover={{ scale: 1.05, boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)" }}
                 whileTap={{ scale: 0.95 }}
-                className="flex items-center space-x-2 bg-white border border-blue-200 text-gray-800 px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md"
+                className="flex items-center space-x-2 bg-white border border-gray-200 text-gray-800 px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md" // Changed border-blue-200 to border-gray-200
               >
-                <FiFilter className="text-lg" />
+                <Filter className="text-lg" /> {/* Changed FiFilter to Filter */}
                 <span className="font-semibold">Filters</span>
-                {showAdvancedFilters ? <FiChevronUp /> : <FiChevronDown />}
+                {showAdvancedFilters ? <ChevronUp /> : <ChevronDown />} {/* Changed FiChevronUp/Down to ChevronUp/Down */}
               </motion.button>
             </div>
           </motion.div>
 
           {/* Stats Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
-            <StatCard title="Total Assets" value={assets.length.toString()} change="+12%" icon={<FiPackage />} />
-            <StatCard title="Active Assets" value={assets.filter((a) => a.status === "running").length.toString()} change="+5%" icon={<FiCheckCircle />} />
-            <StatCard title="In Maintenance" value={assets.filter((a) => a.status === "maintenance").length.toString()} change="-2%" icon={<FiTool />} />
-            <StatCard title="Critical Issues" value={assets.filter((a) => a.status === "breakdown").length.toString()} change="+1" icon={<FiAlertTriangle />} />
+            <StatCard title="Total Assets" value={assets.length.toString()} change="+12%" icon={<Package />} /> {/* Changed FiPackage to Package */}
+            <StatCard title="Active Assets" value={assets.filter((a) => a.status === "running").length.toString()} change="+5%" icon={<CheckCircle />} /> {/* Changed FiCheckCircle to CheckCircle */}
+            <StatCard title="In Maintenance" value={assets.filter((a) => a.status === "maintenance").length.toString()} change="-2%" icon={<Wrench />} /> {/* Changed FiTool to Wrench */}
+            <StatCard title="Critical Issues" value={assets.filter((a) => a.status === "breakdown").length.toString()} change="+1" icon={<AlertTriangle />} /> {/* Changed FiAlertTriangle to AlertTriangle */}
           </div>
 
           {/* Search and Filters */}
-          <motion.div layout className="mb-6 bg-white rounded-xl shadow-sm p-4 md:p-6 border border-blue-100">
+          <motion.div layout className="mb-6 bg-white rounded-2xl shadow-md p-4 md:p-6 border border-blue-50"> {/* Changed rounded-xl to rounded-2xl, shadow-sm to shadow-md, border-blue-100 to border-blue-50 */}
             <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-4 md:space-y-0">
               <div className="flex-1 relative">
-                <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg" /> {/* Changed FiSearch to Search */}
                 <input
                   type="text"
                   placeholder="Search assets by name, ID, or location..."
-                  className="w-full pl-12 pr-4 py-3 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-base transition-all duration-200"
+                  className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-base transition-all duration-200" // Changed border-blue-200 to border-gray-200
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -947,7 +1103,7 @@ const AssetsDashboard: React.FC = () => {
                     className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 w-full md:w-auto"
                   >
                     <select
-                      className="border border-blue-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-base appearance-none bg-no-repeat bg-right-12 bg-center-y transition-all duration-200"
+                      className="border border-gray-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-base appearance-none bg-no-repeat bg-right-12 bg-center-y transition-all duration-200" // Changed border-blue-200 to border-gray-200
                       style={{
                         backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
                         backgroundSize: "1.2rem",
@@ -963,7 +1119,7 @@ const AssetsDashboard: React.FC = () => {
                     </select>
 
                     <select
-                      className="border border-blue-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-base appearance-none bg-no-repeat bg-right-12 bg-center-y transition-all duration-200"
+                      className="border border-gray-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-base appearance-none bg-no-repeat bg-right-12 bg-center-y transition-all duration-200" // Changed border-blue-200 to border-gray-200
                       style={{
                         backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
                         backgroundSize: "1.2rem",
@@ -984,9 +1140,9 @@ const AssetsDashboard: React.FC = () => {
           </motion.div>
 
           {/* Assets Table */}
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="bg-white rounded-xl shadow-sm overflow-hidden border border-blue-100">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="bg-white rounded-2xl shadow-md overflow-hidden border border-blue-50"> {/* Changed rounded-xl to rounded-2xl, shadow-sm to shadow-md, border-blue-100 to border-blue-50 */}
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-blue-100">
+              <table className="min-w-full divide-y divide-gray-100"> {/* Changed divide-blue-100 to divide-gray-100 */}
                 <thead className="bg-blue-50">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Asset</th>
@@ -998,7 +1154,7 @@ const AssetsDashboard: React.FC = () => {
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-blue-100">
+                <tbody className="bg-white divide-y divide-gray-100"> {/* Changed divide-blue-100 to divide-gray-100 */}
                   {currentAssets.length > 0 ? (
                     currentAssets.map((asset) => (
                       <motion.tr
@@ -1056,7 +1212,7 @@ const AssetsDashboard: React.FC = () => {
                             className="text-blue-600 hover:text-blue-800 mr-3 transition-colors duration-200 flex items-center space-x-1"
                             title="View Details"
                           >
-                            <FiEye className="text-lg" />
+                            <Eye className="text-lg" /> {/* Changed FiEye to Eye */}
                             <span>View</span>
                           </motion.button>
                           <motion.button
@@ -1066,7 +1222,7 @@ const AssetsDashboard: React.FC = () => {
                             className="text-gray-600 hover:text-gray-800 transition-colors duration-200 flex items-center space-x-1"
                             title="Edit Asset"
                           >
-                            <FiEdit className="text-lg" />
+                            <Edit className="text-lg" /> {/* Changed FiEdit to Edit */}
                             <span>Edit</span>
                           </motion.button>
                         </td>
@@ -1097,7 +1253,7 @@ const AssetsDashboard: React.FC = () => {
                   whileTap={{ scale: 0.95 }}
                   onClick={() => paginate(currentPage - 1)}
                   disabled={currentPage === 1}
-                  className="px-4 py-2 border border-blue-200 rounded-lg bg-white text-gray-700 hover:bg-blue-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                  className="px-4 py-2 border border-gray-200 rounded-lg bg-white text-gray-700 hover:bg-blue-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm" // Changed border-blue-200 to border-gray-200
                 >
                   Previous
                 </motion.button>
@@ -1108,8 +1264,8 @@ const AssetsDashboard: React.FC = () => {
                     whileTap={{ scale: 0.95 }}
                     onClick={() => paginate(i + 1)}
                     className={`px-4 py-2 rounded-lg transition-colors duration-200 shadow-sm
-                          ${currentPage === i + 1 ? "bg-blue-600 text-white shadow-md" : "bg-white text-gray-700 hover:bg-blue-50 border border-blue-200"}
-                        `}
+                          ${currentPage === i + 1 ? "bg-blue-600 text-white shadow-md" : "bg-white text-gray-700 hover:bg-blue-50 border border-gray-200"}
+                        `} 
                   >
                     {i + 1}
                   </motion.button>
@@ -1119,7 +1275,7 @@ const AssetsDashboard: React.FC = () => {
                   whileTap={{ scale: 0.95 }}
                   onClick={() => paginate(currentPage + 1)}
                   disabled={currentPage === totalPages}
-                  className="px-4 py-2 border border-blue-200 rounded-lg bg-white text-gray-700 hover:bg-blue-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                  className="px-4 py-2 border border-gray-200 rounded-lg bg-white text-gray-700 hover:bg-blue-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm" // Changed border-blue-200 to border-gray-200
                 >
                   Next
                 </motion.button>

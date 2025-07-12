@@ -3160,3 +3160,10 @@ const PermissionsPage: React.FC = () => {
 };
 
 export default PermissionsPage;
+
+interface NavItemProps {
+  icon: React.ReactNode;
+  text: string;
+  to: string;
+  expanded: boolean;
+}
