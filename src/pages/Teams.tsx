@@ -1,42 +1,55 @@
-import React, { useState, useEffect } from "react";
-import {
-  FiClock,
-  FiCheckCircle,
-  FiUsers,
-  FiBarChart2,
-  FiDatabase,
-  FiClipboard,
-  FiPackage,
-  FiChevronLeft,
-  FiHome,
-  FiChevronDown,
-  FiChevronRight,
-  FiLogOut,
-  FiSun,
-  FiMoon,
-  FiSettings,
-  FiBell,
-  FiTrendingUp,
-  FiAlertCircle,
-  FiMessageSquare,
-  FiPlus,
-  FiEdit2,
-  FiTrash2,
-  FiSearch,
-  FiFilter,
-  FiUserPlus,
-  FiDownload,
-  FiUpload,
-  FiAlertTriangle,
-  FiX,
-  FiKey,
-} from "react-icons/fi";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useAuth, PermissionName } from "../routes/AuthContext";
+import { useAuth } from "../routes/AuthContext";
 import logoWida from "../assets/logo-wida.png";
 import { motion, AnimatePresence } from "framer-motion";
+import Sidebar from "../component/Sidebar";
+import {
+  Plus,
+  Upload,
+  ChevronUp,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Search,
+  LogOut,
+  Settings,
+  Bell,
+  Edit,
+  Eye,
+  Clock,
+  Calendar,
+  Trash2,
+  Key,
+  Info,
+  Moon,
+  Sun,
+  User as UserIcon,
+  Home,
+  Package,
+  Clipboard,
+  Database,
+  BarChart2,
+  Users,
+  Wrench,
+  CheckCircle,
+  Download,
+  Filter,
+  X,
+} from "lucide-react";
 
-type TeamsStatus = "Active" | "On Leave";
+interface TeamMember {
+  id: number;
+  name: string;
+  nik: string;
+  role: string;
+  department: string;
+  phone: string;
+  avatar: string;
+  status: "Active" | "On Leave";
+  joinDate: string;
+  lastActive: string;
+}
 
 interface NavItemProps {
   icon: React.ReactNode;
@@ -53,15 +66,15 @@ const NavItem: React.FC<NavItemProps> = ({ icon, text, to, expanded }) => {
   return (
     <motion.button
       onClick={() => navigate(to)}
-      whileHover={{ scale: 1.02 }}
+      whileHover={{ backgroundColor: active ? undefined : "rgba(239, 246, 255, 0.6)" }}
       whileTap={{ scale: 0.98 }}
-      className={`w-full text-left flex items-center p-2 rounded-lg transition-all duration-200
-        ${active ? "bg-blue-50 text-blue-700 font-semibold" : "hover:bg-blue-50 text-gray-700"}
+      className={`relative w-full text-left flex items-center py-3 px-4 rounded-xl transition-all duration-200 ease-in-out group
+        ${active ? "bg-blue-600 text-white shadow-lg" : "text-gray-700 hover:text-blue-700"}
       `}
     >
-      <span className="text-xl">{icon}</span>
+      <span className={`text-xl transition-colors duration-200 ${active ? "text-white" : "text-blue-500 group-hover:text-blue-700"}`}>{icon}</span>
       {expanded && (
-        <motion.span initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.2 }} className="ml-3 text-base">
+        <motion.span initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.15 }} className="ml-4 text-base font-medium whitespace-nowrap">
           {text}
         </motion.span>
       )}
@@ -69,37 +82,82 @@ const NavItem: React.FC<NavItemProps> = ({ icon, text, to, expanded }) => {
   );
 };
 
-const StatCard: React.FC<{ title: string; value: number; icon: React.ReactNode }> = ({ title, value, icon }) => {
+const StatCard: React.FC<{ title: string; value: number; change?: string; icon: React.ReactNode }> = ({ title, value, change, icon }) => {
+  const isPositive = change?.startsWith("+");
+
   return (
-    <motion.div whileHover={{ y: -5, boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)" }} transition={{ type: "spring", stiffness: 300 }} className="bg-white rounded-xl shadow-sm p-5 border border-blue-100 cursor-pointer">
-      <div className="flex items-center justify-between">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
+      whileHover={{ y: -5, boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)", scale: 1.01 }}
+      className="bg-white rounded-2xl shadow-md p-6 border border-blue-50 cursor-pointer overflow-hidden transform transition-transform duration-200"
+    >
+      <div className="flex items-center justify-between z-10 relative">
         <div>
-          <p className="text-sm font-medium text-gray-600">{title}</p>
-          <p className="text-3xl font-extrabold mt-1 text-gray-900">{value}</p>
+          <p className="text-sm font-medium text-gray-500 mb-1">{title}</p>
+          <p className="text-3xl font-bold text-gray-900">{value}</p>
         </div>
-        <motion.div whileHover={{ rotate: 10, scale: 1.1 }} className="p-3 rounded-full bg-blue-50 text-blue-600 text-2xl">
-          {icon}
-        </motion.div>
+        <div className="p-2 rounded-full bg-blue-50 text-blue-600 text-2xl opacity-90 transition-all duration-200">{icon}</div>
       </div>
+      {change && <p className={`mt-3 text-xs font-semibold ${isPositive ? "text-green-600" : "text-red-600"}`}>{change} from last month</p>}
     </motion.div>
   );
 };
 
+interface ModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+  className?: string;
+}
+
+const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, className }) => {
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50 p-4 backdrop-blur-sm">
+          <motion.div
+            initial={{ y: 50, opacity: 0, scale: 0.95 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: 50, opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.3, type: "spring", damping: 25, stiffness: 300 }}
+            className={`bg-white rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col ${className || "max-w-xl w-full"}`}
+          >
+            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-blue-50">
+              <h2 className="text-xl font-bold text-gray-800">{title}</h2>
+              <button onClick={onClose} className="p-1.5 rounded-full text-gray-500 hover:bg-blue-100 hover:text-gray-700 focus:outline-none transition-colors duration-150" aria-label="Close modal">
+                <X className="text-xl" />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto custom-scrollbar flex-grow">{children}</div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};
+
 const TeamDashboard: React.FC = () => {
-  const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
     const stored = localStorage.getItem("sidebarOpen");
     return stored ? JSON.parse(stored) : false;
   });
-  const { user, fetchWithAuth, hasPermission } = useAuth();
-  const navigate = useNavigate();
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("all");
+  const [selectedDepartment, setSelectedDepartment] = useState("all");
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [selectedDepartment, setSelectedDepartment] = useState("all");
-  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [selectedUser, setSelectedUser] = useState<TeamMember | null>(null);
+  const { user, hasPermission } = useAuth();
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [darkMode, setDarkMode] = useState(false);
+  const [showNotificationsPopup, setShowNotificationsPopup] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const notificationsRef = useRef<HTMLDivElement>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
 
   const [newUser, setNewUser] = useState({
     name: "",
@@ -109,8 +167,7 @@ const TeamDashboard: React.FC = () => {
     phone: "",
   });
 
-  // Sample team data
-  const [teamMembers, setTeamMembers] = useState([
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([
     {
       id: 1,
       name: "Budi Santoso",
@@ -197,7 +254,24 @@ const TeamDashboard: React.FC = () => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
+        setShowNotificationsPopup(false);
+      }
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setShowProfileMenu(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
   const toggleSidebar = () => {
+    localStorage.setItem("sidebarOpen", JSON.stringify(!sidebarOpen));
     setSidebarOpen((prev) => !prev);
   };
 
@@ -226,19 +300,25 @@ const TeamDashboard: React.FC = () => {
       department: "maintenance",
       phone: "",
     });
+    setSelectedUser(null);
   };
 
-  const handleDeleteUser = (id: number) => {
-    setTeamMembers(teamMembers.filter((member) => member.id !== id));
-    setShowDeleteModal(false);
+  const handleDeleteUser = () => {
+    if (selectedUser) {
+      setTeamMembers(teamMembers.filter((member) => member.id !== selectedUser.id));
+      setShowDeleteModal(false);
+      setSelectedUser(null);
+    }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case "Active":
-        return "bg-green-500";
+        return "bg-green-100 text-green-800 border border-green-200";
       case "On Leave":
-        return "bg-yellow-500";
+        return "bg-yellow-100 text-yellow-800 border border-yellow-200";
+      default:
+        return "bg-gray-100 text-gray-800 border border-gray-200";
     }
   };
 
@@ -256,208 +336,282 @@ const TeamDashboard: React.FC = () => {
   const roles = [...new Set(teamMembers.map((member) => member.role))];
 
   return (
-    <div className="flex h-screen font-sans bg-gray-50 text-gray-900">
-      {/* Sidebar */}
-      <AnimatePresence>
-        {(!isMobile || sidebarOpen) && (
-          <motion.div
-            initial={{ width: isMobile ? 0 : sidebarOpen ? 256 : 80 }}
-            animate={{
-              width: isMobile ? (sidebarOpen ? 256 : 0) : sidebarOpen ? 256 : 80,
-            }}
-            exit={{ width: 0 }}
-            transition={{ duration: 0.3, ease: "easeInOut" }}
-            className={`bg-white border-r border-blue-100 flex flex-col shadow-md overflow-hidden ${isMobile ? "fixed z-50 h-full" : ""}`}
-          >
-            <div className="p-4 flex items-center justify-between border-b border-blue-100">
-              {sidebarOpen ? (
-                <>
-                  <div className="rounded-lg flex items-center space-x-3">
-                    <img src={logoWida} alt="Logo Wida" className="h-10 w-auto" />
-                    <p className="text-blue-600 font-bold">CMMS</p>
-                  </div>
-                </>
-              ) : (
-                <img src={logoWida} alt="Logo Wida" className="h-6 w-auto" />
-              )}
+    <div className={`flex h-screen font-sans antialiased bg-blue-50`}>
+      <Sidebar />
 
-              <button onClick={toggleSidebar} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200" aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}>
-                {sidebarOpen ? <FiChevronLeft className="text-xl" /> : <FiChevronRight className="text-xl" />}
-              </button>
-            </div>
-
-            <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-              {hasPermission("1") && <NavItem icon={<FiHome />} text="Dashboard" to="/dashboard" expanded={sidebarOpen} />}
-              {hasPermission("3") && <NavItem icon={<FiPackage />} text="Assets" to="/assets" expanded={sidebarOpen} />}
-              {hasPermission("7") && <NavItem icon={<FiClipboard />} text="Work Orders" to="/workorders" expanded={sidebarOpen} />}
-              {hasPermission("31") && <NavItem icon={<FiClipboard />} text="Machine History" to="/machinehistory" expanded={sidebarOpen} />}
-              {hasPermission("23") && <NavItem icon={<FiDatabase />} text="Inventory" to="/inventory" expanded={sidebarOpen} />}
-              {hasPermission("11") && <NavItem icon={<FiBarChart2 />} text="Reports" to="/reports" expanded={sidebarOpen} />}
-              {hasPermission("27") && <NavItem icon={<FiUsers />} text="Team" to="/team" expanded={sidebarOpen} />}
-              {hasPermission("13") && <NavItem icon={<FiSettings />} text="Settings" to="/settings" expanded={sidebarOpen} />}
-              {hasPermission("15") && <NavItem icon={<FiKey />} text="Permissions" to="/permissions" expanded={sidebarOpen} />}
-            </nav>
-
-            <div className="p-4 border-t border-blue-100">
-              <div className="flex items-center space-x-3">
-                <img src="https://placehold.co/40x40/0078D7/FFFFFF?text=AD" alt="User Avatar" className="w-10 h-10 rounded-full border-2 border-blue-500" />
-                {sidebarOpen && (
-                  <div>
-                    <p className="font-medium text-gray-900">{user?.name}</p>
-                    <p className="text-sm text-gray-600">{user?.roles?.[0]}</p>
-                  </div>
-                )}
-              </div>
-              {sidebarOpen && (
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => navigate("/logout")}
-                  className="mt-4 w-full flex items-center justify-center space-x-2 text-red-600 hover:bg-red-50 p-2 rounded-lg transition-colors duration-200 font-medium"
-                >
-                  <FiLogOut className="text-xl" />
-                  <span>Logout</span>
-                </motion.button>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Top Navigation */}
-        <header className="bg-white border-b border-blue-100 p-4 flex items-center justify-between shadow-sm">
-          <div className="flex items-center space-x-3">
+        <header className="bg-white border-b border-gray-100 p-4 flex items-center justify-between shadow-sm sticky top-0 z-30">
+          <div className="flex items-center space-x-4">
             {isMobile && (
-              <button onClick={toggleSidebar} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
-                <FiChevronRight className="text-xl" />
-              </button>
+              <motion.button onClick={toggleSidebar} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
+                <ChevronRight className="text-xl" />
+              </motion.button>
             )}
-            <FiUsers className="text-2xl text-blue-600" />
-            <h2 className="text-xl md:text-2xl font-semibold text-blue-600">Team Management</h2>
+            <Users className="text-xl text-blue-600" />
+            <h2 className="text-lg md:text-xl font-bold text-gray-900">Team Management</h2>
           </div>
 
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3 relative">
             <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => setDarkMode(!darkMode)}
               className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200"
               aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
             >
-              {darkMode ? <FiSun className="text-yellow-400 text-xl" /> : <FiMoon className="text-xl" />}
+              {darkMode ? <Sun className="text-yellow-400 text-xl" /> : <Moon className="text-xl" />}
             </motion.button>
 
-            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200 relative" aria-label="Notifications">
-              <FiBell className="text-xl" />
-              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></span>
-            </motion.button>
+            <div className="relative" ref={notificationsRef}>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setShowNotificationsPopup(!showNotificationsPopup)}
+                className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200 relative"
+                aria-label="Notifications"
+              >
+                <Bell className="text-xl" />
+                <span className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full animate-pulse border border-white"></span>
+              </motion.button>
 
-            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="flex items-center space-x-2 cursor-pointer p-2 rounded-lg hover:bg-blue-50 transition-colors duration-200">
-              <img src="https://placehold.co/32x32/0078D7/FFFFFF?text=AD" alt="User Avatar" className="w-8 h-8 rounded-full border border-blue-200" />
-              <span className="font-medium text-gray-900 hidden sm:inline">{user?.name}</span>
-              <FiChevronDown className="text-gray-500" />
-            </motion.div>
+              <AnimatePresence>
+                {showNotificationsPopup && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 20 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl overflow-hidden z-50 border border-gray-100"
+                  >
+                    <div className="p-4 border-b border-gray-100">
+                      <h3 className="text-lg font-semibold text-gray-800">Notifications</h3>
+                    </div>
+                    <div className="max-h-80 overflow-y-auto custom-scrollbar">
+                      <div className="flex items-start p-4 border-b border-gray-50 last:border-b-0 hover:bg-blue-50 transition-colors cursor-pointer">
+                        <div className="flex-shrink-0 mr-3">
+                          <CheckCircle className="text-green-500" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-800">New team member added</p>
+                          <p className="text-xs text-gray-600 mt-1">John Doe has joined the maintenance team</p>
+                          <p className="text-xs text-gray-400 mt-1">Today, 10:00 AM</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start p-4 border-b border-gray-50 last:border-b-0 hover:bg-blue-50 transition-colors cursor-pointer">
+                        <div className="flex-shrink-0 mr-3">
+                          <Clock className="text-yellow-500" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-800">Leave request</p>
+                          <p className="text-xs text-gray-600 mt-1">Jane Smith has requested time off</p>
+                          <p className="text-xs text-gray-400 mt-1">Yesterday, 03:00 PM</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-4 border-t border-gray-100 text-center">
+                      <button
+                        onClick={() => {
+                          setShowNotificationsPopup(false);
+                        }}
+                        className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                      >
+                        Mark all as read
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            <div className="relative" ref={profileRef}>
+              <motion.button
+                whileHover={{ backgroundColor: "rgba(239, 246, 255, 0.7)" }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setShowProfileMenu(!showProfileMenu)}
+                className="flex items-center space-x-2 cursor-pointer p-2 rounded-lg transition-colors duration-200"
+              >
+                <img
+                  src={`https://api.dicebear.com/7.x/initials/svg?seed=${user?.name || "User"}&backgroundColor=0081ff,3d5a80,ffc300,e0b589&backgroundType=gradientLinear&radius=50`}
+                  alt="User Avatar"
+                  className="w-8 h-8 rounded-full border border-blue-200 object-cover"
+                />
+                <span className="font-medium text-gray-900 text-sm hidden sm:inline">{user?.name}</span>
+                <ChevronDown className="text-gray-500 text-base" />
+              </motion.button>
+
+              <AnimatePresence>
+                {showProfileMenu && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-40 border border-gray-100"
+                  >
+                    <div className="px-4 py-2 text-xs text-gray-500 border-b border-gray-100">Signed in as</div>
+                    <div className="px-4 py-2 font-semibold text-gray-800 border-b border-gray-100">{user?.name || "Guest User"}</div>
+                    <button
+                      onClick={() => {
+                        navigate("/profile");
+                        setShowProfileMenu(false);
+                      }}
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 w-full text-left"
+                    >
+                      <UserIcon size={16} className="mr-2" /> My Profile
+                    </button>
+                    <button
+                      onClick={() => {
+                        navigate("/settings");
+                        setShowProfileMenu(false);
+                      }}
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 w-full text-left"
+                    >
+                      <Settings size={16} className="mr-2" /> Settings
+                    </button>
+                    <hr className="my-1 border-gray-100" />
+                    <button
+                      onClick={() => {
+                        navigate("/logout");
+                        setShowProfileMenu(false);
+                      }}
+                      className="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full text-left"
+                    >
+                      <LogOut size={16} className="mr-2" /> Logout
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </header>
 
-        {/* Content Area */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">
-          {/* Team Management Header */}
-          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
+          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between space-y-5 md:space-y-0">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Team Members</h1>
-              <p className="text-gray-600">Manage your team members and their permissions</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
+                Team <span className="text-blue-600">Management</span>
+              </h1>
+              <p className="text-gray-600 mt-2 text-sm max-w-xl">Manage your team members and their permissions to optimize maintenance operations.</p>
             </div>
-
-            <div className="flex flex-wrap gap-3 w-full md:w-auto">
-              <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => setShowAddModal(true)} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
-                <FiUserPlus /> Add Member
+            <div className="flex flex-wrap gap-3 items-center">
+              <motion.button
+                onClick={() => setShowAddModal(true)}
+                whileHover={{ scale: 1.02, boxShadow: "0 4px 12px rgba(37, 99, 235, 0.3)" }}
+                whileTap={{ scale: 0.98 }}
+                className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md font-semibold text-sm"
+              >
+                <Plus className="text-base" />
+                <span>Add Member</span>
               </motion.button>
-
-              <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="flex items-center gap-2 bg-white border border-blue-200 hover:bg-blue-50 text-blue-600 px-4 py-2 rounded-lg transition-colors">
-                <FiDownload /> Export
+              <motion.button
+                onClick={() => alert("Export functionality")}
+                whileHover={{ scale: 1.02, boxShadow: "0 4px 10px rgba(0, 0, 0, 0.08)" }}
+                whileTap={{ scale: 0.98 }}
+                className="flex items-center space-x-2 bg-white border border-blue-200 text-gray-800 px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-sm font-semibold text-sm hover:bg-gray-50"
+              >
+                <Download className="text-base" />
+                <span>Export</span>
               </motion.button>
-
-              <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="flex items-center gap-2 bg-white border border-blue-200 hover:bg-blue-50 text-blue-600 px-4 py-2 rounded-lg transition-colors">
-                <FiUpload /> Import
+              <motion.button
+                onClick={() => alert("Import functionality")}
+                whileHover={{ scale: 1.02, boxShadow: "0 4px 10px rgba(0, 0, 0, 0.08)" }}
+                whileTap={{ scale: 0.98 }}
+                className="flex items-center space-x-2 bg-white border border-blue-200 text-gray-800 px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-sm font-semibold text-sm hover:bg-gray-50"
+              >
+                <Upload className="text-base" />
+                <span>Import</span>
               </motion.button>
             </div>
           </motion.div>
 
-          {/* Filters and Search */}
-          <motion.div layout className="mb-6 bg-white rounded-xl shadow-sm p-4 md:p-6 border border-blue-100">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
+            <StatCard title="Total Members" value={teamMembers.length} icon={<Users />} />
+            <StatCard title="Active Members" value={teamMembers.filter((m) => m.status === "Active").length} icon={<CheckCircle />} />
+            <StatCard title="On Leave" value={teamMembers.filter((m) => m.status === "On Leave").length} icon={<Clock />} />
+            <StatCard title="Departments" value={departments.length} icon={<Database />} />
+          </div>
+
+          <motion.div layout className="mb-8 bg-white rounded-2xl shadow-md p-5 border border-blue-100">
             <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-4 md:space-y-0">
               <div className="flex-1 relative">
-                <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
                 <input
                   type="text"
-                  placeholder="Search inventory by name, ID, or description..."
-                  className="w-full pl-12 pr-4 py-3 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-base transition-all duration-200"
+                  placeholder="Search by name, NIK, or department..."
+                  className="w-full pl-11 pr-4 py-2.5 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white text-sm transition-all duration-200 shadow-sm placeholder-gray-400"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
 
-              <div className="flex items-center gap-2">
-                <FiFilter className="text-gray-400" />
-                <select className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" value={activeTab} onChange={(e) => setActiveTab(e.target.value)}>
-                  <option value="all">All Members</option>
-                  <option value="active">Active</option>
-                  <option value="on leave">On Leave</option>
-                </select>
-              </div>
+              <select
+                className="border border-blue-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white text-sm appearance-none transition-all duration-200 shadow-sm cursor-pointer"
+                style={{
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+                  backgroundSize: "1rem",
+                  backgroundRepeat: "no-repeat",
+                  backgroundPosition: "right 0.75rem center",
+                }}
+                value={activeTab}
+                onChange={(e) => setActiveTab(e.target.value)}
+              >
+                <option value="all">All Members</option>
+                <option value="active">Active</option>
+                <option value="on leave">On Leave</option>
+              </select>
 
-              <div className="flex items-center gap-2">
-                <FiUsers className="text-gray-400" />
-                <select className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" value={selectedDepartment} onChange={(e) => setSelectedDepartment(e.target.value)}>
-                  <option value="all">All Departments</option>
-                  <option value="facility management">Facility Management</option>
-                  <option value="electrical">Electrical</option>
-                  <option value="mechanical">Mechanical</option>
-                  <option value="hvac">HVAC</option>
-                  <option value="logistics">Logistics</option>
-                </select>
-              </div>
+              <select
+                className="border border-blue-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white text-sm appearance-none transition-all duration-200 shadow-sm cursor-pointer"
+                style={{
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+                  backgroundSize: "1rem",
+                  backgroundRepeat: "no-repeat",
+                  backgroundPosition: "right 0.75rem center",
+                }}
+                value={selectedDepartment}
+                onChange={(e) => setSelectedDepartment(e.target.value)}
+              >
+                <option value="all">All Departments</option>
+                {departments.map((dept) => (
+                  <option key={dept} value={dept.toLowerCase()}>
+                    {dept}
+                  </option>
+                ))}
+              </select>
             </div>
           </motion.div>
 
-          {/* Team Members Table */}
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="bg-white rounded-xl overflow-hidden border border-blue-100 shadow-sm mb-6">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="bg-white rounded-2xl shadow-md overflow-hidden border border-blue-100">
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
+              <table className="min-w-full divide-y divide-blue-100">
                 <thead className="bg-blue-50">
                   <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Member
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Role
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Department
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Status
                     </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Last Active
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white divide-y divide-blue-100">
                   {filteredMembers.length > 0 ? (
                     filteredMembers.map((member) => (
                       <motion.tr
                         key={member.id}
-                        initial={{ opacity: 0, y: 10 }}
+                        initial={{ opacity: 0, y: 5 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.2 }}
-                        whileHover={{ backgroundColor: "rgba(239, 246, 255, 1)" }}
+                        transition={{ duration: 0.15 }}
+                        whileHover={{ backgroundColor: "rgba(239, 246, 255, 0.5)" }}
                         className="transition-colors duration-150"
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -478,47 +632,11 @@ const TeamDashboard: React.FC = () => {
                           <div className="text-sm text-gray-900">{member.department}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <motion.span whileHover={{ scale: 1.05 }} className={`px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full ${getStatusColor(member.status)} text-white shadow-sm`}>
-                            {member.status
-                              .split("-")
-                              .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-                              .join(" ")}
+                          <motion.span whileHover={{ scale: 1.03 }} className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-bold rounded-full ${getStatusColor(member.status)}`}>
+                            {member.status}
                           </motion.span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{member.lastActive}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex justify-end space-x-2">
-                            <motion.button
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.9 }}
-                              className="text-blue-600 hover:text-blue-900"
-                              onClick={() => {
-                                setSelectedUser(member);
-                                setNewUser({
-                                  name: member.name,
-                                  nik: member.nik,
-                                  role: member.role.toLowerCase(),
-                                  department: member.department.toLowerCase(),
-                                  phone: member.phone,
-                                });
-                                setShowAddModal(true);
-                              }}
-                            >
-                              <FiEdit2 />
-                            </motion.button>
-                            <motion.button
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.9 }}
-                              className="text-red-600 hover:text-red-900"
-                              onClick={() => {
-                                setSelectedUser(member);
-                                setShowDeleteModal(true);
-                              }}
-                            >
-                              <FiTrash2 />
-                            </motion.button>
-                          </div>
-                        </td>
                       </motion.tr>
                     ))
                   ) : (
@@ -533,134 +651,145 @@ const TeamDashboard: React.FC = () => {
             </div>
           </motion.div>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
-            <StatCard title="Total Team Members" value={teamMembers.length} icon={<FiUsers />} />
-            <StatCard title="Active Members" value={teamMembers.filter((m) => m.status === "Active").length} icon={<FiCheckCircle />} />
-            <StatCard title="On Leave" value={teamMembers.filter((m) => m.status === "On Leave").length} icon={<FiClock />} />
-            <StatCard title="Departements" value={departments.length} icon={<FiDatabase />} />
-          </div>
-
-          {/* Department Distribution */}
-          <div className="bg-white rounded-xl p-4 md:p-6 border border-blue-100 shadow-sm mb-6">
-            <h3 className="text-lg font-semibold mb-4">Department Distribution</h3>
+          <div className="bg-white rounded-2xl shadow-md p-6 border border-blue-100 mt-8">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Department Distribution</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="h-64 bg-gray-50 rounded-lg flex items-center justify-center">
+              <div className="bg-blue-50 rounded-xl p-4 flex items-center justify-center">
                 <div className="text-center text-gray-500">
-                  <FiBarChart2 className="mx-auto text-4xl mb-2" />
-                  <p>Department Chart Visualization</p>
+                  <BarChart2 className="mx-auto text-4xl mb-2 text-blue-400" />
+                  <p>Department chart visualization</p>
                 </div>
               </div>
-              <div>
-                <div className="space-y-3">
-                  {departments.map((dept) => (
-                    <div key={dept} className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-gray-700">{dept}</span>
-                      <div className="w-1/2 bg-gray-200 rounded-full h-2.5">
-                        <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${(teamMembers.filter((m) => m.department === dept).length / teamMembers.length) * 100}%` }}></div>
-                      </div>
-                      <span className="text-sm text-gray-500">{Math.round((teamMembers.filter((m) => m.department === dept).length / teamMembers.length) * 100)}%</span>
+              <div className="space-y-4">
+                {departments.map((dept) => (
+                  <div key={dept} className="flex items-center">
+                    <div className="w-1/3 text-sm font-medium text-gray-700">{dept}</div>
+                    <div className="w-1/2 bg-gray-200 rounded-full h-2.5 mx-2">
+                      <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${(teamMembers.filter((m) => m.department === dept).length / teamMembers.length) * 100}%` }}></div>
                     </div>
-                  ))}
-                </div>
+                    <div className="w-1/6 text-right text-sm text-gray-500">{Math.round((teamMembers.filter((m) => m.department === dept).length / teamMembers.length) * 100)}%</div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
         </main>
       </div>
 
-      {/* Add/Edit User Modal */}
-      <AnimatePresence>
-        {showAddModal && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" onClick={() => setShowAddModal(false)}>
-            <motion.div initial={{ y: -50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 50, opacity: 0 }} className="bg-white rounded-xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-              <h3 className="text-xl font-bold mb-4">{selectedUser ? "Edit Team Member" : "Add New Team Member"}</h3>
+      <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} title={selectedUser ? "Edit Team Member" : "Add New Team Member"}>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+            <input
+              type="text"
+              className="w-full bg-blue-50 border border-blue-200 rounded-lg p-3 text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={newUser.name}
+              onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
+            />
+          </div>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                  <input type="text" className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} />
-                </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">NIK</label>
+            <input
+              type="text"
+              className="w-full bg-blue-50 border border-blue-200 rounded-lg p-3 text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={newUser.nik}
+              onChange={(e) => setNewUser({ ...newUser, nik: e.target.value })}
+            />
+          </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                  <input type="nik" className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" value={newUser.nik} onChange={(e) => setNewUser({ ...newUser, nik: e.target.value })} />
-                </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+            <input
+              type="tel"
+              className="w-full bg-blue-50 border border-blue-200 rounded-lg p-3 text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={newUser.phone}
+              onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })}
+            />
+          </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                  <input type="tel" className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" value={newUser.phone} onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })} />
-                </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+            <select
+              className="w-full bg-blue-50 border border-blue-200 rounded-lg p-3 text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={newUser.role}
+              onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+            >
+              <option value="technician">Maintenance Technician</option>
+              <option value="supervisor">Maintenance Supervisor</option>
+              <option value="engineer">Engineer</option>
+              <option value="manager">Facility Manager</option>
+              <option value="inventory">Inventory Manager</option>
+              <option value="admin">Administrator</option>
+            </select>
+          </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-                  <select className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}>
-                    <option value="technician">Maintenance Technician</option>
-                    <option value="supervisor">Maintenance Supervisor</option>
-                    <option value="engineer">Engineer</option>
-                    <option value="manager">Facility Manager</option>
-                    <option value="inventory">Inventory Manager</option>
-                    <option value="admin">Administrator</option>
-                  </select>
-                </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+            <select
+              className="w-full bg-blue-50 border border-blue-200 rounded-lg p-3 text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={newUser.department}
+              onChange={(e) => setNewUser({ ...newUser, department: e.target.value })}
+            >
+              <option value="maintenance">Maintenance</option>
+              <option value="facility">Facility Management</option>
+              <option value="electrical">Electrical</option>
+              <option value="mechanical">Mechanical</option>
+              <option value="hvac">HVAC</option>
+              <option value="logistics">Logistics</option>
+            </select>
+          </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
-                  <select className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" value={newUser.department} onChange={(e) => setNewUser({ ...newUser, department: e.target.value })}>
-                    <option value="maintenance">Maintenance</option>
-                    <option value="facility">Facility Management</option>
-                    <option value="electrical">Electrical</option>
-                    <option value="mechanical">Mechanical</option>
-                    <option value="hvac">HVAC</option>
-                    <option value="logistics">Logistics</option>
-                  </select>
-                </div>
-              </div>
+          <div className="flex justify-end pt-6 border-t border-gray-100 mt-6">
+            <motion.button
+              type="button"
+              onClick={() => {
+                setShowAddModal(false);
+                setSelectedUser(null);
+              }}
+              whileHover={{ scale: 1.02, boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)" }}
+              whileTap={{ scale: 0.98 }}
+              className="inline-flex items-center px-6 py-2.5 border border-gray-300 text-base font-semibold rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 ease-in-out"
+            >
+              Cancel
+            </motion.button>
+            <motion.button
+              type="button"
+              onClick={handleAddUser}
+              whileHover={{ scale: 1.02, boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)" }}
+              whileTap={{ scale: 0.98 }}
+              className="inline-flex items-center px-6 py-2.5 border border-transparent text-base font-semibold rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 ease-in-out ml-3"
+            >
+              {selectedUser ? "Update Member" : "Add Member"}
+            </motion.button>
+          </div>
+        </div>
+      </Modal>
 
-              <div className="mt-6 flex justify-end space-x-3">
-                <motion.button
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-                  onClick={() => {
-                    setShowAddModal(false);
-                    setSelectedUser(null);
-                  }}
-                >
-                  Cancel
-                </motion.button>
-                <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors" onClick={handleAddUser}>
-                  {selectedUser ? "Update Member" : "Add Member"}
-                </motion.button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Delete Confirmation Modal */}
-      <AnimatePresence>
-        {showDeleteModal && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" onClick={() => setShowDeleteModal(false)}>
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-white rounded-xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-              <div className="text-center">
-                <FiAlertCircle className="mx-auto text-red-500 text-5xl mb-4" />
-                <h3 className="text-xl font-bold mb-2">Delete Team Member</h3>
-                <p className="text-gray-600 mb-6">Are you sure you want to delete {selectedUser?.name}? This action cannot be undone.</p>
-
-                <div className="flex justify-center space-x-4">
-                  <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setShowDeleteModal(false)}>
-                    Cancel
-                  </motion.button>
-                  <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors" onClick={() => handleDeleteUser(selectedUser?.id)}>
-                    Delete
-                  </motion.button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <Modal isOpen={showDeleteModal} onClose={() => setShowDeleteModal(false)} title="Confirm Deletion">
+        <div className="space-y-5 text-center py-3">
+          <CheckCircle className="text-red-500 text-5xl mx-auto animate-pulse" />
+          <p className="text-base text-gray-700 font-medium">Are you sure you want to delete {selectedUser?.name}? This action cannot be undone.</p>
+          <div className="flex justify-center space-x-3 mt-5">
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => setShowDeleteModal(false)}
+              className="px-5 py-2.5 border border-gray-300 rounded-md hover:bg-gray-100 text-gray-700 transition-colors duration-200 font-semibold text-sm"
+            >
+              Cancel
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={handleDeleteUser}
+              className="px-5 py-2.5 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200 font-semibold text-sm"
+            >
+              Delete
+            </motion.button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

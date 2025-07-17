@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { useDebouncedCallback } from "use-debounce";
+import Sidebar from "../component/Sidebar";
 import {
   Plus,
   Upload,
@@ -198,23 +199,23 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
   };
 
   const displayValue = (value: any): string => {
-  if (value === null || value === undefined) return "-";
-  
-  // Jika value adalah objek, coba ambil properti name atau stringify
-  if (typeof value === "object") {
-    return value.name || JSON.stringify(value);
-  }
+    if (value === null || value === undefined) return "-";
 
-  if (typeof value === "string") {
-    return value.trim() !== "" ? value.trim() : "-";
-  }
+    // Jika value adalah objek, coba ambil properti name atau stringify
+    if (typeof value === "object") {
+      return value.name || JSON.stringify(value);
+    }
 
-  if (typeof value === "number") {
-    return value.toLocaleString("id-ID");
-  }
+    if (typeof value === "string") {
+      return value.trim() !== "" ? value.trim() : "-";
+    }
 
-  return String(value); // Konversi ke string sebagai fallback
-};
+    if (typeof value === "number") {
+      return value.toLocaleString("id-ID");
+    }
+
+    return String(value); // Konversi ke string sebagai fallback
+  };
 
   const downtimeMinutes = convertDurationInMinutes(record.stopJam, record.stopMenit, record.startJam, record.startMenit);
   const displayDowntime = convertMinutesToHoursAndMinutes(downtimeMinutes);
@@ -565,63 +566,7 @@ const MachineHistoryDashboard: React.FC = () => {
 
   return (
     <div className={`flex h-screen font-sans antialiased bg-blue-50`}>
-      <AnimatePresence>
-        {(!isMobile || sidebarOpen) && (
-          <motion.div
-            initial={{ width: isMobile ? 0 : sidebarOpen ? 280 : 80, opacity: 0 }}
-            animate={{
-              width: isMobile ? (sidebarOpen ? 280 : 0) : sidebarOpen ? 280 : 80,
-              opacity: 1,
-            }}
-            exit={{ width: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: "easeInOut" }}
-            className={`bg-white border-r border-gray-100 flex flex-col shadow-xl overflow-hidden ${isMobile ? "fixed z-50 h-full" : ""}`}
-          >
-            <div className="p-4 flex items-center justify-between border-b border-gray-100">
-              {sidebarOpen ? (
-                <div className="flex items-center space-x-3">
-                  <img src={logoWida} alt="Logo Wida" className="h-9 w-auto" />
-                  <p className="text-blue-600 font-bold text-xl tracking-wide">CMMS</p>
-                </div>
-              ) : (
-                <img src={logoWida} alt="Logo Wida" className="h-8 w-auto mx-auto" />
-              )}
-
-              <button onClick={toggleSidebar} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200" aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}>
-                {sidebarOpen ? <ChevronLeft className="text-xl" /> : <ChevronRight className="text-xl" />}
-              </button>
-            </div>
-
-            <nav className="flex-1 p-3 space-y-1.5 overflow-y-auto custom-scrollbar">
-              {hasPermission("1") && <NavItem icon={<Home />} text="Dashboard" to="/dashboard" expanded={sidebarOpen} />}
-              {hasPermission("3") && <NavItem icon={<Package />} text="Assets" to="/assets" expanded={sidebarOpen} />}
-              {hasPermission("7") && <NavItem icon={<Clipboard />} text="Work Orders" to="/workorders" expanded={sidebarOpen} />}
-              {hasPermission("31") && <NavItem icon={<Clipboard />} text="Machine History" to="/machinehistory" expanded={sidebarOpen} />}
-              {hasPermission("23") && <NavItem icon={<Database />} text="Inventory" to="/inventory" expanded={sidebarOpen} />}
-              {hasPermission("11") && <NavItem icon={<BarChart2 />} text="Reports" to="/reports" expanded={sidebarOpen} />}
-              {hasPermission("27") && <NavItem icon={<Users />} text="Team" to="/team" expanded={sidebarOpen} />}
-              {hasPermission("13") && <NavItem icon={<Settings />} text="Settings" to="/settings" expanded={sidebarOpen} />}
-              {hasPermission("15") && <NavItem icon={<Key />} text="Permissions" to="/permissions" expanded={sidebarOpen} />}
-            </nav>
-
-            <div className="p-4 border-t border-gray-100">
-              <div className="flex items-center space-x-3">
-                <img
-                  src={`https://api.dicebear.com/7.x/initials/svg?seed=${user?.name || "User"}&backgroundColor=0081ff,3d5a80,ffc300,e0b589&backgroundType=gradientLinear&radius=50`}
-                  alt="User Avatar"
-                  className="w-10 h-10 rounded-full border-2 border-blue-400 object-cover"
-                />
-                {sidebarOpen && (
-                  <div>
-                    <p className="font-semibold text-gray-800 text-sm">Application Version</p>
-                    <p className="text-xs text-gray-500">1.0.0</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <Sidebar />
 
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="bg-white border-b border-gray-100 p-4 flex items-center justify-between shadow-sm sticky top-0 z-30">

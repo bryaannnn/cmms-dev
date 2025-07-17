@@ -84,13 +84,6 @@ export type PermissionName =
   | "edit_permissions"
   | "manage_users";
 
-export interface ERPRecord {
-  // Ganti properti di bawah ini sesuai dengan struktur data dari ERP Anda
-  id: string;
-  itemName: string;
-  quantity: number;
-}
-
 export interface Role {
   id: string;
   name: string;
@@ -103,6 +96,7 @@ export interface User {
   id: string;
   name: string;
   nik: string;
+  email: string;
   roleId?: string;
   roles?: string[];
   customPermissions?: string[];
@@ -164,9 +158,26 @@ export interface Startstop {
   event_name: string | null;
   start_time_hh: number | null;
   start_time_mm: number | null;
-  stop_time_hh: number | null;
-  stop_time_mm: number | null;
   duration_minutes: number | null;
+}
+
+export interface ERPRecord {
+  id: number;
+  name: string;
+  category: string;
+  location: string;
+  purchaseDate: string;
+  description: string;
+  type: string | null;
+  make: string | null;
+  model: string | null;
+  status: string | null;
+  lastMaintenance: string | null;
+  nextMaintenance: string | null;
+  workOrders: string | null;
+  health: string | null;
+  createdAt: string;
+  updateAt: string;
 }
 
 export interface AllMasterData {
@@ -237,6 +248,48 @@ export interface WorkOrderFormData {
   description?: string | null;
 }
 
+type AssetStatus = "running" | "maintenance" | "breakdown" | "idle";
+type AssetType = "mechanical" | "electrical" | "vehicle" | "building";
+
+export interface Asset {
+  id: string; // ID dari ERP adalah number, tapi di frontend sering string
+  name: string;
+  category: string;
+  location: string;
+  purchase_date: string; // Menggunakan nama properti dari respons ERP
+  description: string;
+  type: "mechanical" | "electrical" | "vehicle" | "building" | null; // Bisa null dari ERP
+  make: string | null; // Bisa null dari ERP
+  model: string | null; // Bisa null dari ERP
+  status: "running" | "maintenance" | "breakdown" | "idle" | null; // Bisa null dari ERP
+  last_maintenance: string | null; // Bisa null dari ERP
+  next_maintenance: string | null; // Bisa null dari ERP
+  work_orders: number | null; // Bisa null dari ERP
+  health: number | null; // Bisa null dari ERP
+  created_at?: string; // Opsional, dari ERP
+  updated_at?: string; // Opsional, dari ERP
+}
+
+// Perbarui interface AssetData untuk payload addAsset, sesuai dengan format yang Anda inginkan
+export interface AssetData {
+  id: number; // Diperbarui menjadi number
+  name: string;
+  category: string;
+  location: string;
+  purchase_date: string;
+  description: string;
+  type: string | null; // Diperbarui menjadi string | null
+  make: string | null;
+  model: string | null;
+  status: string | null;
+  last_maintenance: string | null; // Diperbarui menjadi number | null
+  next_maintenance: string | null; // Diperbarui menjadi number | null
+  work_orders: string | null; // Diperbarui menjadi string | null
+  health: string | null; // Diperbarui menjadi string | null
+  created_at: string;
+  update_at: string;
+}
+
 interface EditingUser extends User {
   department?: string;
 }
@@ -251,10 +304,10 @@ function mapApiToMachineHistoryRecord(apiData: any, masterData: AllMasterData | 
   return {
     id: String(apiData.id),
     date: apiData.date,
-    shift: apiData.shift?.name || "-", // Ambil name dari objek shift
-    group: apiData.group?.name || "-", // Ambil name dari objek group
-    unit: apiData.unit?.name || "-", // Ambil name dari objek unit
-    mesin: apiData.mesin?.name || "-", // Ambil name dari objek mesin
+    shift: apiData.shift?.name || "-",
+    group: apiData.group?.name || "-",
+    unit: apiData.unit?.name || "-",
+    mesin: apiData.mesin?.name || "-",
     stopJam: apiData.startstop?.stop_time_hh ?? null,
     stopMenit: apiData.startstop?.stop_time_mm ?? null,
     startJam: apiData.startstop?.start_time_hh ?? null,
@@ -272,7 +325,7 @@ function mapApiToMachineHistoryRecord(apiData: any, masterData: AllMasterData | 
     sparePart: apiData.spare_part || "",
     idPart: apiData.id_part || "",
     jumlah: apiData.jumlah ?? 0,
-    unitSparePart: apiData.unitsp?.name || "-",
+    unitSparePart: unitSparePartName,
     startstop: apiData.startstop ?? null,
   };
 }
@@ -282,7 +335,7 @@ interface AuthContextType {
   token: string | null;
   isAuthenticated: boolean;
   login: (nik: string, password: string) => Promise<void>;
-  register: (name: string, nik: string, password: string, department?: string, position?: string, roleId?: string, customPermissions?: string[]) => Promise<any>;
+  register: (name: string, email: string, nik: string, password: string, department?: string, position?: string, roleId?: string, customPermissions?: string[]) => Promise<any>;
   logout: () => Promise<void>;
   isLoggingOut: boolean;
   fetchWithAuth: (url: string, options?: RequestInit) => Promise<any>;
@@ -311,6 +364,10 @@ interface AuthContextType {
   updateUserPermissions: (userId: string, data: { roleId?: string | null; customPermissions?: string[] }) => Promise<User>;
   deleteUser: (id: string) => Promise<void>;
   isAuthLoading: boolean;
+  getERPData: () => Promise<ERPRecord[]>;
+  addAsset: (assetData: AssetData) => Promise<any>;
+  editAsset: (assetData: AssetData) => Promise<any>;
+  deleteAsset: (assetId: string) => Promise<any>;
 }
 
 const projectEnvVariables = getProjectEnvVariables();
@@ -321,6 +378,7 @@ const mapApiToUser = (apiUser: any): User => {
     id: String(apiUser.id),
     name: apiUser.name,
     nik: apiUser.nik,
+    email: apiUser.email,
     roleId: apiUser.roleId || null,
     roles: apiUser.roles || [],
     customPermissions: apiUser.customPermissions || [],
@@ -442,7 +500,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
 
         const headers = new Headers(options.headers || {});
-        headers.set("Content-Type", "application/json");
+        if (headers.get("Content-Type")?.includes("application/json") || !headers.has("Content-Type")) {
+          headers.set("Content-Type", "application/json");
+        }
         headers.set("Authorization", `Bearer ${tokenToUse}`);
 
         const response = await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}${url}`, {
@@ -450,12 +510,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           headers,
         });
 
-        // Handle empty responses
         if (response.status === 204 || response.statusText === "No Content") {
           return null;
         }
 
-        // Handle non-OK responses
         if (!response.ok) {
           let errorData;
           try {
@@ -466,20 +524,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           throw new Error(errorData.message || `HTTP error! Status: ${response.status}`);
         }
 
-        // Try to parse JSON, fall back to text if needed
+        let responseText;
         try {
-          const responseText = await response.text();
+          responseText = await response.text();
           return responseText ? JSON.parse(responseText) : null;
         } catch (e) {
-          console.error("Failed to parse response as JSON:", e);
-          throw new Error("Invalid JSON response from server");
+          // It's possible the response is not JSON, like a SOAP response
+          return responseText;
         }
       };
 
       try {
         return await makeRequest(currentToken);
       } catch (error) {
-        console.error("Fetch with auth error:", error);
         if (error instanceof Error && error.message.includes("status: 401")) {
           const newAccessToken = await refreshAccessToken();
           if (newAccessToken) {
@@ -491,8 +548,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     },
     [token, refreshAccessToken]
   );
-
-  // Rest of the code remains the same...
 
   const fetchUser = useCallback(async (): Promise<User> => {
     const userData = await fetchWithAuth("/user/profile");
@@ -548,6 +603,149 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, [fetchWithAuth]);
 
+  const getERPData = useCallback(async (): Promise<ERPRecord[]> => {
+    try {
+      const erpRecords = await fetchWithAuth("/erp", {
+        method: "GET",
+      });
+      return erpRecords;
+    } catch (error) {
+      throw error;
+    }
+  }, [fetchWithAuth]);
+
+  const addAsset = useCallback(async (assetData: AssetData): Promise<any> => {
+    const soapBody = `<?xml version="1.0" encoding="utf-8"?>
+      <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                    xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+        <soap:Body>
+          <AddAsset xmlns="http://tempuri.org/ERPService/AssetManagement">
+            <asset>
+              <Name>${assetData.name}</Name>
+              <Category>${assetData.category}</Category>
+              <Location>${assetData.location}</Location>
+              <PurchaseDate>${assetData.purchase_date}</PurchaseDate>
+              <Description>${assetData.description}</Description>
+              <Type>${assetData.type ?? ""}</Type>
+              <Make>${assetData.make ?? ""}</Make>
+              <Model>${assetData.model ?? ""}</Model>
+              <Status>${assetData.status ?? ""}</Status>
+              <LastMaintenance>${assetData.last_maintenance ?? ""}</LastMaintenance>
+              <NextMaintenance>${assetData.next_maintenance ?? ""}</NextMaintenance>
+              <WorkOrders>${assetData.work_orders ?? ""}</WorkOrders>
+              <Health>${assetData.health ?? ""}</Health>
+            </asset>
+          </AddAsset>
+        </soap:Body>
+      </soap:Envelope>`;
+
+    try {
+      const response = await fetchWithAuth(`/erp-endpoint`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "text/xml; charset=utf-8",
+          SOAPAction: "http://tempuri.org/ERPService/AssetManagement/AddAsset",
+        },
+        body: soapBody,
+      });
+
+      console.log("ERP SOAP Response:", response);
+
+      if (typeof response === "string" && response.includes("<soap:Fault>")) {
+        throw new Error("SOAP Fault detected in response.");
+      }
+
+      return response;
+    } catch (error) {
+      console.error("Error adding asset:", error);
+      throw error;
+    }
+  }, []);
+
+  const editAsset = useCallback(
+    async (assetData: AssetData): Promise<any> => {
+      // Perbaikan: Hapus tag <asset> dan sesuaikan nama elemen sesuai contoh yang berhasil
+      const soapBody = `<?xml version="1.0" encoding="utf-8"?>
+      <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                    xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+        <soap:Body>
+          <EditAsset xmlns="http://tempuri.org/ERPService/AssetManagement">
+            <assetId>${assetData.id}</assetId>
+            <assetName>${assetData.name}</assetName>
+            <assetCategory>${assetData.category}</assetCategory>
+            <assetLocation>${assetData.location}</assetLocation>
+            <purchaseDate>${assetData.purchase_date}</purchaseDate>
+            <description>${assetData.description}</description>
+            <assetType>${assetData.type ?? ""}</assetType>
+            <assetMake>${assetData.make ?? ""}</assetMake>
+            <assetModel>${assetData.model ?? ""}</assetModel>
+            <assetStatus>${assetData.status ?? ""}</assetStatus>
+            <lastMaintenance>${assetData.last_maintenance ?? ""}</lastMaintenance>
+            <nextMaintenance>${assetData.next_maintenance ?? ""}</nextMaintenance>
+            <workOrders>${assetData.work_orders ?? ""}</workOrders>
+            <health>${assetData.health ?? ""}</health>
+          </EditAsset>
+        </soap:Body>
+      </soap:Envelope>`;
+
+      try {
+        const response = await fetchWithAuth(`/erp-endpoint`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "text/xml; charset=utf-8",
+            SOAPAction: "http://tempuri.org/ERPService/AssetManagement/EditAsset",
+          },
+          body: soapBody,
+        });
+
+        // For XML responses, we might just want to return the raw response
+        return response;
+      } catch (error) {
+        console.error("Error editing asset:", error);
+        throw error;
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const deleteAsset = useCallback(
+    async (assetId: string): Promise<any> => {
+      const soapBody = `<?xml version="1.0" encoding="utf-8"?>
+    <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+      <soap:Body>
+        <DeleteAsset xmlns="http://tempuri.org/ERPService/AssetManagement">
+          <assetId>${assetId}</assetId>
+        </DeleteAsset>
+      </soap:Body>
+    </soap:Envelope>`;
+
+      try {
+        const response = await fetchWithAuth(`/erp-endpoint`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "text/xml; charset=utf-8",
+            SOAPAction: "http://tempuri.org/ERPService/AssetManagement/DeleteAsset",
+          },
+          body: soapBody,
+        });
+
+        console.log("ERP SOAP Delete Response:", response);
+
+        if (typeof response === "string" && response.includes("<soap:Fault>")) {
+          throw new Error("SOAP Fault detected in response.");
+        }
+
+        return response;
+      } catch (error) {
+        console.error("Error deleting asset:", error);
+        throw error;
+      }
+    },
+    [fetchWithAuth]
+  );
+
   const hasPermission = useCallback(
     (permission: string | PermissionName | string[]): boolean => {
       if (!user) return false;
@@ -568,6 +766,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     const loadInitialData = async () => {
+      setIsAuthLoading(true);
       try {
         await initializeAuthState();
         if (token) {
@@ -585,13 +784,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     loadInitialData();
   }, [token, initializeAuthState, getAllMasterData, logout]);
 
-  const register = async (name: string, nik: string, password: string, department?: string, position?: string, roleId?: string, customPermissions?: string[]) => {
+  const register = async (name: string, email: string, nik: string, password: string, department?: string, position?: string, roleId?: string, customPermissions?: string[]) => {
     const response = await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name,
         nik,
+        email,
         password,
         department,
         position,
@@ -638,9 +838,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         try {
           const masterData = await getAllMasterData();
           setMasterData(masterData);
-        } catch (error) {
-          console.error("Failed to load master data:", error);
-        }
+        } catch (error) {}
 
         navigate("/dashboard");
       } catch (error) {
@@ -668,19 +866,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     async (searchQuery: string = ""): Promise<MachineHistoryRecord[]> => {
       try {
         const response = await fetchWithAuth(searchQuery ? `/mhs?search=${encodeURIComponent(searchQuery)}` : "/mhs");
-
-        // Dapatkan masterData jika diperlukan
         const masterData = await getAllMasterData();
-
-        // Pastikan response.data ada dan merupakan array
         const data = response.data || response;
         if (!Array.isArray(data)) {
           throw new Error("Invalid response format");
         }
-
         return data.map((item) => mapApiToMachineHistoryRecord(item, masterData));
       } catch (error) {
-        console.error("Error fetching machine histories:", error);
         return [];
       }
     },
@@ -856,6 +1048,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         body: JSON.stringify({
           name: currentUser.name,
           nik: currentUser.nik,
+          email: currentUser.email,
           department: currentUser.department,
           roleId: data.roleId || null,
           customPermissions: data.customPermissions || [],
@@ -913,6 +1106,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         updateUserPermissions,
         deleteUser,
         isAuthLoading,
+        getERPData,
+        addAsset,
+        editAsset,
+        deleteAsset,
       }}
     >
       {children}

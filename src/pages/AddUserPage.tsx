@@ -76,6 +76,7 @@ const AddUserPage: React.FC = () => {
   const [newUser, setNewUser] = useState({
     name: "",
     nik: "",
+    email: "",
     roleId: "",
     customPermissions: [] as string[],
     department: "",
@@ -164,7 +165,7 @@ const AddUserPage: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      await register(newUser.name, newUser.nik, newUser.password, newUser.department, newUser.position, newUser.roleId, newUser.customPermissions);
+      await register(newUser.name, newUser.email, newUser.nik, newUser.password, newUser.department, newUser.position, newUser.roleId, newUser.customPermissions);
 
       navigate("/permissions", { state: { success: "User created successfully" } });
     } catch (error: any) {
@@ -263,6 +264,18 @@ const AddUserPage: React.FC = () => {
                     {errors.nik && <p className="mt-1 text-sm text-red-600">{errors.nik}</p>}
                   </div>
                   <div>
+                    <label className={`block text-sm font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Email*</label>
+                    <input
+                      type="text"
+                      name="email"
+                      value={newUser.email}
+                      onChange={handleInputChange}
+                      className={`w-full ${darkMode ? "bg-gray-700 border-gray-600 text-gray-100" : "border-gray-300"} border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                      placeholder="Enter Email"
+                    />
+                    {errors.nik && <p className="mt-1 text-sm text-red-600">{errors.nik}</p>}
+                  </div>
+                  <div>
                     <label className={`block text-sm font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Department*</label>
                     <select
                       name="department"
@@ -345,11 +358,7 @@ const AddUserPage: React.FC = () => {
                 <div className="space-y-4">
                   {Object.entries(permissionsByCategory).map(([category, perms]) => (
                     <div key={category} className={`${darkMode ? "border-gray-700" : "border-gray-200"} border rounded-lg overflow-hidden`}>
-                      <button
-                        type="button" // <--- TAMBAHKAN INI DI SINI!
-                        onClick={() => toggleCategory(category)}
-                        className={`w-full flex justify-between items-center p-3 ${darkMode ? "bg-gray-700 hover:bg-gray-600" : "bg-gray-50 hover:bg-gray-100"}`}
-                      >
+                      <button type="button" onClick={() => toggleCategory(category)} className={`w-full flex justify-between items-center p-3 ${darkMode ? "bg-gray-700 hover:bg-gray-600" : "bg-gray-50 hover:bg-gray-100"}`}>
                         <span className={`font-medium ${darkMode ? "text-gray-200" : "text-gray-700"}`}>{category}</span>
                         {expandedCategories[category] ? <FiChevronUp /> : <FiChevronDown />}
                       </button>

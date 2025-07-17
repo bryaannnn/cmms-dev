@@ -1,41 +1,19 @@
-import React, { useState, useEffect } from "react";
-import {
-  FiSettings,
-  FiUser,
-  FiLock,
-  FiBell,
-  FiMoon,
-  FiSun,
-  FiDatabase,
-  FiGlobe,
-  FiCreditCard,
-  FiUsers,
-  FiLogOut,
-  FiChevronLeft,
-  FiChevronRight,
-  FiHome,
-  FiPackage,
-  FiClipboard,
-  FiBarChart2,
-  FiX,
-  FiCheck,
-  FiEdit2,
-  FiSave,
-  FiTrash2,
-  FiChevronDown,
-  FiKey,
-} from "react-icons/fi";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useAuth, PermissionName } from "../routes/AuthContext";
+import { useAuth } from "../routes/AuthContext";
 import logoWida from "../assets/logo-wida.png";
 import { motion, AnimatePresence } from "framer-motion";
+import Sidebar from "../component/Sidebar";
 
-type NavItemProps = {
+// Import Lucide Icons for consistency with Dashboard.tsx
+import { Settings, User as UserIcon, Lock, Bell, Moon, Sun, Database, Globe, CreditCard, Users, LogOut, ChevronLeft, ChevronRight, Home, Package, Clipboard, BarChart2, X, Key, ChevronDown } from "lucide-react";
+
+interface NavItemProps {
   icon: React.ReactNode;
   text: string;
   to: string;
   expanded: boolean;
-};
+}
 
 const NavItem: React.FC<NavItemProps> = ({ icon, text, to, expanded }) => {
   const navigate = useNavigate();
@@ -45,15 +23,15 @@ const NavItem: React.FC<NavItemProps> = ({ icon, text, to, expanded }) => {
   return (
     <motion.button
       onClick={() => navigate(to)}
-      whileHover={{ scale: 1.02 }}
+      whileHover={{ backgroundColor: active ? undefined : "rgba(239, 246, 255, 0.6)" }}
       whileTap={{ scale: 0.98 }}
-      className={`w-full text-left flex items-center p-2 rounded-lg transition-all duration-200
-        ${active ? "bg-blue-50 text-blue-700 font-semibold" : "hover:bg-blue-50 text-gray-700"}
+      className={`relative w-full text-left flex items-center py-3 px-4 rounded-xl transition-all duration-200 ease-in-out group
+        ${active ? "bg-blue-600 text-white shadow-lg" : "text-gray-700 hover:text-blue-700"}
       `}
     >
-      <span className="text-xl">{icon}</span>
+      <span className={`text-xl transition-colors duration-200 ${active ? "text-white" : "text-blue-500 group-hover:text-blue-700"}`}>{icon}</span>
       {expanded && (
-        <motion.span initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.2 }} className="ml-3 text-base">
+        <motion.span initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.15 }} className="ml-4 text-base font-medium whitespace-nowrap">
           {text}
         </motion.span>
       )}
@@ -62,28 +40,24 @@ const NavItem: React.FC<NavItemProps> = ({ icon, text, to, expanded }) => {
 };
 
 const SettingsPage: React.FC = () => {
+  const { user, hasPermission, logout } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
     const stored = localStorage.getItem("sidebarOpen");
     return stored ? JSON.parse(stored) : false;
   });
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
   const [activeTab, setActiveTab] = useState("profile");
   const [isEditing, setIsEditing] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const { hasPermission } = useAuth();
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
 
-  const [formData, setFormData] = useState({
-    name: "Admin User",
-    nik: "12345678910111213141516",
-    language: "en",
-    notifications: true,
-    billingEmail: "billing@company.com",
-  });
-
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  // Refs for click outside
+  const profileRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleResize = () => {
@@ -92,19 +66,40 @@ const SettingsPage: React.FC = () => {
         setSidebarOpen(false);
       }
     };
-
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // Click outside handler for popups
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setShowProfileMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  const [formData, setFormData] = useState({
+    name: user?.name,
+    nik: user?.nik,
+    email: user?.email,
+    language: "en",
+    notifications: true,
+    billingEmail: "haloo@company.com",
+  });
+
   const toggleSidebar = () => {
+    localStorage.setItem("sidebarOpen", JSON.stringify(!sidebarOpen));
     setSidebarOpen((prev) => !prev);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target as HTMLInputElement;
     const checked = type === "checkbox" ? (e.target as HTMLInputElement).checked : undefined;
-
     setFormData((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value,
@@ -113,18 +108,19 @@ const SettingsPage: React.FC = () => {
 
   const handleSave = () => {
     setIsEditing(false);
-    // Here you would typically send the updated data to your backend
-  };
-
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
+    // Logic untuk menyimpan data ke backend
   };
 
   const SettingCard: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => {
     return (
-      <motion.div whileHover={{ y: -2, boxShadow: "0 4px 6px rgba(0, 0, 0, 0.05)" }} transition={{ type: "spring", stiffness: 300 }} className="bg-white rounded-xl shadow-sm p-6 mb-6 border border-blue-100">
-        <h3 className="text-lg font-semibold mb-4 text-gray-900">{title}</h3>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        whileHover={{ y: -5, boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)", scale: 1.01 }}
+        className="bg-white rounded-2xl shadow-md p-6 border border-blue-50 cursor-pointer overflow-hidden transform transition-transform duration-200"
+      >
+        <h3 className="text-xl font-bold mb-4 text-gray-900">{title}</h3>
         {children}
       </motion.div>
     );
@@ -138,10 +134,10 @@ const SettingsPage: React.FC = () => {
     onEdit?: () => void;
   }> = ({ label, value, children, editable = true, onEdit }) => {
     return (
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between py-4 border-b border-blue-100">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between py-4 border-b border-gray-100 last:border-b-0">
         <div className="mb-2 sm:mb-0">
           <p className="font-medium text-gray-700">{label}</p>
-          {value !== undefined && <p className="text-gray-600">{typeof value === "boolean" ? (value ? "Enabled" : "Disabled") : value}</p>}
+          {value !== undefined && <p className="text-sm text-gray-600">{typeof value === "boolean" ? (value ? "Enabled" : "Disabled") : value}</p>}
         </div>
         {editable && (
           <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={onEdit} className="text-blue-600 hover:text-blue-800 text-sm font-medium">
@@ -164,159 +160,152 @@ const SettingsPage: React.FC = () => {
 
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-        <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-auto">
-          <div className="flex justify-between items-center border-b border-blue-100 p-4">
+        <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-auto">
+          <div className="flex justify-between items-center border-b border-gray-100 p-4">
             <h3 className="text-xl font-bold text-gray-900">{title}</h3>
             <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={onClose} className="text-gray-500 hover:text-gray-700">
-              <FiX className="text-xl" />
+              <X size={20} />
             </motion.button>
           </div>
           <div className="p-6">{children}</div>
-          {actions && <div className="flex justify-end space-x-3 p-4 border-t border-blue-100">{actions}</div>}
+          {actions && <div className="flex justify-end space-x-3 p-4 border-t border-gray-100">{actions}</div>}
         </motion.div>
       </motion.div>
     );
   };
 
   return (
-    <div className="flex h-screen font-sans bg-gray-50 text-gray-900">
-      {/* Sidebar */}
-      <AnimatePresence>
-        {(!isMobile || sidebarOpen) && (
-          <motion.div
-            initial={{ width: isMobile ? 0 : sidebarOpen ? 256 : 80 }}
-            animate={{
-              width: isMobile ? (sidebarOpen ? 256 : 0) : sidebarOpen ? 256 : 80,
-            }}
-            exit={{ width: 0 }}
-            transition={{ duration: 0.3, ease: "easeInOut" }}
-            className={`bg-white border-r border-blue-100 flex flex-col shadow-md overflow-hidden ${isMobile ? "fixed z-50 h-full" : ""}`}
-          >
-            <div className="p-4 flex items-center justify-between border-b border-blue-100">
-              {sidebarOpen ? (
-                <>
-                  <div className="rounded-lg flex items-center space-x-3">
-                    <img src={logoWida} alt="Logo Wida" className="h-10 w-auto" />
-                    <p className="text-blue-600 font-bold">CMMS</p>
-                  </div>
-                </>
-              ) : (
-                <img src={logoWida} alt="Logo Wida" className="h-6 w-auto" />
-              )}
-
-              <button onClick={toggleSidebar} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200" aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}>
-                {sidebarOpen ? <FiChevronLeft className="text-xl" /> : <FiChevronRight className="text-xl" />}
-              </button>
-            </div>
-
-            <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-              {hasPermission("1") && <NavItem icon={<FiHome />} text="Dashboard" to="/dashboard" expanded={sidebarOpen} />}
-              {hasPermission("3") && <NavItem icon={<FiPackage />} text="Assets" to="/assets" expanded={sidebarOpen} />}
-              {hasPermission("7") && <NavItem icon={<FiClipboard />} text="Work Orders" to="/workorders" expanded={sidebarOpen} />}
-              {hasPermission("31") && <NavItem icon={<FiClipboard />} text="Machine History" to="/machinehistory" expanded={sidebarOpen} />}
-              {hasPermission("23") && <NavItem icon={<FiDatabase />} text="Inventory" to="/inventory" expanded={sidebarOpen} />}
-              {hasPermission("11") && <NavItem icon={<FiBarChart2 />} text="Reports" to="/reports" expanded={sidebarOpen} />}
-              {hasPermission("27") && <NavItem icon={<FiUsers />} text="Team" to="/team" expanded={sidebarOpen} />}
-              {hasPermission("13") && <NavItem icon={<FiSettings />} text="Settings" to="/settings" expanded={sidebarOpen} />}
-              {hasPermission("15") && <NavItem icon={<FiKey />} text="Permissions" to="/permissions" expanded={sidebarOpen} />}
-            </nav>
-
-            <div className="p-4 border-t border-blue-100">
-              <div className="flex items-center space-x-3">
-                <img src="https://placehold.co/40x40/0078D7/FFFFFF?text=AD" alt="User Avatar" className="w-10 h-10 rounded-full border-2 border-blue-500" />
-                {sidebarOpen && (
-                  <div>
-                    <p className="font-medium text-gray-900">{user?.name}</p>
-                    <p className="text-sm text-gray-600">{user?.roles?.[0]}</p>
-                  </div>
-                )}
-              </div>
-              {sidebarOpen && (
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => navigate("/logout")}
-                  className="mt-4 w-full flex items-center justify-center space-x-2 text-red-600 hover:bg-red-50 p-2 rounded-lg transition-colors duration-200 font-medium"
-                >
-                  <FiLogOut className="text-xl" />
-                  <span>Logout</span>
-                </motion.button>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+    <div className="flex h-screen font-sans antialiased bg-blue-50 text-gray-900">
+      <Sidebar />
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top Navigation */}
-        <header className="bg-white border-b border-blue-100 p-4 flex items-center justify-between shadow-sm">
-          <div className="flex items-center space-x-3">
-            {isMobile && (
-              <button onClick={toggleSidebar} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
-                <FiChevronRight className="text-xl" />
-              </button>
-            )}
-            <FiSettings className="text-2xl text-blue-600" />
-            <h2 className="text-xl md:text-2xl font-semibold text-blue-600">Settings</h2>
-          </div>
-
+        <header className="bg-white border-b border-gray-100 p-4 flex items-center justify-between shadow-sm sticky top-0 z-30">
           <div className="flex items-center space-x-4">
+            {isMobile && (
+              <motion.button onClick={toggleSidebar} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
+                <ChevronRight className="text-xl" />
+              </motion.button>
+            )}
+            <Settings className="text-xl text-blue-600" />
+            <h2 className="text-lg md:text-xl font-bold text-gray-900">Settings</h2>
+          </div>
+          <div className="flex items-center space-x-3 relative">
             <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => setDarkMode(!darkMode)}
               className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200"
               aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
             >
-              {darkMode ? <FiSun className="text-yellow-400 text-xl" /> : <FiMoon className="text-xl" />}
+              {/* === PERBAIKAN DI SINI === */}
+              <AnimatePresence mode="wait">
+                <motion.div key={darkMode ? "sun" : "moon"} initial={{ rotate: 180, opacity: 0 }} animate={{ rotate: 360, opacity: 1 }} exit={{ rotate: 0, opacity: 0 }} transition={{ duration: 0.2 }}>
+                  {darkMode ? <Sun className="text-yellow-400 text-xl" /> : <Moon className="text-xl" />}
+                </motion.div>
+              </AnimatePresence>
             </motion.button>
+            {/* Profile Menu Pop-up */}
+            <div className="relative" ref={profileRef}>
+              <motion.button
+                whileHover={{ backgroundColor: "rgba(239, 246, 255, 0.7)" }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setShowProfileMenu(!showProfileMenu)}
+                className="flex items-center space-x-2 cursor-pointer p-2 rounded-lg transition-colors duration-200"
+              >
+                <img
+                  src={`https://api.dicebear.com/7.x/initials/svg?seed=${user?.name || "User"}&backgroundColor=0081ff,3d5a80,ffc300,e0b589&backgroundType=gradientLinear&radius=50`}
+                  alt="User Avatar"
+                  className="w-8 h-8 rounded-full border border-blue-200 object-cover"
+                />
+                <span className="font-medium text-gray-900 text-sm hidden sm:inline">{user?.name}</span>
+                <ChevronDown className="text-gray-500 text-base" />
+              </motion.button>
 
-            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200 relative" aria-label="Notifications">
-              <FiBell className="text-xl" />
-              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></span>
-            </motion.button>
-
-            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="flex items-center space-x-2 cursor-pointer p-2 rounded-lg hover:bg-blue-50 transition-colors duration-200">
-              <img src="https://placehold.co/32x32/0078D7/FFFFFF?text=AD" alt="User Avatar" className="w-8 h-8 rounded-full border border-blue-200" />
-              <span className="font-medium text-gray-900 hidden sm:inline">{user?.name}</span>
-              <FiChevronDown className="text-gray-500" />
-            </motion.div>
+              <AnimatePresence>
+                {showProfileMenu && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-40 border border-gray-100"
+                  >
+                    <div className="px-4 py-2 text-xs text-gray-500 border-b border-gray-100">Signed in as</div>
+                    <div className="px-4 py-2 font-semibold text-gray-800 border-b border-gray-100">{user?.name || "Guest User"}</div>
+                    <button
+                      onClick={() => {
+                        navigate("/profile");
+                        setShowProfileMenu(false);
+                      }}
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 w-full text-left"
+                    >
+                      <UserIcon size={16} className="mr-2" /> My Profile
+                    </button>
+                    <button
+                      onClick={() => {
+                        navigate("/settings");
+                        setShowProfileMenu(false);
+                      }}
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 w-full text-left"
+                    >
+                      <Settings size={16} className="mr-2" /> Settings
+                    </button>
+                    <hr className="my-1 border-gray-100" />
+                    <button
+                      onClick={() => {
+                        navigate("/logout");
+                        setShowProfileMenu(false);
+                      }}
+                      className="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full text-left"
+                    >
+                      <LogOut size={16} className="mr-2" /> Logout
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </header>
 
         {/* Content Area */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
           <div className="max-w-6xl mx-auto">
-            <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-8">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Settings</h1>
-              <p className="text-gray-600">Manage your account settings and preferences</p>
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-2xl p-6 text-white mb-6 shadow-lg hover:shadow-xl transition-all duration-300"
+            >
+              <h1 className="text-2xl md:text-3xl font-bold mb-2">Account Settings</h1>
+              <p className="opacity-90 text-sm">Manage your profile, security, and preferences</p>
             </motion.div>
 
-            <div className="flex flex-col lg:flex-row gap-6">
+            <div className="flex flex-col lg:flex-row gap-4 md:gap-6">
               {/* Settings Navigation */}
               <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }} className="lg:w-64 flex-shrink-0">
-                <div className="bg-white rounded-xl shadow-sm border border-blue-100 overflow-hidden">
+                <div className="bg-white rounded-2xl shadow-md border border-blue-50 overflow-hidden">
                   <div className="space-y-1 p-2">
                     {[
-                      { id: "profile", icon: <FiUser />, label: "Profile" },
-                      { id: "security", icon: <FiLock />, label: "Security" },
-                      { id: "notifications", icon: <FiBell />, label: "Notifications" },
-                      { id: "preferences", icon: <FiMoon />, label: "Preferences" },
-                      { id: "billing", icon: <FiCreditCard />, label: "Billing" },
-                      { id: "team", icon: <FiUsers />, label: "Team Settings" },
-                      { id: "integrations", icon: <FiGlobe />, label: "Integrations" },
-                      { id: "data", icon: <FiDatabase />, label: "Data Management" },
+                      { id: "profile", icon: <UserIcon />, label: "Profile" },
+                      { id: "security", icon: <Lock />, label: "Security" },
+                      { id: "notifications", icon: <Bell />, label: "Notifications" },
+                      { id: "preferences", icon: <Sun />, label: "Preferences" },
+                      { id: "billing", icon: <CreditCard />, label: "Billing" },
+                      { id: "team", icon: <Users />, label: "Team Settings" },
+                      { id: "integrations", icon: <Globe />, label: "Integrations" },
+                      { id: "data", icon: <Database />, label: "Data Management" },
                     ].map((item) => (
                       <motion.button
                         key={item.id}
-                        whileHover={{ x: 5 }}
+                        whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         onClick={() => setActiveTab(item.id)}
-                        className={`w-full text-left flex items-center p-3 rounded-md transition-colors duration-200 ${activeTab === item.id ? "bg-blue-50 text-blue-700 font-medium" : "text-gray-700 hover:bg-blue-50"}`}
+                        className={`w-full text-left flex items-center p-3 rounded-xl transition-colors duration-200 ${activeTab === item.id ? "bg-blue-50 text-blue-700 font-medium" : "text-gray-700 hover:bg-blue-50"}`}
                       >
-                        <span className="text-lg mr-3">{item.icon}</span>
-                        <span>{item.label}</span>
+                        <span className="text-xl mr-3 text-blue-500">{item.icon}</span>
+                        <span className="text-base">{item.label}</span>
                       </motion.button>
                     ))}
                   </div>
@@ -332,28 +321,32 @@ const SettingsPage: React.FC = () => {
                         <div className="space-y-4">
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                            <input type="text" name="name" value={user?.name} onChange={handleInputChange} className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
+                            <input type="text" name="name" value={formData.name} onChange={handleInputChange} className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">NIK</label>
+                            <input type="text" name="nik" value={formData.nik} onChange={handleInputChange} className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
                           </div>
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                            <input type="nik" name="nik" value={user?.nik} onChange={handleInputChange} className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
+                            <input type="text" name="nik" value={formData.email} onChange={handleInputChange} className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
                           </div>
                         </div>
                         <div className="flex justify-end space-x-3 mt-6">
-                          <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => setIsEditing(false)} className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+                          <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => setIsEditing(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
                             Cancel
                           </motion.button>
-                          <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                          <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow">
                             Save Changes
                           </motion.button>
                         </div>
                       </>
                     ) : (
                       <>
-                        <SettingItem label="Name" value={user?.name} onEdit={() => setIsEditing(true)} />
-                        <SettingItem label="Email" value={user?.nik} onEdit={() => setIsEditing(true)} />
+                        <SettingItem label="Name" value={user?.name} editable={false} />
+                        <SettingItem label="NIK" value={user?.nik} editable={false} />
                         <SettingItem label="Role" value={user?.roles?.[0]} editable={false} />
-                        <SettingItem label="Member since" value="none" editable={false} />
+                        <SettingItem label="Email" value={user?.email} editable={false} />
                       </>
                     )}
                   </SettingCard>
@@ -369,10 +362,10 @@ const SettingsPage: React.FC = () => {
 
                 {activeTab === "notifications" && (
                   <SettingCard title="Notification Preferences">
-                    <div className="flex items-center justify-between py-4 border-b border-blue-100">
+                    <div className="flex items-center justify-between py-4 border-b border-gray-100">
                       <div>
                         <p className="font-medium text-gray-700">Email notifications</p>
-                        <p className="text-gray-600">Receive nik notifications</p>
+                        <p className="text-sm text-gray-600">Receive email notifications</p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input type="checkbox" name="notifications" checked={formData.notifications} onChange={handleInputChange} className="sr-only peer" />
@@ -380,20 +373,27 @@ const SettingsPage: React.FC = () => {
                       </label>
                     </div>
                     <SettingItem label="Push notifications" value={false} onEdit={() => {}} />
-                    <SettingItem label="SMS alerts" value={false} onEdit={() => {}} />
                   </SettingCard>
                 )}
 
                 {activeTab === "preferences" && (
                   <SettingCard title="Preferences">
-                    <div className="flex items-center justify-between py-4 border-b border-blue-100">
+                    <div className="flex items-center justify-between py-4 border-b border-gray-100">
                       <div>
                         <p className="font-medium text-gray-700">Dark mode</p>
-                        <p className="text-gray-600">Toggle dark theme</p>
+                        <p className="text-sm text-gray-600">Toggle dark theme</p>
                       </div>
-                      <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => setDarkMode(!darkMode)} className="p-2 rounded-full bg-gray-200">
-                        {darkMode ? <FiSun className="text-yellow-400" /> : <FiMoon />}
-                      </motion.button>
+                      <AnimatePresence mode="wait">
+                        <motion.button
+                          key={darkMode ? "sun-card" : "moon-card"}
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                          onClick={() => setDarkMode(!darkMode)}
+                          className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200"
+                        >
+                          {darkMode ? <Sun className="text-yellow-400" /> : <Moon />}
+                        </motion.button>
+                      </AnimatePresence>
                     </div>
                     <SettingItem label="Language" value="English" onEdit={() => {}} />
                     <SettingItem label="Timezone" value="UTC+07:00" onEdit={() => {}} />
@@ -402,7 +402,7 @@ const SettingsPage: React.FC = () => {
 
                 {activeTab === "billing" && (
                   <SettingCard title="Billing Information">
-                    <SettingItem label="Billing nik" value={formData.billingEmail} onEdit={() => {}} />
+                    <SettingItem label="Billing email" value={formData.billingEmail} onEdit={() => {}} />
                     <SettingItem label="Payment method" value="Visa ending in 4242" onEdit={() => {}} />
                     <SettingItem label="Plan" value="Premium ($29/month)" onEdit={() => {}} />
                   </SettingCard>
@@ -437,19 +437,16 @@ const SettingsPage: React.FC = () => {
       </div>
 
       {/* Confirmation Modal */}
-      <Modal isOpen={showConfirmModal} onClose={() => setShowConfirmModal(false)} title={activeTab === "data" ? "Delete Account" : "Logout Confirmation"}>
-        <div className="text-gray-700 mb-6">{activeTab === "data" ? <p>Are you sure you want to delete your account? This action cannot be undone.</p> : <p>Are you sure you want to logout?</p>}</div>
+      <Modal isOpen={showConfirmModal} onClose={() => setShowConfirmModal(false)} title="Delete Account">
+        <div className="text-gray-700 mb-6">
+          <p>Are you sure you want to delete your account? This action cannot be undone.</p>
+        </div>
         <div className="flex justify-end space-x-3">
-          <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => setShowConfirmModal(false)} className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+          <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => setShowConfirmModal(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
             Cancel
           </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            onClick={activeTab === "data" ? () => {} : handleLogout}
-            className={`px-4 py-2 rounded-md text-white ${activeTab === "data" ? "bg-red-600 hover:bg-red-700" : "bg-blue-600 hover:bg-blue-700"}`}
-          >
-            {activeTab === "data" ? "Delete Account" : "Logout"}
+          <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => {}} className="px-4 py-2 rounded-lg text-white bg-red-600 hover:bg-red-700">
+            Delete Account
           </motion.button>
         </div>
       </Modal>

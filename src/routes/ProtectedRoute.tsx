@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth, PermissionName } from "../routes/AuthContext";
+import LoadingSpinner from "../component/Loading";
 
 interface ProtectedRouteProps {
   requiredPermissions?: PermissionName[];
@@ -32,7 +33,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ requiredPermissions = [
 
   // Tampilkan loading spinner atau null saat isAuthLoading true
   if (isAuthLoading) {
-    return <div>Loading application...</div>; // Atau komponen loading Anda
+    return <LoadingSpinner />; // Atau komponen loading Anda
   }
 
   // Setelah loading selesai, baru tentukan apakah akan merender Outlet atau null

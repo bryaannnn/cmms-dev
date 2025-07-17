@@ -1,46 +1,46 @@
-import React, { useState, useEffect } from "react";
-import {
-  FiPlus,
-  FiDollarSign,
-  FiUpload,
-  FiChevronUp,
-  FiAlertTriangle,
-  FiTool,
-  FiCheckCircle,
-  FiUsers,
-  FiBarChart2,
-  FiDatabase,
-  FiClipboard,
-  FiFilter,
-  FiPackage,
-  FiChevronLeft,
-  FiHome,
-  FiX,
-  FiChevronDown,
-  FiChevronRight,
-  FiSearch,
-  FiLogOut,
-  FiSun,
-  FiMoon,
-  FiSettings,
-  FiBell,
-  FiEdit,
-  FiEye,
-  FiClock,
-  FiUser,
-  FiCalendar,
-  FiFlag,
-  FiPrinter,
-  FiDownload,
-  FiPieChart,
-  FiTrendingUp,
-  FiActivity,
-  FiKey,
-} from "react-icons/fi";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useAuth, PermissionName } from "../routes/AuthContext";
+import { useAuth } from "../routes/AuthContext";
 import logoWida from "../assets/logo-wida.png";
 import { motion, AnimatePresence } from "framer-motion";
+import Sidebar from "../component/Sidebar";
+import {
+  Plus,
+  Upload,
+  ChevronUp,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Search,
+  LogOut,
+  Settings,
+  Bell,
+  Edit,
+  Eye,
+  Clock,
+  Calendar,
+  Trash2,
+  Key,
+  Info,
+  Moon,
+  Sun,
+  User as UserIcon,
+  Home,
+  Package,
+  Clipboard,
+  Database,
+  BarChart2,
+  Users,
+  Wrench,
+  CheckCircle,
+  DollarSign,
+  Download,
+  Printer,
+  PieChart,
+  Filter,
+  X,
+  AlertTriangle,
+} from "lucide-react";
 import { Bar, Pie, Line } from "react-chartjs-2";
 import { Chart, registerables } from "chart.js";
 
@@ -105,15 +105,15 @@ const NavItem: React.FC<NavItemProps> = ({ icon, text, to, expanded }) => {
   return (
     <motion.button
       onClick={() => navigate(to)}
-      whileHover={{ scale: 1.02 }}
+      whileHover={{ backgroundColor: active ? undefined : "rgba(239, 246, 255, 0.6)" }}
       whileTap={{ scale: 0.98 }}
-      className={`w-full text-left flex items-center p-2 rounded-lg transition-all duration-200
-        ${active ? "bg-blue-50 text-blue-700 font-semibold" : "hover:bg-blue-50 text-gray-700"}
+      className={`relative w-full text-left flex items-center py-3 px-4 rounded-xl transition-all duration-200 ease-in-out group
+        ${active ? "bg-blue-600 text-white shadow-lg" : "text-gray-700 hover:text-blue-700"}
       `}
     >
-      <span className="text-xl">{icon}</span>
+      <span className={`text-xl transition-colors duration-200 ${active ? "text-white" : "text-blue-500 group-hover:text-blue-700"}`}>{icon}</span>
       {expanded && (
-        <motion.span initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.2 }} className="ml-3 text-base">
+        <motion.span initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.15 }} className="ml-4 text-base font-medium whitespace-nowrap">
           {text}
         </motion.span>
       )}
@@ -125,20 +125,56 @@ const StatCard: React.FC<{ title: string; value: string; change: string; icon: R
   const isPositive = change.startsWith("+");
 
   return (
-    <motion.div whileHover={{ y: -5, boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)" }} transition={{ type: "spring", stiffness: 300 }} className="bg-white rounded-xl shadow-sm p-5 border border-blue-100 cursor-pointer">
-      <div className="flex items-center justify-between">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
+      whileHover={{ y: -5, boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)", scale: 1.01 }}
+      className="bg-white rounded-2xl shadow-md p-6 border border-blue-50 cursor-pointer overflow-hidden transform transition-transform duration-200"
+    >
+      <div className="flex items-center justify-between z-10 relative">
         <div>
-          <p className="text-sm font-medium text-gray-600">{title}</p>
-          <p className="text-3xl font-extrabold mt-1 text-gray-900">{value}</p>
+          <p className="text-sm font-medium text-gray-500 mb-1">{title}</p>
+          <p className="text-3xl font-bold text-gray-900">{value}</p>
         </div>
-        <motion.div whileHover={{ rotate: 10, scale: 1.1 }} className="p-3 rounded-full bg-blue-50 text-blue-600 text-2xl">
-          {icon}
-        </motion.div>
+        <div className="p-2 rounded-full bg-blue-50 text-blue-600 text-2xl opacity-90 transition-all duration-200">{icon}</div>
       </div>
-      <motion.p animate={{ x: isPositive ? [0, 2, 0] : [0, -2, 0] }} transition={{ repeat: Infinity, duration: 2 }} className={`mt-3 text-sm font-medium ${isPositive ? "text-green-600" : "text-red-600"}`}>
-        {change} from last period
-      </motion.p>
+      <p className={`mt-3 text-xs font-semibold ${isPositive ? "text-green-600" : "text-red-600"}`}>{change} from last period</p>
     </motion.div>
+  );
+};
+
+interface ModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+  className?: string;
+}
+
+const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, className }) => {
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50 p-4 backdrop-blur-sm">
+          <motion.div
+            initial={{ y: 50, opacity: 0, scale: 0.95 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: 50, opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.3, type: "spring", damping: 25, stiffness: 300 }}
+            className={`bg-white rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col ${className || "max-w-xl w-full"}`}
+          >
+            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-blue-50">
+              <h2 className="text-xl font-bold text-gray-800">{title}</h2>
+              <button onClick={onClose} className="p-1.5 rounded-full text-gray-500 hover:bg-blue-100 hover:text-gray-700 focus:outline-none transition-colors duration-150" aria-label="Close modal">
+                <X className="text-xl" />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto custom-scrollbar flex-grow">{children}</div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };
 
@@ -146,27 +182,31 @@ const ReportCard: React.FC<{ report: Report; onView: (id: string) => void; onExp
   const getReportIcon = () => {
     switch (report.type) {
       case "maintenance":
-        return <FiTool className="text-blue-500 text-2xl" />;
+        return <Wrench className="text-blue-500" />;
       case "inventory":
-        return <FiPackage className="text-green-500 text-2xl" />;
+        return <Package className="text-green-500" />;
       case "work-orders":
-        return <FiClipboard className="text-orange-500 text-2xl" />;
+        return <Clipboard className="text-orange-500" />;
       case "cost-analysis":
-        return <FiDollarSign className="text-purple-500 text-2xl" />;
+        return <DollarSign className="text-purple-500" />;
       default:
-        return <FiBarChart2 className="text-gray-500 text-2xl" />;
+        return <BarChart2 className="text-gray-500" />;
     }
   };
 
   return (
-    <motion.div whileHover={{ y: -5 }} className="bg-white rounded-xl shadow-sm p-5 border border-blue-100">
+    <motion.div
+      whileHover={{ y: -5, boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)" }}
+      transition={{ type: "spring", stiffness: 300 }}
+      className="bg-white rounded-2xl shadow-md p-5 border border-blue-100 cursor-pointer"
+    >
       <div className="flex items-start justify-between">
-        <div className="flex items-center space-x-3">
-          <div className="p-2 rounded-full bg-blue-50">{getReportIcon()}</div>
+        <div className="flex items-center space-x-4">
+          <div className="p-3 rounded-full bg-blue-50 text-blue-600">{getReportIcon()}</div>
           <div>
             <h3 className="font-bold text-gray-900">{report.title}</h3>
-            <p className="text-sm text-gray-600">{new Date(report.generatedAt).toLocaleDateString()}</p>
-            <span className="inline-block mt-1 px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+            <p className="text-sm text-gray-600 mt-1">{new Date(report.generatedAt).toLocaleDateString()}</p>
+            <span className="inline-block mt-2 px-3 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
               {report.type
                 .split("-")
                 .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
@@ -175,11 +215,23 @@ const ReportCard: React.FC<{ report: Report; onView: (id: string) => void; onExp
           </div>
         </div>
         <div className="flex space-x-2">
-          <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => onView(report.id)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg" title="View Report">
-            <FiEye />
+          <motion.button
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => onView(report.id)}
+            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-200"
+            title="View Report"
+          >
+            <Eye className="text-lg" />
           </motion.button>
-          <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => onExport(report.id)} className="p-2 text-gray-600 hover:bg-blue-50 rounded-lg" title="Export Report">
-            <FiDownload />
+          <motion.button
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => onExport(report.id)}
+            className="p-2 text-gray-600 hover:bg-blue-50 rounded-lg transition-colors duration-200"
+            title="Export Report"
+          >
+            <Download className="text-lg" />
           </motion.button>
         </div>
       </div>
@@ -188,7 +240,6 @@ const ReportCard: React.FC<{ report: Report; onView: (id: string) => void; onExp
 };
 
 const ReportsDashboard: React.FC = () => {
-  const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
     const stored = localStorage.getItem("sidebarOpen");
     return stored ? JSON.parse(stored) : false;
@@ -204,23 +255,15 @@ const ReportsDashboard: React.FC = () => {
   const [reportTimeRange, setReportTimeRange] = useState<TimeRange>("30-days");
   const [currentPage, setCurrentPage] = useState(1);
   const [reportsPerPage] = useState(5);
-  const { user, fetchWithAuth, hasPermission } = useAuth();
-  const [data, setData] = useState(null);
-  const navigate = useNavigate();
-  const [hasInteracted, setHasInteracted] = useState(false);
+  const { user, hasPermission } = useAuth();
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
-      if (window.innerWidth < 768) {
-        setSidebarOpen(false);
-      }
-    };
-
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  const [darkMode, setDarkMode] = useState(false);
+  const [showNotificationsPopup, setShowNotificationsPopup] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const notificationsRef = useRef<HTMLDivElement>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   // Sample report data
   const [reports, setReports] = useState<Report[]>([
@@ -342,9 +385,33 @@ const ReportsDashboard: React.FC = () => {
     },
   ]);
 
-  const handleNotifications = () => {
-    alert("Showing notifications...");
-  };
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+      if (window.innerWidth < 768) {
+        setSidebarOpen(false);
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
+        setShowNotificationsPopup(false);
+      }
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setShowProfileMenu(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   const handleViewReport = (id: string) => {
     const report = reports.find((r) => r.id === id);
@@ -357,7 +424,6 @@ const ReportsDashboard: React.FC = () => {
     const report = reports.find((r) => r.id === id);
     if (report) {
       alert(`Exporting report: ${report.title}`);
-      // In a real app, this would generate a PDF or CSV
     }
   };
 
@@ -382,7 +448,6 @@ const ReportsDashboard: React.FC = () => {
   };
 
   const generateSampleReportData = (type: ReportType, range: TimeRange) => {
-    // This would be replaced with actual data fetching in a real app
     switch (type) {
       case "maintenance":
         return {
@@ -435,7 +500,7 @@ const ReportsDashboard: React.FC = () => {
   };
 
   const toggleSidebar = () => {
-    setHasInteracted(true);
+    localStorage.setItem("sidebarOpen", JSON.stringify(!sidebarOpen));
     setSidebarOpen((prev) => !prev);
   };
 
@@ -454,25 +519,7 @@ const ReportsDashboard: React.FC = () => {
 
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
-  useEffect(() => {
-    setCurrentPage(1);
-
-    const fetchData = async () => {
-      try {
-        const result = await fetchWithAuth("/protected-data");
-        setData(result);
-      } catch (error) {
-        console.error("Failed to fetch data:", error);
-      }
-    };
-
-    fetchData();
-
-    localStorage.setItem("sidebarOpen", JSON.stringify(sidebarOpen));
-  }, [searchQuery, typeFilter, timeFilter, sidebarOpen]);
-
   const renderReportVisualization = (report: Report) => {
-    // Base chart options that can be extended
     const baseChartOptions: ChartOptions = {
       responsive: true,
       plugins: {
@@ -482,10 +529,8 @@ const ReportsDashboard: React.FC = () => {
       },
     };
 
-    // Helper function to transform object values to numbers
     const toNumberArray = (obj: Record<string, unknown>): number[] => Object.values(obj).map((value) => Number(value));
 
-    // Helper function to format labels
     const formatLabel = (str: string): string =>
       str
         .split("-")
@@ -517,12 +562,14 @@ const ReportsDashboard: React.FC = () => {
 
         return (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <ChartCard title="Work Orders by Status">
+            <div className="bg-white rounded-2xl shadow-md p-6 border border-blue-100">
+              <h3 className="font-bold text-lg mb-4">Work Orders by Status</h3>
               <Bar data={statusData} options={baseChartOptions} />
-            </ChartCard>
-            <ChartCard title="Work Orders by Department">
+            </div>
+            <div className="bg-white rounded-2xl shadow-md p-6 border border-blue-100">
+              <h3 className="font-bold text-lg mb-4">Work Orders by Department</h3>
               <Pie data={deptData} options={baseChartOptions} />
-            </ChartCard>
+            </div>
           </div>
         );
       }
@@ -551,12 +598,14 @@ const ReportsDashboard: React.FC = () => {
 
         return (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <ChartCard title="Inventory Status">
+            <div className="bg-white rounded-2xl shadow-md p-6 border border-blue-100">
+              <h3 className="font-bold text-lg mb-4">Inventory Status</h3>
               <Pie data={statusData} options={baseChartOptions} />
-            </ChartCard>
-            <ChartCard title="Inventory by Category">
+            </div>
+            <div className="bg-white rounded-2xl shadow-md p-6 border border-blue-100">
+              <h3 className="font-bold text-lg mb-4">Inventory by Category</h3>
               <Bar data={categoryData} options={baseChartOptions} />
-            </ChartCard>
+            </div>
           </div>
         );
       }
@@ -575,9 +624,10 @@ const ReportsDashboard: React.FC = () => {
 
         return (
           <div className="grid grid-cols-1 gap-6">
-            <ChartCard title="Work Orders by Technician">
+            <div className="bg-white rounded-2xl shadow-md p-6 border border-blue-100">
+              <h3 className="font-bold text-lg mb-4">Work Orders by Technician</h3>
               <Bar data={technicianData} options={baseChartOptions} />
-            </ChartCard>
+            </div>
           </div>
         );
       }
@@ -605,9 +655,10 @@ const ReportsDashboard: React.FC = () => {
 
         return (
           <div className="grid grid-cols-1 gap-6">
-            <ChartCard title="Costs by Category">
+            <div className="bg-white rounded-2xl shadow-md p-6 border border-blue-100">
+              <h3 className="font-bold text-lg mb-4">Costs by Category</h3>
               <Bar data={costData} options={costOptions} />
-            </ChartCard>
+            </div>
           </div>
         );
       }
@@ -617,181 +668,213 @@ const ReportsDashboard: React.FC = () => {
     }
   };
 
-  // Add this reusable ChartCard component
-  const ChartCard: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-    <div className="bg-white p-4 rounded-lg shadow border border-blue-100">
-      <h3 className="font-bold text-lg mb-4">{title}</h3>
-      {children}
-    </div>
-  );
-
   return (
-    <div className="flex h-screen font-sans bg-gray-50 text-gray-900">
-      {/* Sidebar */}
-      <AnimatePresence>
-        {(!isMobile || sidebarOpen) && (
-          <motion.div
-            initial={{ width: isMobile ? 0 : sidebarOpen ? 256 : 80 }}
-            animate={{
-              width: isMobile ? (sidebarOpen ? 256 : 0) : sidebarOpen ? 256 : 80,
-            }}
-            exit={{ width: 0 }}
-            transition={{ duration: 0.3, ease: "easeInOut" }}
-            className={`bg-white border-r border-blue-100 flex flex-col shadow-md overflow-hidden ${isMobile ? "fixed z-50 h-full" : ""}`}
-          >
-            <div className="p-4 flex items-center justify-between border-b border-blue-100">
-              {sidebarOpen ? (
-                <>
-                  <div className="rounded-lg flex items-center space-x-3">
-                    <img src={logoWida} alt="Logo Wida" className="h-10 w-auto" />
-                    <p className="text-blue-600 font-bold">CMMS</p>
-                  </div>
-                </>
-              ) : (
-                <img src={logoWida} alt="Logo Wida" className="h-6 w-auto" />
-              )}
+    <div className={`flex h-screen font-sans antialiased bg-blue-50`}>
+      <Sidebar />
 
-              <button onClick={toggleSidebar} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200" aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}>
-                {sidebarOpen ? <FiChevronLeft className="text-xl" /> : <FiChevronRight className="text-xl" />}
-              </button>
-            </div>
-
-            <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-              {hasPermission("1") && <NavItem icon={<FiHome />} text="Dashboard" to="/dashboard" expanded={sidebarOpen} />}
-              {hasPermission("3") && <NavItem icon={<FiPackage />} text="Assets" to="/assets" expanded={sidebarOpen} />}
-              {hasPermission("7") && <NavItem icon={<FiClipboard />} text="Work Orders" to="/workorders" expanded={sidebarOpen} />}
-              {hasPermission("31") && <NavItem icon={<FiClipboard />} text="Machine History" to="/machinehistory" expanded={sidebarOpen} />}
-              {hasPermission("23") && <NavItem icon={<FiDatabase />} text="Inventory" to="/inventory" expanded={sidebarOpen} />}
-              {hasPermission("11") && <NavItem icon={<FiBarChart2 />} text="Reports" to="/reports" expanded={sidebarOpen} />}
-              {hasPermission("27") && <NavItem icon={<FiUsers />} text="Team" to="/team" expanded={sidebarOpen} />}
-              {hasPermission("13") && <NavItem icon={<FiSettings />} text="Settings" to="/settings" expanded={sidebarOpen} />}
-              {hasPermission("15") && <NavItem icon={<FiKey />} text="Permissions" to="/permissions" expanded={sidebarOpen} />}
-            </nav>
-
-            <div className="p-4 border-t border-blue-100">
-              <div className="flex items-center space-x-3">
-                <img src="https://placehold.co/40x40/0078D7/FFFFFF?text=AD" alt="User Avatar" className="w-10 h-10 rounded-full border-2 border-blue-500" />
-                {sidebarOpen && (
-                  <div>
-                    <p className="font-medium text-gray-900">{user?.name}</p>
-                    <p className="text-sm text-gray-600">{user?.roles?.[0]}</p>
-                  </div>
-                )}
-              </div>
-              {sidebarOpen && (
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => navigate("/logout")}
-                  className="mt-4 w-full flex items-center justify-center space-x-2 text-red-600 hover:bg-red-50 p-2 rounded-lg transition-colors duration-200 font-medium"
-                >
-                  <FiLogOut className="text-xl" />
-                  <span>Logout</span>
-                </motion.button>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Top Navigation */}
-        <header className="bg-white border-b border-blue-100 p-4 flex items-center justify-between shadow-sm">
-          <div className="flex items-center space-x-3">
+        <header className="bg-white border-b border-gray-100 p-4 flex items-center justify-between shadow-sm sticky top-0 z-30">
+          <div className="flex items-center space-x-4">
             {isMobile && (
-              <motion.button onClick={toggleSidebar} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
-                <FiChevronRight className="text-xl" />
+              <motion.button onClick={toggleSidebar} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
+                <ChevronRight className="text-xl" />
               </motion.button>
             )}
-            <FiBarChart2 className="text-2xl text-blue-600" />
-            <h2 className="text-xl md:text-2xl font-semibold text-blue-600">Reports</h2>
+            <BarChart2 className="text-xl text-blue-600" />
+            <h2 className="text-lg md:text-xl font-bold text-gray-900">Reports</h2>
           </div>
 
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3 relative">
             <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => setDarkMode(!darkMode)}
               className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200"
               aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
             >
-              {darkMode ? <FiSun className="text-yellow-400 text-xl" /> : <FiMoon className="text-xl" />}
+              {darkMode ? <Sun className="text-yellow-400 text-xl" /> : <Moon className="text-xl" />}
             </motion.button>
 
-            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={handleNotifications} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200 relative" aria-label="Notifications">
-              <FiBell className="text-xl" />
-              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></span>
-            </motion.button>
+            <div className="relative" ref={notificationsRef}>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setShowNotificationsPopup(!showNotificationsPopup)}
+                className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200 relative"
+                aria-label="Notifications"
+              >
+                <Bell className="text-xl" />
+                <span className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full animate-pulse border border-white"></span>
+              </motion.button>
 
-            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="flex items-center space-x-2 cursor-pointer p-2 rounded-lg hover:bg-blue-50 transition-colors duration-200">
-              <img src="https://placehold.co/32x32/0078D7/FFFFFF?text=AD" alt="User Avatar" className="w-8 h-8 rounded-full border border-blue-200" />
-              <span className="font-medium text-gray-900 hidden sm:inline">{user?.name}</span>
-              <FiChevronDown className="text-gray-500" />
-            </motion.div>
+              <AnimatePresence>
+                {showNotificationsPopup && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 20 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl overflow-hidden z-50 border border-gray-100"
+                  >
+                    <div className="p-4 border-b border-gray-100">
+                      <h3 className="text-lg font-semibold text-gray-800">Notifications</h3>
+                    </div>
+                    <div className="max-h-80 overflow-y-auto custom-scrollbar">
+                      <div className="flex items-start p-4 border-b border-gray-50 last:border-b-0 hover:bg-blue-50 transition-colors cursor-pointer">
+                        <div className="flex-shrink-0 mr-3">
+                          <AlertTriangle className="text-red-500" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-800">Maintenance Alert</p>
+                          <p className="text-xs text-gray-600 mt-1">Machine A requires preventive maintenance</p>
+                          <p className="text-xs text-gray-400 mt-1">Today, 10:00 AM</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start p-4 border-b border-gray-50 last:border-b-0 hover:bg-blue-50 transition-colors cursor-pointer">
+                        <div className="flex-shrink-0 mr-3">
+                          <Calendar className="text-blue-500" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-800">Scheduled Report</p>
+                          <p className="text-xs text-gray-600 mt-1">Monthly maintenance report generated</p>
+                          <p className="text-xs text-gray-400 mt-1">Yesterday, 03:00 PM</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-4 border-t border-gray-100 text-center">
+                      <button
+                        onClick={() => {
+                          setShowNotificationsPopup(false);
+                        }}
+                        className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                      >
+                        Mark all as read
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            <div className="relative" ref={profileRef}>
+              <motion.button
+                whileHover={{ backgroundColor: "rgba(239, 246, 255, 0.7)" }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setShowProfileMenu(!showProfileMenu)}
+                className="flex items-center space-x-2 cursor-pointer p-2 rounded-lg transition-colors duration-200"
+              >
+                <img
+                  src={`https://api.dicebear.com/7.x/initials/svg?seed=${user?.name || "User"}&backgroundColor=0081ff,3d5a80,ffc300,e0b589&backgroundType=gradientLinear&radius=50`}
+                  alt="User Avatar"
+                  className="w-8 h-8 rounded-full border border-blue-200 object-cover"
+                />
+                <span className="font-medium text-gray-900 text-sm hidden sm:inline">{user?.name}</span>
+                <ChevronDown className="text-gray-500 text-base" />
+              </motion.button>
+
+              <AnimatePresence>
+                {showProfileMenu && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-40 border border-gray-100"
+                  >
+                    <div className="px-4 py-2 text-xs text-gray-500 border-b border-gray-100">Signed in as</div>
+                    <div className="px-4 py-2 font-semibold text-gray-800 border-b border-gray-100">{user?.name || "Guest User"}</div>
+                    <button
+                      onClick={() => {
+                        navigate("/profile");
+                        setShowProfileMenu(false);
+                      }}
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 w-full text-left"
+                    >
+                      <UserIcon size={16} className="mr-2" /> My Profile
+                    </button>
+                    <button
+                      onClick={() => {
+                        navigate("/settings");
+                        setShowProfileMenu(false);
+                      }}
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 w-full text-left"
+                    >
+                      <Settings size={16} className="mr-2" /> Settings
+                    </button>
+                    <hr className="my-1 border-gray-100" />
+                    <button
+                      onClick={() => {
+                        navigate("/logout");
+                        setShowProfileMenu(false);
+                      }}
+                      className="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full text-left"
+                    >
+                      <LogOut size={16} className="mr-2" /> Logout
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </header>
 
-        {/* Content Area */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar">
-          {/* Header and Actions */}
-          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
+          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between space-y-5 md:space-y-0">
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Reports Dashboard</h1>
-              <p className="text-gray-600 mt-1">Generate, view and analyze maintenance reports</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
+                Reports <span className="text-blue-600">Dashboard</span>
+              </h1>
+              <p className="text-gray-600 mt-2 text-sm max-w-xl">Generate, view and analyze maintenance reports to optimize factory operations.</p>
             </div>
-
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-3 items-center">
               <motion.button
                 onClick={() => setShowGenerateReportModal(true)}
-                whileHover={{ scale: 1.05, boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)" }}
-                whileTap={{ scale: 0.95 }}
-                className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md"
+                whileHover={{ scale: 1.02, boxShadow: "0 4px 12px rgba(37, 99, 235, 0.3)" }}
+                whileTap={{ scale: 0.98 }}
+                className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md font-semibold text-sm"
               >
-                <FiPlus className="text-lg" />
-                <span className="font-semibold">Generate Report</span>
+                <Plus className="text-base" />
+                <span>Generate Report</span>
               </motion.button>
-
               <motion.button
                 onClick={() => alert("Export all reports functionality")}
-                whileHover={{ scale: 1.05, boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)" }}
-                whileTap={{ scale: 0.95 }}
-                className="flex items-center space-x-2 bg-white border border-blue-200 text-gray-800 px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md"
+                whileHover={{ scale: 1.02, boxShadow: "0 4px 10px rgba(0, 0, 0, 0.08)" }}
+                whileTap={{ scale: 0.98 }}
+                className="flex items-center space-x-2 bg-white border border-blue-200 text-gray-800 px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-sm font-semibold text-sm hover:bg-gray-50"
               >
-                <FiDownload className="text-lg" />
-                <span className="font-semibold">Export All</span>
+                <Download className="text-base" />
+                <span>Export All</span>
               </motion.button>
-
               <motion.button
                 onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                whileHover={{ scale: 1.05, boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)" }}
-                whileTap={{ scale: 0.95 }}
-                className="flex items-center space-x-2 bg-white border border-blue-200 text-gray-800 px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md"
+                whileHover={{ scale: 1.02, boxShadow: "0 4px 10px rgba(0, 0, 0, 0.08)" }}
+                whileTap={{ scale: 0.98 }}
+                className="flex items-center space-x-2 bg-white border border-blue-200 text-gray-800 px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-sm font-semibold text-sm hover:bg-gray-50"
               >
-                <FiFilter className="text-lg" />
-                <span className="font-semibold">Filters</span>
-                {showAdvancedFilters ? <FiChevronUp /> : <FiChevronDown />}
+                <Filter className="text-base" />
+                <span>Filters</span>
+                <motion.span animate={{ rotate: showAdvancedFilters ? 180 : 0 }} transition={{ duration: 0.2 }}>
+                  <ChevronDown className="text-base" />
+                </motion.span>
               </motion.button>
             </div>
           </motion.div>
 
-          {/* Stats Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
-            <StatCard title="Total Reports" value={reports.length.toString()} change="+12%" icon={<FiBarChart2 />} />
-            <StatCard title="Maintenance" value={reports.filter((r) => r.type === "maintenance").length.toString()} change="+5%" icon={<FiTool />} />
-            <StatCard title="Inventory" value={reports.filter((r) => r.type === "inventory").length.toString()} change="+3%" icon={<FiPackage />} />
-            <StatCard title="Cost Analysis" value={reports.filter((r) => r.type === "cost-analysis").length.toString()} change="+2" icon={<FiDollarSign />} />
+            <StatCard title="Total Reports" value={reports.length.toString()} change="+12%" icon={<BarChart2 />} />
+            <StatCard title="Maintenance" value={reports.filter((r) => r.type === "maintenance").length.toString()} change="+5%" icon={<Wrench />} />
+            <StatCard title="Inventory" value={reports.filter((r) => r.type === "inventory").length.toString()} change="+3%" icon={<Package />} />
+            <StatCard title="Cost Analysis" value={reports.filter((r) => r.type === "cost-analysis").length.toString()} change="+2" icon={<DollarSign />} />
           </div>
 
-          {/* Search and Filters */}
-          <motion.div layout className="mb-6 bg-white rounded-xl shadow-sm p-4 md:p-6 border border-blue-100">
+          <motion.div layout className="mb-8 bg-white rounded-2xl shadow-md p-5 border border-blue-100">
             <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-4 md:space-y-0">
               <div className="flex-1 relative">
-                <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
                 <input
                   type="text"
                   placeholder="Search reports by title or ID..."
-                  className="w-full pl-12 pr-4 py-3 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-base transition-all duration-200"
+                  className="w-full pl-11 pr-4 py-2.5 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white text-sm transition-all duration-200 shadow-sm placeholder-gray-400"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -804,13 +887,15 @@ const ReportsDashboard: React.FC = () => {
                     animate={{ opacity: 1, height: "auto" }}
                     exit={{ opacity: 0, height: 0 }}
                     transition={{ duration: 0.2 }}
-                    className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 w-full md:w-auto"
+                    className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full overflow-hidden"
                   >
                     <select
-                      className="border border-blue-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-base appearance-none bg-no-repeat bg-right-12 bg-center-y transition-all duration-200"
+                      className="border border-blue-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white text-sm appearance-none transition-all duration-200 shadow-sm cursor-pointer"
                       style={{
                         backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
-                        backgroundSize: "1.2rem",
+                        backgroundSize: "1rem",
+                        backgroundRepeat: "no-repeat",
+                        backgroundPosition: "right 0.75rem center",
                       }}
                       value={typeFilter}
                       onChange={(e) => setTypeFilter(e.target.value as ReportType | "all")}
@@ -823,10 +908,12 @@ const ReportsDashboard: React.FC = () => {
                     </select>
 
                     <select
-                      className="border border-blue-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-base appearance-none bg-no-repeat bg-right-12 bg-center-y transition-all duration-200"
+                      className="border border-blue-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white text-sm appearance-none transition-all duration-200 shadow-sm cursor-pointer"
                       style={{
                         backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
-                        backgroundSize: "1.2rem",
+                        backgroundSize: "1rem",
+                        backgroundRepeat: "no-repeat",
+                        backgroundPosition: "right 0.75rem center",
                       }}
                       value={timeFilter}
                       onChange={(e) => setTimeFilter(e.target.value as TimeRange | "all")}
@@ -843,66 +930,62 @@ const ReportsDashboard: React.FC = () => {
             </div>
           </motion.div>
 
-          {/* Reports Grid */}
-          {filteredReports.length > 0 ? (
+          {filteredReports.length === 0 ? (
+            <div className="bg-white rounded-2xl shadow-md p-8 text-center border border-blue-100">
+              <Info className="text-blue-500 text-4xl mx-auto mb-4" />
+              <p className="text-gray-700 text-base font-medium">{searchQuery ? "No reports found matching your search." : "No reports available."}</p>
+              {searchQuery && (
+                <button onClick={() => setSearchQuery("")} className="mt-5 px-5 py-2 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors duration-200 text-sm">
+                  Clear Search
+                </button>
+              )}
+            </div>
+          ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {currentReports.map((report) => (
                 <ReportCard key={report.id} report={report} onView={handleViewReport} onExport={handleExportReport} />
               ))}
             </div>
-          ) : (
-            <div className="bg-white rounded-xl shadow-sm p-10 text-center border border-blue-100">
-              <FiBarChart2 className="mx-auto text-4xl text-gray-400 mb-4" />
-              <h3 className="text-xl font-medium text-gray-900 mb-2">No reports found</h3>
-              <p className="text-gray-600 mb-6">Try adjusting your search or filters</p>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setShowGenerateReportModal(true)}
-                className="inline-flex items-center px-5 py-2.5 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
-              >
-                <FiPlus className="mr-2" />
-                Generate New Report
-              </motion.button>
-            </div>
           )}
 
-          {/* Pagination */}
           {filteredReports.length > reportsPerPage && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="mt-8 flex flex-col sm:flex-row sm:items-center sm:justify-between">
-              <div className="text-sm text-gray-600 mb-4 sm:mb-0">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="mt-8 flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
+              <div className="text-sm text-gray-600">
                 Showing <span className="font-semibold">{indexOfFirstReport + 1}</span> to <span className="font-semibold">{Math.min(indexOfLastReport, filteredReports.length)}</span> of{" "}
                 <span className="font-semibold">{filteredReports.length}</span> results
               </div>
               <div className="flex space-x-2">
                 <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
                   onClick={() => paginate(currentPage - 1)}
                   disabled={currentPage === 1}
-                  className="px-4 py-2 border border-blue-200 rounded-lg bg-white text-gray-700 hover:bg-blue-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                  className="px-4 py-2 border border-blue-200 rounded-md bg-white text-gray-700 hover:bg-blue-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm font-medium text-sm"
+                  aria-label="Previous page"
                 >
                   Previous
                 </motion.button>
                 {Array.from({ length: totalPages }, (_, i) => (
                   <motion.button
                     key={i + 1}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
                     onClick={() => paginate(i + 1)}
-                    className={`px-4 py-2 rounded-lg transition-colors duration-200 shadow-sm
+                    className={`px-3.5 py-2 rounded-md transition-colors duration-200 shadow-sm font-medium text-sm
                       ${currentPage === i + 1 ? "bg-blue-600 text-white shadow-md" : "bg-white text-gray-700 hover:bg-blue-50 border border-blue-200"}
                     `}
+                    aria-label={`Go to page ${i + 1}`}
                   >
                     {i + 1}
                   </motion.button>
                 ))}
                 <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
                   onClick={() => paginate(currentPage + 1)}
                   disabled={currentPage === totalPages}
-                  className="px-4 py-2 border border-blue-200 rounded-lg bg-white text-gray-700 hover:bg-blue-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                  className="px-4 py-2 border border-blue-200 rounded-md bg-white text-gray-700 hover:bg-blue-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm font-medium text-sm"
+                  aria-label="Next page"
                 >
                   Next
                 </motion.button>
@@ -912,96 +995,94 @@ const ReportsDashboard: React.FC = () => {
         </main>
       </div>
 
-      {/* Generate Report Modal */}
-      {showGenerateReportModal && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-auto p-6">
-            <div className="flex justify-between items-center border-b pb-3 mb-4 border-blue-100">
-              <h3 className="text-2xl font-bold text-gray-900">Generate New Report</h3>
-              <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => setShowGenerateReportModal(false)} className="text-gray-500 hover:text-gray-700 text-2xl">
-                <FiX />
-              </motion.button>
-            </div>
+      <Modal
+        isOpen={showGenerateReportModal}
+        onClose={() => setShowGenerateReportModal(false)}
+        title="Generate New Report"
+        className="max-w-xl"
+      >
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="report-title" className="block text-sm font-medium text-gray-700 mb-1">
+              Report Title
+            </label>
+            <input
+              type="text"
+              id="report-title"
+              className="w-full border border-blue-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm transition-all duration-200"
+              value={reportTitle}
+              onChange={(e) => setReportTitle(e.target.value)}
+              placeholder="Monthly Maintenance Summary"
+            />
+          </div>
 
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="report-title" className="block text-sm font-medium text-gray-700 mb-1">
-                  Report Title
-                </label>
-                <input
-                  type="text"
-                  id="report-title"
-                  className="w-full border border-blue-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
-                  value={reportTitle}
-                  onChange={(e) => setReportTitle(e.target.value)}
-                  placeholder="Monthly Maintenance Summary"
-                />
-              </div>
+          <div>
+            <label htmlFor="report-type" className="block text-sm font-medium text-gray-700 mb-1">
+              Report Type
+            </label>
+            <select
+              id="report-type"
+              className="w-full border border-blue-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm transition-all duration-200"
+              value={reportType}
+              onChange={(e) => setReportType(e.target.value as ReportType)}
+            >
+              <option value="maintenance">Maintenance</option>
+              <option value="inventory">Inventory</option>
+              <option value="work-orders">Work Orders</option>
+              <option value="cost-analysis">Cost Analysis</option>
+            </select>
+          </div>
 
-              <div>
-                <label htmlFor="report-type" className="block text-sm font-medium text-gray-700 mb-1">
-                  Report Type
-                </label>
-                <select
-                  id="report-type"
-                  className="w-full border border-blue-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
-                  value={reportType}
-                  onChange={(e) => setReportType(e.target.value as ReportType)}
-                >
-                  <option value="maintenance">Maintenance</option>
-                  <option value="inventory">Inventory</option>
-                  <option value="work-orders">Work Orders</option>
-                  <option value="cost-analysis">Cost Analysis</option>
-                </select>
-              </div>
+          <div>
+            <label htmlFor="time-range" className="block text-sm font-medium text-gray-700 mb-1">
+              Time Range
+            </label>
+            <select
+              id="time-range"
+              className="w-full border border-blue-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm transition-all duration-200"
+              value={reportTimeRange}
+              onChange={(e) => setReportTimeRange(e.target.value as TimeRange)}
+            >
+              <option value="7-days">Last 7 Days</option>
+              <option value="30-days">Last 30 Days</option>
+              <option value="90-days">Last 90 Days</option>
+              <option value="custom">Custom Range</option>
+            </select>
+          </div>
 
-              <div>
-                <label htmlFor="time-range" className="block text-sm font-medium text-gray-700 mb-1">
-                  Time Range
-                </label>
-                <select
-                  id="time-range"
-                  className="w-full border border-blue-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
-                  value={reportTimeRange}
-                  onChange={(e) => setReportTimeRange(e.target.value as TimeRange)}
-                >
-                  <option value="7-days">Last 7 Days</option>
-                  <option value="30-days">Last 30 Days</option>
-                  <option value="90-days">Last 90 Days</option>
-                  <option value="custom">Custom Range</option>
-                </select>
-              </div>
-            </div>
+          <div className="flex justify-end space-x-3 pt-6 border-t border-gray-100 mt-6">
+            <motion.button
+              type="button"
+              onClick={() => setShowGenerateReportModal(false)}
+              whileHover={{ scale: 1.02, boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)" }}
+              whileTap={{ scale: 0.98 }}
+              className="inline-flex items-center px-6 py-2.5 border border-gray-300 text-base font-semibold rounded-lg shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 ease-in-out"
+            >
+              Cancel
+            </motion.button>
+            <motion.button
+              type="button"
+              onClick={handleGenerateReport}
+              whileHover={{ scale: 1.02, boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)" }}
+              whileTap={{ scale: 0.98 }}
+              className="inline-flex items-center px-6 py-2.5 border border-transparent text-base font-semibold rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 ease-in-out"
+            >
+              Generate Report
+            </motion.button>
+          </div>
+        </div>
+      </Modal>
 
-            <div className="flex justify-end space-x-3 mt-6">
-              <motion.button
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-                onClick={() => setShowGenerateReportModal(false)}
-                className="inline-flex items-center px-5 py-2.5 border border-blue-200 text-base font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
-              >
-                Cancel
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-                onClick={handleGenerateReport}
-                className="inline-flex items-center px-5 py-2.5 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
-              >
-                Generate Report
-              </motion.button>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-
-      {/* Report Details Modal */}
       {selectedReport && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} className="bg-white rounded-xl shadow-2xl w-full max-w-4xl mx-auto p-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center border-b pb-3 mb-4 border-blue-100">
+        <Modal
+          isOpen={!!selectedReport}
+          onClose={() => setSelectedReport(null)}
+          title={selectedReport.title}
+          className="max-w-5xl"
+        >
+          <div className="space-y-6">
+            <div className="flex justify-between items-center pb-4 border-b border-gray-100">
               <div>
-                <h3 className="text-2xl font-bold text-gray-900">{selectedReport.title}</h3>
                 <p className="text-sm text-gray-600">
                   Generated: {new Date(selectedReport.generatedAt).toLocaleString()} | Time Range:{" "}
                   {selectedReport.timeRange
@@ -1010,108 +1091,102 @@ const ReportsDashboard: React.FC = () => {
                     .join(" ")}
                 </p>
               </div>
-              <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => setSelectedReport(null)} className="text-gray-500 hover:text-gray-700 text-2xl">
-                <FiX />
-              </motion.button>
+              <div className="flex space-x-2">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => handleExportReport(selectedReport.id)}
+                  className="flex items-center space-x-1 px-3 py-1.5 border border-blue-200 rounded-lg bg-white text-blue-600 hover:bg-blue-50 transition-colors duration-200 text-sm"
+                >
+                  <Download size={16} />
+                  <span>Export</span>
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => alert("Print functionality would go here")}
+                  className="flex items-center space-x-1 px-3 py-1.5 border border-blue-200 rounded-lg bg-white text-gray-600 hover:bg-blue-50 transition-colors duration-200 text-sm"
+                >
+                  <Printer size={16} />
+                  <span>Print</span>
+                </motion.button>
+              </div>
             </div>
 
-            <div className="mb-6">
-              <div className="flex justify-between items-center mb-4">
-                <h4 className="text-lg font-semibold text-gray-900">Report Summary</h4>
-                <div className="flex space-x-2">
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => handleExportReport(selectedReport.id)}
-                    className="flex items-center space-x-1 px-3 py-1.5 border border-blue-200 rounded-lg bg-white text-blue-600 hover:bg-blue-50 transition-colors duration-200"
-                  >
-                    <FiDownload className="text-sm" />
-                    <span>Export</span>
-                  </motion.button>
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => alert("Print functionality would go here")}
-                    className="flex items-center space-x-1 px-3 py-1.5 border border-blue-200 rounded-lg bg-white text-gray-600 hover:bg-blue-50 transition-colors duration-200"
-                  >
-                    <FiPrinter className="text-sm" />
-                    <span>Print</span>
-                  </motion.button>
+            {renderReportVisualization(selectedReport)}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-white rounded-2xl shadow-md p-6 border border-blue-100">
+                <h3 className="font-bold text-lg mb-4">Key Metrics</h3>
+                <div className="space-y-3">
+                  {Object.entries(selectedReport.data).map(([key, value]) => {
+                    if (typeof value !== "object" || value === null) {
+                      return (
+                        <div key={key} className="flex justify-between">
+                          <span className="text-sm text-gray-600">
+                            {key
+                              .split("-")
+                              .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                              .join(" ")}
+                            :
+                          </span>
+                          <span className="font-medium">
+                            {typeof value === "number" && key.toLowerCase().includes("cost") ? `$${value.toFixed(2)}` : String(value)}
+                          </span>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })}
                 </div>
               </div>
 
-              {renderReportVisualization(selectedReport)}
-
-              <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-white p-4 rounded-lg shadow border border-blue-100">
-                  <h4 className="font-semibold text-gray-900 mb-3">Key Metrics</h4>
-                  <div className="space-y-3">
-                    {Object.entries(selectedReport.data).map(([key, value]) => {
-                      if (typeof value !== "object" || value === null) {
-                        return (
-                          <div key={key} className="flex justify-between">
-                            <span className="text-gray-600">
-                              {key
-                                .split("-")
-                                .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-                                .join(" ")}
-                              :
-                            </span>
-                            <span className="font-medium">{typeof value === "number" && key.toLowerCase().includes("cost") ? `$${value.toFixed(2)}` : String(value)}</span>
-                          </div>
-                        );
-                      }
-                      return null;
-                    })}
+              <div className="bg-white rounded-2xl shadow-md p-6 border border-blue-100">
+                <h3 className="font-bold text-lg mb-4">Report Details</h3>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Report ID:</span>
+                    <span className="font-medium">{selectedReport.id}</span>
                   </div>
-                </div>
-
-                <div className="bg-white p-4 rounded-lg shadow border border-blue-100">
-                  <h4 className="font-semibold text-gray-900 mb-3">Report Details</h4>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Report ID:</span>
-                      <span className="font-medium">{selectedReport.id}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Type:</span>
-                      <span className="font-medium">
-                        {selectedReport.type
-                          .split("-")
-                          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-                          .join(" ")}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Generated:</span>
-                      <span className="font-medium">{new Date(selectedReport.generatedAt).toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Time Range:</span>
-                      <span className="font-medium">
-                        {selectedReport.timeRange
-                          .split("-")
-                          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-                          .join(" ")}
-                      </span>
-                    </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Type:</span>
+                    <span className="font-medium">
+                      {selectedReport.type
+                        .split("-")
+                        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                        .join(" ")}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Generated:</span>
+                    <span className="font-medium">{new Date(selectedReport.generatedAt).toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Time Range:</span>
+                    <span className="font-medium">
+                      {selectedReport.timeRange
+                        .split("-")
+                        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                        .join(" ")}
+                    </span>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="flex justify-end">
+            <div className="flex justify-end pt-6 border-t border-gray-100 mt-6">
               <motion.button
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
+                type="button"
                 onClick={() => setSelectedReport(null)}
-                className="inline-flex items-center px-5 py-2.5 border border-blue-200 text-base font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                whileHover={{ scale: 1.02, boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)" }}
+                whileTap={{ scale: 0.98 }}
+                className="inline-flex items-center px-6 py-2.5 border border-transparent text-base font-semibold rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 ease-in-out"
               >
                 Close
               </motion.button>
             </div>
-          </motion.div>
-        </motion.div>
+          </div>
+        </Modal>
       )}
     </div>
   );
