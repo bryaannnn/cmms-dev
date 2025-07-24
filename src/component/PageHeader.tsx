@@ -1,46 +1,23 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { useAuth, MachineHistoryRecord } from "../routes/AuthContext";
-import logoWida from "../assets/logo-wida.png";
+// src/component/PageHeader.tsx
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
-import { useDebouncedCallback } from "use-debounce";
-import Sidebar from "../component/Sidebar";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../routes/AuthContext"; // Assuming AuthContext is in this path
+
 import {
-  Plus,
-  Upload,
-  ChevronUp,
-  AlertTriangle,
-  Wrench,
-  CheckCircle,
-  Users,
-  BarChart2,
-  Database,
-  Clipboard,
-  Filter,
-  Package,
-  ChevronLeft,
-  Home,
-  X,
-  ChevronDown,
   ChevronRight,
-  Search,
-  LogOut,
-  Settings,
   Bell,
-  Edit,
-  Eye,
-  Clock,
-  Calendar,
-  Trash2,
-  Key,
-  Info,
-  Moon,
+  ChevronDown,
+  User as UserIcon, // Renamed to avoid conflict with User interface
+  Settings,
+  LogOut,
   Sun,
-  UserIcon,
+  Moon,
+  AlertTriangle,
+  Calendar,
 } from "lucide-react";
 
+// Interface for notification items
 interface NotificationItem {
   id: number;
   title: string;
@@ -49,6 +26,7 @@ interface NotificationItem {
   date: string;
 }
 
+// Static notification data for demonstration
 const notifications: NotificationItem[] = [
   {
     id: 1,
@@ -66,39 +44,81 @@ const notifications: NotificationItem[] = [
   },
 ];
 
-const Header: React.FC = () => {
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [darkMode, setDarkMode] = useState(false);
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
+// Props interface for the PageHeader component
+interface PageHeaderProps {
+  mainTitle: string; // The main part of the page title (e.g., "Machine History")
+  mainTitleHighlight: string; // The highlighted part of the page title (e.g., "Records")
+  description: string; // The descriptive paragraph below the title
+  // Changed icon type to be more specific, expecting an SVG element from Lucide
+  icon: React.ReactElement<React.SVGProps<SVGSVGElement>>;
+  isMobile: boolean; // Boolean to check if the current view is mobile
+  toggleSidebar: () => void; // Function to toggle the sidebar visibility
+}
+
+const PageHeader: React.FC<PageHeaderProps> = ({ mainTitle, mainTitleHighlight, description, icon, isMobile, toggleSidebar }) => {
+  // Access user authentication context
+  const { user, logout } = useAuth();
+  // Hook for programmatic navigation
+  const navigate = useNavigate();
+
+  // State for controlling notification popup visibility
   const [showNotificationsPopup, setShowNotificationsPopup] = useState(false);
+  // State for controlling user profile menu visibility
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  // State for controlling dark mode (managed internally by PageHeader)
+  const [darkMode, setDarkMode] = useState(false);
+
+  // Refs for detecting clicks outside notification and profile popups
   const notificationsRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
-    const stored = localStorage.getItem("sidebarOpen");
-    return stored ? JSON.parse(stored) : false;
-  });
 
-  const toggleSidebar = () => {
-    localStorage.setItem("sidebarOpen", JSON.stringify(!sidebarOpen));
-    setSidebarOpen((prev) => !prev);
-  };
+  // Effect to handle clicks outside popups to close them
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      // Close notifications if click is outside its ref
+      if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
+        setShowNotificationsPopup(false);
+      }
+      // Close profile menu if click is outside its ref
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setShowProfileMenu(false);
+      }
+    };
+
+    // Add event listener when component mounts
+    document.addEventListener("mousedown", handleClickOutside);
+    // Clean up event listener when component unmounts
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []); // Empty dependency array means this effect runs once on mount and clean up on unmount
+
+  // Safely get the existing className from the icon's props
+  // Now, icon.props is already typed as React.SVGProps<SVGSVGElement>, so direct access is safe.
+  const existingIconClassName = icon.props.className || "";
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <>
+      {/* Main header section */}
       <header className="bg-white border-b border-gray-100 p-4 flex items-center justify-between shadow-sm sticky top-0 z-30">
+        {/* Left section: Sidebar toggle, icon, and page title */}
         <div className="flex items-center space-x-4">
+          {/* Mobile sidebar toggle button */}
           {isMobile && (
             <motion.button onClick={toggleSidebar} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
               <ChevronRight className="text-xl" />
             </motion.button>
           )}
-          <Clipboard className="text-xl text-blue-600" />
-          <h2 className="text-lg md:text-xl font-bold text-gray-900">Machine History</h2>
+          {/* Page icon, dynamically styled */}
+          {/* Clones the icon element and adds/merges className for consistent styling */}
+          {React.cloneElement(icon, { className: `text-xl text-blue-600 ${existingIconClassName}` })}
+          {/* Main page title */}
+          <h2 className="text-lg md:text-xl font-bold text-gray-900">{mainTitle}</h2>
         </div>
 
+        {/* Right section: Dark mode toggle, notifications, and user profile */}
         <div className="flex items-center space-x-3 relative">
+          {/* Dark mode toggle button */}
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
@@ -109,6 +129,7 @@ const Header: React.FC = () => {
             {darkMode ? <Sun className="text-yellow-400 text-xl" /> : <Moon className="text-xl" />}
           </motion.button>
 
+          {/* Notifications dropdown */}
           <div className="relative" ref={notificationsRef}>
             <motion.button
               whileHover={{ scale: 1.05 }}
@@ -118,9 +139,11 @@ const Header: React.FC = () => {
               aria-label="Notifications"
             >
               <Bell className="text-xl" />
+              {/* Notification indicator */}
               <span className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full animate-pulse border border-white"></span>
             </motion.button>
 
+            {/* Notification popup content */}
             <AnimatePresence>
               {showNotificationsPopup && (
                 <motion.div
@@ -164,6 +187,7 @@ const Header: React.FC = () => {
             </AnimatePresence>
           </div>
 
+          {/* User profile dropdown */}
           <div className="relative" ref={profileRef}>
             <motion.button
               whileHover={{ backgroundColor: "rgba(239, 246, 255, 0.7)" }}
@@ -171,15 +195,19 @@ const Header: React.FC = () => {
               onClick={() => setShowProfileMenu(!showProfileMenu)}
               className="flex items-center space-x-2 cursor-pointer p-2 rounded-lg transition-colors duration-200"
             >
+              {/* User avatar */}
               <img
                 src={`https://api.dicebear.com/7.x/initials/svg?seed=${user?.name || "User"}&backgroundColor=0081ff,3d5a80,ffc300,e0b589&backgroundType=gradientLinear&radius=50`}
                 alt="User Avatar"
                 className="w-8 h-8 rounded-full border border-blue-200 object-cover"
               />
+              {/* User name */}
               <span className="font-medium text-gray-900 text-sm hidden sm:inline">{user?.name}</span>
+              {/* Dropdown arrow */}
               <ChevronDown className="text-gray-500 text-base" />
             </motion.button>
 
+            {/* User profile menu content */}
             <AnimatePresence>
               {showProfileMenu && (
                 <motion.div
@@ -212,7 +240,8 @@ const Header: React.FC = () => {
                   <hr className="my-1 border-gray-100" />
                   <button
                     onClick={() => {
-                      navigate("/logout");
+                      logout(); // Use logout from useAuth
+                      navigate("/login"); // Redirect to login after logout
                       setShowProfileMenu(false);
                     }}
                     className="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full text-left"
@@ -225,8 +254,10 @@ const Header: React.FC = () => {
           </div>
         </div>
       </header>
-    </div>
+
+      
+    </>
   );
 };
 
-export default Header;
+export default PageHeader;

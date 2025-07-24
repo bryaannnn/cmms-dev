@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useAuth, WorkOrderFormData, User } from "../routes/AuthContext"; // Import WorkOrderFormData and User
+import { useAuth, WorkOrderFormData, User } from "../routes/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
 import Sidebar from "../component/Sidebar";
 import {
@@ -38,6 +38,9 @@ import {
   Flag,
   Star,
   Printer,
+  Check, // For approve
+  UserPlus, // For assign
+  Ban, // For cancel
 } from "lucide-react";
 
 // Interface for navigation items
@@ -139,16 +142,15 @@ interface WorkOrderDetailsFormProps {
   onCancel: () => void;
   onComplete: (id: number) => void;
   onPrint: (id: number) => void;
-  // New props for admin actions, but disabled for normal users
+  // New props for admin actions
   onApprove?: (id: number) => void;
   onAssign?: (id: number, assignedTo: string) => void;
   onCancelOrder?: (id: number) => void;
   users?: User[]; // List of users for assignment
-  isUserView?: boolean; // Flag to indicate if this is the user view
 }
 
 // WorkOrderDetailsForm component for viewing/editing work order details
-const WorkOrderDetailsForm: React.FC<WorkOrderDetailsFormProps> = ({ workOrder, isEditing, onSave, onCancel, onComplete, onPrint, onApprove, onAssign, onCancelOrder, users, isUserView = false }) => {
+const WorkOrderDetailsForm: React.FC<WorkOrderDetailsFormProps> = ({ workOrder, isEditing, onSave, onCancel, onComplete, onPrint, onApprove, onAssign, onCancelOrder, users }) => {
   const [formData, setFormData] = useState<WorkOrderFormData>(workOrder);
   const [assignedToUser, setAssignedToUser] = useState<string>(workOrder.assignedTo || "");
 
@@ -239,9 +241,9 @@ const WorkOrderDetailsForm: React.FC<WorkOrderDetailsFormProps> = ({ workOrder, 
           name="status"
           value={formData.status}
           onChange={handleChange}
-          disabled={!isEditing || isUserView} // Disabled for user view
+          disabled={!isEditing}
           required
-          className={`mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 transition-all duration-200 ${isEditing && !isUserView ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
+          className={`mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
         >
           <option value="pending">Pending</option>
           <option value="in-progress">In Progress</option>
@@ -277,8 +279,8 @@ const WorkOrderDetailsForm: React.FC<WorkOrderDetailsFormProps> = ({ workOrder, 
           name="assignedTo"
           value={assignedToUser}
           onChange={handleAssignedToChange}
-          disabled={!isEditing || isUserView} // Disabled for user view
-          className={`mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 transition-all duration-200 ${isEditing && !isUserView ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
+          disabled={!isEditing}
+          className={`mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
         >
           <option value="">Not Assigned</option>
           {users?.map((user) => (
@@ -330,17 +332,16 @@ const WorkOrderDetailsForm: React.FC<WorkOrderDetailsFormProps> = ({ workOrder, 
         >
           {isEditing ? "Cancel" : "Close"}
         </motion.button>
-        {isEditing &&
-          !isUserView && ( // Only show save changes for admin view when editing
-            <motion.button
-              type="submit"
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              className="inline-flex items-center px-5 py-2.5 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
-            >
-              Save Changes
-            </motion.button>
-          )}
+        {isEditing && (
+          <motion.button
+            type="submit"
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            className="inline-flex items-center px-5 py-2.5 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+          >
+            Save Changes
+          </motion.button>
+        )}
         {!isEditing && formData.status !== "completed" && formData.status !== "cancelled" && (
           <motion.button
             type="button"
@@ -363,8 +364,8 @@ const WorkOrderDetailsForm: React.FC<WorkOrderDetailsFormProps> = ({ workOrder, 
             <Printer size={18} className="mr-2" /> Print
           </motion.button>
         )}
-        {/* Admin actions - only visible in admin view and if not editing */}
-        {!isEditing && !isUserView && formData.status === "pending" && onApprove && (
+        {/* Admin actions */}
+        {!isEditing && formData.status === "pending" && onApprove && (
           <motion.button
             type="button"
             onClick={() => onApprove(formData.id)}
@@ -372,10 +373,10 @@ const WorkOrderDetailsForm: React.FC<WorkOrderDetailsFormProps> = ({ workOrder, 
             whileTap={{ scale: 0.97 }}
             className="inline-flex items-center px-5 py-2.5 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-500 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-400 transition-colors duration-200"
           >
-            <CheckCircle size={18} className="mr-2" /> Approve
+            <Check size={18} className="mr-2" /> Approve
           </motion.button>
         )}
-        {!isEditing && !isUserView && formData.status !== "cancelled" && onCancelOrder && (
+        {!isEditing && formData.status !== "cancelled" && onCancelOrder && (
           <motion.button
             type="button"
             onClick={() => onCancelOrder(formData.id)}
@@ -383,7 +384,7 @@ const WorkOrderDetailsForm: React.FC<WorkOrderDetailsFormProps> = ({ workOrder, 
             whileTap={{ scale: 0.97 }}
             className="inline-flex items-center px-5 py-2.5 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-red-500 hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-400 transition-colors duration-200"
           >
-            <X size={18} className="mr-2" /> Cancel Order
+            <Ban size={18} className="mr-2" /> Cancel Order
           </motion.button>
         )}
       </div>
@@ -391,8 +392,8 @@ const WorkOrderDetailsForm: React.FC<WorkOrderDetailsFormProps> = ({ workOrder, 
   );
 };
 
-// Main WorkOrdersDashboard component
-const WorkOrdersDashboard: React.FC = () => {
+// Main WorkOrderAdminDashboard component
+const WorkOrderAdminDashboard: React.FC = () => {
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -409,9 +410,10 @@ const WorkOrdersDashboard: React.FC = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [showNotificationsPopup, setShowNotificationsPopup] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [users, setUsers] = useState<User[]>([]); // State to store users for assignment
 
   // Use auth context for data operations and user permissions
-  const { user, hasPermission, submitWorkOrder, updateWorkOrder, deleteWorkOrder, getWorkOrderById, getWorkOrdersForUser } = useAuth();
+  const { user, hasPermission, getWorkOrders, submitWorkOrder, updateWorkOrder, deleteWorkOrder, getWorkOrderById, approveWorkOrder, assignWorkOrder, cancelWorkOrder, getUsers } = useAuth();
   const navigate = useNavigate();
   const [workOrders, setWorkOrders] = useState<WorkOrderFormData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -450,30 +452,25 @@ const WorkOrdersDashboard: React.FC = () => {
     };
   }, []);
 
-  // Effect to load work orders from AuthContext for the current user
+  // Effect to load all work orders and users from AuthContext
   useEffect(() => {
-    const loadWorkOrders = async () => {
-      if (!user?.id) {
-        setLoading(false);
-        setError("User not logged in or user ID not available.");
-        return;
-      }
+    const loadData = async () => {
       try {
         setLoading(true);
         setError(null);
-        // Use getWorkOrdersForUser to fetch only relevant and approved work orders
-        const orders = await getWorkOrdersForUser(user.id);
+        const [orders, fetchedUsers] = await Promise.all([getWorkOrders(), getUsers()]);
         setWorkOrders(orders);
+        setUsers(fetchedUsers);
       } catch (err) {
-        console.error("Error loading work orders:", err);
-        setError("Failed to load work orders. Please try again.");
+        console.error("Error loading data:", err);
+        setError("Failed to load data. Please try again.");
       } finally {
         setLoading(false);
       }
     };
 
-    loadWorkOrders();
-  }, [getWorkOrdersForUser, user?.id]); // Depend on getWorkOrdersForUser and user.id
+    loadData();
+  }, [getWorkOrders, getUsers]);
 
   // Helper function to get status badge color
   const getStatusColor = (status: string) => {
@@ -592,6 +589,66 @@ const WorkOrdersDashboard: React.FC = () => {
     [workOrders, updateWorkOrder]
   );
 
+  // Handle approving a work order
+  const handleApproveWorkOrder = useCallback(
+    async (id: number) => {
+      try {
+        setLoading(true);
+        setError(null);
+        const updatedOrder = await approveWorkOrder(id);
+        setWorkOrders((prev) => prev.map((order) => (order.id === updatedOrder.id ? updatedOrder : order)));
+        setShowWorkOrderDetailsModal(false);
+        setSelectedWorkOrder(null);
+      } catch (err) {
+        console.error("Error approving work order:", err);
+        setError("Failed to approve work order.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [approveWorkOrder]
+  );
+
+  // Handle assigning a work order
+  const handleAssignWorkOrder = useCallback(
+    async (id: number, assignedToUserId: string) => {
+      try {
+        setLoading(true);
+        setError(null);
+        const updatedOrder = await assignWorkOrder(id, assignedToUserId);
+        setWorkOrders((prev) => prev.map((order) => (order.id === updatedOrder.id ? updatedOrder : order)));
+        setShowWorkOrderDetailsModal(false);
+        setSelectedWorkOrder(null);
+      } catch (err) {
+        console.error("Error assigning work order:", err);
+        setError("Failed to assign work order.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [assignWorkOrder]
+  );
+
+  // Handle cancelling a work order
+  const handleCancelWorkOrder = useCallback(
+    async (id: number) => {
+      try {
+        setLoading(true);
+        setError(null);
+        const updatedOrder = await cancelWorkOrder(id);
+        setWorkOrders((prev) => prev.map((order) => (order.id === updatedOrder.id ? updatedOrder : order)));
+        setShowWorkOrderDetailsModal(false);
+        setSelectedWorkOrder(null);
+      } catch (err) {
+        console.error("Error cancelling work order:", err);
+        setError("Failed to cancel work order.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [cancelWorkOrder]
+  );
+
   // Set record to delete and show confirmation modal
   const handleDeleteClick = useCallback((id: number) => {
     setRecordToDelete(id);
@@ -652,6 +709,15 @@ const WorkOrdersDashboard: React.FC = () => {
     document.documentElement.classList.toggle("dark", darkMode);
   }, [searchQuery, statusFilter, priorityFilter, sidebarOpen, darkMode]);
 
+  // Redirect if user is not admin/superadmin
+  useEffect(() => {
+    if (!user) return;
+    if (!hasPermission("manage_users") && !user.isSuperadmin) {
+      // Assuming 'manage_users' or superadmin role grants admin access
+      navigate("/dashboard"); // Redirect to a non-admin page
+    }
+  }, [user, hasPermission, navigate]);
+
   // Loading state UI
   if (loading) {
     return (
@@ -687,7 +753,7 @@ const WorkOrdersDashboard: React.FC = () => {
               </motion.button>
             )}
             <Clipboard className="text-xl text-blue-600" />
-            <h2 className="text-lg md:text-xl font-bold text-gray-900">My Work Orders</h2>
+            <h2 className="text-lg md:text-xl font-bold text-gray-900">Work Order Admin</h2>
           </div>
 
           <div className="flex items-center space-x-3 relative">
@@ -829,8 +895,8 @@ const WorkOrdersDashboard: React.FC = () => {
         <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Work Orders Overview</h1>
-              <p className="text-gray-600 mt-1">Manage and track your maintenance and service requests</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Work Order Administration</h1>
+              <p className="text-gray-600 mt-1">Manage all maintenance and service requests across the organization</p>
             </div>
 
             <div className="flex flex-wrap gap-3">
@@ -970,7 +1036,7 @@ const WorkOrdersDashboard: React.FC = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">{order.type}</div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.assignedTo}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{users.find((u) => u.id === order.assignedTo)?.name || "Unassigned"}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full ${getPriorityColor(order.priority)} shadow-sm`}>{order.priority.charAt(0).toUpperCase() + order.priority.slice(1)}</span>
                         </td>
@@ -988,16 +1054,37 @@ const WorkOrdersDashboard: React.FC = () => {
                           >
                             <Eye className="text-lg" />
                           </motion.button>
-                          {/* Only allow editing/deleting if user has permission and it's not a user-specific page */}
                           {hasPermission("edit_workorders") && (
                             <motion.button
                               whileHover={{ scale: 1.05 }}
                               whileTap={{ scale: 0.95 }}
-                              onClick={() => navigate(`/workorders/editworkorder/${order.id}`)}
+                              onClick={() => openWorkOrderDetails(order.id, true)} // Open in edit mode
                               className="text-gray-600 hover:text-gray-800 transition-colors duration-200 flex items-center space-x-1"
                               title="Edit Work Order"
                             >
                               <Edit className="text-lg" />
+                            </motion.button>
+                          )}
+                          {hasPermission("assign_workorders") && order.status === "pending" && (
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={() => handleAssignWorkOrder(order.id, user?.id || "")} // Assign to current user or open assign modal
+                              className="text-purple-600 hover:text-purple-800 transition-colors duration-200 flex items-center space-x-1"
+                              title="Assign Work Order"
+                            >
+                              <UserPlus className="text-lg" />
+                            </motion.button>
+                          )}
+                          {hasPermission("complete_workorders") && order.status === "in-progress" && (
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={() => handleCompleteWorkOrder(order.id)}
+                              className="text-green-600 hover:text-green-800 transition-colors duration-200 flex items-center space-x-1"
+                              title="Complete Work Order"
+                            >
+                              <CheckCircle className="text-lg" />
                             </motion.button>
                           )}
                           {hasPermission("delete_workorders") && (
@@ -1011,6 +1098,30 @@ const WorkOrdersDashboard: React.FC = () => {
                               <Trash2 className="text-lg" />
                             </motion.button>
                           )}
+                          {hasPermission("assign_workorders") &&
+                            order.status === "pending" && ( // Approve button
+                              <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => handleApproveWorkOrder(order.id)}
+                                className="text-blue-600 hover:text-blue-800 transition-colors duration-200 flex items-center space-x-1"
+                                title="Approve Work Order"
+                              >
+                                <Check className="text-lg" />
+                              </motion.button>
+                            )}
+                          {hasPermission("assign_workorders") &&
+                            order.status !== "cancelled" && ( // Cancel button
+                              <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => handleCancelWorkOrder(order.id)}
+                                className="text-orange-600 hover:text-orange-800 transition-colors duration-200 flex items-center space-x-1"
+                                title="Cancel Work Order"
+                              >
+                                <Ban className="text-lg" />
+                              </motion.button>
+                            )}
                         </td>
                       </motion.tr>
                     ))
@@ -1093,7 +1204,10 @@ const WorkOrdersDashboard: React.FC = () => {
             }}
             onComplete={handleCompleteWorkOrder}
             onPrint={handlePrintWorkOrder}
-            isUserView={true} // Indicate this is the user view
+            onApprove={handleApproveWorkOrder}
+            onAssign={handleAssignWorkOrder}
+            onCancelOrder={handleCancelWorkOrder}
+            users={users} // Pass users to the form for assignment
           />
         </Modal>
       )}
@@ -1127,4 +1241,4 @@ const WorkOrdersDashboard: React.FC = () => {
   );
 };
 
-export default WorkOrdersDashboard;
+export default WorkOrderAdminDashboard;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../routes/AuthContext";
 import logoWida from "../assets/logo-wida.png";
@@ -31,7 +31,9 @@ import {
   AlertTriangle,
   CheckCircle,
   Eye,
+  Calendar,
 } from "lucide-react";
+import PageHeader from "../component/PageHeader";
 
 interface Permission {
   [key: string]: string;
@@ -112,6 +114,31 @@ const NavItem: React.FC<NavItemProps> = ({ icon, text, to, expanded }) => {
   );
 };
 
+interface NotificationItem {
+  id: number;
+  title: string;
+  description: string;
+  icon?: React.ReactNode;
+  date: string;
+}
+
+const notifications: NotificationItem[] = [
+  {
+    id: 1,
+    title: "Peringatan Mesin A",
+    description: "Suhu mesin A melebihi batas normal.",
+    date: "Today, 10:00 AM",
+    icon: <AlertTriangle className="text-red-500" />,
+  },
+  {
+    id: 2,
+    title: "Jadwal Perawatan Mendatang",
+    description: "Perawatan rutin untuk Mesin B akan dilakukan besok.",
+    date: "Yesterday, 03:00 PM",
+    icon: <Calendar className="text-blue-500" />,
+  },
+];
+
 const PermissionsPage: React.FC = () => {
   const { user, logout, fetchWithAuth, getUsers, hasPermission, updateUserPermissions, deleteUser, createRole, updateRole } = useAuth();
   const navigate = useNavigate();
@@ -132,6 +159,7 @@ const PermissionsPage: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
+  const notificationsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleResize = () => {
@@ -357,50 +385,30 @@ const PermissionsPage: React.FC = () => {
     .filter((user) => departmentFilter === "all" || user.department === departmentFilter)
     .filter((user) => user.name.toLowerCase().includes(searchQuery.toLowerCase()) || user.nik.toLowerCase().includes(searchQuery.toLowerCase()));
 
-  if (!hasPermission("15")) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50 font-sans">
-        <div className="bg-white rounded-xl shadow-lg p-8 text-center border border-red-200">
-          <AlertTriangle className="text-red-500 text-4xl mx-auto mb-4" />
-          <p className="text-xl text-red-600 font-semibold">You don't have permission to access this page</p>
-        </div>
-      </div>
-    );
-  }
+  // if (!hasPermission("15")) {
+  //   return (
+  //     <div className="flex items-center justify-center min-h-screen bg-gray-50 font-sans">
+  //       <div className="bg-white rounded-xl shadow-lg p-8 text-center border border-red-200">
+  //         <AlertTriangle className="text-red-500 text-4xl mx-auto mb-4" />
+  //         <p className="text-xl text-red-600 font-semibold">You don't have permission to access this page</p>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   return (
     <div className="flex h-screen font-sans antialiased bg-blue-50">
       <Sidebar />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white border-b border-gray-100 p-4 flex items-center justify-between shadow-sm sticky top-0 z-30">
-          <div className="flex items-center space-x-4">
-            {isMobile && (
-              <motion.button onClick={toggleSidebar} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
-                <ChevronRight className="text-xl" />
-              </motion.button>
-            )}
-            <Key className="text-xl text-blue-600" />
-            <h2 className="text-lg md:text-xl font-bold text-gray-900">Permissions</h2>
-          </div>
-
-          <div className="flex items-center space-x-3">
-            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200 relative">
-              <Bell className="text-xl" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full animate-pulse border border-white"></span>
-            </motion.button>
-
-            <motion.div whileHover={{ backgroundColor: "rgba(239, 246, 255, 0.7)" }} whileTap={{ scale: 0.98 }} className="flex items-center space-x-2 cursor-pointer p-2 rounded-lg transition-colors duration-200">
-              <img
-                src={`https://api.dicebear.com/7.x/initials/svg?seed=${user?.name || "User"}&backgroundColor=0081ff,3d5a80,ffc300,e0b589&backgroundType=gradientLinear&radius=50`}
-                alt="User Avatar"
-                className="w-8 h-8 rounded-full border border-blue-200 object-cover"
-              />
-              <span className="font-medium text-gray-900 text-sm hidden sm:inline">{user?.name}</span>
-              <ChevronDown className="text-gray-500 text-base" />
-            </motion.div>
-          </div>
-        </header>
+        <PageHeader
+          mainTitle="Permission"
+          mainTitleHighlight="Management"
+          description="Manage user roles and permissions to control access and functionality within the system."
+          icon={<Key />}
+          isMobile={isMobile}
+          toggleSidebar={toggleSidebar}
+        />
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between space-y-5 md:space-y-0">

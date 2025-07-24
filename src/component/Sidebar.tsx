@@ -101,6 +101,7 @@ const Sidebar: React.FC = () => {
               {hasPermission("27") && <NavItem icon={<Users />} text="Team" to="/team" expanded={sidebarOpen} />}
               {hasPermission("13") && <NavItem icon={<Settings />} text="Settings" to="/settings" expanded={sidebarOpen} />}
               {hasPermission("15") && <NavItem icon={<Key />} text="Permissions" to="/permissions" expanded={sidebarOpen} />}
+              {hasPermission("1") && <NavItem icon={<Clipboard />} text="Work Orders Admin" to="/manage-workorders" expanded={sidebarOpen} />}
             </nav>
 
             {/* Bagian Bawah Navbar: Informasi Versi & Logout Sidebar */}

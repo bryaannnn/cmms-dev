@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth, MachineHistoryRecord } from "../routes/AuthContext";
 import logoWida from "../assets/logo-wida.png";
 import { motion, AnimatePresence } from "framer-motion";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { useDebouncedCallback } from "use-debounce";
+// import { useDebounce } from "../hooks/useDebounce"; // Commented out as it's now defined locally for self-containment
 import Sidebar from "../component/Sidebar";
 import {
   Plus,
@@ -41,19 +41,17 @@ import {
   UserIcon,
 } from "lucide-react";
 
+// Moved useDebounce definition here to resolve "Cannot find module" error
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
-
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedValue(value);
     }, delay);
-
     return () => {
       clearTimeout(handler);
     };
   }, [value, delay]);
-
   return debouncedValue;
 }
 
@@ -314,9 +312,8 @@ const MachineHistoryDashboard: React.FC = () => {
     return stored ? JSON.parse(stored) : false;
   });
   const [searchQuery, setSearchQuery] = useState("");
-  const [isSearching, setIsSearching] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string[]>([]); // Changed to array
   const [machineFilter, setMachineFilter] = useState<string[]>([]);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [showHistoryDetails, setShowHistoryDetails] = useState(false);
@@ -324,8 +321,8 @@ const MachineHistoryDashboard: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [recordsPerPage] = useState(10);
   const { user, getMachineHistories, deleteMachineHistory, isAuthenticated, isMasterDataLoading, hasPermission } = useAuth();
-  const [records, setRecords] = useState<MachineHistoryRecord[]>([]);
-  const [filteredRecords, setFilteredRecords] = useState<MachineHistoryRecord[]>([]);
+  const [records, setRecords] = useState<MachineHistoryRecord[]>([]); // This holds ALL records
+  const [filteredRecords, setFilteredRecords] = useState<MachineHistoryRecord[]>([]); // This holds filtered records
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [machines, setMachines] = useState<{ id: string; name: string }[]>([]);
@@ -335,7 +332,7 @@ const MachineHistoryDashboard: React.FC = () => {
   const [recordToDelete, setRecordToDelete] = useState<string | null>(null);
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
-  const [shiftFilter, setShiftFilter] = useState<string>("all");
+  const [shiftFilter, setShiftFilter] = useState<string[]>([]); // Changed to array
   const [showNotificationsPopup, setShowNotificationsPopup] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const notificationsRef = useRef<HTMLDivElement>(null);
@@ -346,21 +343,52 @@ const MachineHistoryDashboard: React.FC = () => {
   const machineFilterDropdownRef = useRef<HTMLDivElement>(null);
   const [showMachineFilterDropdown, setShowMachineFilterDropdown] = useState(false);
 
-  const searchCategories = [
-    { id: "machine", name: "Machine Name" },
-    { id: "issue", name: "Issue Description" },
-    { id: "recordId", name: "Record ID" },
-    { id: "itemTrouble", name: "Item Trouble" },
-  ];
+  // New state and ref for Status and Shift dropdowns
+  const [showStatusFilterDropdown, setShowStatusFilterDropdown] = useState(false);
+  const statusFilterDropdownRef = useRef<HTMLDivElement>(null);
+  const [showShiftFilterDropdown, setShowShiftFilterDropdown] = useState(false);
+  const shiftFilterDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Apply useDebounce to searchQuery
+  const debouncedSearchQuery = useDebounce(searchQuery, 300); // Debounce for 300ms
+
+  // MEMOIZE searchCategories to make it stable
+  const searchCategories = useMemo(
+    () => [
+      { id: "machine", name: "Machine Name" },
+      { id: "issue", name: "Issue Description" },
+      { id: "recordId", name: "Record ID" },
+      { id: "itemTrouble", name: "Item Trouble" },
+    ],
+    []
+  ); // Empty dependency array means it's created once
+
+  // Define available status/type options
+  const statusOptions = useMemo(
+    () => [
+      { value: "Perbaikan", label: "Repairs" },
+      { value: "Perawatan", label: "Maintenance" },
+    ],
+    []
+  );
+
+  // Define available shift options
+  const shiftOptions = useMemo(
+    () => [
+      { value: "1", label: "Shift 1" },
+      { value: "2", label: "Shift 2" },
+      { value: "3", label: "Shift 3" },
+    ],
+    []
+  );
 
   const loadInitialData = useCallback(async () => {
     try {
       setLoading(true);
       const data = await getMachineHistories();
 
-      // Jika data kosong, tetap set state tapi tanpa error
-      setRecords(data || []);
-      setFilteredRecords(data || []);
+      setRecords(data || []); // Store all fetched records
+      setFilteredRecords(data || []); // Initially, filtered records are all records
 
       const uniqueMachines = Array.from(new Set(data.map((r) => r.mesin)))
         .filter(Boolean)
@@ -369,43 +397,128 @@ const MachineHistoryDashboard: React.FC = () => {
       setMachines(uniqueMachines);
     } catch (err) {
       console.error("Failed to load data:", err);
-      // Tidak set error state untuk menghindari popup
       setRecords([]);
       setMachines([]);
+      // You might want to set an error here if the initial load fails critically
+      // setError("Failed to load machine history data.");
     } finally {
       setLoading(false);
     }
   }, [getMachineHistories]);
 
-  const debouncedSearch = useDebouncedCallback(async (query: string) => {
-    try {
-      setIsSearching(true);
-      const results = await getMachineHistories(query);
-      setFilteredRecords(results);
-      setCurrentPage(1);
-    } catch (error) {
-      console.error("Search error:", error);
-      setError("Failed to perform search. Please try again.");
-      setFilteredRecords([]);
-    } finally {
-      setIsSearching(false);
-    }
-  }, 500);
-
+  // Corrected type for the event parameter
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value;
     setSearchQuery(query);
-
-    if (query.trim()) {
-      debouncedSearch(query);
-    } else {
-      setFilteredRecords(records);
-    }
   };
+
+  // useEffect untuk mengatur currentPage ke 1 hanya sekali saat komponen dimuat
+  useEffect(() => {
+    setCurrentPage(1);
+  }, []); // Dependency array kosong `[]` artinya hanya berjalan saat mount
 
   useEffect(() => {
     loadInitialData();
   }, [loadInitialData]);
+
+  // useEffect for applying all filters, now reacting to debouncedSearchQuery
+  useEffect(() => {
+    let currentFilteredRecords = [...records]; // Start with all records
+
+    // Apply search filter using the debounced query
+    if (debouncedSearchQuery.trim()) {
+      const lowerCaseQuery = debouncedSearchQuery.toLowerCase().trim();
+      currentFilteredRecords = currentFilteredRecords.filter((record) => {
+        const searchParts = lowerCaseQuery.split(":");
+        let category = "all";
+        let actualQuery = lowerCaseQuery;
+
+        if (searchParts.length > 1 && searchCategories.some((cat) => cat.name.toLowerCase() === searchParts[0].trim())) {
+          category = searchParts[0].trim();
+          actualQuery = searchParts.slice(1).join(":").trim();
+        }
+
+        const matchesMachine = record.mesin?.toLowerCase().includes(actualQuery);
+        const matchesIssue = record.jenisGangguan?.toLowerCase().includes(actualQuery);
+        const matchesRecordId = record.id?.toLowerCase().includes(actualQuery);
+        const matchesItemTrouble = record.itemTrouble?.toLowerCase().includes(actualQuery);
+
+        if (category === "machine name") return matchesMachine;
+        if (category === "issue description") return matchesIssue;
+        if (category === "record id") return matchesRecordId;
+        if (category === "item trouble") return matchesItemTrouble;
+
+        return matchesMachine || matchesIssue || matchesRecordId || matchesItemTrouble;
+      });
+    }
+
+    // Apply date range filter
+    if (startDate) {
+      const startOfDay = new Date(startDate);
+      startOfDay.setHours(0, 0, 0, 0);
+      currentFilteredRecords = currentFilteredRecords.filter((record) => {
+        const recordDate = new Date(record.date);
+        recordDate.setHours(0, 0, 0, 0);
+        return recordDate >= startOfDay;
+      });
+    }
+
+    if (endDate) {
+      const endOfDay = new Date(endDate);
+      endOfDay.setHours(23, 59, 59, 999);
+      currentFilteredRecords = currentFilteredRecords.filter((record) => {
+        const recordDate = new Date(record.date);
+        recordDate.setHours(0, 0, 0, 0);
+        return recordDate <= endOfDay;
+      });
+    }
+
+    // Apply status (type) filter - UPDATED FOR MULTI-SELECT
+    if (statusFilter.length > 0) {
+      currentFilteredRecords = currentFilteredRecords.filter((record) => statusFilter.includes(record.perbaikanPerawatan));
+    }
+
+    // Apply machine filter
+    if (machineFilter.length > 0) {
+      currentFilteredRecords = currentFilteredRecords.filter((record) => machineFilter.includes(record.mesin));
+    }
+
+    // Apply shift filter - UPDATED FOR MULTI-SELECT
+    if (shiftFilter.length > 0) {
+      currentFilteredRecords = currentFilteredRecords.filter((record) => shiftFilter.includes(record.shift));
+    }
+
+    // Apply sorting
+    if (sortConfig !== null) {
+      currentFilteredRecords.sort((a, b) => {
+        const aValue = getDisplayValue((a as Record<string, any>)[sortConfig.key]);
+        const bValue = getDisplayValue((b as Record<string, any>)[sortConfig.key]);
+
+        if (aValue < bValue) {
+          return sortConfig.direction === "ascending" ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === "ascending" ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+
+    setFilteredRecords(currentFilteredRecords);
+    // setCurrentPage(1); // Baris ini sudah dihapus/dikomentari sesuai diskusi sebelumnya
+  }, [
+    records,
+    debouncedSearchQuery,
+    startDate,
+    endDate,
+    statusFilter, // Now an array
+    machineFilter,
+    shiftFilter, // Now an array
+    sortConfig,
+    searchCategories,
+    statusOptions, // Add if statusOptions are dynamic, otherwise not strictly needed
+    shiftOptions, // Add if shiftOptions are dynamic, otherwise not strictly needed
+  ]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -433,6 +546,14 @@ const MachineHistoryDashboard: React.FC = () => {
       if (machineFilterDropdownRef.current && !machineFilterDropdownRef.current.contains(event.target as Node) && !(event.target as HTMLElement).closest(".machine-filter-toggle")) {
         setShowMachineFilterDropdown(false);
       }
+      // Close status filter dropdown if clicked outside
+      if (statusFilterDropdownRef.current && !statusFilterDropdownRef.current.contains(event.target as Node) && !(event.target as HTMLElement).closest(".status-filter-toggle")) {
+        setShowStatusFilterDropdown(false);
+      }
+      // Close shift filter dropdown if clicked outside
+      if (shiftFilterDropdownRef.current && !shiftFilterDropdownRef.current.contains(event.target as Node) && !(event.target as HTMLElement).closest(".shift-filter-toggle")) {
+        setShowShiftFilterDropdown(false);
+      }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
@@ -447,7 +568,7 @@ const MachineHistoryDashboard: React.FC = () => {
     }
     const lowerCaseQuery = searchQuery.toLowerCase();
     return searchCategories.filter((category) => category.name.toLowerCase().includes(lowerCaseQuery));
-  }, [searchQuery]);
+  }, [searchQuery, searchCategories]);
 
   const handleSearchCategorySelect = (categoryName: string) => {
     setSearchQuery(`${categoryName}: `);
@@ -474,7 +595,6 @@ const MachineHistoryDashboard: React.FC = () => {
     try {
       await deleteMachineHistory(id);
       setRecords(records.filter((record) => record.id !== id));
-      setFilteredRecords(filteredRecords.filter((record) => record.id !== id));
       setShowDeleteConfirm(false);
       setRecordToDelete(null);
     } catch (error) {
@@ -489,10 +609,6 @@ const MachineHistoryDashboard: React.FC = () => {
   const totalPages = Math.ceil(filteredRecords.length / recordsPerPage);
 
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, statusFilter, machineFilter, shiftFilter, startDate, endDate]);
 
   const formatTime = (hours: number | null | undefined, minutes: number | null | undefined): string => {
     if (hours === null || hours === undefined || minutes === null || minutes === undefined) return "-";
@@ -532,6 +648,24 @@ const MachineHistoryDashboard: React.FC = () => {
     }
   };
 
+  // New handler for Status/Type multi-select
+  const handleStatusCheckboxChange = (statusValue: string, isChecked: boolean) => {
+    if (isChecked) {
+      setStatusFilter((prev) => [...prev, statusValue]);
+    } else {
+      setStatusFilter((prev) => prev.filter((value) => value !== statusValue));
+    }
+  };
+
+  // New handler for Shift multi-select
+  const handleShiftCheckboxChange = (shiftValue: string, isChecked: boolean) => {
+    if (isChecked) {
+      setShiftFilter((prev) => [...prev, shiftValue]);
+    } else {
+      setShiftFilter((prev) => prev.filter((value) => value !== shiftValue));
+    }
+  };
+
   const handleNotifications = () => {
     alert("Showing notifications...");
   };
@@ -549,20 +683,6 @@ const MachineHistoryDashboard: React.FC = () => {
     localStorage.setItem("sidebarOpen", JSON.stringify(!sidebarOpen));
     setSidebarOpen((prev) => !prev);
   };
-
-  // if (error) {
-  //   return (
-  //     <div className="flex items-center justify-center min-h-screen bg-gray-50 font-sans">
-  //       <div className="bg-white rounded-xl shadow-lg p-8 text-center border border-red-200">
-  //         <AlertTriangle className="text-red-500 text-4xl mx-auto mb-4" />
-  //         <p className="text-xl text-red-600 font-semibold">{error}</p>
-  //         <button onClick={() => window.location.reload()} className="mt-6 px-6 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors duration-200">
-  //           Retry
-  //         </button>
-  //       </div>
-  //     </div>
-  //   );
-  // }
 
   return (
     <div className={`flex h-screen font-sans antialiased bg-blue-50`}>
@@ -717,15 +837,17 @@ const MachineHistoryDashboard: React.FC = () => {
               <p className="text-gray-600 mt-2 text-sm max-w-xl">Effortlessly track, analyze, and manage machine downtime and maintenance activities to optimize factory operations.</p>
             </div>
             <div className="flex flex-wrap gap-3 items-center">
-              <motion.button
-                onClick={() => navigate("/machinehistory/input")}
-                whileHover={{ scale: 1.02, boxShadow: "0 4px 12px rgba(37, 99, 235, 0.3)" }}
-                whileTap={{ scale: 0.98 }}
-                className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md font-semibold text-sm"
-              >
-                <Plus className="text-base" />
-                <span>Add Record</span>
-              </motion.button>
+              {hasPermission("create_machine_history") && (
+                <motion.button
+                  onClick={() => navigate("/machinehistory/addmachinehistory")}
+                  whileHover={{ scale: 1.02, boxShadow: "0 4px 12px rgba(37, 99, 235, 0.3)" }}
+                  whileTap={{ scale: 0.98 }}
+                  className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md font-semibold text-sm"
+                >
+                  <Plus className="text-base" />
+                  <span>Add Record</span>
+                </motion.button>
+              )}
               <motion.button
                 onClick={handleImport}
                 whileHover={{ scale: 1.02, boxShadow: "0 4px 10px rgba(0, 0, 0, 0.08)" }}
@@ -751,17 +873,17 @@ const MachineHistoryDashboard: React.FC = () => {
           </motion.div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
-            <StatCard title="Total Records" value={records.length.toLocaleString("id-ID")} change="+8%" icon={<Clipboard />} />
+            <StatCard title="Total Records" value={filteredRecords.length.toLocaleString("id-ID")} change="+8%" icon={<Clipboard />} />
             <StatCard
               title="Avg Downtime"
               value={
-                records.length > 0
+                filteredRecords.length > 0
                   ? convertMinutesToHoursAndMinutes(
                       Math.round(
-                        records.reduce((sum, r) => {
+                        filteredRecords.reduce((sum, r) => {
                           const downtime = convertDurationInMinutes(r.stopJam, r.stopMenit, r.startJam, r.startMenit) || 0;
                           return sum + downtime;
-                        }, 0) / records.length
+                        }, 0) / filteredRecords.length
                       )
                     )
                   : "0min"
@@ -769,8 +891,8 @@ const MachineHistoryDashboard: React.FC = () => {
               change="-5%"
               icon={<Clock />}
             />
-            <StatCard title="Repairs" value={records.filter((r) => r.perbaikanPerawatan === "Perbaikan").length.toLocaleString("id-ID")} change="+3" icon={<Wrench />} />
-            <StatCard title="Maintenance" value={records.filter((r) => r.perbaikanPerawatan === "Perawatan").length.toLocaleString("id-ID")} change="+2" icon={<CheckCircle />} />
+            <StatCard title="Repairs" value={filteredRecords.filter((r) => r.perbaikanPerawatan === "Perbaikan").length.toLocaleString("id-ID")} change="+3" icon={<Wrench />} />
+            <StatCard title="Maintenance" value={filteredRecords.filter((r) => r.perbaikanPerawatan === "Perawatan").length.toLocaleString("id-ID")} change="+2" icon={<CheckCircle />} />
           </div>
 
           <motion.div layout className="mb-8 bg-white rounded-2xl shadow-md p-5 border border-blue-100">
@@ -787,11 +909,6 @@ const MachineHistoryDashboard: React.FC = () => {
                   onFocus={() => setShowSearchSuggestions(true)}
                   aria-label="Search records"
                 />
-                {isSearching && (
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-                  </div>
-                )}
                 <AnimatePresence>
                   {showSearchSuggestions && filteredSearchSuggestions.length > 0 && (
                     <motion.div
@@ -825,7 +942,7 @@ const MachineHistoryDashboard: React.FC = () => {
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
                   transition={{ duration: 0.2 }}
-                  className="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full overflow-hidden"
+                  className="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full"
                 >
                   <div className="flex items-center space-x-2 bg-white p-2.5 rounded-lg border border-blue-200 shadow-sm">
                     <Calendar className="text-gray-500 text-base" />
@@ -872,23 +989,64 @@ const MachineHistoryDashboard: React.FC = () => {
                     )}
                   </div>
 
-                  <select
-                    className="border border-blue-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white text-sm appearance-none transition-all duration-200 shadow-sm cursor-pointer"
-                    style={{
-                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
-                      backgroundSize: "1rem",
-                      backgroundRepeat: "no-repeat",
-                      backgroundPosition: "right 0.75rem center",
-                    }}
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    aria-label="Filter by Type"
-                  >
-                    <option value="all">All Types</option>
-                    <option value="Perbaikan">Repairs</option>
-                    <option value="Perawatan">Maintenance</option>
-                  </select>
+                  {/* Status/Type Multi-select Dropdown */}
+                  <div ref={statusFilterDropdownRef} className="relative w-full">
+                    <button
+                      type="button"
+                      className="status-filter-toggle w-full border border-blue-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white text-sm text-left flex justify-between items-center transition-all duration-200 shadow-sm cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowStatusFilterDropdown(!showStatusFilterDropdown);
+                      }}
+                      aria-expanded={showStatusFilterDropdown}
+                      aria-haspopup="true"
+                      aria-label="Filter by Type"
+                    >
+                      <span>{statusFilter.length > 0 ? (statusFilter.length === statusOptions.length ? "All Types" : `Selected (${statusFilter.length})`) : "All Types"}</span>
+                      <ChevronDown className={`transform transition-transform ${showStatusFilterDropdown ? "rotate-180" : "rotate-0"} text-gray-500 text-base`} />
+                    </button>
+                    <AnimatePresence>
+                      {showStatusFilterDropdown && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 5, height: 0 }}
+                          animate={{ opacity: 1, y: 0, height: "auto" }}
+                          exit={{ opacity: 0, y: 5, height: 0 }}
+                          transition={{ duration: 0.15 }}
+                          className="absolute top-full left-0 right-0 mt-2 bg-white border border-blue-200 rounded-lg shadow-lg z-50 max-h-56 overflow-y-auto custom-scrollbar"
+                          role="listbox"
+                        >
+                          <label className="flex items-center p-2.5 hover:bg-blue-50 cursor-pointer border-b border-blue-50" role="option">
+                            <input
+                              type="checkbox"
+                              className="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500 transition duration-150 ease-in-out"
+                              checked={statusFilter.length === statusOptions.length && statusOptions.length > 0}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setStatusFilter(statusOptions.map((opt) => opt.value));
+                                } else {
+                                  setStatusFilter([]);
+                                }
+                              }}
+                            />
+                            <span className="ml-2 text-gray-800 font-semibold text-sm">Select All</span>
+                          </label>
+                          {statusOptions.map((option) => (
+                            <label key={option.value} className="flex items-center p-2.5 hover:bg-blue-50 cursor-pointer" role="option">
+                              <input
+                                type="checkbox"
+                                className="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500 transition duration-150 ease-in-out"
+                                checked={statusFilter.includes(option.value)}
+                                onChange={(e) => handleStatusCheckboxChange(option.value, e.target.checked)}
+                              />
+                              <span className="ml-2 text-gray-800 text-sm">{option.label}</span>
+                            </label>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
 
+                  {/* Machine Multi-select Dropdown (already exists) */}
                   <div ref={machineFilterDropdownRef} className="relative w-full">
                     <button
                       type="button"
@@ -898,7 +1056,7 @@ const MachineHistoryDashboard: React.FC = () => {
                       aria-haspopup="true"
                       aria-label="Filter by Machine"
                     >
-                      <span>{machineFilter.length > 0 ? (machineFilter.length === machines.length ? "All Machines" : `Selected (${machineFilter.length})`) : "All Machines"}</span>
+                      <span>{machineFilter.length > 0 ? (machineFilter.length === machines.length && machines.length > 0 ? "All Machines" : `Selected (${machineFilter.length})`) : "All Machines"}</span>
                       <ChevronDown className={`transform transition-transform ${showMachineFilterDropdown ? "rotate-180" : "rotate-0"} text-gray-500 text-base`} />
                     </button>
                     <AnimatePresence>
@@ -942,23 +1100,62 @@ const MachineHistoryDashboard: React.FC = () => {
                     </AnimatePresence>
                   </div>
 
-                  <select
-                    className="border border-blue-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white text-sm appearance-none transition-all duration-200 shadow-sm cursor-pointer"
-                    style={{
-                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
-                      backgroundSize: "1rem",
-                      backgroundRepeat: "no-repeat",
-                      backgroundPosition: "right 0.75rem center",
-                    }}
-                    value={shiftFilter}
-                    onChange={(e) => setShiftFilter(e.target.value)}
-                    aria-label="Filter by Shift"
-                  >
-                    <option value="all">All Shifts</option>
-                    <option value="Shift 1">Shift 1</option>
-                    <option value="Shift 2">Shift 2</option>
-                    <option value="Shift 3">Shift 3</option>
-                  </select>
+                  {/* Shift Multi-select Dropdown */}
+                  <div ref={shiftFilterDropdownRef} className="relative w-full">
+                    <button
+                      type="button"
+                      className="shift-filter-toggle w-full border border-blue-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white text-sm text-left flex justify-between items-center transition-all duration-200 shadow-sm cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowShiftFilterDropdown(!showShiftFilterDropdown);
+                      }}
+                      aria-expanded={showShiftFilterDropdown}
+                      aria-haspopup="true"
+                      aria-label="Filter by Shift"
+                    >
+                      <span>{shiftFilter.length > 0 ? (shiftFilter.length === shiftOptions.length ? "All Shifts" : `Selected (${shiftFilter.length})`) : "All Shifts"}</span>
+                      <ChevronDown className={`transform transition-transform ${showShiftFilterDropdown ? "rotate-180" : "rotate-0"} text-gray-500 text-base`} />
+                    </button>
+                    <AnimatePresence>
+                      {showShiftFilterDropdown && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 5, height: 0 }}
+                          animate={{ opacity: 1, y: 0, height: "auto" }}
+                          exit={{ opacity: 0, y: 5, height: 0 }}
+                          transition={{ duration: 0.15 }}
+                          className="absolute top-full left-0 right-0 mt-2 bg-white border border-blue-200 rounded-lg shadow-lg z-50 max-h-56 overflow-y-auto custom-scrollbar"
+                          role="listbox"
+                        >
+                          <label className="flex items-center p-2.5 hover:bg-blue-50 cursor-pointer border-b border-blue-50" role="option">
+                            <input
+                              type="checkbox"
+                              className="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500 transition duration-150 ease-in-out"
+                              checked={shiftFilter.length === shiftOptions.length && shiftOptions.length > 0}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setShiftFilter(shiftOptions.map((opt) => opt.value));
+                                } else {
+                                  setShiftFilter([]);
+                                }
+                              }}
+                            />
+                            <span className="ml-2 text-gray-800 font-semibold text-sm">Select All</span>
+                          </label>
+                          {shiftOptions.map((option) => (
+                            <label key={option.value} className="flex items-center p-2.5 hover:bg-blue-50 cursor-pointer" role="option">
+                              <input
+                                type="checkbox"
+                                className="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500 transition duration-150 ease-in-out"
+                                checked={shiftFilter.includes(option.value)}
+                                onChange={(e) => handleShiftCheckboxChange(option.value, e.target.checked)}
+                              />
+                              <span className="ml-2 text-gray-800 text-sm">{option.label}</span>
+                            </label>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -972,10 +1169,22 @@ const MachineHistoryDashboard: React.FC = () => {
           ) : filteredRecords.length === 0 ? (
             <div className="bg-white rounded-2xl shadow-md p-8 text-center border border-blue-100">
               <Info className="text-blue-500 text-4xl mx-auto mb-4" />
-              <p className="text-gray-700 text-base font-medium">{searchQuery ? "No records found matching your search." : "No records available."}</p>
-              {searchQuery && (
-                <button onClick={() => setSearchQuery("")} className="mt-5 px-5 py-2 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors duration-200 text-sm">
-                  Clear Search
+              <p className="text-gray-700 text-base font-medium">
+                {debouncedSearchQuery || statusFilter.length > 0 || machineFilter.length > 0 || startDate || endDate || shiftFilter.length > 0 ? "No records found matching your filters." : "No records available."}
+              </p>
+              {(debouncedSearchQuery || statusFilter.length > 0 || machineFilter.length > 0 || startDate || endDate || shiftFilter.length > 0) && (
+                <button
+                  onClick={() => {
+                    setSearchQuery("");
+                    setStatusFilter([]); // Reset to empty array
+                    setMachineFilter([]);
+                    setStartDate(null);
+                    setEndDate(null);
+                    setShiftFilter([]); // Reset to empty array
+                  }}
+                  className="mt-5 px-5 py-2 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors duration-200 text-sm"
+                >
+                  Clear All Filters
                 </button>
               )}
             </div>
