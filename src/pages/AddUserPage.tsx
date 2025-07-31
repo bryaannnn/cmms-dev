@@ -3,6 +3,7 @@ import { FiUser, FiUserPlus, FiKey, FiSave, FiX, FiChevronDown, FiChevronUp, FiA
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../routes/AuthContext";
+import Sidebar from "../component/Sidebar"; // Assuming Sidebar is in ../component/Sidebar
 
 interface Permission {
   id: string;
@@ -88,15 +89,15 @@ const AddUserPage: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        if (!hasPermission("manage_users")) {
-          navigate("/unauthorized");
-          return;
-        }
+        // Check for 'manage_users' permission
+        // if (!hasPermission("manage_users")) {
+        //   navigate("/unauthorized"); // Redirect if not authorized
+        //   return;
+        // }
 
         const fetchedRoles = await getRoles();
         setRoles(fetchedRoles);
 
-        // Fetch departments from your API or define them statically
         const fetchedDepartments = [
           { id: "1", name: "IT" },
           { id: "2", name: "HR" },
@@ -178,30 +179,37 @@ const AddUserPage: React.FC = () => {
     }
   };
 
+  // If unauthorized, render a simple message
   if (!hasPermission("manage_users")) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-50">
+      <div className="flex items-center justify-center h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
         <div className="text-xl">You don't have permission to access this page</div>
       </div>
     );
   }
 
   return (
-    <div className={`flex h-screen font-sans ${darkMode ? "bg-gray-900 text-gray-100" : "bg-gray-50 text-gray-900"}`}>
+    <div className={`flex h-screen font-sans antialiased ${darkMode ? "dark bg-gray-900" : "bg-blue-50"} text-gray-900`}>
+      <Sidebar /> {/* Sidebar component */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className={`${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-blue-100"} border-b p-4 flex items-center justify-between shadow-sm`}>
-          <div className="flex items-center space-x-3">
-            <button onClick={() => navigate("/permissions")} className={`p-2 rounded-full ${darkMode ? "text-gray-300 hover:bg-gray-700" : "text-gray-600 hover:bg-blue-50"} transition-colors duration-200`}>
-              <FiArrowLeft className="text-xl" />
-            </button>
-            <FiUserPlus className={`text-2xl ${darkMode ? "text-blue-400" : "text-blue-600"}`} />
-            <h2 className={`text-xl md:text-2xl font-semibold ${darkMode ? "text-blue-400" : "text-blue-600"}`}>Add New User</h2>
-          </div>
-
+        <header className={`${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"} border-b p-4 flex items-center justify-between shadow-sm sticky top-0 z-30`}>
           <div className="flex items-center space-x-4">
             <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
+              onClick={() => navigate("/permissions")}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className={`${darkMode ? "text-gray-300 hover:bg-gray-700" : "text-blue-600 hover:text-blue-800"} flex items-center transition-colors duration-200`}
+            >
+              <FiArrowLeft className="text-xl" />
+              <span className="font-semibold text-sm hidden md:inline ml-2">Back to Permissions</span>
+            </motion.button>
+            <h2 className={`${darkMode ? "text-gray-100" : "text-gray-900"} text-lg md:text-xl font-bold ml-4`}>Add New User</h2>
+          </div>
+
+          <div className="flex items-center space-x-3 relative">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => setDarkMode(!darkMode)}
               className={`p-2 rounded-full ${darkMode ? "text-gray-300 hover:bg-gray-700" : "text-gray-600 hover:bg-blue-50"} transition-colors duration-200`}
               aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
@@ -209,237 +217,288 @@ const AddUserPage: React.FC = () => {
               {darkMode ? <FiSun className="text-yellow-400 text-xl" /> : <FiMoon className="text-xl" />}
             </motion.button>
 
-            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className={`flex items-center space-x-2 cursor-pointer p-2 rounded-lg ${darkMode ? "hover:bg-gray-700" : "hover:bg-blue-50"} transition-colors duration-200`}>
-              <img src="https://placehold.co/32x32/0078D7/FFFFFF?text=AD" alt="User Avatar" className={`w-8 h-8 rounded-full ${darkMode ? "border-gray-600" : "border-blue-200"} border`} />
-              <span className={`font-medium ${darkMode ? "text-gray-100" : "text-gray-900"} hidden sm:inline`}>{user?.name}</span>
+            <motion.button
+              whileHover={{ backgroundColor: darkMode ? "rgba(55, 65, 81, 0.7)" : "rgba(239, 246, 255, 0.7)" }}
+              whileTap={{ scale: 0.98 }}
+              className={`flex items-center space-x-2 cursor-pointer p-2 rounded-lg transition-colors duration-200 ${darkMode ? "hover:bg-gray-700" : "hover:bg-blue-50"}`}
+            >
+              <img
+                src={`https://api.dicebear.com/7.x/initials/svg?seed=${user?.name || "User"}&backgroundColor=0081ff,3d5a80,ffc300,e0b589&backgroundType=gradientLinear&radius=50`}
+                alt="User Avatar"
+                className={`w-8 h-8 rounded-full ${darkMode ? "border-gray-600" : "border-blue-200"} border`}
+              />
+              <span className={`font-medium ${darkMode ? "text-gray-100" : "text-gray-900"} text-sm hidden sm:inline`}>{user?.name}</span>
               <FiChevronDown className={darkMode ? "text-gray-400" : "text-gray-500"} />
-            </motion.div>
+            </motion.button>
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">
-          <div className="max-w-4xl mx-auto">
-            <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-8">
-              <h1 className={`text-2xl font-bold ${darkMode ? "text-gray-100" : "text-gray-900"} mb-2`}>Create New User</h1>
-              <p className={darkMode ? "text-gray-400" : "text-gray-600"}>Add a new user to the system with appropriate permissions</p>
+        <main className={`flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar ${darkMode ? "bg-gray-900" : "bg-gray-50"}`}>
+          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
+            <div>
+              <h1 className={`${darkMode ? "text-gray-100" : "text-gray-900"} text-2xl md:text-3xl font-bold`}>Add New User</h1>
+              <p className={`${darkMode ? "text-gray-400" : "text-gray-600"} mt-1`}>Fill out the form below to add a new user to the system.</p>
+            </div>
+            <motion.button
+              onClick={() => navigate("/permissions")}
+              whileHover={{ scale: 1.05, boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)" }}
+              whileTap={{ scale: 0.95 }}
+              className={`${
+                darkMode ? "bg-gray-800 border-gray-700 text-gray-200 hover:bg-gray-700" : "bg-white border-gray-200 text-gray-800 hover:bg-blue-50"
+              } flex items-center space-x-2 px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md border`}
+            >
+              <FiArrowLeft className="text-lg" />
+              <span className="font-semibold">Back to Permissions</span>
+            </motion.button>
+          </motion.div>
+
+          {errors.form && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={`${darkMode ? "bg-red-900 border-red-700 text-red-200" : "bg-red-100 border-red-400 text-red-700"} px-4 py-3 rounded relative border mb-6`}
+              role="alert"
+            >
+              <strong className="font-bold">Error!</strong>
+              <span className="block sm:inline"> {errors.form}</span>
+            </motion.div>
+          )}
+
+          <form onSubmit={handleSubmit}>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.1 }}
+              className={`${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-blue-50"} rounded-2xl shadow-md overflow-hidden p-4 md:p-6 border mb-6`}
+            >
+              <h3 className={`text-lg font-semibold mb-4 ${darkMode ? "text-gray-100" : "text-gray-900"}`}>User Information</h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div>
+                  <label className={`block text-sm font-medium ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Full Name*</label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={newUser.name}
+                    onChange={handleInputChange}
+                    className={`mt-1 block w-full border ${
+                      darkMode ? "bg-gray-700 border-gray-600 text-gray-100" : "border-gray-200 bg-white text-gray-900"
+                    } rounded-lg shadow-sm p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200`}
+                    placeholder="Enter full name"
+                  />
+                  {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
+                </div>
+                <div>
+                  <label className={`block text-sm font-medium ${darkMode ? "text-gray-300" : "text-gray-700"}`}>NIK (Employee ID)*</label>
+                  <input
+                    type="text"
+                    name="nik"
+                    value={newUser.nik}
+                    onChange={handleInputChange}
+                    className={`mt-1 block w-full border ${
+                      darkMode ? "bg-gray-700 border-gray-600 text-gray-100" : "border-gray-200 bg-white text-gray-900"
+                    } rounded-lg shadow-sm p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200`}
+                    placeholder="Enter NIK (numeric only)"
+                  />
+                  {errors.nik && <p className="mt-1 text-sm text-red-600">{errors.nik}</p>}
+                </div>
+                <div>
+                  <label className={`block text-sm font-medium ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Email*</label>
+                  <input
+                    type="text"
+                    name="email"
+                    value={newUser.email}
+                    onChange={handleInputChange}
+                    className={`mt-1 block w-full border ${
+                      darkMode ? "bg-gray-700 border-gray-600 text-gray-100" : "border-gray-200 bg-white text-gray-900"
+                    } rounded-lg shadow-sm p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200`}
+                    placeholder="Enter Email"
+                  />
+                  {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
+                </div>
+                <div>
+                  <label className={`block text-sm font-medium ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Department*</label>
+                  <select
+                    name="department"
+                    value={newUser.department}
+                    onChange={handleInputChange}
+                    className={`mt-1 block w-full border ${
+                      darkMode ? "bg-gray-700 border-gray-600 text-gray-100" : "border-gray-200 bg-white text-gray-900"
+                    } rounded-lg shadow-sm p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200`}
+                  >
+                    <option value="">Select Department</option>
+                    {departments.map((dept) => (
+                      <option key={dept.id} value={dept.name}>
+                        {dept.name}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.department && <p className="mt-1 text-sm text-red-600">{errors.department}</p>}
+                </div>
+                <div>
+                  <label className={`block text-sm font-medium ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Position</label>
+                  <input
+                    type="text"
+                    name="position"
+                    value={newUser.position}
+                    onChange={handleInputChange}
+                    className={`mt-1 block w-full border ${
+                      darkMode ? "bg-gray-700 border-gray-600 text-gray-100" : "border-gray-200 bg-white text-gray-900"
+                    } rounded-lg shadow-sm p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200`}
+                    placeholder="Enter position"
+                  />
+                </div>
+                <div>
+                  <label className={`block text-sm font-medium ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Password*</label>
+                  <input
+                    type="password"
+                    name="password"
+                    value={newUser.password}
+                    onChange={handleInputChange}
+                    className={`mt-1 block w-full border ${
+                      darkMode ? "bg-gray-700 border-gray-600 text-gray-100" : "border-gray-200 bg-white text-gray-900"
+                    } rounded-lg shadow-sm p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200`}
+                    placeholder="Enter password (min 6 chars)"
+                  />
+                  {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password}</p>}
+                </div>
+                <div>
+                  <label className={`block text-sm font-medium ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Confirm Password*</label>
+                  <input
+                    type="password"
+                    name="confirmPassword"
+                    value={newUser.confirmPassword}
+                    onChange={handleInputChange}
+                    className={`mt-1 block w-full border ${
+                      darkMode ? "bg-gray-700 border-gray-600 text-gray-100" : "border-gray-200 bg-white text-gray-900"
+                    } rounded-lg shadow-sm p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200`}
+                    placeholder="Confirm password"
+                  />
+                  {errors.confirmPassword && <p className="mt-1 text-sm text-red-600">{errors.confirmPassword}</p>}
+                </div>
+                <div>
+                  <label className={`block text-sm font-medium ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Role*</label>
+                  <select
+                    name="roleId"
+                    value={newUser.roleId}
+                    onChange={handleInputChange}
+                    className={`mt-1 block w-full border ${
+                      darkMode ? "bg-gray-700 border-gray-600 text-gray-100" : "border-gray-200 bg-white text-gray-900"
+                    } rounded-lg shadow-sm p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200`}
+                  >
+                    <option value="">Select Role</option>
+                    {roles.map((role) => (
+                      <option key={role.id} value={role.id}>
+                        {role.name}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.roleId && <p className="mt-1 text-sm text-red-600">{errors.roleId}</p>}
+                </div>
+              </div>
             </motion.div>
 
-            {errors.form && (
-              <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className={`p-4 mb-6 rounded-md ${darkMode ? "bg-red-900 text-red-200" : "bg-red-100 text-red-800"}`}>
-                {errors.form}
-              </motion.div>
-            )}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.1 }}
+              className={`${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-blue-50"} rounded-2xl shadow-md overflow-hidden p-4 md:p-6 border mb-6`}
+            >
+              <h3 className={`text-lg font-semibold mb-4 ${darkMode ? "text-gray-100" : "text-gray-900"}`}>Custom Permissions</h3>
+              <p className={`text-sm mb-4 ${darkMode ? "text-gray-400" : "text-gray-600"}`}>Select additional permissions beyond the user's role. Permissions already included in the role are disabled.</p>
 
-            <form onSubmit={handleSubmit}>
-              <motion.div
-                whileHover={{ y: -2, boxShadow: "0 4px 6px rgba(0, 0, 0, 0.05)" }}
-                transition={{ type: "spring", stiffness: 300 }}
-                className={`${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-blue-100"} rounded-xl shadow-sm p-6 mb-6 border`}
-              >
-                <h3 className={`text-lg font-semibold mb-4 ${darkMode ? "text-gray-100" : "text-gray-900"}`}>User Information</h3>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                  <div>
-                    <label className={`block text-sm font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Full Name*</label>
-                    <input
-                      type="text"
-                      name="name"
-                      value={newUser.name}
-                      onChange={handleInputChange}
-                      className={`w-full ${darkMode ? "bg-gray-700 border-gray-600 text-gray-100" : "border-gray-300"} border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                      placeholder="Enter full name"
-                    />
-                    {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
-                  </div>
-                  <div>
-                    <label className={`block text-sm font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>NIK (Employee ID)*</label>
-                    <input
-                      type="text"
-                      name="nik"
-                      value={newUser.nik}
-                      onChange={handleInputChange}
-                      className={`w-full ${darkMode ? "bg-gray-700 border-gray-600 text-gray-100" : "border-gray-300"} border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                      placeholder="Enter NIK (numeric only)"
-                    />
-                    {errors.nik && <p className="mt-1 text-sm text-red-600">{errors.nik}</p>}
-                  </div>
-                  <div>
-                    <label className={`block text-sm font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Email*</label>
-                    <input
-                      type="text"
-                      name="email"
-                      value={newUser.email}
-                      onChange={handleInputChange}
-                      className={`w-full ${darkMode ? "bg-gray-700 border-gray-600 text-gray-100" : "border-gray-300"} border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                      placeholder="Enter Email"
-                    />
-                    {errors.nik && <p className="mt-1 text-sm text-red-600">{errors.nik}</p>}
-                  </div>
-                  <div>
-                    <label className={`block text-sm font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Department*</label>
-                    <select
-                      name="department"
-                      value={newUser.department}
-                      onChange={handleInputChange}
-                      className={`w-full ${darkMode ? "bg-gray-700 border-gray-600 text-gray-100" : "border-gray-300"} border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500`}
+              <div className="space-y-4">
+                {Object.entries(permissionsByCategory).map(([category, perms]) => (
+                  <div key={category} className={`${darkMode ? "border-gray-700" : "border-gray-200"} border rounded-lg overflow-hidden`}>
+                    <button
+                      type="button"
+                      onClick={() => toggleCategory(category)}
+                      className={`w-full flex justify-between items-center p-3 ${darkMode ? "bg-gray-700 hover:bg-gray-600" : "bg-gray-50 hover:bg-gray-100"} transition-colors duration-200`}
                     >
-                      <option value="">Select Department</option>
-                      {departments.map((dept) => (
-                        <option key={dept.id} value={dept.name}>
-                          {dept.name}
-                        </option>
-                      ))}
-                    </select>
-                    {errors.department && <p className="mt-1 text-sm text-red-600">{errors.department}</p>}
-                  </div>
-                  <div>
-                    <label className={`block text-sm font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Position</label>
-                    <input
-                      type="text"
-                      name="position"
-                      value={newUser.position}
-                      onChange={handleInputChange}
-                      className={`w-full ${darkMode ? "bg-gray-700 border-gray-600 text-gray-100" : "border-gray-300"} border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                      placeholder="Enter position"
-                    />
-                  </div>
-                  <div>
-                    <label className={`block text-sm font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Password*</label>
-                    <input
-                      type="password"
-                      name="password"
-                      value={newUser.password}
-                      onChange={handleInputChange}
-                      className={`w-full ${darkMode ? "bg-gray-700 border-gray-600 text-gray-100" : "border-gray-300"} border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                      placeholder="Enter password (min 6 chars)"
-                    />
-                    {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password}</p>}
-                  </div>
-                  <div>
-                    <label className={`block text-sm font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Confirm Password*</label>
-                    <input
-                      type="password"
-                      name="confirmPassword"
-                      value={newUser.confirmPassword}
-                      onChange={handleInputChange}
-                      className={`w-full ${darkMode ? "bg-gray-700 border-gray-600 text-gray-100" : "border-gray-300"} border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                      placeholder="Confirm password"
-                    />
-                    {errors.confirmPassword && <p className="mt-1 text-sm text-red-600">{errors.confirmPassword}</p>}
-                  </div>
-                  <div>
-                    <label className={`block text-sm font-medium mb-1 ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Role*</label>
-                    <select
-                      name="roleId"
-                      value={newUser.roleId}
-                      onChange={handleInputChange}
-                      className={`w-full ${darkMode ? "bg-gray-700 border-gray-600 text-gray-100" : "border-gray-300"} border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                    >
-                      <option value="">Select Role</option>
-                      {roles.map((role) => (
-                        <option key={role.id} value={role.id}>
-                          {role.name}
-                        </option>
-                      ))}
-                    </select>
-                    {errors.roleId && <p className="mt-1 text-sm text-red-600">{errors.roleId}</p>}
-                  </div>
-                </div>
-              </motion.div>
+                      <span className={`font-medium ${darkMode ? "text-gray-200" : "text-gray-700"}`}>{category}</span>
+                      {expandedCategories[category] ? <FiChevronUp className={`${darkMode ? "text-gray-400" : "text-gray-500"}`} /> : <FiChevronDown className={`${darkMode ? "text-gray-400" : "text-gray-500"}`} />}
+                    </button>
+                    <AnimatePresence>
+                      {expandedCategories[category] && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className={`p-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 ${darkMode ? "bg-gray-800" : "bg-white"}`}
+                        >
+                          {perms.map((permission) => {
+                            const roleHasPermission = newUser.roleId ? getRolePermissions(newUser.roleId).includes(permission.id) : false;
+                            const userHasPermission = newUser.customPermissions.includes(permission.id);
+                            const isDisabled = roleHasPermission;
 
-              <motion.div
-                whileHover={{ y: -2, boxShadow: "0 4px 6px rgba(0, 0, 0, 0.05)" }}
-                transition={{ type: "spring", stiffness: 300 }}
-                className={`${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-blue-100"} rounded-xl shadow-sm p-6 mb-6 border`}
-              >
-                <h3 className={`text-lg font-semibold mb-4 ${darkMode ? "text-gray-100" : "text-gray-900"}`}>Custom Permissions</h3>
-                <p className={`text-sm mb-4 ${darkMode ? "text-gray-400" : "text-gray-600"}`}>Select additional permissions beyond the user's role. Permissions already included in the role are disabled.</p>
-
-                <div className="space-y-4">
-                  {Object.entries(permissionsByCategory).map(([category, perms]) => (
-                    <div key={category} className={`${darkMode ? "border-gray-700" : "border-gray-200"} border rounded-lg overflow-hidden`}>
-                      <button type="button" onClick={() => toggleCategory(category)} className={`w-full flex justify-between items-center p-3 ${darkMode ? "bg-gray-700 hover:bg-gray-600" : "bg-gray-50 hover:bg-gray-100"}`}>
-                        <span className={`font-medium ${darkMode ? "text-gray-200" : "text-gray-700"}`}>{category}</span>
-                        {expandedCategories[category] ? <FiChevronUp /> : <FiChevronDown />}
-                      </button>
-                      <AnimatePresence>
-                        {expandedCategories[category] && (
-                          <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: "auto" }}
-                            exit={{ opacity: 0, height: 0 }}
-                            transition={{ duration: 0.2 }}
-                            className={`p-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 ${darkMode ? "bg-gray-800" : "bg-white"}`}
-                          >
-                            {perms.map((permission) => {
-                              const roleHasPermission = newUser.roleId ? getRolePermissions(newUser.roleId).includes(permission.id) : false;
-                              const userHasPermission = newUser.customPermissions.includes(permission.id);
-                              const isDisabled = roleHasPermission;
-
-                              return (
-                                <div key={permission.id} className={`flex items-center ${isDisabled ? "opacity-50" : ""}`}>
-                                  <input
-                                    type="checkbox"
-                                    id={`perm-${permission.id}`}
-                                    checked={userHasPermission || roleHasPermission}
-                                    onChange={() => !isDisabled && handlePermissionToggle(permission.id)}
-                                    disabled={isDisabled}
-                                    className={`h-4 w-4 rounded focus:ring-blue-500 
-                                  ${roleHasPermission ? (darkMode ? "text-purple-400 bg-gray-700 border-gray-600" : "text-purple-600") : darkMode ? "text-blue-400 bg-gray-700 border-gray-600" : "text-blue-600"}`}
-                                  />
-                                  <label htmlFor={`perm-${permission.id}`} className={`ml-2 text-sm ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
-                                    <div className="font-medium flex items-center">
-                                      {permission.name}
-                                      {roleHasPermission && <span className={`ml-2 text-xs ${darkMode ? "bg-purple-900 text-purple-300" : "bg-purple-100 text-purple-800"} px-2 py-0.5 rounded`}>from role</span>}
-                                    </div>
-                                    <div className={`${darkMode ? "text-gray-500" : "text-gray-500"} text-xs`}>{permission.description}</div>
-                                  </label>
-                                </div>
-                              );
-                            })}
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
-
-              <div className="flex justify-end space-x-3">
-                <motion.button
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                  type="button"
-                  onClick={() => navigate("/permissions")}
-                  className={`px-4 py-2 ${darkMode ? "border-gray-600 text-gray-200 hover:bg-gray-700" : "border-gray-300 text-gray-700 hover:bg-gray-50"} border rounded-md`}
-                >
-                  Cancel
-                </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                  type="submit"
-                  disabled={isSubmitting}
-                  className={`px-4 py-2 ${darkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-600 hover:bg-blue-700"} text-white rounded-md flex items-center`}
-                >
-                  {isSubmitting ? (
-                    <>
-                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Creating...
-                    </>
-                  ) : (
-                    <>
-                      <FiUserPlus className="mr-2" />
-                      Create User
-                    </>
-                  )}
-                </motion.button>
+                            return (
+                              <div key={permission.id} className={`flex items-center ${isDisabled ? "opacity-50" : ""}`}>
+                                <input
+                                  type="checkbox"
+                                  id={`perm-${permission.id}`}
+                                  checked={userHasPermission || roleHasPermission}
+                                  onChange={() => !isDisabled && handlePermissionToggle(permission.id)}
+                                  disabled={isDisabled}
+                                  className={`h-4 w-4 rounded focus:ring-blue-500
+                                  ${roleHasPermission ? (darkMode ? "text-purple-400 bg-gray-700 border-gray-600" : "text-purple-600") : darkMode ? "text-blue-400 bg-gray-700 border-gray-600" : "text-blue-600"} border-gray-300`}
+                                />
+                                <label htmlFor={`perm-${permission.id}`} className={`ml-2 text-sm ${darkMode ? "text-gray-300" : "text-gray-700"}`}>
+                                  <div className="font-medium flex items-center">
+                                    {permission.name}
+                                    {roleHasPermission && <span className={`ml-2 text-xs ${darkMode ? "bg-purple-900 text-purple-300" : "bg-purple-100 text-purple-800"} px-2 py-0.5 rounded`}>from role</span>}
+                                  </div>
+                                  <div className={`${darkMode ? "text-gray-500" : "text-gray-500"} text-xs`}>{permission.description}</div>
+                                </label>
+                              </div>
+                            );
+                          })}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                ))}
               </div>
-            </form>
-          </div>
+            </motion.div>
+
+            <div className="flex justify-end space-x-3 mt-6">
+              <motion.button
+                type="button"
+                onClick={() => navigate("/permissions")}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                className={`${
+                  darkMode ? "border-gray-600 text-gray-200 hover:bg-gray-700" : "border-gray-200 text-gray-700 hover:bg-blue-50"
+                } inline-flex items-center px-5 py-2.5 border text-base font-medium rounded-md shadow-sm bg-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200`}
+              >
+                Cancel
+              </motion.button>
+              <motion.button
+                type="submit"
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                disabled={isSubmitting}
+                className={`inline-flex items-center px-5 py-2.5 border border-transparent text-base font-medium rounded-md shadow-sm text-white ${
+                  darkMode ? "bg-blue-700 hover:bg-blue-800" : "bg-blue-600 hover:bg-blue-700"
+                } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                {isSubmitting ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <FiUserPlus className="mr-2 h-5 w-5" />
+                    Create User
+                  </>
+                )}
+              </motion.button>
+            </div>
+          </form>
         </main>
       </div>
     </div>

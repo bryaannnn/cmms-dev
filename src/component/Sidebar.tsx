@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
-import React, { useEffect, useState } from "react";
-import { Users, BarChart2, Database, Clipboard, Package, ChevronLeft, Home, ChevronRight, Settings, Key } from "lucide-react";
+import React, { useEffect, useState, useRef } from "react";
+import { Users, BarChart2, Database, Clipboard, Package, ChevronLeft, Home, ChevronRight, Settings, Key, } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import logoWida from "../assets/logo-wida.png";
 import { useAuth } from "../routes/AuthContext";
@@ -44,17 +44,34 @@ const Sidebar: React.FC = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const { user, hasPermission } = useAuth();
 
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
-      if (window.innerWidth < 768) {
-        setSidebarOpen(false);
-      }
-    };
+  // 1. Tambahkan useRef untuk elemen nav
+  const scrollContainerRef = useRef<HTMLElement>(null);
 
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  // 2. useEffect untuk menyimpan dan mengembalikan posisi scroll
+  useEffect(() => {
+    const navElement = scrollContainerRef.current;
+
+    if (navElement) {
+      // Memulihkan posisi scroll saat komponen dimuat
+      const savedScrollPos = sessionStorage.getItem("sidebarScrollPos");
+      if (savedScrollPos) {
+        navElement.scrollTop = parseInt(savedScrollPos, 10);
+      }
+
+      // Fungsi untuk menyimpan posisi scroll
+      const saveScrollPosition = () => {
+        sessionStorage.setItem("sidebarScrollPos", navElement.scrollTop.toString());
+      };
+
+      // Tambahkan event listener untuk menyimpan posisi saat menggulir
+      navElement.addEventListener("scroll", saveScrollPosition);
+
+      // Cleanup function: hapus event listener saat komponen di-unmount
+      return () => {
+        navElement.removeEventListener("scroll", saveScrollPosition);
+      };
+    }
+  }, []); // [] agar hanya berjalan saat mount dan unmount
 
   const toggleSidebar = () => {
     localStorage.setItem("sidebarOpen", JSON.stringify(!sidebarOpen));
@@ -69,7 +86,7 @@ const Sidebar: React.FC = () => {
           <motion.div
             initial={{ width: isMobile ? 0 : sidebarOpen ? 280 : 80, opacity: 0 }}
             animate={{
-              width: isMobile ? (sidebarOpen ? 280 : 0) : sidebarOpen ? 280 : 80,
+              width: sidebarOpen ? 280 : 80,
               opacity: 1,
             }}
             exit={{ width: 0, opacity: 0 }}
@@ -91,17 +108,24 @@ const Sidebar: React.FC = () => {
               </button>
             </div>
 
-            <nav className="flex-1 p-3 space-y-1.5 overflow-y-auto custom-scrollbar">
+            <nav ref={scrollContainerRef} className="flex-1 p-3 space-y-1.5 overflow-y-auto sidebar-nav">
               {hasPermission("1") && <NavItem icon={<Home />} text="Dashboard" to="/dashboard" expanded={sidebarOpen} />}
+
+              {sidebarOpen && <h3 className="text-xs font-semibold uppercase text-gray-400 px-4 pt-4 pb-1 tracking-wider">System</h3>}
+              {hasPermission("23") && <NavItem icon={<Database />} text="Audit Trail" to="/audittrail" expanded={sidebarOpen} />}
+              {hasPermission("23") && <NavItem icon={<Database />} text="Backup & Restore" to="/backupandrestore" expanded={sidebarOpen} />}
+
+              {sidebarOpen && <h3 className="text-xs font-semibold uppercase text-gray-400 px-4 pt-4 pb-1 tracking-wider">Master</h3>}
+              {hasPermission("23") && <NavItem icon={<Database />} text="Work Location" to="/worklocation" expanded={sidebarOpen} />}
+              {hasPermission("23") && <NavItem icon={<Database />} text="Work Arrangement" to="/workarrangement" expanded={sidebarOpen} />}
               {hasPermission("3") && <NavItem icon={<Package />} text="Assets" to="/assets" expanded={sidebarOpen} />}
+              {hasPermission("11") && <NavItem icon={<BarChart2 />} text="Reports" to="/reports" expanded={sidebarOpen} />}
+              {hasPermission("23") && <NavItem icon={<Database />} text="Inventory" to="/inventory" expanded={sidebarOpen} />}
               {hasPermission("7") && <NavItem icon={<Clipboard />} text="Work Orders" to="/workorders" expanded={sidebarOpen} />}
               {hasPermission("31") && <NavItem icon={<Clipboard />} text="Machine History" to="/machinehistory" expanded={sidebarOpen} />}
-              {hasPermission("23") && <NavItem icon={<Database />} text="Inventory" to="/inventory" expanded={sidebarOpen} />}
-              {hasPermission("11") && <NavItem icon={<BarChart2 />} text="Reports" to="/reports" expanded={sidebarOpen} />}
               {hasPermission("27") && <NavItem icon={<Users />} text="Team" to="/team" expanded={sidebarOpen} />}
-              {hasPermission("13") && <NavItem icon={<Settings />} text="Settings" to="/settings" expanded={sidebarOpen} />}
               {hasPermission("15") && <NavItem icon={<Key />} text="Permissions" to="/permissions" expanded={sidebarOpen} />}
-              {hasPermission("1") && <NavItem icon={<Clipboard />} text="Work Orders Admin" to="/manage-workorders" expanded={sidebarOpen} />}
+              {hasPermission("13") && <NavItem icon={<Settings />} text="General Settings" to="/settings" expanded={sidebarOpen} />}
             </nav>
 
             {/* Bagian Bawah Navbar: Informasi Versi & Logout Sidebar */}

@@ -219,15 +219,7 @@ const PageHeader: React.FC<PageHeaderProps> = ({ mainTitle, mainTitleHighlight, 
                 >
                   <div className="px-4 py-2 text-xs text-gray-500 border-b border-gray-100">Signed in as</div>
                   <div className="px-4 py-2 font-semibold text-gray-800 border-b border-gray-100">{user?.name || "Guest User"}</div>
-                  <button
-                    onClick={() => {
-                      navigate("/profile");
-                      setShowProfileMenu(false);
-                    }}
-                    className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 w-full text-left"
-                  >
-                    <UserIcon size={16} className="mr-2" /> My Profile
-                  </button>
+                 
                   <button
                     onClick={() => {
                       navigate("/settings");
@@ -241,7 +233,7 @@ const PageHeader: React.FC<PageHeaderProps> = ({ mainTitle, mainTitleHighlight, 
                   <button
                     onClick={() => {
                       logout(); // Use logout from useAuth
-                      navigate("/login"); // Redirect to login after logout
+                      navigate("/login"); 
                       setShowProfileMenu(false);
                     }}
                     className="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full text-left"

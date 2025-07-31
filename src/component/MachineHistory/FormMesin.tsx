@@ -1,9 +1,46 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { FiSave, FiTrash2, FiX, FiClock, FiCheck, FiTool } from "react-icons/fi";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Select from "react-select";
 import { useAuth, MachineHistoryFormData, Mesin, Shift, Group, StopTime, Unit, ItemTrouble, JenisAktivitas, Kegiatan, UnitSparePart, AllMasterData } from "../../routes/AuthContext";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import Sidebar from "../Sidebar"; // Assuming Sidebar is in ../component/Sidebar
+import {
+  X,
+  Clock,
+  CheckCircle,
+  ToolCase,
+  ArrowLeft,
+  Save,
+  Trash2, // Using Trash2 from lucide-react, equivalent to FiTrash2
+  Hourglass, // Using Hourglass for loading spinner
+  ListPlus, // For the Add Work Order button, similar to FormIT.tsx
+} from "lucide-react";
+
+// Modal component (reused from FormIT.tsx for consistency)
+interface ModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+}
+
+const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
+  if (!isOpen) return null;
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+      <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-auto p-6 border border-blue-100">
+        <div className="flex justify-between items-center border-b pb-3 mb-4 border-gray-100">
+          <h3 className="text-2xl font-bold text-gray-900">{title}</h3>
+          <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">
+            <X size={24} />
+          </motion.button>
+        </div>
+        <div>{children}</div>
+      </motion.div>
+    </motion.div>
+  );
+};
 
 const FormMesin: React.FC = () => {
   const { getAllMasterData, submitMachineHistory } = useAuth();
@@ -11,6 +48,7 @@ const FormMesin: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const [mesinList, setMesinList] = useState<Mesin[]>([]);
   const [shiftList, setShiftList] = useState<Shift[]>([]);
@@ -22,7 +60,7 @@ const FormMesin: React.FC = () => {
   const [kegiatanList, setKegiatanList] = useState<Kegiatan[]>([]);
   const [unitSparePartList, setUnitSparePartList] = useState<UnitSparePart[]>([]);
 
-  const [formData, setFormData] = useState<MachineHistoryFormData>({
+  const initialFormData: MachineHistoryFormData = {
     date: new Date().toISOString().split("T")[0],
     shift: "",
     group: "",
@@ -46,7 +84,9 @@ const FormMesin: React.FC = () => {
     idPart: "",
     jumlah: 0,
     unitSparePart: "",
-  });
+  };
+
+  const [formData, setFormData] = useState<MachineHistoryFormData>(initialFormData);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | { value: string; label: string } | null, name?: string) => {
     if (e && typeof e === "object" && "value" in e && name) {
@@ -128,8 +168,8 @@ const FormMesin: React.FC = () => {
     try {
       await submitMachineHistory(dataToSend);
       setSuccess("Data history mesin berhasil disimpan!");
-      handleClear();
-      navigate("/machinehistory");
+      setShowSuccessModal(true); // Show success modal
+      handleClear(); // Clear form after success
     } catch (err: any) {
       setError(err.message || "Gagal menyimpan data history mesin. Silakan coba lagi.");
       console.error("Submission error:", err);
@@ -139,34 +179,15 @@ const FormMesin: React.FC = () => {
   };
 
   const handleClear = useCallback(() => {
-    setFormData({
-      date: new Date().toISOString().split("T")[0],
-      shift: "",
-      group: "",
-      stopJam: 0,
-      stopMenit: 0,
-      startJam: 0,
-      startMenit: 0,
-      stopTime: "",
-      unit: "",
-      mesin: "",
-      runningHour: 0,
-      itemTrouble: "",
-      jenisGangguan: "",
-      bentukTindakan: "",
-      perbaikanPerawatan: "",
-      rootCause: "",
-      jenisAktivitas: "",
-      kegiatan: "",
-      kodePart: "",
-      sparePart: "",
-      idPart: "",
-      jumlah: 0,
-      unitSparePart: "",
-    });
+    setFormData(initialFormData); // Reset to initial state
     setError(null);
     setSuccess(null);
   }, []);
+
+  const handleCloseSuccessModal = useCallback(() => {
+    setShowSuccessModal(false);
+    navigate("/machinehistory"); // Navigate after modal closes
+  }, [navigate]);
 
   useEffect(() => {
     const fetchAllMasterData = async () => {
@@ -189,7 +210,7 @@ const FormMesin: React.FC = () => {
     fetchAllMasterData();
   }, [getAllMasterData]);
 
-  // Define custom styles for react-select to match Tailwind input styles
+  // Define custom styles for react-select to match Tailwind input styles in FormIT.tsx
   const customSelectStyles = {
     control: (provided: any, state: any) => ({
       ...provided,
@@ -246,484 +267,468 @@ const FormMesin: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 flex items-center">
-              <FiTool className="mr-3 text-blue-600" /> Machine History Form
-            </h1>
-            <p className="text-gray-600 mt-1">Record maintenance activities and machine issues</p>
+    <div className="flex h-screen font-sans antialiased bg-blue-50 text-gray-900">
+      <Sidebar />
+
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Header section */}
+        <header className="bg-white border-b border-gray-100 p-4 flex items-center justify-between shadow-sm sticky top-0 z-30">
+          <div className="flex items-center space-x-4">
+            <motion.button onClick={() => navigate("/machinehistory")} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="flex items-center text-blue-600 hover:text-blue-800 transition-colors duration-200">
+              <ArrowLeft className="text-xl" />
+              <span className="font-semibold text-sm hidden md:inline">Back to Machine History</span>
+            </motion.button>
+            <h2 className="text-lg md:text-xl font-bold text-gray-900 ml-4">Add Machine History Record</h2>
           </div>
+        </header>
+
+        {/* Main content area */}
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
+          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Record New Machine History</h1>
+              <p className="text-gray-600 mt-1">Fill in the details for machine maintenance and issues</p>
+            </div>
+            <motion.button
+              onClick={() => navigate("/machinehistory")}
+              whileHover={{ scale: 1.05, boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)" }}
+              whileTap={{ scale: 0.95 }}
+              className="flex items-center space-x-2 bg-white border border-gray-200 text-gray-800 px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md"
+            >
+              <ArrowLeft className="text-lg" /> Back to History
+            </motion.button>
+          </motion.div>
+
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="bg-white rounded-2xl shadow-md overflow-hidden p-4 md:p-6 border border-blue-50">
+            {error && (
+              <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
+                <strong className="font-bold">Error!</strong>
+                <span className="block sm:inline ml-2">{error}</span>
+                <span className="absolute top-0 bottom-0 right-0 px-4 py-3">
+                  <X className="fill-current h-6 w-6 text-red-500 cursor-pointer" onClick={() => setError(null)} />
+                </span>
+              </motion.div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* General Information */}
+              <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+                <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                  <Clock className="mr-2 text-blue-500" /> General Information
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div>
+                    <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">
+                      Date <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      name="date"
+                      id="date"
+                      value={formData.date}
+                      onChange={handleChange}
+                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="shift" className="block text-sm font-medium text-gray-700 mb-1">
+                      Shift <span className="text-red-500">*</span>
+                    </label>
+                    <Select
+                      name="shift"
+                      id="shift"
+                      options={shiftList.map((shift) => ({ value: shift.id, label: shift.name }))}
+                      value={shiftList.map((shift) => ({ value: shift.id, label: shift.name })).find((option) => option.value === formData.shift)}
+                      onChange={(selectedOption) => handleChange(selectedOption, "shift")}
+                      placeholder="Select Shift"
+                      styles={customSelectStyles}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="group" className="block text-sm font-medium text-gray-700 mb-1">
+                      Group <span className="text-red-500">*</span>
+                    </label>
+                    <Select
+                      name="group"
+                      id="group"
+                      options={groupList.map((group) => ({ value: group.id, label: group.name }))}
+                      value={groupList.map((group) => ({ value: group.id, label: group.name })).find((option) => option.value === formData.group)}
+                      onChange={(selectedOption) => handleChange(selectedOption, "group")}
+                      placeholder="Select Group"
+                      styles={customSelectStyles}
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Time Details */}
+              <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+                <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                  <Clock className="mr-2 text-indigo-500" /> Time Details
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Start Time */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Start Time <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="number"
+                        name="startJam"
+                        id="startJam"
+                        value={formData.startJam === null ? "" : formData.startJam}
+                        onChange={handleChange}
+                        min="0"
+                        max="23"
+                        placeholder="HH"
+                        className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
+                        required
+                      />
+                      <span className="text-gray-500 text-lg">:</span>
+                      <input
+                        type="number"
+                        name="startMenit"
+                        id="startMenit"
+                        value={formData.startMenit === null ? "" : formData.startMenit}
+                        onChange={handleChange}
+                        min="0"
+                        max="59"
+                        placeholder="MM"
+                        className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
+                        required
+                      />
+                    </div>
+                  </div>
+                  {/* Stop Time */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Stop Time <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="number"
+                        name="stopJam"
+                        id="stopJam"
+                        value={formData.stopJam === null ? "" : formData.stopJam}
+                        onChange={handleChange}
+                        min="0"
+                        max="23"
+                        placeholder="HH"
+                        className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
+                        required
+                      />
+                      <span className="text-gray-500 text-lg">:</span>
+                      <input
+                        type="number"
+                        name="stopMenit"
+                        id="stopMenit"
+                        value={formData.stopMenit === null ? "" : formData.stopMenit}
+                        onChange={handleChange}
+                        min="0"
+                        max="59"
+                        placeholder="MM"
+                        className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label htmlFor="stopTime" className="block text-sm font-medium text-gray-700 mb-1">
+                      Stop Type <span className="text-red-500">*</span>
+                    </label>
+                    <Select
+                      name="stopTime"
+                      id="stopTime"
+                      options={stopTimeList.map((stopTime) => ({ value: stopTime.id, label: stopTime.name }))}
+                      value={stopTimeList.find((option) => option.id === formData.stopTime) ? { value: formData.stopTime, label: stopTimeList.find((option) => option.id === formData.stopTime)?.name || "" } : null}
+                      onChange={(selectedOption) => handleChange(selectedOption, "stopTime")}
+                      placeholder="Select Stop Type"
+                      styles={customSelectStyles}
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Machine Details */}
+              <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+                <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                  <ToolCase className="mr-2 text-green-500" /> Machine Details
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label htmlFor="mesin" className="block text-sm font-medium text-gray-700 mb-1">
+                      Machine <span className="text-red-500">*</span>
+                    </label>
+                    <Select
+                      name="mesin"
+                      id="mesin"
+                      options={mesinList.map((mesin) => ({ value: mesin.id, label: mesin.name }))}
+                      value={mesinList.find((option) => option.id === formData.mesin) ? { value: formData.mesin, label: mesinList.find((option) => option.id === formData.mesin)?.name || "" } : null}
+                      onChange={(selectedOption) => handleChange(selectedOption, "mesin")}
+                      placeholder="Select Machine"
+                      styles={customSelectStyles}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="runningHour" className="block text-sm font-medium text-gray-700 mb-1">
+                      Running Hour <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="runningHour"
+                      id="runningHour"
+                      value={formatNumberWithDot(formData.runningHour)}
+                      onChange={handleChange}
+                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
+                      placeholder="e.g., 12.500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="unit" className="block text-sm font-medium text-gray-700 mb-1">
+                      Unit <span className="text-red-500">*</span>
+                    </label>
+                    <Select
+                      name="unit"
+                      id="unit"
+                      options={unitList.map((unit) => ({ value: unit.id, label: unit.name }))}
+                      value={unitList.find((option) => option.id === formData.unit) ? { value: formData.unit, label: unitList.find((option) => option.id === formData.unit)?.name || "" } : null}
+                      onChange={(selectedOption) => handleChange(selectedOption, "unit")}
+                      placeholder="Select Unit"
+                      styles={customSelectStyles}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="itemTrouble" className="block text-sm font-medium text-gray-700 mb-1">
+                      Item Trouble <span className="text-red-500">*</span>
+                    </label>
+                    <Select
+                      name="itemTrouble"
+                      id="itemTrouble"
+                      options={itemTroubleList.map((item) => ({ value: item.id, label: item.name }))}
+                      value={itemTroubleList.find((option) => option.id === formData.itemTrouble) ? { value: formData.itemTrouble, label: itemTroubleList.find((option) => option.id === formData.itemTrouble)?.name || "" } : null}
+                      onChange={(selectedOption) => handleChange(selectedOption, "itemTrouble")}
+                      placeholder="Select Item Trouble"
+                      styles={customSelectStyles}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="jenisGangguan" className="block text-sm font-medium text-gray-700 mb-1">
+                      Type of Disturbance / Damage <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="jenisGangguan"
+                      id="jenisGangguan"
+                      value={formData.jenisGangguan}
+                      onChange={handleChange}
+                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
+                      placeholder="e.g., Electrical Issue"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="bentukTindakan" className="block text-sm font-medium text-gray-700 mb-1">
+                      Action Taken <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      name="bentukTindakan"
+                      id="bentukTindakan"
+                      value={formData.bentukTindakan}
+                      onChange={handleChange}
+                      rows={3}
+                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
+                      placeholder="Describe the action taken..."
+                      required
+                    ></textarea>
+                  </div>
+                  <div>
+                    <label htmlFor="rootCause" className="block text-sm font-medium text-gray-700 mb-1">
+                      Root Cause <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      name="rootCause"
+                      id="rootCause"
+                      value={formData.rootCause}
+                      onChange={handleChange}
+                      rows={3}
+                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
+                      placeholder="Identify the root cause..."
+                      required
+                    ></textarea>
+                  </div>
+                </div>
+              </div>
+
+              {/* Activity Details */}
+              <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+                <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                  <ListPlus className="mr-2 text-purple-500" /> Activity Details
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label htmlFor="jenisAktivitas" className="block text-sm font-medium text-gray-700 mb-1">
+                      Type of Activity <span className="text-red-500">*</span>
+                    </label>
+                    <Select
+                      name="jenisAktivitas"
+                      id="jenisAktivitas"
+                      options={jenisAktivitasList.map((jenis) => ({ value: jenis.id, label: jenis.name }))}
+                      value={
+                        jenisAktivitasList.find((option) => option.id === formData.jenisAktivitas) ? { value: formData.jenisAktivitas, label: jenisAktivitasList.find((option) => option.id === formData.jenisAktivitas)?.name || "" } : null
+                      }
+                      onChange={(selectedOption) => handleChange(selectedOption, "jenisAktivitas")}
+                      placeholder="Select Type of Activity"
+                      styles={customSelectStyles}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="kegiatan" className="block text-sm font-medium text-gray-700 mb-1">
+                      Activity <span className="text-red-500">*</span>
+                    </label>
+                    <Select
+                      name="kegiatan"
+                      id="kegiatan"
+                      options={kegiatanList.map((kegiatan) => ({ value: kegiatan.id, label: kegiatan.name }))}
+                      value={kegiatanList.find((option) => option.id === formData.kegiatan) ? { value: formData.kegiatan, label: kegiatanList.find((option) => option.id === formData.kegiatan)?.name || "" } : null}
+                      onChange={(selectedOption) => handleChange(selectedOption, "kegiatan")}
+                      placeholder="Select Activity"
+                      styles={customSelectStyles}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="kodePart" className="block text-sm font-medium text-gray-700 mb-1">
+                      Part Code
+                    </label>
+                    <input
+                      type="text"
+                      name="kodePart"
+                      id="kodePart"
+                      value={formData.kodePart}
+                      onChange={handleChange}
+                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
+                      placeholder="e.g., P001"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="sparePart" className="block text-sm font-medium text-gray-700 mb-1">
+                      Spare Part
+                    </label>
+                    <input
+                      type="text"
+                      name="sparePart"
+                      id="sparePart"
+                      value={formData.sparePart}
+                      onChange={handleChange}
+                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
+                      placeholder="e.g., Oil Filter"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="idPart" className="block text-sm font-medium text-gray-700 mb-1">
+                      Part ID
+                    </label>
+                    <input
+                      type="text"
+                      name="idPart"
+                      id="idPart"
+                      value={formData.idPart}
+                      onChange={handleChange}
+                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
+                      placeholder="e.g., SPU-005"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="jumlah" className="block text-sm font-medium text-gray-700 mb-1">
+                      Quantity
+                    </label>
+                    <input
+                      type="text"
+                      name="jumlah"
+                      id="jumlah"
+                      value={formatNumberWithDot(formData.jumlah)}
+                      onChange={handleChange}
+                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
+                      placeholder="e.g., 5"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="unitSparePart" className="block text-sm font-medium text-gray-700 mb-1">
+                      Spare Part Unit
+                    </label>
+                    <Select
+                      name="unitSparePart"
+                      id="unitSparePart"
+                      options={unitSparePartList.map((unit) => ({ value: unit.id, label: unit.name }))}
+                      value={unitSparePartList.find((option) => option.id === formData.unitSparePart) ? { value: formData.unitSparePart, label: unitSparePartList.find((option) => option.id === formData.unitSparePart)?.name || "" } : null}
+                      onChange={(selectedOption) => handleChange(selectedOption, "unitSparePart")}
+                      placeholder="Select Unit"
+                      styles={customSelectStyles}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Form Actions */}
+              <div className="flex flex-col sm:flex-row justify-end gap-4 pt-6 border-t border-gray-100 mt-8">
+                <motion.button
+                  type="button"
+                  onClick={handleClear}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  className="px-6 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 flex items-center justify-center"
+                >
+                  <Trash2 className="mr-2 h-5 w-5" /> Clear Form
+                </motion.button>
+                <motion.button
+                  type="submit"
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  className="px-6 py-3 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 flex items-center justify-center"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <Hourglass className="animate-spin mr-2 h-5 w-5" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-5 w-5" /> Save Record
+                    </>
+                  )}
+                </motion.button>
+              </div>
+            </form>
+          </motion.div>
+        </main>
+      </div>
+
+      {/* Success Modal */}
+      <Modal isOpen={showSuccessModal} onClose={handleCloseSuccessModal} title="Success!">
+        <div className="flex flex-col items-center justify-center py-4">
+          <CheckCircle className="text-green-500 text-6xl mb-4" />
+          <p className="text-lg font-medium text-gray-800 text-center">Your machine history record has been added successfully!</p>
           <motion.button
-            onClick={() => navigate("/machinehistory")}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="p-2 rounded-lg bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors duration-200 shadow-sm"
-            aria-label="Close form"
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={handleCloseSuccessModal}
+            className="mt-6 px-6 py-3 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
           >
-            <FiX className="text-xl" />
+            Go to Machine History
           </motion.button>
         </div>
-
-        {loading && (
-          <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded relative mb-4" role="alert">
-            <strong className="font-bold">Processing!</strong>
-            <span className="block sm:inline"> Sedang menyimpan data...</span>
-          </div>
-        )}
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
-            <strong className="font-bold">Error!</strong>
-            <span className="block sm:inline"> {error}</span>
-          </div>
-        )}
-        {success && (
-          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4" role="alert">
-            <strong className="font-bold">Success!</strong>
-            <span className="block sm:inline"> {success}</span>
-          </div>
-        )}
-
-        <div className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200">
-          <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-6">
-            {/* General Information */}
-            <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                <FiClock className="mr-2 text-blue-500" /> General Information
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">
-                    Date
-                  </label>
-                  <input
-                    type="date"
-                    name="date"
-                    id="date"
-                    value={formData.date}
-                    onChange={handleChange}
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
-                    required
-                  />
-                </div>
-                <div>
-                  <label htmlFor="shift" className="block text-sm font-medium text-gray-700 mb-1">
-                    Shift
-                  </label>
-                  <Select
-                    name="shift"
-                    id="shift"
-                    options={shiftList.map((shift) => ({ value: shift.id, label: shift.name }))}
-                    value={shiftList.map((shift) => ({ value: shift.id, label: shift.name })).find((option) => option.value === formData.shift)}
-                    onChange={(selectedOption) => handleChange(selectedOption, "shift")}
-                    placeholder="Select Shift"
-                    styles={customSelectStyles}
-                    required
-                  />
-                </div>
-                <div>
-                  <label htmlFor="group" className="block text-sm font-medium text-gray-700 mb-1">
-                    Group
-                  </label>
-                  <Select
-                    name="group"
-                    id="group"
-                    options={groupList.map((group) => ({ value: group.id, label: group.name }))}
-                    value={groupList.map((group) => ({ value: group.id, label: group.name })).find((option) => option.value === formData.group)}
-                    onChange={(selectedOption) => handleChange(selectedOption, "group")}
-                    placeholder="Select Group"
-                    styles={customSelectStyles}
-                    required
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-18 mb-4">
-                <h2 className="text-lg font-semibold text-gray-800 flex items-center justify-start">
-                  <FiCheck className="mr-2 text-green-500" /> Start Time
-                </h2>
-                <h2 className="text-lg font-semibold text-gray-800 flex items-center justify-start">
-                  <FiClock className="mr-2 text-red-500" /> Stop Time
-                </h2>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-6 mb-4">
-                <div className="flex items-end justify-start">
-                  <div className="flex-1 max-w-[calc(50%-15px)]">
-                    <label htmlFor="startJam" className="block text-sm font-medium text-gray-700 mb-1">
-                      Hour (HH)
-                    </label>
-                    <input
-                      type="string"
-                      name="startJam"
-                      id="startJam"
-                      value={formData.startJam === null ? "" : formData.startJam}
-                      onChange={handleChange}
-                      min="0"
-                      max="23"
-                      placeholder="e.g., 09"
-                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
-                      required
-                    />
-                  </div>
-                  <div className="mx-1 text-2xl font-bold text-gray-600 pb-2">:</div>
-                  <div className="flex-1 max-w-[calc(50%-15px)]">
-                    <label htmlFor="startMenit" className="block text-sm font-medium text-gray-700 mb-1">
-                      Minute (MM)
-                    </label>
-                    <input
-                      type="string"
-                      name="startMenit"
-                      id="startMenit"
-                      value={formData.startMenit === null ? "" : formData.startMenit}
-                      onChange={handleChange}
-                      min="0"
-                      max="59"
-                      placeholder="e.g., 15"
-                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="flex items-end justify-end">
-                  <div className="flex-1 max-w-[calc(50%-15px)]">
-                    <label htmlFor="stopJam" className="block text-sm font-medium text-gray-700 mb-1">
-                      Hour (HH)
-                    </label>
-                    <input
-                      type="string"
-                      name="stopJam"
-                      id="stopJam"
-                      value={formData.stopJam === null ? "" : formData.stopJam}
-                      onChange={handleChange}
-                      min="0"
-                      max="23"
-                      placeholder="e.g., 09"
-                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
-                      required
-                    />
-                  </div>
-                  <div className="mx-1 text-2xl font-bold text-gray-600 pb-2">:</div>
-                  <div className="flex-1 max-w-[calc(50%-15px)]">
-                    <label htmlFor="stopMenit" className="block text-sm font-medium text-gray-700 mb-1">
-                      Minute (MM)
-                    </label>
-                    <input
-                      type="string"
-                      name="stopMenit"
-                      id="stopMenit"
-                      value={formData.stopMenit === null ? "" : formData.stopMenit}
-                      onChange={handleChange}
-                      min="0"
-                      max="59"
-                      placeholder="e.g., 30"
-                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 no-spin-button bg-white text-gray-700"
-                      required
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4">
-                <label htmlFor="stopTime" className="block text-sm font-medium text-gray-700 mb-1">
-                  Stop Type
-                </label>
-                <Select
-                  name="stopTime"
-                  id="stopTime"
-                  options={stopTimeList.map((stopTime) => ({ value: stopTime.id, label: stopTime.name }))}
-                  value={stopTimeList.find((option) => option.id === formData.stopTime) ? { value: formData.stopTime, label: stopTimeList.find((option) => option.id === formData.stopTime)?.name || "" } : null}
-                  onChange={(selectedOption) => handleChange(selectedOption, "stopTime")}
-                  placeholder="Select Stop Type"
-                  styles={customSelectStyles}
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Machine Details */}
-            <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                <FiTool className="mr-2 text-blue-500" /> Machine Details
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="unit" className="block text-sm font-medium text-gray-700 mb-1">
-                    Unit
-                  </label>
-                  <Select
-                    name="unit"
-                    id="unit"
-                    options={unitList.map((unit) => ({ value: unit.id, label: unit.name }))}
-                    value={unitList.map((unit) => ({ value: unit.id, label: unit.name })).find((option) => option.value === formData.unit)}
-                    onChange={(selectedOption) => handleChange(selectedOption, "unit")}
-                    placeholder="Select Unit"
-                    styles={customSelectStyles}
-                    required
-                  />
-                </div>
-                <div>
-                  <label htmlFor="mesin" className="block text-sm font-medium text-gray-700 mb-1">
-                    Machine
-                  </label>
-                  <Select
-                    name="mesin"
-                    id="mesin"
-                    options={mesinList.map((mesinItem) => ({ value: mesinItem.id, label: mesinItem.name }))}
-                    value={mesinList.map((mesinItem) => ({ value: mesinItem.id, label: mesinItem.name })).find((option) => option.value === formData.mesin)}
-                    onChange={(selectedOption) => handleChange(selectedOption, "mesin")}
-                    placeholder="Select Machine"
-                    styles={customSelectStyles}
-                    required
-                  />
-                </div>
-              </div>
-              <div className="mt-4">
-                <label htmlFor="runningHour" className="block text-sm font-medium text-gray-700 mb-1">
-                  Running Hours
-                </label>
-                <input
-                  type="text"
-                  name="runningHour"
-                  id="runningHour"
-                  value={formatNumberWithDot(formData.runningHour)}
-                  onChange={handleChange}
-                  placeholder="e.g., 15.000"
-                  className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Problem & Action */}
-            <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                <FiTool className="mr-2 text-yellow-500" /> Problem & Action
-              </h2>
-              <div className="mb-4">
-                <label htmlFor="itemTrouble" className="block text-sm font-medium text-gray-700 mb-1">
-                  Item Trouble
-                </label>
-                <Select
-                  name="itemTrouble"
-                  id="itemTrouble"
-                  options={itemTroubleList.map((itemTrouble) => ({ value: itemTrouble.id, label: itemTrouble.name }))}
-                  value={itemTroubleList.map((itemTrouble) => ({ value: itemTrouble.id, label: itemTrouble.name })).find((option) => option.value === formData.itemTrouble)}
-                  onChange={(selectedOption) => handleChange(selectedOption, "itemTrouble")}
-                  placeholder="Select Item Trouble"
-                  styles={customSelectStyles}
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label htmlFor="jenisGangguan" className="block text-sm font-medium text-gray-700 mb-1">
-                    Issue Description
-                  </label>
-                  <textarea
-                    name="jenisGangguan"
-                    id="jenisGangguan"
-                    value={formData.jenisGangguan}
-                    onChange={handleChange}
-                    rows={3}
-                    placeholder="Describe the issue..."
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
-                    required
-                  />
-                </div>
-                <div>
-                  <label htmlFor="bentukTindakan" className="block text-sm font-medium text-gray-700 mb-1">
-                    Action Taken
-                  </label>
-                  <textarea
-                    name="bentukTindakan"
-                    id="bentukTindakan"
-                    value={formData.bentukTindakan}
-                    onChange={handleChange}
-                    rows={3}
-                    placeholder="Describe the action taken..."
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="rootCause" className="block text-sm font-medium text-gray-700 mb-1">
-                  Root Cause
-                </label>
-                <textarea
-                  name="rootCause"
-                  id="rootCause"
-                  value={formData.rootCause}
-                  onChange={handleChange}
-                  rows={3}
-                  placeholder="Identify the root cause..."
-                  className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Activity Details */}
-            <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                <FiCheck className="mr-2 text-purple-500" /> Activity Details
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="jenisAktivitas" className="block text-sm font-medium text-gray-700 mb-1">
-                    Activity Type
-                  </label>
-                  <Select
-                    name="jenisAktivitas"
-                    id="jenisAktivitas"
-                    options={jenisAktivitasList.map((aktivitas) => ({ value: aktivitas.id, label: aktivitas.name }))}
-                    value={jenisAktivitasList.map((aktivitas) => ({ value: aktivitas.id, label: aktivitas.name })).find((option) => option.value === formData.jenisAktivitas)}
-                    onChange={(selectedOption) => handleChange(selectedOption, "jenisAktivitas")}
-                    placeholder="Select Activity Type"
-                    styles={customSelectStyles}
-                    required
-                  />
-                </div>
-                <div>
-                  <label htmlFor="kegiatan" className="block text-sm font-medium text-gray-700 mb-1">
-                    Specific Activity
-                  </label>
-                  <Select
-                    name="kegiatan"
-                    id="kegiatan"
-                    options={kegiatanList.map((kegiatan) => ({ value: kegiatan.id, label: kegiatan.name }))}
-                    value={kegiatanList.map((kegiatan) => ({ value: kegiatan.id, label: kegiatan.name })).find((option) => option.value === formData.kegiatan)}
-                    onChange={(selectedOption) => handleChange(selectedOption, "kegiatan")}
-                    placeholder="Select Activity"
-                    styles={customSelectStyles}
-                    required
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Spare Parts */}
-            <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                <FiTool className="mr-2 text-indigo-500" /> Spare Parts
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                <div>
-                  <label htmlFor="kodePart" className="block text-sm font-medium text-gray-700 mb-1">
-                    Part Code
-                  </label>
-                  <input
-                    type="text"
-                    name="kodePart"
-                    id="kodePart"
-                    value={formData.kodePart}
-                    onChange={handleChange}
-                    placeholder="e.g., KODE123"
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
-                    required
-                  />
-                </div>
-                <div>
-                  <label htmlFor="sparePart" className="block text-sm font-medium text-gray-700 mb-1">
-                    Part Name
-                  </label>
-                  <input
-                    type="text"
-                    name="sparePart"
-                    id="sparePart"
-                    value={formData.sparePart}
-                    onChange={handleChange}
-                    placeholder="e.g., Bearing XYZ"
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
-                    required
-                  />
-                </div>
-                <div>
-                  <label htmlFor="idPart" className="block text-sm font-medium text-gray-700 mb-1">
-                    Part ID
-                  </label>
-                  <input
-                    type="text"
-                    name="idPart"
-                    id="idPart"
-                    value={formData.idPart}
-                    onChange={handleChange}
-                    placeholder="e.g., ID456"
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-700"
-                    required
-                  />
-                </div>
-                <div>
-                  <label htmlFor="jumlah" className="block text-sm font-medium text-gray-700 mb-1">
-                    Quantity
-                  </label>
-                  <input
-                    type="text"
-                    name="jumlah"
-                    id="jumlah"
-                    value={formatNumberWithDot(formData.jumlah)}
-                    onChange={handleChange}
-                    placeholder="e.g., 5"
-                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 no-spin-button bg-white text-gray-700"
-                    required
-                  />
-                </div>
-              </div>
-              <div className="mt-4">
-                <label htmlFor="unitSparePart" className="block text-sm font-medium text-gray-700 mb-1">
-                  Unit
-                </label>
-                <Select
-                  name="unitSparePart"
-                  id="unitSparePart"
-                  options={unitSparePartList.map((unitSP) => ({ value: unitSP.id, label: unitSP.name }))}
-                  value={unitSparePartList.map((unitSP) => ({ value: unitSP.id, label: unitSP.name })).find((option) => option.value === formData.unitSparePart)}
-                  onChange={(selectedOption) => handleChange(selectedOption, "unitSparePart")}
-                  placeholder="Select Unit"
-                  styles={customSelectStyles}
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row justify-end gap-4 pt-6 border-t border-gray-200">
-              <motion.button
-                type="button"
-                onClick={handleClear}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="px-6 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
-              >
-                <FiTrash2 className="inline mr-2" /> Clear Form
-              </motion.button>
-              <motion.button
-                type="submit"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="px-6 py-3 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
-                disabled={loading}
-              >
-                {loading ? (
-                  <>
-                    <span className="animate-spin inline-block mr-2">⚙️</span> Saving...
-                  </>
-                ) : (
-                  <>
-                    <FiSave className="inline mr-2" /> Save Record
-                  </>
-                )}
-              </motion.button>
-            </div>
-          </form>
-        </div>
-      </div>
+      </Modal>
     </div>
   );
 };

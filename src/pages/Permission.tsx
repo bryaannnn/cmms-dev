@@ -385,16 +385,16 @@ const PermissionsPage: React.FC = () => {
     .filter((user) => departmentFilter === "all" || user.department === departmentFilter)
     .filter((user) => user.name.toLowerCase().includes(searchQuery.toLowerCase()) || user.nik.toLowerCase().includes(searchQuery.toLowerCase()));
 
-  // if (!hasPermission("15")) {
-  //   return (
-  //     <div className="flex items-center justify-center min-h-screen bg-gray-50 font-sans">
-  //       <div className="bg-white rounded-xl shadow-lg p-8 text-center border border-red-200">
-  //         <AlertTriangle className="text-red-500 text-4xl mx-auto mb-4" />
-  //         <p className="text-xl text-red-600 font-semibold">You don't have permission to access this page</p>
-  //       </div>
-  //     </div>
-  //   );
-  // }
+  if (!hasPermission("15")) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50 font-sans">
+        <div className="bg-white rounded-xl shadow-lg p-8 text-center border border-red-200">
+          <AlertTriangle className="text-red-500 text-4xl mx-auto mb-4" />
+          <p className="text-xl text-red-600 font-semibold">You don't have permission to access this page</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen font-sans antialiased bg-blue-50">

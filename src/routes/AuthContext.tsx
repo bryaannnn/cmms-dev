@@ -243,7 +243,7 @@ export interface WorkOrderFormData {
   title: string;
   description: string;
   type: "preventive" | "corrective" | "inspection" | "emergency";
-  status: "pending" | "in-progress" | "completed" | "cancelled";
+  status: "open" | "in_progress" | "completed" | "on_hold" | "cancelled";
   priority: "low" | "medium" | "high" | "critical";
   assignedTo: string;
   assignedToAvatar: string;
@@ -977,7 +977,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Fetch the current work order to get its existing data
       const currentOrder = await getWorkOrderById(id);
       // Update the status to 'in-progress' (assuming this signifies 'approved')
-      const updatedData: WorkOrderFormData = { ...currentOrder, status: "in-progress" };
+      const updatedData: WorkOrderFormData = { ...currentOrder, status: "in_progress" };
       const responseData = await updateWorkOrder(id, updatedData);
       return responseData;
     },
@@ -988,7 +988,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     async (id: string | number, assignedToUserId: string): Promise<WorkOrderFormData> => {
       const currentOrder = await getWorkOrderById(id);
       // Explicitly cast status to the literal type
-      const updatedData: WorkOrderFormData = { ...currentOrder, assignedTo: assignedToUserId, status: "in-progress" }; // Automatically set to in-progress when assigned
+      const updatedData: WorkOrderFormData = { ...currentOrder, assignedTo: assignedToUserId, status: "in_progress" }; // Automatically set to in-progress when assigned
       const responseData = await updateWorkOrder(id, updatedData);
       return responseData;
     },
@@ -1009,7 +1009,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     async (userId: string): Promise<WorkOrderFormData[]> => {
       const allOrders = await getWorkOrders(); // Fetch all orders using the existing function
       // Filter client-side: only orders created by or assigned to the user, and that are approved (in-progress or completed)
-      return allOrders.filter((order) => (order.createdBy === userId || order.assignedTo === userId) && (order.status === "in-progress" || order.status === "completed"));
+      return allOrders.filter((order) => (order.createdBy === userId || order.assignedTo === userId) && (order.status === "in_progress" || order.status === "completed"));
     },
     [getWorkOrders]
   );

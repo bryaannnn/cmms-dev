@@ -1,2 +1,16 @@
-@import "tailwindcss"
+@import "tailwindcss";
 
+/* For WebKit-based browsers (Chrome, Safari, Edge) */
+.sidebar-nav::-webkit-scrollbar {
+  display: none; /* Hide scrollbar */
+}
+
+/* For Firefox */
+.sidebar-nav {
+  scrollbar-width: none; /* Hide scrollbar */
+}
+
+/* For IE/Edge (if older support is needed) */
+.sidebar-nav {
+  -ms-overflow-style: none;
+}
