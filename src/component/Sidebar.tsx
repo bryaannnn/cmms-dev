@@ -1,6 +1,30 @@
 import { motion, AnimatePresence } from "framer-motion";
 import React, { useEffect, useState, useRef } from "react";
-import { Users, BarChart2, Database, Clipboard, Package, ChevronLeft, Home, ChevronRight, Settings, Key, } from "lucide-react";
+import {
+  Users,
+  BarChart2,
+  Database,
+  Clipboard,
+  Package,
+  ChevronLeft,
+  Home,
+  ChevronRight,
+  Settings,
+  Key,
+  ListCheck,
+  History,
+  MapPin,
+  Wrench,
+  BookOpen,
+  ToolCase,
+  ChartBar,
+  Monitor,
+  Component,
+  ShoppingCart,
+  Receipt,
+  Archive,
+  LifeBuoy,
+} from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import logoWida from "../assets/logo-wida.png";
 import { useAuth } from "../routes/AuthContext";
@@ -112,20 +136,30 @@ const Sidebar: React.FC = () => {
               {hasPermission("1") && <NavItem icon={<Home />} text="Dashboard" to="/dashboard" expanded={sidebarOpen} />}
 
               {sidebarOpen && <h3 className="text-xs font-semibold uppercase text-gray-400 px-4 pt-4 pb-1 tracking-wider">System</h3>}
-              {hasPermission("23") && <NavItem icon={<Database />} text="Audit Trail" to="/audittrail" expanded={sidebarOpen} />}
-              {hasPermission("23") && <NavItem icon={<Database />} text="Backup & Restore" to="/backupandrestore" expanded={sidebarOpen} />}
+              {hasPermission("23") && <NavItem icon={<ListCheck />} text="Audit Trail" to="/audittrail" expanded={sidebarOpen} />}
+              {hasPermission("23") && <NavItem icon={<History />} text="Backup & Restore" to="/backupandrestore" expanded={sidebarOpen} />}
 
               {sidebarOpen && <h3 className="text-xs font-semibold uppercase text-gray-400 px-4 pt-4 pb-1 tracking-wider">Master</h3>}
-              {hasPermission("23") && <NavItem icon={<Database />} text="Work Location" to="/worklocation" expanded={sidebarOpen} />}
-              {hasPermission("23") && <NavItem icon={<Database />} text="Work Arrangement" to="/workarrangement" expanded={sidebarOpen} />}
+              {hasPermission("23") && <NavItem icon={<MapPin />} text="Work Location" to="/worklocation" expanded={sidebarOpen} />}
+              {hasPermission("23") && <NavItem icon={<Users />} text="Work Arrangement" to="/workarrangement" expanded={sidebarOpen} />}
+              {hasPermission("15") && <NavItem icon={<Key />} text="User Management" to="/permissions" expanded={sidebarOpen} />}
+              {hasPermission("23") && <NavItem icon={<Wrench />} text="Spare Part" to="/sparepart" expanded={sidebarOpen} />}
               {hasPermission("3") && <NavItem icon={<Package />} text="Assets" to="/assets" expanded={sidebarOpen} />}
-              {hasPermission("11") && <NavItem icon={<BarChart2 />} text="Reports" to="/reports" expanded={sidebarOpen} />}
-              {hasPermission("23") && <NavItem icon={<Database />} text="Inventory" to="/inventory" expanded={sidebarOpen} />}
+              {hasPermission("3") && <NavItem icon={<LifeBuoy />} text="Service" to="/service" expanded={sidebarOpen} />}
+              {hasPermission("3") && <NavItem icon={<ToolCase />} text="Maintenance Activity" to="/maintenanceactivity" expanded={sidebarOpen} />}
+
+              {sidebarOpen && <h3 className="text-xs font-semibold uppercase text-gray-400 px-4 pt-4 pb-1 tracking-wider">Maintenance</h3>}
+              {hasPermission("31") && <NavItem icon={<ChartBar />} text="Machine History" to="/machinehistory" expanded={sidebarOpen} />}
+              {hasPermission("31") && <NavItem icon={<Monitor />} text="Monitoring Maintenance" to="/monitoringmaintenance" expanded={sidebarOpen} />}
+
+              {sidebarOpen && <h3 className="text-xs font-semibold uppercase text-gray-400 px-4 pt-4 pb-1 tracking-wider">Work Orders</h3>}
               {hasPermission("7") && <NavItem icon={<Clipboard />} text="Work Orders" to="/workorders" expanded={sidebarOpen} />}
-              {hasPermission("31") && <NavItem icon={<Clipboard />} text="Machine History" to="/machinehistory" expanded={sidebarOpen} />}
-              {hasPermission("27") && <NavItem icon={<Users />} text="Team" to="/team" expanded={sidebarOpen} />}
-              {hasPermission("15") && <NavItem icon={<Key />} text="Permissions" to="/permissions" expanded={sidebarOpen} />}
-              {hasPermission("13") && <NavItem icon={<Settings />} text="General Settings" to="/settings" expanded={sidebarOpen} />}
+
+              {sidebarOpen && <h3 className="text-xs font-semibold uppercase text-gray-400 px-4 pt-4 pb-1 tracking-wider">Spare Parts</h3>}
+              {hasPermission("23") && <NavItem icon={<Component />} text="Sparepart Detail" to="/sparepartdetail" expanded={sidebarOpen} />}
+              {hasPermission("23") && <NavItem icon={<ShoppingCart />} text="Purchase Order Realization" to="/purchaseorderrealization" expanded={sidebarOpen} />}
+              {hasPermission("23") && <NavItem icon={<Receipt />} text="Transaction by Item" to="/transactionbyitem" expanded={sidebarOpen} />}
+              {hasPermission("23") && <NavItem icon={<Archive />} text="Spare Part Management" to="/sparepartmanagement" expanded={sidebarOpen} />}
             </nav>
 
             {/* Bagian Bawah Navbar: Informasi Versi & Logout Sidebar */}

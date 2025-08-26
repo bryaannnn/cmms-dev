@@ -16,7 +16,7 @@ import {
   CheckCircle,
   Users,
   BarChart2,
-  Database,
+  Database, 
   Clipboard,
   Filter,
   Package,
@@ -238,7 +238,7 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
         <DetailItem label="Unit" value={displayValue(record.unit)} />
         <DetailItem label="Stop Time" value={formatTime(record.stopJam, record.stopMenit)} />
         <DetailItem label="Start Time" value={formatTime(record.startJam, record.startMenit)} />
-        <DetailItem label="Downtime" value={displayValue(displayDowntime)} />
+        <DetailItem label="Durationtime" value={displayValue(displayDowntime)} />
         <DetailItem label="Stop Type" value={displayValue(record.stopTime)} />
         <DetailItem label="Running Hour" value={displayValue(record.runningHour)} />
       </div>
@@ -348,6 +348,9 @@ const MachineHistoryDashboard: React.FC = () => {
   const statusFilterDropdownRef = useRef<HTMLDivElement>(null);
   const [showShiftFilterDropdown, setShowShiftFilterDropdown] = useState(false);
   const shiftFilterDropdownRef = useRef<HTMLDivElement>(null);
+
+  const isRecord = location.pathname === "/machinehistory";
+  const isReports = location.pathname === "/machinehistory/reports";
 
   // Apply useDebounce to searchQuery
   const debouncedSearchQuery = useDebounce(searchQuery, 300); // Debounce for 300ms
@@ -829,6 +832,23 @@ const MachineHistoryDashboard: React.FC = () => {
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
+          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="isi style mb-6 flex space-x-6 border-b border-gray-200">
+            <motion.div
+              whileTap={{ scale: 0.98 }}
+              onClick={() => navigate("machinehistory")}
+              className={`cursor-pointer px-4 py-3 text-sm font-medium ${isRecord ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
+            >
+              Record
+            </motion.div>
+            <motion.div
+              whileTap={{ scale: 0.98 }}
+              onClick={() => navigate("/machinehistory/reports")}
+              className={`cursor-pointer px-4 py-3 text-sm font-medium ${isReports ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
+            >
+              Reports
+            </motion.div>
+          </motion.div>
+
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between space-y-5 md:space-y-0">
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
@@ -875,7 +895,7 @@ const MachineHistoryDashboard: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
             <StatCard title="Total Records" value={filteredRecords.length.toLocaleString("id-ID")} change="+8%" icon={<Clipboard />} />
             <StatCard
-              title="Avg Downtime"
+              title="Avg Durationtime"
               value={
                 filteredRecords.length > 0
                   ? convertMinutesToHoursAndMinutes(
@@ -1200,7 +1220,7 @@ const MachineHistoryDashboard: React.FC = () => {
                       </th>
                       <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Machine</th>
                       <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Shift/Group</th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Downtime</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Durationtime</th>
                       <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Issue</th>
                       <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Type</th>
                       <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>

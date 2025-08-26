@@ -1,37 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useAuth, WorkOrderFormData, User } from "../../../routes/AuthContext";
+import { useAuth, WorkOrderData, User } from "../../../routes/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
 import Sidebar from "../../Sidebar";
-import {
-  Plus,
-  Upload,
-  ChevronUp,
-  AlertTriangle,
-  Wrench,
-  CheckCircle,
-  Clipboard,
-  Filter,
-  X,
-  ChevronDown,
-  ChevronRight,
-  Search,
-  LogOut,
-  Sun,
-  Moon,
-  Settings,
-  Bell,
-  Edit,
-  Eye,
-  Clock,
-  Calendar,
-  Trash2,
-  User as UserIcon,
-  Printer,
-  ChevronLeft,
-} from "lucide-react";
+import { Plus, ChevronUp, AlertTriangle, Wrench, CheckCircle, Clipboard, Filter, X, ChevronDown, ChevronRight, Search, LogOut, Sun, Moon, Settings, Bell, Edit, Eye, Clock, Trash2, User as UserIcon, ChevronLeft } from "lucide-react";
 
-// Interface for navigation items
 interface NavItemProps {
   icon: React.ReactNode;
   text: string;
@@ -39,7 +12,6 @@ interface NavItemProps {
   expanded: boolean;
 }
 
-// NavItem component for sidebar navigation
 const NavItem: React.FC<NavItemProps> = ({ icon, text, to, expanded }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -64,7 +36,6 @@ const NavItem: React.FC<NavItemProps> = ({ icon, text, to, expanded }) => {
   );
 };
 
-// Interface for statistic cards
 interface StatCardProps {
   title: string;
   value: string;
@@ -72,7 +43,6 @@ interface StatCardProps {
   icon: React.ReactNode;
 }
 
-// StatCard component to display key metrics
 const StatCard: React.FC<StatCardProps> = ({ title, value, change, icon }) => {
   const isPositive = change.startsWith("+");
   return (
@@ -95,7 +65,6 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, change, icon }) => {
   );
 };
 
-// Interface for modal properties
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -103,7 +72,6 @@ interface ModalProps {
   children: React.ReactNode;
 }
 
-// Modal component for displaying pop-up content
 const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
   if (!isOpen) return null;
 
@@ -122,261 +90,38 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
   );
 };
 
-// WorkOrderDetailsForm component for viewing/editing work order details
-interface WorkOrderDetailsFormProps {
-  workOrder: WorkOrderFormData;
-  isEditing: boolean;
-  onSave: (order: WorkOrderFormData) => void;
-  onCancel: () => void;
-  onComplete: (id: number) => void;
-  onPrint: (id: number) => void;
-  users?: User[]; // List of users for assignment (though assignment is typically admin only)
-}
-
-const WorkOrderDetailsForm: React.FC<WorkOrderDetailsFormProps> = ({ workOrder, isEditing, onSave, onCancel, onComplete, onPrint, users }) => {
-  const [formData, setFormData] = useState<WorkOrderFormData>(workOrder);
-
-  useEffect(() => {
-    setFormData(workOrder);
-  }, [workOrder]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSave(formData);
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label htmlFor="detail-id" className="block text-sm font-medium text-gray-700">
-          Work Order ID
-        </label>
-        <input type="text" id="detail-id" value={formData.id} readOnly className="mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 bg-blue-50 cursor-not-allowed transition-all duration-200" />
-      </div>
-      <div>
-        <label htmlFor="detail-title" className="block text-sm font-medium text-gray-700">
-          Title
-        </label>
-        <input
-          type="text"
-          id="detail-title"
-          name="title"
-          value={formData.title}
-          onChange={handleChange}
-          readOnly={!isEditing}
-          required
-          className={`mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
-        />
-      </div>
-      <div>
-        <label htmlFor="description" className="block text-sm font-medium text-gray-700">
-          Description
-        </label>
-        <textarea
-          id="description"
-          name="description"
-          value={formData.description || ""}
-          onChange={handleChange}
-          readOnly={!isEditing}
-          rows={3}
-          className={`mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
-        ></textarea>
-      </div>
-      <div>
-        <label htmlFor="detail-type" className="block text-sm font-medium text-gray-700">
-          Type
-        </label>
-        <select
-          id="detail-type"
-          name="type"
-          value={formData.type}
-          onChange={handleChange}
-          disabled={!isEditing}
-          required
-          className={`mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
-        >
-          <option value="preventive">Preventive</option>
-          <option value="corrective">Corrective</option>
-          <option value="inspection">Inspection</option>
-          <option value="emergency">Emergency</option>
-        </select>
-      </div>
-      <div>
-        <label htmlFor="detail-status" className="block text-sm font-medium text-gray-700">
-          Status
-        </label>
-        <select
-          id="detail-status"
-          name="status"
-          value={formData.status}
-          onChange={handleChange}
-          disabled={!isEditing}
-          required
-          className={`mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
-        >
-          <option value="open">Open</option>
-          <option value="in_progress">In Progress</option>
-          <option value="completed">Completed</option>
-          <option value="on_hold">On Hold</option>
-          <option value="cancelled">Cancelled</option>
-        </select>
-      </div>
-      <div>
-        <label htmlFor="detail-priority" className="block text-sm font-medium text-gray-700">
-          Priority
-        </label>
-        <select
-          id="detail-priority"
-          name="priority"
-          value={formData.priority}
-          onChange={handleChange}
-          disabled={!isEditing}
-          required
-          className={`mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
-        >
-          <option value="low">Low</option>
-          <option value="medium">Medium</option>
-          <option value="high">High</option>
-          <option value="critical">Critical</option>
-        </select>
-      </div>
-      <div>
-        <label htmlFor="detail-assignedTo" className="block text-sm font-medium text-gray-700">
-          Assigned To
-        </label>
-        <input
-          type="text"
-          id="detail-assignedTo"
-          name="assignedTo"
-          value={users?.find((u) => u.id === formData.assignedTo)?.name || "Not Assigned"}
-          readOnly
-          className="mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 bg-blue-50 cursor-not-allowed transition-all duration-200"
-        />
-      </div>
-      <div>
-        <label htmlFor="detail-createdBy" className="block text-sm font-medium text-gray-700">
-          Created By
-        </label>
-        <input type="text" id="detail-createdBy" value={formData.createdBy} readOnly className="mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 bg-blue-50 cursor-not-allowed transition-all duration-200" />
-      </div>
-      <div>
-        <label htmlFor="detail-createdAt" className="block text-sm font-medium text-gray-700">
-          Created At
-        </label>
-        <input
-          type="text"
-          id="detail-createdAt"
-          value={new Date(formData.createdAt).toLocaleDateString()}
-          readOnly
-          className="mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 bg-blue-50 cursor-not-allowed transition-all duration-200"
-        />
-      </div>
-      <div>
-        <label htmlFor="detail-dueDate" className="block text-sm font-medium text-gray-700">
-          Due Date
-        </label>
-        <input
-          type="date"
-          id="detail-dueDate"
-          name="dueDate"
-          value={formData.dueDate || ""}
-          onChange={handleChange}
-          readOnly={!isEditing}
-          className={`mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
-        />
-      </div>
-      <div className="flex justify-end space-x-3 mt-6">
-        <motion.button
-          type="button"
-          onClick={onCancel}
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.97 }}
-          className="inline-flex items-center px-5 py-2.5 border border-gray-200 text-base font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
-        >
-          {isEditing ? "Cancel" : "Close"}
-        </motion.button>
-        {isEditing && (
-          <motion.button
-            type="submit"
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            className="inline-flex items-center px-5 py-2.5 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
-          >
-            Save Changes
-          </motion.button>
-        )}
-        {!isEditing && formData.status !== "completed" && formData.status !== "cancelled" && (
-          <motion.button
-            type="button"
-            onClick={() => onComplete(formData.id)}
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            className="inline-flex items-center px-5 py-2.5 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200"
-          >
-            <CheckCircle size={18} className="mr-2" /> Mark as Completed
-          </motion.button>
-        )}
-        {!isEditing && (
-          <motion.button
-            type="button"
-            onClick={() => onPrint(formData.id)}
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            className="inline-flex items-center px-5 py-2.5 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors duration-200"
-          >
-            <Printer size={18} className="mr-2" /> Print
-          </motion.button>
-        )}
-      </div>
-    </form>
-  );
-};
-
-// Main IT Receiver Work Orders component
 const ITReceiver: React.FC = () => {
   const [darkMode, setDarkMode] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [showWorkOrderDetailsModal, setShowWorkOrderDetailsModal] = useState(false);
-  const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrderFormData | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
+  const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrderData | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [recordToDelete, setRecordToDelete] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [ordersPerPage] = useState(5);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [showNotificationsPopup, setShowNotificationsPopup] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [users, setUsers] = useState<User[]>([]); // State to store users for display
+  const [users, setUsers] = useState<User[]>([]);
 
-  // Use auth context for data operations and user permissions
-  const { user, getWorkOrdersForUser, updateWorkOrder, deleteWorkOrder, getWorkOrderById, getUsers, hasPermission } = useAuth();
+  const { user, hasPermission, updateWorkOrderIT, deleteWorkOrder, getWorkOrderById, getUsers, getWorkOrdersForUser } = useAuth();
+
   const navigate = useNavigate();
-  const [workOrders, setWorkOrders] = useState<WorkOrderFormData[]>([]);
+  const [workOrders, setWorkOrders] = useState<WorkOrderData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const notificationsRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
-  const isWorkOrdersIT = location.pathname === "/workorders/it";
-  const isWorkOrdersTD = location.pathname === "/workorders/td";
   const isRequest = location.pathname === "/workorders/it";
-  const isApprover = location.pathname === "/workorders/it/approver";
-  const isAssignment = location.pathname === "/workorders/it/assignment";
   const isReceiver = location.pathname === "/workorders/it/receiver";
+  const isAssignment = location.pathname === "/workorders/it/assignment";
+  const isApprover = location.pathname === "/workorders/it/approver";
   const isReports = location.pathname === "/workorders/it/reports";
   const isKnowledgeBase = location.pathname === "/workorders/it/knowledgebase";
 
-  // Effect for handling window resize
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768);
@@ -389,12 +134,8 @@ const ITReceiver: React.FC = () => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Effect for handling clicks outside notification/profile popups
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
-        setShowNotificationsPopup(false);
-      }
       if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
         setShowProfileMenu(false);
       }
@@ -406,81 +147,66 @@ const ITReceiver: React.FC = () => {
     };
   }, []);
 
-  // Effect to load work orders from AuthContext for the current user (Receiver)
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen);
+  };
+
   useEffect(() => {
     const loadWorkOrders = async () => {
       if (!user?.id) {
         setLoading(false);
-        setError("User not logged in or user ID not available.");
         return;
       }
       try {
         setLoading(true);
         setError(null);
-        // Fetch work orders assigned to the current user, filtered by IT department
         const allOrders = await getWorkOrdersForUser(user.id);
         const fetchedUsers = await getUsers();
         setUsers(fetchedUsers);
 
-        const filteredOrders = allOrders.filter((order) => order.assignedTo === user.id && order.assetType?.toLowerCase() === "it");
+        const filteredOrders = allOrders.filter((order) => {
+          const isITDepartment = order.department?.name?.toLowerCase().includes("it");
+          const isReceiverStatus = ["New"].includes(order.handling_status);
+          return isITDepartment && isReceiverStatus;
+        });
         setWorkOrders(filteredOrders);
       } catch (err) {
-        console.error("Error loading work orders for receiver:", err);
-        setError("Failed to load work orders. Please try again.");
+        setError("Failed to load work orders.");
       } finally {
         setLoading(false);
       }
     };
 
     loadWorkOrders();
-  }, [getWorkOrdersForUser, user?.id, getUsers]); // Depend on getWorkOrdersForUser and user.id
+  }, [getWorkOrdersForUser, user?.id, getUsers]);
 
-  // Helper function to get status badge color
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "open":
+      case "New":
         return "bg-gray-500 text-white";
-      case "in_progress":
+      case "Assignment":
         return "bg-blue-500 text-white";
-      case "completed":
+      case "Progress":
+        return "bg-yellow-500 text-white";
+      case "Done":
         return "bg-green-500 text-white";
-      case "cancelled":
+      case "Cancel":
         return "bg-red-500 text-white";
-      case "on_hold":
+      case "Waiting Part":
         return "bg-orange-500 text-white";
       default:
         return "bg-gray-500 text-white";
     }
   };
 
-  // Helper function to get priority badge color
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "low":
-        return "bg-blue-100 text-blue-800";
-      case "medium":
-        return "bg-green-100 text-green-800";
-      case "high":
-        return "bg-orange-100 text-orange-800";
-      case "critical":
-        return "bg-red-100 text-red-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
-  // Open work order details modal
   const openWorkOrderDetails = useCallback(
-    async (orderId: number, editMode: boolean) => {
+    async (orderId: number) => {
       try {
         setLoading(true);
-        setError(null);
         const order = await getWorkOrderById(orderId);
         setSelectedWorkOrder(order);
-        setIsEditing(editMode);
         setShowWorkOrderDetailsModal(true);
       } catch (err) {
-        console.error("Error fetching work order details:", err);
         setError("Failed to fetch work order details.");
       } finally {
         setLoading(false);
@@ -489,68 +215,50 @@ const ITReceiver: React.FC = () => {
     [getWorkOrderById]
   );
 
-  // Handle updating an existing work order
-  const handleUpdateWorkOrder = useCallback(
-    async (updatedOrderData: WorkOrderFormData) => {
+  const handleReceiveOrder = useCallback(
+    async (orderId: number) => {
+      if (!user?.id) return;
+
       try {
         setLoading(true);
-        setError(null);
-        const updatedOrder = await updateWorkOrder(updatedOrderData.id, updatedOrderData);
-        setWorkOrders((prev) => prev.map((order) => (order.id === updatedOrder.id ? updatedOrder : order)));
-        setShowWorkOrderDetailsModal(false);
-        setSelectedWorkOrder(null);
-        setIsEditing(false);
+        // Step 1: Fetch the existing work order data
+        const existingOrder = await getWorkOrderById(orderId);
+
+        // Step 2: Create a new object with the updated fields,
+        // and spread the existing data to keep all other properties
+        const updatedOrderData = {
+          ...existingOrder,
+          handling_status: "New" ,
+          received_by_id: Number(user.id),
+          handling_date: new Date().toISOString(),
+        };
+
+        // Step 3: Pass the complete, updated object to the function
+        const updatedOrder = await updateWorkOrderIT(updatedOrderData);
+
+        setWorkOrders((prev) => prev.map((o) => (o.id === updatedOrder.id ? updatedOrder : o)));
       } catch (err) {
-        console.error("Error updating work order:", err);
-        setError("Failed to update work order.");
+        setError("Failed to receive order.");
       } finally {
         setLoading(false);
       }
     },
-    [updateWorkOrder]
+    [updateWorkOrderIT, user?.id, getWorkOrderById]
   );
 
-  // Handle marking a work order as completed
-  const handleCompleteWorkOrder = useCallback(
-    async (id: number) => {
-      try {
-        setLoading(true);
-        setError(null);
-        const order = workOrders.find((o) => o.id === id);
-        if (order) {
-          const updatedOrder = await updateWorkOrder(id, { ...order, status: "completed" });
-          setWorkOrders((prev) => prev.map((o) => (o.id === id ? updatedOrder : o)));
-        }
-        setShowWorkOrderDetailsModal(false);
-        setSelectedWorkOrder(null);
-      } catch (err) {
-        console.error("Error completing work order:", err);
-        setError("Failed to complete work order.");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [workOrders, updateWorkOrder]
-  );
-
-  // Set record to delete and show confirmation modal
   const handleDeleteClick = useCallback((id: number) => {
     setRecordToDelete(id);
     setShowDeleteConfirm(true);
   }, []);
 
-  // Handle actual deletion of work order
   const handleDelete = useCallback(
     async (id: number) => {
       try {
         setLoading(true);
-        setError(null);
         await deleteWorkOrder(id);
-        setWorkOrders((prev) => prev.filter((order) => order.id !== id));
+        setWorkOrders((prev) => prev.filter((o) => o.id !== id));
         setShowDeleteConfirm(false);
-        setRecordToDelete(null);
       } catch (err) {
-        console.error("Error deleting work order:", err);
         setError("Failed to delete work order.");
       } finally {
         setLoading(false);
@@ -559,41 +267,29 @@ const ITReceiver: React.FC = () => {
     [deleteWorkOrder]
   );
 
-  // Placeholder for print functionality
-  const handlePrintWorkOrder = useCallback((id: number) => {
-    console.log(`Printing Work Order ${id}... (Functionality not implemented)`);
-  }, []);
-
-  // Toggle sidebar visibility
-  const toggleSidebar = () => {
-    setSidebarOpen((prev) => !prev);
-  };
-
-  // Filter work orders based on search query, status, and priority
-  const filteredWorkOrders = workOrders.filter((order) => {
+  const filteredWorkOrders = workOrders.filter((order: WorkOrderData) => {
     const matchesSearch =
-      order.title.toLowerCase().includes(searchQuery.toLowerCase()) || String(order.id).includes(searchQuery.toLowerCase()) || (users.find((u) => u.id === order.assignedTo)?.name || "").toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === "all" || order.status === statusFilter;
-    const matchesPriority = priorityFilter === "all" || order.priority === priorityFilter;
-    return matchesSearch && matchesStatus && matchesPriority;
+      order.device_info.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      String(order.id).includes(searchQuery.toLowerCase()) ||
+      (users.find((u) => u.id === String(order.assigned_to_id))?.name?.toLowerCase() || "").includes(searchQuery.toLowerCase());
+
+    const matchesStatus = statusFilter === "all" || order.handling_status === statusFilter;
+
+    return matchesSearch && matchesStatus;
   });
 
-  // Pagination logic
   const indexOfLastOrder = currentPage * ordersPerPage;
   const indexOfFirstOrder = indexOfLastOrder - ordersPerPage;
   const currentOrders = filteredWorkOrders.slice(indexOfFirstOrder, indexOfLastOrder);
   const totalPages = Math.ceil(filteredWorkOrders.length / ordersPerPage);
 
-  // Change page
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
-  // Effect to reset page and handle dark mode
   useEffect(() => {
     setCurrentPage(1);
     document.documentElement.classList.toggle("dark", darkMode);
-  }, [searchQuery, statusFilter, priorityFilter, sidebarOpen, darkMode]);
+  }, [searchQuery, statusFilter, darkMode]);
 
-  // Loading state UI
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-blue-50">
@@ -603,7 +299,6 @@ const ITReceiver: React.FC = () => {
     );
   }
 
-  // Error state UI
   if (error) {
     return (
       <div className="flex h-screen items-center justify-center bg-red-50">
@@ -618,7 +313,6 @@ const ITReceiver: React.FC = () => {
       <Sidebar />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header section */}
         <header className="bg-white border-b border-gray-100 p-4 flex items-center justify-between shadow-sm sticky top-0 z-30">
           <div className="flex items-center space-x-4">
             {isMobile && (
@@ -631,7 +325,6 @@ const ITReceiver: React.FC = () => {
           </div>
 
           <div className="flex items-center space-x-3 relative">
-            {/* Dark mode toggle */}
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -642,53 +335,6 @@ const ITReceiver: React.FC = () => {
               {darkMode ? <Sun className="text-yellow-400 text-xl" /> : <Moon className="text-xl" />}
             </motion.button>
 
-            {/* Notifications dropdown */}
-            <div className="relative" ref={notificationsRef}>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setShowNotificationsPopup(!showNotificationsPopup)}
-                className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200 relative"
-                aria-label="Notifications"
-              >
-                <Bell className="text-xl" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full animate-pulse border border-white"></span>
-              </motion.button>
-
-              <AnimatePresence>
-                {showNotificationsPopup && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                    transition={{ duration: 0.2 }}
-                    className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-lg py-2 z-40 border border-gray-100"
-                  >
-                    <div className="flex justify-between items-center px-4 py-2 border-b border-gray-100">
-                      <h4 className="font-semibold text-gray-800">Notifications</h4>
-                      <button onClick={() => setShowNotificationsPopup(false)} className="text-gray-500 hover:text-gray-700">
-                        <X size={18} />
-                      </button>
-                    </div>
-                    <div className="max-h-64 overflow-y-auto custom-scrollbar">
-                      <p className="text-gray-500 text-sm px-4 py-3">No new notifications.</p>
-                    </div>
-                    <div className="px-4 py-2 border-t border-gray-100 text-center">
-                      <button
-                        onClick={() => {
-                          setShowNotificationsPopup(false);
-                        }}
-                        className="text-blue-600 hover:underline text-sm font-medium"
-                      >
-                        View All
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {/* User profile dropdown */}
             <div className="relative" ref={profileRef}>
               <motion.button
                 whileHover={{ backgroundColor: "rgba(239, 246, 255, 0.7)" }}
@@ -696,11 +342,7 @@ const ITReceiver: React.FC = () => {
                 onClick={() => setShowProfileMenu(!showProfileMenu)}
                 className="flex items-center space-x-2 cursor-pointer p-2 rounded-lg transition-colors duration-200"
               >
-                <img
-                  src={`https://api.dicebear.com/7.x/initials/svg?seed=${user?.name || "User"}&backgroundColor=0081ff,3d5a80,ffc300,e0b589&backgroundType=gradientLinear&radius=50`}
-                  alt="User Avatar"
-                  className="w-8 h-8 rounded-full border border-blue-200 object-cover"
-                />
+                <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${user?.name || "User"}`} alt="User Avatar" className="w-8 h-8 rounded-full border border-blue-200 object-cover" />
                 <span className="font-medium text-gray-900 text-sm hidden sm:inline">{user?.name}</span>
                 <ChevronDown className="text-gray-500 text-base" />
               </motion.button>
@@ -723,18 +365,8 @@ const ITReceiver: React.FC = () => {
                       }}
                       className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 w-full text-left"
                     >
-                      <UserIcon size={16} className="mr-2" /> My Profile
+                      <UserIcon size={16} className="mr-2" /> Profile
                     </button>
-                    <button
-                      onClick={() => {
-                        navigate("/settings");
-                        setShowProfileMenu(false);
-                      }}
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 w-full text-left"
-                    >
-                      <Settings size={16} className="mr-2" /> Settings
-                    </button>
-                    <hr className="my-1 border-gray-100" />
                     <button
                       onClick={() => {
                         navigate("/logout");
@@ -751,31 +383,16 @@ const ITReceiver: React.FC = () => {
           </div>
         </header>
 
-        {/* Main content area */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
-          {hasPermission("assign_workorders") && (
-            <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="isi style mb-6 flex space-x-6 border-b border-gray-200">
-              <motion.div
-                whileTap={{ scale: 0.98 }}
-                onClick={() => navigate("/workorders/it")}
-                className={`cursor-pointer px-4 py-3 text-sm font-medium ${isRequest ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
-              >
-                Index ini!
-              </motion.div>
-              <motion.div
-                whileTap={{ scale: 0.98 }}
-                onClick={() => navigate("/workorders/it/approver")}
-                className={`cursor-pointer px-4 py-3 text-sm font-medium ${isApprover ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
-              >
-                Approver
-              </motion.div>
-              <motion.div
-                whileTap={{ scale: 0.98 }}
-                onClick={() => navigate("/workorders/it/assignment")}
-                className={`cursor-pointer px-4 py-3 text-sm font-medium ${isAssignment ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
-              >
-                Assignment
-              </motion.div>
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-gray-50">
+          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-6 flex space-x-6 border-b border-gray-200">
+            <motion.div
+              whileTap={{ scale: 0.98 }}
+              onClick={() => navigate("/workorders/it")}
+              className={`cursor-pointer px-4 py-3 text-sm font-medium ${isRequest ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
+            >
+              Request
+            </motion.div>
+            {hasPermission("assign_workorders") && (
               <motion.div
                 whileTap={{ scale: 0.98 }}
                 onClick={() => navigate("/workorders/it/receiver")}
@@ -783,30 +400,55 @@ const ITReceiver: React.FC = () => {
               >
                 Receiver
               </motion.div>
+            )}
+            {hasPermission("assign_workorders") && (
               <motion.div
                 whileTap={{ scale: 0.98 }}
-                onClick={() => navigate("/workorders/it/reports")}
-                className={`cursor-pointer px-4 py-3 text-sm font-medium ${isReports ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
+                onClick={() => navigate("/workorders/it/assignment")}
+                className={`cursor-pointer px-4 py-3 text-sm font-medium ${isAssignment ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
               >
-                Reports
+                Assignment
               </motion.div>
+            )}
+            {hasPermission("assign_workorders") && (
               <motion.div
                 whileTap={{ scale: 0.98 }}
-                onClick={() => navigate("/workorders/it/knowledgebase")}
-                className={`cursor-pointer px-4 py-3 text-sm font-medium ${isKnowledgeBase ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
+                onClick={() => navigate("/workorders/it/approver")}
+                className={`cursor-pointer px-4 py-3 text-sm font-medium ${isApprover ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
               >
-                Knowledge Base
+                Approver
               </motion.div>
+            )}
+            <motion.div
+              whileTap={{ scale: 0.98 }}
+              onClick={() => navigate("/workorders/it/reports")}
+              className={`cursor-pointer px-4 py-3 text-sm font-medium ${isReports ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
+            >
+              Reports
             </motion.div>
-          )}
+            <motion.div
+              whileTap={{ scale: 0.98 }}
+              onClick={() => navigate("/workorders/it/knowledgebase")}
+              className={`cursor-pointer px-4 py-3 text-sm font-medium ${isKnowledgeBase ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
+            >
+              Knowledge Base
+            </motion.div>
+          </motion.div>
+
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Assigned Work Orders (IT)</h1>
-              <p className="text-gray-600 mt-1">View and manage work orders assigned to you in the IT department.</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">IT Receiver</h1>
+              <p className="text-gray-600 mt-1">Submit and track your IT-related maintenance and service requests</p>
             </div>
           </motion.div>
 
-          {/* Filters and Search */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
+            <StatCard title="Total Requests" value={filteredWorkOrders.length.toString()} change="+8%" icon={<Clipboard />} />
+            <StatCard title="Pending" value={filteredWorkOrders.filter((wo) => wo.handling_status === "New").length.toString()} change="+3" icon={<Clock />} />
+            <StatCard title="In Progress" value={filteredWorkOrders.filter((wo) => wo.handling_status === "Progress").length.toString()} change="-1" icon={<Wrench />} />
+            <StatCard title="Completed" value={filteredWorkOrders.filter((wo) => wo.handling_status === "Done").length.toString()} change="+5" icon={<CheckCircle />} />
+          </div>
+
           <div className="bg-white rounded-2xl shadow-md p-6 mb-6 border border-blue-100">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
               <div className="relative w-full md:w-1/3">
@@ -823,21 +465,11 @@ const ITReceiver: React.FC = () => {
                 <div className="relative w-full sm:w-auto">
                   <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-full sm:w-48 p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white">
                     <option value="all">All Statuses</option>
-                    <option value="open">Open</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="completed">Completed</option>
-                    <option value="on_hold">On Hold</option>
-                    <option value="cancelled">Cancelled</option>
-                  </select>
-                  <ChevronDown className="absolute right-3 top-3.5 text-gray-400" size={18} />
-                </div>
-                <div className="relative w-full sm:w-auto">
-                  <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} className="w-full sm:w-48 p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white">
-                    <option value="all">All Priorities</option>
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                    <option value="critical">Critical</option>
+                    <option value="New">New</option>
+                    <option value="Assignment">Assignment</option>
+                    <option value="Progress">Progress</option>
+                    <option value="Done">Done</option>
+                    <option value="Cancel">Cancel</option>
                   </select>
                   <ChevronDown className="absolute right-3 top-3.5 text-gray-400" size={18} />
                 </div>
@@ -847,123 +479,81 @@ const ITReceiver: React.FC = () => {
                   whileTap={{ scale: 0.95 }}
                   className="flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg shadow-sm text-gray-700 hover:bg-gray-50 transition-colors duration-200"
                 >
-                  <Filter className="mr-2" size={20} /> Advanced Filters
+                  <Filter className="mr-2" size={20} /> Filters
                 </motion.button>
               </div>
             </div>
-            <AnimatePresence>
-              {showAdvancedFilters && (
-                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.3 }} className="overflow-hidden mt-4 pt-4 border-t border-gray-200">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {/* Additional filter options can go here */}
-                    <p className="text-gray-500 col-span-full">More filter options coming soon!</p>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
           </div>
 
-          {/* Work Orders Table */}
           <div className="bg-white rounded-2xl shadow-md p-6 border border-blue-100 overflow-x-auto">
-            <h3 className="text-xl font-semibold text-gray-800 mb-4">Your Assigned Work Orders</h3>
-            {currentOrders.length === 0 ? (
-              <div className="text-center py-10 text-gray-500">
-                <Wrench className="mx-auto h-12 w-12 text-gray-400" />
-                <p className="mt-2 text-lg">No work orders found matching your criteria.</p>
-                <p className="text-sm">Try adjusting your filters or search query.</p>
-              </div>
-            ) : (
+            <h3 className="text-xl font-semibold text-gray-800 mb-4">Assigned Work Orders</h3>
+
+            {currentOrders.length > 0 ? (
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      ID
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Title
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Assigned To
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Priority
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Due Date
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Requester</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Device Info</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Handling Status</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  <AnimatePresence>
-                    {currentOrders.map((order) => (
-                      <motion.tr key={order.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{order.id}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{order.title}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                          <div className="flex items-center">
-                            <img
-                              src={
-                                order.assignedToAvatar ||
-                                `https://api.dicebear.com/7.x/initials/svg?seed=${users.find((u) => u.id === order.assignedTo)?.name || "N/A"}&backgroundColor=0081ff,3d5a80,ffc300,e0b589&backgroundType=gradientLinear&radius=50`
-                              }
-                              alt="Avatar"
-                              className="w-8 h-8 rounded-full mr-3"
-                            />
-                            {users.find((u) => u.id === order.assignedTo)?.name || "N/A"}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(order.status)}`}>{order.status.replace(/_/g, " ")}</span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getPriorityColor(order.priority)}`}>{order.priority}</span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{order.dueDate}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex justify-end space-x-2">
+                  {currentOrders.map((order) => (
+                    <tr key={order.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{order.id}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{order.requester?.name}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{order.device_info}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{order.department?.name || "IT"}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(order.handling_status)}`}>{order.handling_status}</span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex justify-end space-x-2">
+                          <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={() => openWorkOrderDetails(order.id)}
+                            className="text-blue-600 hover:text-blue-900 p-1 rounded-full hover:bg-blue-50 transition-colors duration-200"
+                            title="View Details"
+                          >
+                            <Eye size={18} />
+                          </motion.button>
+                          {order.handling_status === "New" && (
                             <motion.button
                               whileHover={{ scale: 1.1 }}
                               whileTap={{ scale: 0.9 }}
-                              onClick={() => openWorkOrderDetails(order.id, true)}
-                              className="text-blue-600 hover:text-blue-900 p-1 rounded-full hover:bg-blue-50 transition-colors duration-200"
-                              title="Edit"
+                              onClick={() => handleReceiveOrder(order.id)}
+                              className="text-green-600 hover:text-green-900 p-1 rounded-full hover:bg-green-50 transition-colors duration-200"
+                              title="Receive Order"
                             >
-                              <Edit size={18} />
+                              <CheckCircle size={18} />
                             </motion.button>
-                            <motion.button
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.9 }}
-                              onClick={() => openWorkOrderDetails(order.id, false)}
-                              className="text-gray-600 hover:text-gray-900 p-1 rounded-full hover:bg-gray-50 transition-colors duration-200"
-                              title="View Details"
-                            >
-                              <Eye size={18} />
-                            </motion.button>
-                            <motion.button
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.9 }}
-                              onClick={() => handleDeleteClick(order.id)}
-                              className="text-red-600 hover:text-red-900 p-1 rounded-full hover:bg-red-50 transition-colors duration-200"
-                              title="Delete"
-                            >
-                              <Trash2 size={18} />
-                            </motion.button>
-                          </div>
-                        </td>
-                      </motion.tr>
-                    ))}
-                  </AnimatePresence>
+                          )}
+                          <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={() => handleDeleteClick(order.id)}
+                            className="text-red-600 hover:text-red-900 p-1 rounded-full hover:bg-red-50 transition-colors duration-200"
+                            title="Delete"
+                          >
+                            <Trash2 size={18} />
+                          </motion.button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
+            ) : (
+              <div className="text-center py-10 text-gray-500">
+                <Wrench className="mx-auto h-12 w-12 text-gray-400" />
+                <p className="mt-2 text-lg">No work orders found matching your criteria.</p>
+              </div>
             )}
 
-            {/* Pagination */}
             {filteredWorkOrders.length > ordersPerPage && (
               <nav className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
                 <div className="flex-1 flex justify-between sm:hidden">
@@ -1002,8 +592,7 @@ const ITReceiver: React.FC = () => {
                         whileTap={{ scale: 0.95 }}
                         className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
                       >
-                        <span className="sr-only">Previous</span>
-                        <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+                        <ChevronLeft className="h-5 w-5" />
                       </motion.button>
                       {[...Array(totalPages)].map((_, i) => (
                         <motion.button
@@ -1011,7 +600,7 @@ const ITReceiver: React.FC = () => {
                           onClick={() => paginate(i + 1)}
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
-                          className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium ${currentPage === i + 1 ? "bg-blue-600 text-white" : "bg-white text-gray-700 hover:bg-gray-50"}`}
+                          className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${currentPage === i + 1 ? "bg-blue-600 text-white" : "bg-white text-gray-700 hover:bg-gray-50"}`}
                         >
                           {i + 1}
                         </motion.button>
@@ -1023,8 +612,7 @@ const ITReceiver: React.FC = () => {
                         whileTap={{ scale: 0.95 }}
                         className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
                       >
-                        <span className="sr-only">Next</span>
-                        <ChevronRight className="h-5 w-5" aria-hidden="true" />
+                        <ChevronRight className="h-5 w-5" />
                       </motion.button>
                     </nav>
                   </div>
@@ -1035,26 +623,10 @@ const ITReceiver: React.FC = () => {
         </main>
       </div>
 
-      {/* Work Order Details Modal */}
-      {selectedWorkOrder && (
-        <Modal isOpen={showWorkOrderDetailsModal} onClose={() => setShowWorkOrderDetailsModal(false)} title={isEditing ? "Edit Work Order" : "Work Order Details"}>
-          <WorkOrderDetailsForm
-            workOrder={selectedWorkOrder}
-            isEditing={isEditing}
-            onSave={handleUpdateWorkOrder}
-            onCancel={() => setShowWorkOrderDetailsModal(false)}
-            onComplete={handleCompleteWorkOrder}
-            onPrint={handlePrintWorkOrder}
-            users={users} // Pass users to the form for assignedTo dropdown
-          />
-        </Modal>
-      )}
-
-      {/* Delete Confirmation Modal */}
       <Modal isOpen={showDeleteConfirm} onClose={() => setShowDeleteConfirm(false)} title="Confirm Deletion">
         <div className="space-y-5 text-center py-3">
           <AlertTriangle className="text-red-500 text-5xl mx-auto animate-pulse" />
-          <p className="text-base text-gray-700 font-medium">Are you sure you want to delete this record? This action cannot be undone.</p>
+          <p className="text-base text-gray-700 font-medium">Are you sure you want to delete this work order?</p>
           <div className="flex justify-center space-x-3 mt-5">
             <motion.button
               whileHover={{ scale: 1.03 }}

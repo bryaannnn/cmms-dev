@@ -388,29 +388,15 @@ const ITKnowledgeBase: React.FC = () => {
 
         {/* Main content area */}
         <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
-          {hasPermission("assign_workorders") && (
-            <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="isi style mb-6 flex space-x-6 border-b border-gray-200">
-              <motion.div
-                whileTap={{ scale: 0.98 }}
-                onClick={() => navigate("/workorders/it")}
-                className={`cursor-pointer px-4 py-3 text-sm font-medium ${isRequest ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
-              >
-                Index ini!
-              </motion.div>
-              <motion.div
-                whileTap={{ scale: 0.98 }}
-                onClick={() => navigate("/workorders/it/approver")}
-                className={`cursor-pointer px-4 py-3 text-sm font-medium ${isApprover ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
-              >
-                Approver
-              </motion.div>
-              <motion.div
-                whileTap={{ scale: 0.98 }}
-                onClick={() => navigate("/workorders/it/assignment")}
-                className={`cursor-pointer px-4 py-3 text-sm font-medium ${isAssignment ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
-              >
-                Assignment
-              </motion.div>
+          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="isi style mb-6 flex space-x-6 border-b border-gray-200">
+            <motion.div
+              whileTap={{ scale: 0.98 }}
+              onClick={() => navigate("/workorders/it")}
+              className={`cursor-pointer px-4 py-3 text-sm font-medium ${isRequest ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
+            >
+              Request
+            </motion.div>
+            {hasPermission("assign_workorders") && (
               <motion.div
                 whileTap={{ scale: 0.98 }}
                 onClick={() => navigate("/workorders/it/receiver")}
@@ -418,22 +404,42 @@ const ITKnowledgeBase: React.FC = () => {
               >
                 Receiver
               </motion.div>
+            )}
+            {hasPermission("assign_workorders") && (
               <motion.div
                 whileTap={{ scale: 0.98 }}
-                onClick={() => navigate("/workorders/it/reports")}
-                className={`cursor-pointer px-4 py-3 text-sm font-medium ${isReports ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
+                onClick={() => navigate("/workorders/it/assignment")}
+                className={`cursor-pointer px-4 py-3 text-sm font-medium ${isAssignment ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
               >
-                Reports
+                Assignment
               </motion.div>
+            )}
+            {hasPermission("assign_workorders") && (
               <motion.div
                 whileTap={{ scale: 0.98 }}
-                onClick={() => navigate("/workorders/it/knowledgebase")}
-                className={`cursor-pointer px-4 py-3 text-sm font-medium ${isKnowledgeBase ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
+                onClick={() => navigate("/workorders/it/approver")}
+                className={`cursor-pointer px-4 py-3 text-sm font-medium ${isApprover ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
               >
-                Knowledge Base
+                Approver
               </motion.div>
+            )}
+
+            <motion.div
+              whileTap={{ scale: 0.98 }}
+              onClick={() => navigate("/workorders/it/reports")}
+              className={`cursor-pointer px-4 py-3 text-sm font-medium ${isReports ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
+            >
+              Reports
             </motion.div>
-          )}
+
+            <motion.div
+              whileTap={{ scale: 0.98 }}
+              onClick={() => navigate("/workorders/it/knowledgebase")}
+              className={`cursor-pointer px-4 py-3 text-sm font-medium ${isKnowledgeBase ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
+            >
+              Knowledge Base
+            </motion.div>
+          </motion.div>
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">IT Knowledge Base</h1>

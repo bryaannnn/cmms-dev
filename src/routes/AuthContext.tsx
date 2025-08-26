@@ -97,15 +97,19 @@ export interface User {
   name: string;
   nik: string;
   email: string;
-  roleId?: string;
+  roleId?: string | null;
   roles?: string[];
   customPermissions?: string[];
   permissions?: PermissionName[];
-  department?: string | null;
+  department?: Department;
   rolePermissions?: string[];
   access_token?: string;
   refresh_token?: string;
   isSuperadmin?: boolean;
+  department_id: number | null;
+  department_name: string | null;
+  avatar_url?: string;
+  position?: string | null;
 }
 
 export interface Mesin {
@@ -223,6 +227,152 @@ export interface MachineHistoryRecord extends MachineHistoryFormData {
   startstop?: Startstop | null;
 }
 
+// tanda ini wo baru
+
+export interface SimpleUser {
+  id: number;
+  name: string;
+}
+
+export interface Head {
+  id: number;
+  name: string;
+  email: string;
+  avatar: string;
+  department: string;
+  position: string;
+  department_id: number;
+}
+
+export interface Department {
+  id: number;
+  name: string | null;
+  head?: Head | null;
+  head_id: number | null;
+}
+
+export interface UserWithDepartment extends SimpleUser {
+  email?: string;
+  department?: Department;
+  department_id: number;
+  department_name: string;
+}
+
+export interface ServiceCatalogue1 {
+  id: string | number;
+  service_description: string;
+  service_type: string;
+  priority: "low" | "medium" | "high" | "critical";
+  service_owner: number;
+  sla: number;
+  impact: string;
+  pic: string[];
+}
+
+export interface ServiceCatalogue2 {
+  id_service: number;
+  service_name: string;
+  service_description: string;
+  service_type: number;
+  priority: string;
+  service_owner: SimpleUser;
+  sla: number;
+  impact: string;
+  pic: SimpleUser;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ServiceGroup {
+  id: string | number;
+  group_name: string | null;
+  group_description: string | null;
+}
+
+export interface Service4 {
+  id: number;
+  name: string;
+  description?: string;
+  group_id: number;
+  owner: SimpleUser;
+  priority?: string;
+  sla?: number;
+  impact?: string;
+  pic?: SimpleUser;
+}
+
+export interface ServiceType3 {
+  id: number;
+  name: string;
+}
+
+type ServiceType2 = "Lain-lain" | "Manufacturing Support" | "Network" | "OSS" | "Project" | "QAD" | "Server" | "Software";
+type Service2 = "Server" | "Software" | "Widapro" | "Audit OFF";
+
+export interface WorkOrderData {
+  id: number;
+  work_order_no: string;
+  date: string;
+  reception_method: string;
+  requester_id: number;
+  known_by_id: number;
+  department_id: number;
+  service_catalogue_id: number;
+  service_type_id: number;
+  service_group_id: number;
+  service_id: number;
+  asset_no: string;
+  device_info: string;
+  complaint: string;
+  attachment: string | null;
+  received_by_id: number;
+  assigned_to_id: number | null;
+  handling_date: string | null;
+  action_taken: string | null;
+  handling_status: string;
+  remarks: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+  requester: UserWithDepartment;
+  known_by: SimpleUser;
+  department: Department;
+  department_name: string;
+  service_type: SimpleUser;
+  service: Service4;
+  received_by: SimpleUser;
+  assigned_to: SimpleUser | null;
+}
+
+export interface WorkOrderFormData {
+  id?: number;
+  work_order_no?: string;
+  date: string;
+  reception_method: string;
+  assigned_to_id?: number | null;
+  requester_id: number | string;
+  known_by_id: number | null; // Diubah untuk menerima null
+  department_id: number | string;
+  service_group_id: number | string; // Ganti dari service_type_id
+  service_catalogue_id: number | string; // Ganti dari service_id
+  asset_no: string;
+  device_info: string;
+  complaint: string;
+  attachment: string | null;
+  received_by_id: number | null; // Diubah untuk menerima null
+  handling_date: string | null;
+  action_taken: string | null;
+  handling_status: string;
+  remarks: string | null;
+  requester?: UserWithDepartment;
+  known_by?: SimpleUser | null; // Diubah untuk menerima null
+  department?: Department;
+  service_type?: SimpleUser | null;
+  service?: Service4 | null;
+  received_by?: SimpleUser | null;
+  assigned_to?: SimpleUser | null;
+}
+
 // export interface WorkOrder {
 //   id: number;
 //   issue: string;
@@ -238,23 +388,128 @@ export interface MachineHistoryRecord extends MachineHistoryFormData {
 //   assigned: User | null;
 // }
 
-export interface WorkOrderFormData {
-  id: number;
-  title: string;
-  description: string;
-  type: "preventive" | "corrective" | "inspection" | "emergency";
-  status: "open" | "in_progress" | "completed" | "on_hold" | "cancelled";
+// export interface WorkOrderFormData {
+//   id: string | number;
+//   date: string;
+//   applicant: "open" | "in_progress" | "completed" | "on_hold" | "cancelled";
+//   diketahuioleh: string;
+//   department: string;
+//   tipeLayanan: string;
+//   layanan: "Server" | "Software" | "Widapro" | "Audit OFF" ;
+//   noAsset: string;
+//   informasiPerangkat: string;
+//   keluhan: string;
+//   lampiran: string;
+//   diterimaOleh: string;
+//   attachments: File[];
+// }
+
+// type HandlingStatus = "New" | "Assignment" | "Progress" | "Waiting Part" | "Vendor Escalation" | "Waiting Appproval" | "Cancel" | "Done";
+// type ReceptionMethod = "Electronic Work Order System" | "Direct Information" | "Phone" | "Whatsapp" | "Email";
+type ServiceType = "Lain-lain" | "Manufacturing Support" | "Network" | "OSS" | "Project" | "QAD" | "Server" | "Software";
+// type Service = "Server" | "Software" | "Widapro" | "Audit OFF";
+
+// export interface contoh {
+//   // for table request
+//   id: number;
+//   date: string;
+//   workorder_acceptance: "Electronic Work Order System" | "Direct Information" | "Phone" | "Whatsapp" | "Email"; // Default Field Electronic Work Order System
+//   applicant: string; // (*Diperoleh dari Login User, jika Electronic Work Order System by default id user login, jika Selain Work Order system applicant dapat ditentukan sesuai kemauan user)
+//   known_by: string; // (Default as Dept.Head)
+//   department: string; // Default as Department Applicant
+//   service_type: "Lain-lain" | "Manufacturing Support" | "Network" | "OSS" | "Project" | "QAD" | "Server" | "Software";
+//   service: "Server" | "Software" | "Widapro" | "Audit OFF";
+//   no_asset: number;
+//   device_information: string; // tetap input text biasa tetapi bisa muncul device information format (Pxxxxxxx) sebelumnya apa saja contoh ( jika saya mengetik P1 saja) maka nanti muncul rekomendasi P1 untuk
+//   complaint: string; //
+//   received_by: string; //
+//   attachments: File[];
+//   // for table receiver
+//   assigned_to: string;
+//   assigned_to_avatar: string;
+//   handling_date: string;
+//   handling_status: "New" | "Assignment" | "Progress" | "Waiting Part" | "Vendor Escalation" | "Waiting Appproval" | "Cancel" | "Done";
+//   actions_taken: string;
+//   information: string;
+// }
+
+// export interface Requester {
+//   id: number;
+//   name: string;
+//   email: string;
+//   department: string;
+
+// }
+
+// export interface KnownBy {
+//   id: number;
+//   name: string;
+// }
+
+// export interface Department{
+//   id: number;
+//   name: string;
+// }
+
+// export interface ServiceType {
+//   id: number
+//   name: string;
+// }
+
+// export interface Service {
+//   id: number;
+//   name: string;
+// }
+
+// export interface ReceivedBy{
+//   id: number;
+//   name: string;
+// }
+
+// export interface WorkOrderFormData {
+//   // for table request
+//   id: number;
+//   work_order_no: string;
+//   date: string;
+//   reception_method: string; // Default Field Electronic Work Order System
+//   requester_id: number; // (*Diperoleh dari Login User, jika Electronic Work Order System by default id user login, jika Selain Work Order system applicant dapat ditentukan sesuai kemauan user)
+//   known_by_id: number; // (Default as Dept.Head)
+//   department_id: number; // Default as Department Applicant
+//   service_type_id: number;
+//   service_id: number;
+//   asset_no: number;
+//   device_info: string; // tetap input text biasa tetapi bisa muncul device information format (Pxxxxxxx) sebelumnya apa saja contoh ( jika saya mengetik P1 saja) maka nanti muncul rekomendasi P1 untuk
+//   complaint: string; //
+//   received_by_id: string; //
+//   attachments: File[];
+//   // for table receiver
+//   assigned_to: string;
+//   assigned_to_avatar: string;
+//   handling_date: string;
+//   handling_status: "New" | "Assignment" | "Progress" | "Waiting Part" | "Vendor Escalation" | "Waiting Appproval" | "Cancel" | "Done";
+//   actions_taken: string;
+//   information: string;
+//   requester: Requester;
+//   known_by: string[];
+//   department: string;
+//   service_type: string[];
+// }
+
+export interface ServiceCatalogue1 {
+  id: string | number;
+  service_description: string;
+  service_type: string;
   priority: "low" | "medium" | "high" | "critical";
-  assignedTo: string;
-  assignedToAvatar: string;
-  createdBy: string;
-  createdAt: string;
-  dueDate: string;
-  assetId: string;
-  assetName: string;
-  assetType: string;
-  estimatedHours: number | null;
-  attachments: File[];
+  service_owner: number;
+  sla: number;
+  impact: string;
+  pic: string[];
+}
+
+export interface ServiceGroup {
+  id: string | number;
+  group_name: string | null;
+  group_description: string | null;
 }
 
 type AssetStatus = "running" | "maintenance" | "breakdown" | "idle";
@@ -299,8 +554,69 @@ export interface AssetData {
   update_at: string;
 }
 
+export interface AuditLog {
+  history_id: number;
+  mhs_id: number;
+  mhs_details: any | null;
+  action: string;
+  batch: number;
+  changed_at: string;
+  changed_by: string;
+  old_data_snapshot: Record<string, any>;
+  new_data_snapshot: Record<string, any>;
+  old_running_hour?: number;
+  new_running_hour?: number;
+  old_kegiatan_id?: number;
+  new_kegiatan_id?: number;
+}
+
+//monitoring maintenance section
+
+type TypeInterval = "weekly" | "monthly" | "3 months" | "6 months" | "1 year";
+
+export interface MonitoringActivity {
+  id: number,
+  id_monitoring_schedule: number,
+  monitoring_date: string,
+  monitoring_result: string,
+  tms_ms_result: string,
+  info_result: string,
+}
+
+export interface MonitoringSchedule {
+  id: number,
+  year: string,
+  month: string,
+  date_start: string,
+  date_end: string,
+  unit: string,
+  id_machine_data: number,
+  id_machine_item: number,
+  id_interval: number
+}
+
+export interface MonitoringInterval {
+  id: number,
+  type_interval: string, 
+}
+
+export interface MachineData {
+  id: number,
+  unit: number,
+  machine: string,
+}
+
+export interface MachineItem {
+  id: number,
+  id_machine_data: number,
+  machine_item: string,
+  unit: string, 
+}
+
+// monitoring maintenance stop
+
 interface EditingUser extends User {
-  department?: string;
+  department?: Department;
 }
 
 function mapApiToMachineHistoryRecord(apiData: any, masterData: AllMasterData | null): MachineHistoryRecord {
@@ -356,17 +672,20 @@ interface AuthContextType {
   deleteMachineHistory: (id: string) => Promise<any>;
   masterData: AllMasterData | null;
   isMasterDataLoading: boolean;
-  submitWorkOrder: (data: WorkOrderFormData) => Promise<WorkOrderFormData>;
-  getWorkOrders: () => Promise<WorkOrderFormData[]>;
-  getWorkOrderById: (id: string | number) => Promise<WorkOrderFormData>;
-  updateWorkOrder: (id: string | number, data: WorkOrderFormData) => Promise<WorkOrderFormData>;
-  deleteWorkOrder: (id: string | number) => Promise<any>;
-  approveWorkOrder: (id: string | number) => Promise<WorkOrderFormData>;
-  assignWorkOrder: (id: string | number, assignedToUserId: string) => Promise<WorkOrderFormData>;
-  cancelWorkOrder: (id: string | number) => Promise<WorkOrderFormData>;
-  getWorkOrdersForUser: (userId: string) => Promise<WorkOrderFormData[]>;
+  getWorkOrdersIT: () => Promise<WorkOrderData[]>;
+  addWorkOrderIT: (data: WorkOrderFormData, file?: File | null) => Promise<WorkOrderData>;
+  updateWorkOrderIT: (data: WorkOrderFormData) => Promise<WorkOrderData>;
+  deleteWorkOrder: (id: number) => Promise<any>;
+  assignWorkOrderIT: (id: number, assignedToUserId: number) => Promise<WorkOrderData>;
+  approveWorkOrderIT: (id: number) => Promise<WorkOrderData>;
+  cancelWorkOrder: (id: number) => Promise<WorkOrderData>;
+  getWorkOrdersForUser: (userId: string) => Promise<WorkOrderData[]>;
+  getWorkOrderById: (id: number) => Promise<WorkOrderData>;
+  departments: Department[];
+  services: Service4[];
   changePassword: (oldPassword: string, newPassword: string) => Promise<void>;
   fetchUser: () => Promise<User>;
+  fetchedUsers: () => Promise<User[]>;
   getUsers: () => Promise<User[]>;
   hasPermission: (permission: string | PermissionName) => boolean;
   setEditingUser: (user: EditingUser | null) => void;
@@ -381,6 +700,10 @@ interface AuthContextType {
   addAsset: (assetData: AssetData) => Promise<any>;
   editAsset: (assetData: AssetData) => Promise<any>;
   deleteAsset: (assetId: string) => Promise<any>;
+  getAuditTrail: () => Promise<AuditLog[]>;
+  // getService: (id: number) => Promise<Service>;
+  getServices: (id_services: number) => Promise<ServiceCatalogue2[]>;
+  getServiceGroup: (id: string | number) => Promise<ServiceGroup>;
 }
 
 const projectEnvVariables = getProjectEnvVariables();
@@ -396,10 +719,14 @@ const mapApiToUser = (apiUser: any): User => {
     roles: apiUser.roles || [],
     customPermissions: apiUser.customPermissions || [],
     permissions: apiUser.permissions || apiUser.allPermissions || [],
-    department: apiUser.department || "none",
+    department: apiUser.department || null, // Ubah dari "none" ke null
     access_token: apiUser.access_token,
     refresh_token: apiUser.refresh_token,
     isSuperadmin: apiUser.roles?.includes("superadmin") || false,
+    avatar_url: apiUser.avatar_url,
+    department_id: apiUser.department_id || apiUser.department?.id || null, // Tambahkan ini
+    department_name: apiUser.department_name || apiUser.department?.name || null, // Tambahkan ini
+    position: apiUser.position,
   };
 };
 
@@ -759,6 +1086,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     [fetchWithAuth]
   );
 
+  const getAuditTrail = useCallback(async (): Promise<AuditLog[]> => {
+    try {
+      const response = await fetchWithAuth("/mhs-history");
+      // Return the history array from the response
+      return response.history || [];
+    } catch (error) {
+      console.error("Failed to fetch audit trail:", error);
+      return [];
+    }
+  }, [fetchWithAuth]);
+
   const hasPermission = useCallback(
     (permission: string | PermissionName | string[]): boolean => {
       if (!user) return false;
@@ -922,37 +1260,50 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     [fetchWithAuth]
   );
 
-  const submitWorkOrder = useCallback(
-    async (data: WorkOrderFormData): Promise<WorkOrderFormData> => {
-      const responseData = await fetchWithAuth("/wos", {
+  const addWorkOrderIT = useCallback(
+    async (data: WorkOrderFormData, file?: File | null): Promise<WorkOrderData> => {
+      const formData = new FormData();
+      formData.append("date", data.date);
+      formData.append("reception_method", data.reception_method);
+      formData.append("requester_id", String(data.requester_id));
+      formData.append("known_by_id", data.known_by_id ? String(data.known_by_id) : "");
+      formData.append("department_id", String(data.department_id));
+      formData.append("service_group_id", String(data.service_group_id));
+      formData.append("service_catalogue_id", String(data.service_catalogue_id));
+      formData.append("complaint", data.complaint);
+      formData.append("asset_no", data.asset_no);
+      formData.append("device_info", data.device_info);
+      if (file) formData.append("attachment", file);
+      formData.append("remarks", data.remarks || "");
+
+      const response = await fetchWithAuth("/ayam", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: formData,
       });
-      return responseData.data;
+      return response.work_order;
     },
     [fetchWithAuth]
   );
 
-  const getWorkOrders = useCallback(async (): Promise<WorkOrderFormData[]> => {
-    const response = await fetchWithAuth("/wos");
-    if (response && response.data && Array.isArray(response.data)) {
-      return response.data;
-    }
-    return [];
+  const getWorkOrdersIT = useCallback(async (): Promise<WorkOrderData[]> => {
+    const response = await fetchWithAuth("/ayam");
+    return Array.isArray(response) ? response : Array.isArray(response.data) ? response.data : [];
   }, [fetchWithAuth]);
 
   const getWorkOrderById = useCallback(
-    async (id: string | number): Promise<WorkOrderFormData> => {
-      const responseData = await fetchWithAuth(`/wos/${id}`);
+    async (id: number): Promise<WorkOrderData> => {
+      const responseData = await fetchWithAuth(`/ayam/${id}`);
       return responseData.data;
     },
     [fetchWithAuth]
   );
 
-  const updateWorkOrder = useCallback(
-    async (id: string | number, data: WorkOrderFormData): Promise<WorkOrderFormData> => {
-      const responseData = await fetchWithAuth(`/wos/${id}`, {
+  const updateWorkOrderIT = useCallback(
+    async (data: WorkOrderFormData): Promise<WorkOrderData> => {
+      if (!data.id) {
+        throw new Error("Work order ID is required for update.");
+      }
+      const responseData = await fetchWithAuth(`/ayam/${data.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
@@ -963,8 +1314,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   );
 
   const deleteWorkOrder = useCallback(
-    async (id: string | number): Promise<any> => {
-      const responseData = await fetchWithAuth(`/wos/${id}`, {
+    async (id: number): Promise<any> => {
+      const responseData = await fetchWithAuth(`/ayam/${id}`, {
         method: "DELETE",
       });
       return responseData;
@@ -972,46 +1323,42 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     [fetchWithAuth]
   );
 
-  const approveWorkOrder = useCallback(
-    async (id: string | number): Promise<WorkOrderFormData> => {
-      // Fetch the current work order to get its existing data
+  const approveWorkOrderIT = useCallback(
+    async (id: number): Promise<WorkOrderData> => {
       const currentOrder = await getWorkOrderById(id);
-      // Update the status to 'in-progress' (assuming this signifies 'approved')
-      const updatedData: WorkOrderFormData = { ...currentOrder, status: "in_progress" };
-      const responseData = await updateWorkOrder(id, updatedData);
+      const updatedData: WorkOrderFormData = { ...currentOrder, handling_status: "Progress" };
+      const responseData = await updateWorkOrderIT(updatedData);
       return responseData;
     },
-    [getWorkOrderById, updateWorkOrder]
+    [getWorkOrderById, updateWorkOrderIT]
   );
 
-  const assignWorkOrder = useCallback(
-    async (id: string | number, assignedToUserId: string): Promise<WorkOrderFormData> => {
+  const assignWorkOrderIT = useCallback(
+    async (id: number, assignedToUserId: number): Promise<WorkOrderData> => {
       const currentOrder = await getWorkOrderById(id);
-      // Explicitly cast status to the literal type
-      const updatedData: WorkOrderFormData = { ...currentOrder, assignedTo: assignedToUserId, status: "in_progress" }; // Automatically set to in-progress when assigned
-      const responseData = await updateWorkOrder(id, updatedData);
+      const updatedData: WorkOrderFormData = { ...currentOrder, assigned_to_id: assignedToUserId, handling_status: "Assignment" };
+      const responseData = await updateWorkOrderIT(updatedData);
       return responseData;
     },
-    [getWorkOrderById, updateWorkOrder]
+    [getWorkOrderById, updateWorkOrderIT]
   );
 
   const cancelWorkOrder = useCallback(
-    async (id: string | number): Promise<WorkOrderFormData> => {
+    async (id: number): Promise<WorkOrderData> => {
       const currentOrder = await getWorkOrderById(id);
-      const updatedData: WorkOrderFormData = { ...currentOrder, status: "cancelled" };
-      const responseData = await updateWorkOrder(id, updatedData);
+      const updatedData: WorkOrderFormData = { ...currentOrder, handling_status: "Cancel" };
+      const responseData = await updateWorkOrderIT(updatedData);
       return responseData;
     },
-    [getWorkOrderById, updateWorkOrder]
+    [getWorkOrderById, updateWorkOrderIT]
   );
 
   const getWorkOrdersForUser = useCallback(
-    async (userId: string): Promise<WorkOrderFormData[]> => {
-      const allOrders = await getWorkOrders(); // Fetch all orders using the existing function
-      // Filter client-side: only orders created by or assigned to the user, and that are approved (in-progress or completed)
-      return allOrders.filter((order) => (order.createdBy === userId || order.assignedTo === userId) && (order.status === "in_progress" || order.status === "completed"));
+    async (userId: string): Promise<WorkOrderData[]> => {
+      const allOrders = await getWorkOrdersIT();
+      return allOrders.filter((order) => (order.requester_id === parseInt(userId) || order.assigned_to_id === parseInt(userId)) && (order.handling_status === "New" || order.handling_status === "Progress"));
     },
-    [getWorkOrders]
+    [getWorkOrdersIT]
   );
 
   const changePassword = useCallback(
@@ -1030,7 +1377,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   );
 
   const getUsers = useCallback(async (): Promise<User[]> => {
-    const response = await fetchWithAuth("/users");
+    try {
+      const response = await fetchWithAuth("/users");
+      const usersData = Array.isArray(response) ? response : response.data || [];
+      return usersData.map((apiUser: any) => mapApiToUser(apiUser));
+    } catch (error) {
+      console.error("Failed to fetch users:", error);
+      return [];
+    }
+  }, [fetchWithAuth]);
+
+  const fetchedUsers = useCallback(async (): Promise<User[]> => {
+    const response = await fetchWithAuth("/user/profile");
     return response.map((apiUser: any) => mapApiToUser(apiUser));
   }, [fetchWithAuth]);
 
@@ -1121,9 +1479,92 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     [fetchWithAuth]
   );
 
+  const getServiceGroup = useCallback(
+    async (id: string | number): Promise<ServiceGroup> => {
+      const responseData = await fetchWithAuth(`/service-groups`);
+      return responseData.data;
+    },
+    [fetchWithAuth]
+  );
+
+  const getServices = useCallback(
+    async (id_services: number): Promise<ServiceCatalogue2[]> => {
+      try {
+        const responseData = await fetchWithAuth("/service-catalogues");
+        return responseData.data.map((service: any) => ({
+          id_service: service.id_service,
+          service_name: service.service_name,
+          service_description: service.service_description,
+          service_type: service.service_type,
+          priority: service.priority,
+          service_owner: {
+            id: service.service_owner,
+            name: `User ${service.service_owner}`,
+          },
+          sla: service.sla,
+          impact: service.impact,
+          pic: {
+            id: service.pic,
+            name: `User ${service.pic}`,
+          },
+          created_at: service.created_at,
+          updated_at: service.updated_at,
+        }));
+      } catch (error) {
+        console.error("Failed to fetch services:", error);
+        return [];
+      }
+    },
+    [fetchWithAuth]
+  );
+
   const setEditingUser = useCallback((user: EditingUser | null) => {
     _setEditingUser(user);
   }, []);
+
+  const getMonitoringActivity = useCallback(async (): Promise<MonitoringActivity[]> => {
+    try {
+      const response = await fetchWithAuth("/monitoring-activity");
+      const usersData = Array.isArray(response) ? response : response.data || [];
+      return usersData.map((apiUser: any) => mapApiToUser(apiUser));
+    } catch (error) {
+      console.error("Failed to fetch users:", error);
+      return [];
+    }
+  }, [fetchWithAuth]);
+
+  const getMonitoringSchedule = useCallback(async (): Promise<MonitoringSchedule[]> => {
+    try {
+      const response = await fetchWithAuth("/monitoring-schedule");
+      const usersData = Array.isArray(response) ? response : response.data || [];
+      return usersData.map((apiUser: any) => mapApiToUser(apiUser));
+    } catch (error) {
+      console.error("Failed to fetch users:", error);
+      return [];
+    }
+  }, [fetchWithAuth]);
+
+  const getMachineData = useCallback(async (): Promise<MachineData[]> => {
+    try {
+      const response = await fetchWithAuth("/machine-data");
+      const usersData = Array.isArray(response) ? response : response.data || [];
+      return usersData.map((apiUser: any) => mapApiToUser(apiUser));
+    } catch (error) {
+      console.error("Failed to fetch users:", error);
+      return [];
+    }
+  }, [fetchWithAuth]);
+
+  const getMonitoringInterval = useCallback(async (): Promise<MonitoringInterval[]> => {
+    try {
+      const response = await fetchWithAuth("/monitoring-interval");
+      const usersData = Array.isArray(response) ? response : response.data || [];
+      return usersData.map((apiUser: any) => mapApiToUser(apiUser));
+    } catch (error) {
+      console.error("Failed to fetch users:", error);
+      return [];
+    }
+  }, [fetchWithAuth]);
 
   return (
     <AuthContext.Provider
@@ -1144,13 +1585,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         deleteMachineHistory,
         masterData,
         isMasterDataLoading,
-        submitWorkOrder,
-        getWorkOrders,
-        getWorkOrderById,
-        updateWorkOrder,
+        addWorkOrderIT,
+        getWorkOrdersIT,
+        updateWorkOrderIT,
         deleteWorkOrder,
+        getWorkOrderById,
+        departments: [],
+        services: [],
+        getServices,
+        getServiceGroup,
         changePassword,
         fetchUser,
+        fetchedUsers,
         getUsers,
         hasPermission,
         setEditingUser,
@@ -1165,10 +1611,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         addAsset,
         editAsset,
         deleteAsset,
-        approveWorkOrder,
-        assignWorkOrder,
+        approveWorkOrderIT,
+        assignWorkOrderIT,
         cancelWorkOrder,
         getWorkOrdersForUser,
+        getAuditTrail,
       }}
     >
       {children}

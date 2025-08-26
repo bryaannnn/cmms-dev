@@ -1,37 +1,22 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth, WorkOrderFormData, User } from "../../../routes/AuthContext";
+import { useAuth, WorkOrderFormData, User, Department, Service4 } from "../../../routes/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
-import Sidebar from "../../Sidebar"; // Assuming Sidebar is in ../component/Sidebar
-import {
-  Plus,
-  X,
-  LogOut,
-  AlertTriangle,
-  CheckCircle,
-  Clock,
-  Paperclip,
-  ArrowLeft,
-  Clipboard,
-  Sun,
-  Moon,
-  Settings,
-  Bell,
-  User as UserIcon,
-  ChevronDown,
-  ChevronRight,
-  ToolCase,
-  Info,
-  ChevronLeft, // Added for consistency with AddAsset.tsx back button
-  ListPlus, // Added for consistency with AddAsset.tsx submit button icon
-} from "lucide-react";
+import Sidebar from "../../Sidebar";
+import { X, Clock, CheckCircle, ToolCase, ArrowLeft, Save, Trash2, Hourglass, ListPlus, Paperclip, Sun, Moon, Settings, Bell, User as UserIcon, ChevronDown, ChevronRight, ChevronLeft, LogOut, AlertTriangle } from "lucide-react";
+import Select from "react-select";
+import CreatableSelect from "react-select/creatable";
 
-// Modal component (reused from WorkOrders.tsx for consistency)
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
   children: React.ReactNode;
+}
+
+interface OptionType {
+  value: string;
+  label: string;
 }
 
 const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
@@ -53,10 +38,14 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
 };
 
 const AddWorkOrderFormIT: React.FC = () => {
-  const { submitWorkOrder, user, getUsers } = useAuth();
+  const { addWorkOrderIT, user, getUsers, departments, services, getServices } = useAuth();
   const navigate = useNavigate();
 
-  const [users, setUsers] = useState<User[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [departmentList, setDepartmentList] = useState<Department[]>([]);
+  const [serviceTypeList, setServiceTypeList] = useState<Service4[]>([]);
+  const [serviceList, setServiceList] = useState<Service4[]>([]);
+  const [assetOptions, setAssetOptions] = useState<OptionType[]>([]);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
     const stored = localStorage.getItem("sidebarOpen");
@@ -65,36 +54,166 @@ const AddWorkOrderFormIT: React.FC = () => {
   const [darkMode, setDarkMode] = useState(false);
   const [showNotificationsPopup, setShowNotificationsPopup] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<{ message: string; work_order?: any } | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  const [departmentHead, setDepartmentHead] = useState<User | null>(null);
 
   const notificationsRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
+  // Replace the problematic section with:
+  let currentUserDepartment = "No department assigned";
+  if (user) {
+    if (user.department_id && user.department_name) {
+      currentUserDepartment = user.department_name;
+    } else if (typeof user.department === "object" && user.department?.name) {
+      currentUserDepartment = user.department.name;
+    }
+  }
+
+  const currentDepartmentHead = departmentHead?.name || "No department head assigned";
+
+  const SERVICE_GROUPS = [
+    { id: 1, name: "Hardware" },
+    { id: 2, name: "Software" },
+    { id: 3, name: "Network" },
+    { id: 4, name: "Infrastructure" },
+    { id: 5, name: "Industrial Support" },
+  ];
+
+  const SERVICE_CATALOGUES = [
+    { id: 1, name: "Server", group_id: 1 },
+    { id: 2, name: "Software", group_id: 2 },
+    { id: 3, name: "Widapro", group_id: 2 },
+    { id: 4, name: "Audit OFF", group_id: 2 },
+  ];
+
+  const transformServiceData = (data: any[]): Service4[] => {
+    return data.map((service) => ({
+      id: service.id_service,
+      name: service.service_name,
+      group_id: service.service_type,
+      owner: {
+        id: service.service_owner,
+        name: `User ${service.service_owner}`,
+      },
+      description: service.service_description,
+      priority: service.priority,
+      sla: service.sla,
+      impact: service.impact,
+      pic: service.pic
+        ? {
+            id: service.pic,
+            name: `User ${service.pic}`,
+          }
+        : undefined,
+    }));
+  };
+
+  const handleDepartmentChange = (selectedOption: OptionType | null) => {
+    if (!selectedOption) return;
+
+    const deptId = parseInt(selectedOption.value);
+    const selectedDept = departmentList.find((d) => d.id === deptId);
+
+    setFormData((prev) => ({
+      ...prev,
+      department_id: deptId,
+      known_by_id: selectedDept?.head_id || null,
+    }));
+
+    // Update department head display
+    if (selectedDept?.head_id) {
+      const headUser = allUsers.find((u) => parseInt(u.id) === selectedDept.head_id);
+      setDepartmentHead(headUser || null);
+    } else {
+      setDepartmentHead(null);
+    }
+  };
+
   const initialFormData: WorkOrderFormData = {
-    id: 0, // Will be generated by backend
-    title: "",
-    description: "",
-    type: "preventive",
-    status: "open", // Default status for new work orders
-    priority: "low",
-    assignedTo: "", // Will be selected from users
-    assignedToAvatar: "", // Will be set based on assignedTo user
-    createdBy: user?.id || "Unknown User", // Use user ID
-    createdAt: new Date().toISOString().split("T")[0],
-    dueDate: "",
-    assetId: "",
-    assetName: "",
-    assetType: "",
-    estimatedHours: null,
-    attachments: [],
+    date: new Date().toISOString().split("T")[0],
+    reception_method: "Electronic Work Order System",
+    requester_id: user?.id ? parseInt(user.id) : 0,
+    known_by_id: user?.department?.head_id || null,
+    department_id: user?.department?.id || 0,
+    service_group_id: 0,
+    service_catalogue_id: 0,
+    asset_no: "",
+    device_info: "",
+    complaint: "",
+    attachment: null,
+    received_by_id: null,
+    handling_date: null,
+    action_taken: null,
+    handling_status: "New",
+    remarks: null,
   };
 
   const [formData, setFormData] = useState<WorkOrderFormData>(initialFormData);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
-  // Dummy insights data for notifications to match AddAsset.tsx
+  // useEffect(() => {
+  //   if (formData.reception_method === "Electronic Work Order System" && user) {
+  //     setFormData((prev) => ({
+  //       ...prev,
+  //       requester_id: parseInt(user.id),
+  //       department_id: user.department?.id || 0,
+  //       known_by_id: user.department?.head?.id || null,
+  //     }));
+
+  //     // Update department head display
+  //     if (user.department?.head) {
+  //       setDepartmentHead(user.department.head);
+  //     } else {
+  //       setDepartmentHead(null);
+  //     }
+  //   }
+  // }, [formData.reception_method, user]);
+
+  useEffect(() => {
+    // Set department head when department changes
+    if (formData.department_id) {
+      const selectedDept = departmentList.find((d) => d.id === formData.department_id);
+      if (selectedDept?.head_id) {
+        const headUser = allUsers.find((u) => parseInt(u.id) === selectedDept.head_id);
+        setDepartmentHead(headUser || null);
+        setFormData((prev) => ({
+          ...prev,
+          known_by_id: selectedDept.head_id,
+        }));
+      }
+    }
+  }, [formData.department_id, departmentList, allUsers]);
+
+  const isElectronicMethod = formData.reception_method === "Electronic Work Order System";
+
+  const getFieldStyle = (isDisabled: boolean) => ({
+    control: (provided: any) => ({
+      ...provided,
+      backgroundColor: isDisabled ? "#f0f9ff" : "#ffffff",
+      borderColor: isDisabled ? "#d1d5db" : "#d1d5db",
+      cursor: isDisabled ? "not-allowed" : "default",
+      opacity: isDisabled ? 1 : 1,
+      pointerEvents: isDisabled ? "none" : "auto",
+      "&:hover": {
+        borderColor: isDisabled ? "#d1d5db" : "#9CA3AF",
+      },
+    }),
+    dropdownIndicator: (provided: any) => ({
+      ...provided,
+      display: isDisabled ? "none" : "flex",
+    }),
+    indicatorSeparator: (provided: any) => ({
+      ...provided,
+      display: isDisabled ? "none" : "flex",
+    }),
+    // ... tambahkan style lainnya sesuai kebutuhan
+  });
+
   const insights = [
     {
       id: 1,
@@ -119,20 +238,79 @@ const AddWorkOrderFormIT: React.FC = () => {
     },
   ];
 
-  // Fetch users for assignment dropdown
   useEffect(() => {
-    const fetchUsers = async () => {
+    const fetchData = async () => {
       try {
         const fetchedUsers = await getUsers();
-        setUsers(fetchedUsers);
+        setAllUsers(fetchedUsers);
+
+        // Ekstrak departments dari users
+        const departmentsMap = new Map<number, Department>();
+        fetchedUsers.forEach((user) => {
+          if (user.department) {
+            departmentsMap.set(user.department.id, {
+              id: user.department.id,
+              name: user.department.name,
+              head_id: user.department.head_id,
+              head: user.department.head,
+            });
+          }
+        });
+        setDepartmentList(Array.from(departmentsMap.values()));
+
+        if (user && user.id) {
+          const services = await getServices(parseInt(user.id));
+          setServiceList(transformServiceData(services));
+          setServiceTypeList(transformServiceData(services));
+        }
       } catch (err) {
-        console.error("Failed to fetch users:", err);
+        console.error("Failed to fetch master data:", err);
       }
     };
-    fetchUsers();
-  }, [getUsers]);
 
-  // Handle window resize for mobile view
+    if (user) {
+      fetchData();
+    }
+  }, [user, getUsers, getServices]);
+
+  // useEffect kedua untuk mengisi form
+  useEffect(() => {
+    if (user && formData.reception_method === "Electronic Work Order System") {
+      setFormData((prev) => ({
+        ...prev,
+        requester_id: parseInt(user.id),
+        department_id: user.department?.id || 0,
+        known_by_id: user.department?.head?.id || null,
+      }));
+    }
+  }, [user, formData.reception_method]);
+
+  // Contoh fungsi validasi
+  const validateUserData = (user: any): User => {
+    return {
+      ...user,
+      department: typeof user.department === "object" ? user.department : undefined,
+    };
+  };
+
+  const departmentName = user?.department?.name || "Default";
+
+  const currentDepartment = typeof user?.department === "object" ? user.department : { id: 0, name: "Unassigned", head_id: null };
+
+  useEffect(() => {
+    if (formData.reception_method === "Electronic Work Order System" && user) {
+      const userDept = departmentList.find((d) => d.id === user.department_id);
+      const headId = userDept?.head_id || null;
+
+      setFormData((prev) => ({
+        ...prev,
+        requester_id: parseInt(user.id),
+        department_id: user.department_id || 0,
+        known_by_id: headId,
+      }));
+    }
+  }, [formData.reception_method, user, departmentList]);
+
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768);
@@ -145,7 +323,6 @@ const AddWorkOrderFormIT: React.FC = () => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Handle clicks outside notification/profile popups
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
@@ -163,40 +340,119 @@ const AddWorkOrderFormIT: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (formData.service_group_id) {
+      const filteredServices = services.filter((service) => service.group_id === formData.service_group_id);
+      setServiceList(filteredServices);
+    } else {
+      setServiceList([]);
+      setFormData((prev) => ({ ...prev, service_catalogue_id: 0 }));
+    }
+  }, [formData.service_group_id, services]);
+
+  useEffect(() => {
     document.documentElement.classList.toggle("dark", darkMode);
     localStorage.setItem("sidebarOpen", JSON.stringify(sidebarOpen));
   }, [sidebarOpen, darkMode]);
 
-  // Toggle sidebar visibility
   const toggleSidebar = () => {
     localStorage.setItem("sidebarOpen", JSON.stringify(!sidebarOpen));
     setSidebarOpen((prev) => !prev);
   };
 
-  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  }, []);
+  const handleChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement> | OptionType | null, actionMeta?: { name?: keyof WorkOrderFormData }) => {
+      let name: keyof WorkOrderFormData;
+      let value: string | number | null;
 
-  const handleNumericChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value === "" ? null : Number(value) }));
+      if (e && "target" in e) {
+        name = e.target.name as keyof WorkOrderFormData;
+        value = e.target.value;
+      } else if (e && typeof e === "object" && "value" in e && actionMeta?.name) {
+        name = actionMeta.name;
+        value = e.value;
+      } else if (e === null && actionMeta?.name) {
+        name = actionMeta.name;
+        value = null;
+      } else {
+        return;
+      }
+
+      setFormData((prev) => {
+        const newFormData = { ...prev };
+
+        // Handle known_by_id and received_by_id (can be null)
+        if (name === "known_by_id" || name === "received_by_id") {
+          return {
+            ...newFormData,
+            [name]: value !== null ? parseInt(String(value), 10) || null : null,
+          };
+        }
+
+        // Handle numeric fields
+        if (["requester_id", "department_id", "service_group_id", "service_catalogue_id"].includes(name)) {
+          return {
+            ...newFormData,
+            [name]: parseInt(String(value), 10) || 0,
+          };
+        }
+
+        // Handle all other fields
+        return {
+          ...newFormData,
+          [name]: value,
+        };
+      });
+    },
+    [user, departments]
+  );
+
+  const isDepartmentObject = (dept: any): dept is Department => {
+    return dept && typeof dept === "object" && "id" in dept && "name" in dept;
+  };
+
+  // Penggunaan:
+  {
+    isDepartmentObject(user?.department) ? <span>{user.department.name}</span> : <span>No department assigned</span>;
+  }
+
+  const handleReceptionMethodChange = (selectedOption: OptionType | null) => {
+    const method = selectedOption?.value || "";
+
+    setFormData((prev) => {
+      const newData = { ...prev, reception_method: method };
+
+      if (method === "Electronic Work Order System" && user) {
+        return {
+          ...newData,
+          requester_id: parseInt(user.id),
+          department_id: user.department?.id || 0,
+          known_by_id: user.department?.head_id || null,
+        };
+      }
+      return newData;
+    });
+  };
+
+  const handleAssetNoChange = useCallback((newValue: OptionType | null) => {
+    setFormData((prev) => ({
+      ...prev,
+      asset_no: newValue ? newValue.value : "",
+    }));
   }, []);
 
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const filesArray = Array.from(e.target.files);
-      setFormData((prev) => ({ ...prev, attachments: filesArray }));
+    if (e.target.files && e.target.files.length > 0) {
+      setSelectedFile(e.target.files[0]);
+      setFormData((prev) => ({ ...prev, attachment: e.target.files![0].name }));
     } else {
-      setFormData((prev) => ({ ...prev, attachments: [] }));
+      setSelectedFile(null);
+      setFormData((prev) => ({ ...prev, attachment: null }));
     }
   }, []);
 
-  const handleRemoveFile = useCallback((fileName: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      attachments: prev.attachments.filter((file) => file.name !== fileName),
-    }));
+  const handleRemoveFile = useCallback(() => {
+    setSelectedFile(null);
+    setFormData((prev) => ({ ...prev, attachment: null }));
   }, []);
 
   const handleSubmit = useCallback(
@@ -204,35 +460,44 @@ const AddWorkOrderFormIT: React.FC = () => {
       e.preventDefault();
       setIsLoading(true);
       setError(null);
-      setSuccessMessage(null);
 
-      // Basic validation
-      if (!formData.title || !formData.description || !formData.assignedTo || !formData.dueDate || !formData.assetId) {
-        setError("Please fill in all required fields: Title, Description, Assigned To, Due Date, and Asset ID.");
+      if (!formData.department_id || formData.department_id === 0) {
+        setError("Please select a valid department before submitting");
+        return;
+      }
+
+      if (
+        !formData.date ||
+        !formData.reception_method ||
+        !formData.requester_id ||
+        !formData.department_id ||
+        !formData.service_group_id ||
+        !formData.service_catalogue_id ||
+        !formData.asset_no ||
+        !formData.device_info ||
+        !formData.complaint
+      ) {
+        setError("Please fill in all required fields.");
         setIsLoading(false);
         return;
       }
 
       try {
-        const selectedAssignedToUser = users.find((u) => u.id === formData.assignedTo);
-        const dataToSend: WorkOrderFormData = {
-          ...formData,
-          assignedToAvatar: selectedAssignedToUser?.email ? `https://api.dicebear.com/7.x/initials/svg?seed=${selectedAssignedToUser.email}&backgroundColor=0081ff,3d5a80,ffc300,e0b589&backgroundType=gradientLinear&radius=50` : "",
-          createdBy: user?.id || "Unknown User", // Ensure createdBy is the logged-in user's ID
-        };
-
-        await submitWorkOrder(dataToSend);
-        setSuccessMessage("Work Order added successfully!");
+        const createdOrder = await addWorkOrderIT(formData, selectedFile);
+        setSuccessMessage({
+          message: "Work Order created successfully!",
+          work_order: createdOrder,
+        });
         setShowSuccessModal(true);
-        setFormData(initialFormData); // Reset form after successful submission
+        setFormData(initialFormData);
+        setSelectedFile(null);
       } catch (err: any) {
-        console.error("Error submitting work order:", err);
-        setError(err.message || "Failed to add work order. Please try again.");
+        setError(err.message || "Failed to create work order");
       } finally {
         setIsLoading(false);
       }
     },
-    [formData, submitWorkOrder, initialFormData, user, users]
+    [formData, selectedFile, addWorkOrderIT]
   );
 
   const handleCloseSuccessModal = useCallback(() => {
@@ -240,12 +505,66 @@ const AddWorkOrderFormIT: React.FC = () => {
     navigate("/workorders/it");
   }, [navigate]);
 
+  const customSelectStyles = {
+    control: (provided: any, state: any) => ({
+      ...provided,
+      minHeight: "42px",
+      borderColor: state.isFocused ? "#3B82F6" : "#D1D5DB",
+      boxShadow: state.isFocused ? "0 0 0 1px #3B82F6" : "none",
+      "&:hover": {
+        borderColor: "#9CA3AF",
+      },
+      borderRadius: "0.5rem",
+      backgroundColor: "#FFFFFF",
+      padding: "0 0.5rem",
+      transition: "all 0.15s ease-in-out",
+    }),
+    valueContainer: (provided: any) => ({
+      ...provided,
+      padding: "0",
+    }),
+    singleValue: (provided: any) => ({
+      ...provided,
+      color: "#374151",
+    }),
+    placeholder: (provided: any) => ({
+      ...provided,
+      color: "#6B7280",
+    }),
+    dropdownIndicator: (provided: any) => ({
+      ...provided,
+      color: "#9CA3AF",
+      "&:hover": {
+        color: "#6B7280",
+      },
+    }),
+    indicatorSeparator: (provided: any) => ({
+      ...provided,
+      display: "none",
+    }),
+    menu: (provided: any) => ({
+      ...provided,
+      zIndex: 9999,
+      borderRadius: "0.5rem",
+      border: "1px solid #E5E7EB",
+      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+    }),
+    option: (provided: any, state: any) => ({
+      ...provided,
+      backgroundColor: state.isFocused ? "#EFF6FF" : "#FFFFFF",
+      color: "#1F2937",
+      "&:active": {
+        backgroundColor: "#DBEAFE",
+      },
+      padding: "0.625rem 1rem",
+    }),
+  };
+
   return (
     <div className="flex h-screen font-sans antialiased bg-blue-50 text-gray-900">
       <Sidebar />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header section */}
         <header className="bg-white border-b border-gray-100 p-4 flex items-center justify-between shadow-sm sticky top-0 z-30">
           <div className="flex items-center space-x-4">
             {isMobile && (
@@ -261,7 +580,6 @@ const AddWorkOrderFormIT: React.FC = () => {
           </div>
 
           <div className="flex items-center space-x-3 relative">
-            {/* Dark mode toggle */}
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -272,7 +590,6 @@ const AddWorkOrderFormIT: React.FC = () => {
               {darkMode ? <Sun className="text-yellow-400 text-xl" /> : <Moon className="text-xl" />}
             </motion.button>
 
-            {/* Notifications dropdown */}
             <div className="relative" ref={notificationsRef}>
               <motion.button
                 whileHover={{ scale: 1.05 }}
@@ -329,7 +646,6 @@ const AddWorkOrderFormIT: React.FC = () => {
               </AnimatePresence>
             </div>
 
-            {/* User profile dropdown */}
             <div className="relative" ref={profileRef}>
               <motion.button
                 whileHover={{ backgroundColor: "rgba(239, 246, 255, 0.7)" }}
@@ -392,7 +708,6 @@ const AddWorkOrderFormIT: React.FC = () => {
           </div>
         </header>
 
-        {/* Main content area */}
         <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
             <div>
@@ -421,178 +736,218 @@ const AddWorkOrderFormIT: React.FC = () => {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Work Order Details */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label htmlFor="title" className="block text-sm font-medium text-gray-700">
-                    Title <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    id="title"
-                    name="title"
-                    value={formData.title}
-                    onChange={handleChange}
-                    required
-                    className="mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                    placeholder="e.g., Fix leaky faucet in Unit 301"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="type" className="block text-sm font-medium text-gray-700">
-                    Type
-                  </label>
-                  <select
-                    id="type"
-                    name="type"
-                    value={formData.type}
-                    onChange={handleChange}
-                    className="mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                  >
-                    <option value="preventive">Preventive</option>
-                    <option value="corrective">Corrective</option>
-                    <option value="inspection">Inspection</option>
-                    <option value="emergency">Emergency</option>
-                  </select>
-                </div>
-                <div className="md:col-span-2">
-                  <label htmlFor="description" className="block text-sm font-medium text-gray-700">
-                    Description <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    id="description"
-                    name="description"
-                    value={formData.description}
-                    onChange={handleChange}
-                    required
-                    rows={3}
-                    className="mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                    placeholder="Provide a detailed description of the work needed."
-                  ></textarea>
-                </div>
-              </div>
-
-              {/* Asset Information */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 pt-6 border-t border-gray-100">
-                <div>
-                  <label htmlFor="assetId" className="block text-sm font-medium text-gray-700">
-                    Asset ID <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    id="assetId"
-                    name="assetId"
-                    value={formData.assetId}
-                    onChange={handleChange}
-                    required
-                    className="mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                    placeholder="e.g., AST-001"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="assetName" className="block text-sm font-medium text-gray-700">
-                    Asset Name
-                  </label>
-                  <input
-                    type="text"
-                    id="assetName"
-                    name="assetName"
-                    value={formData.assetName}
-                    onChange={handleChange}
-                    className="mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                    placeholder="e.g., HVAC Unit A"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="assetType" className="block text-sm font-medium text-gray-700">
-                    Asset Type
-                  </label>
-                  <input
-                    type="text"
-                    id="assetType"
-                    name="assetType"
-                    value={formData.assetType}
-                    onChange={handleChange}
-                    className="mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                    placeholder="e.g., Mechanical"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="priority" className="block text-sm font-medium text-gray-700">
-                    Priority
-                  </label>
-                  <select
-                    id="priority"
-                    name="priority"
-                    value={formData.priority}
-                    onChange={handleChange}
-                    className="mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                  >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                    <option value="critical">Critical</option>
-                  </select>
+              <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+                <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                  <Clock className="mr-2 text-blue-500" /> General Information
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">
+                      Date <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      id="date"
+                      name="date"
+                      value={formData.date}
+                      onChange={handleChange}
+                      required
+                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="reception_method" className="block text-sm font-medium text-gray-700 mb-1">
+                      Reception Method <span className="text-red-500">*</span>
+                    </label>
+                    <Select
+                      id="reception_method"
+                      name="reception_method"
+                      options={[
+                        { value: "Electronic Work Order System", label: "Electronic Work Order System" },
+                        { value: "Direct Information", label: "Direct Information" },
+                        { value: "Phone", label: "Phone" },
+                        { value: "Whatsapp", label: "Whatsapp" },
+                        { value: "Email", label: "Email" },
+                      ]}
+                      value={{ value: formData.reception_method, label: formData.reception_method }}
+                      onChange={handleReceptionMethodChange}
+                      placeholder="Select Reception Method"
+                      styles={customSelectStyles}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="requester_id" className="block text-sm font-medium text-gray-700 mb-1">
+                      Requester <span className="text-red-500">*</span>
+                    </label>
+                    {isElectronicMethod ? (
+                      <div className="flex items-center p-2.5 border border-gray-300 rounded-lg bg-blue-50 text-gray-700">
+                        <span>{user?.name || "Current User"}</span>
+                      </div>
+                    ) : (
+                      <Select
+                        id="requester_id"
+                        name="requester_id"
+                        options={allUsers.map((u) => ({ value: String(u.id), label: u.name }))}
+                        value={allUsers.find((u) => parseInt(u.id) === formData.requester_id) ? { value: String(formData.requester_id), label: allUsers.find((u) => parseInt(u.id) === formData.requester_id)?.name || "" } : null}
+                        onChange={(selectedOption) => handleChange(selectedOption as OptionType, { name: "requester_id" })}
+                        placeholder="Select Requester"
+                        styles={customSelectStyles}
+                        required
+                      />
+                    )}
+                  </div>
+                  {/* Department Field */}
+                  <div>
+                    <label htmlFor="department_id" className="block text-sm font-medium text-gray-700 mb-1">
+                      Department <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex items-center p-2.5 border border-gray-300 rounded-lg bg-blue-50 text-gray-700">
+                      <span>{user?.department?.name || "No department assigned"}</span>
+                    </div>
+                  </div>
+                  {/* Known By Field */}
+                  <div>
+                    <label htmlFor="known_by_id" className="block text-sm font-medium text-gray-700 mb-1">
+                      Known By
+                    </label>
+                    <div className="flex items-center p-2.5 border border-gray-300 rounded-lg bg-blue-50 text-gray-700">
+                      <span>{user?.department?.head?.name || "No department head"}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Assignment & Estimation */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 pt-6 border-t border-gray-100">
-                <div>
-                  <label htmlFor="assignedTo" className="block text-sm font-medium text-gray-700">
-                    Assigned To <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    id="assignedTo"
-                    name="assignedTo"
-                    value={formData.assignedTo}
-                    onChange={handleChange}
-                    required
-                    className="mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                  >
-                    <option value="">Select User</option>
-                    {users.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label htmlFor="dueDate" className="block text-sm font-medium text-gray-700">
-                    Due Date <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    id="dueDate"
-                    name="dueDate"
-                    value={formData.dueDate}
-                    onChange={handleChange}
-                    required
-                    className="mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="estimatedHours" className="block text-sm font-medium text-gray-700">
-                    Estimated Hours
-                  </label>
-                  <input
-                    type="number"
-                    id="estimatedHours"
-                    name="estimatedHours"
-                    value={formData.estimatedHours ?? ""}
-                    onChange={handleNumericChange}
-                    className="mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                    placeholder="e.g., 8"
-                    min="0"
-                  />
+              <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+                <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                  <ToolCase className="mr-2 text-green-500" /> Service Details
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label htmlFor="service_group_id" className="block text-sm font-medium text-gray-700 mb-1">
+                      Service Type <span className="text-red-500">*</span>
+                    </label>
+                    <Select
+                      id="service_group_id"
+                      name="service_group_id"
+                      options={SERVICE_GROUPS.map((group) => ({
+                        value: String(group.id),
+                        label: group.name,
+                      }))}
+                      value={
+                        SERVICE_GROUPS.find((group) => group.id === formData.service_group_id)
+                          ? {
+                              value: String(formData.service_group_id),
+                              label: SERVICE_GROUPS.find((group) => group.id === formData.service_group_id)?.name || "",
+                            }
+                          : null
+                      }
+                      onChange={(selectedOption) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          service_group_id: selectedOption ? parseInt(selectedOption.value) : 0,
+                        }))
+                      }
+                      placeholder="Select Service Type"
+                      styles={customSelectStyles}
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="service_catalogue_id" className="block text-sm font-medium text-gray-700 mb-1">
+                      Service <span className="text-red-500">*</span>
+                    </label>
+                    <Select
+                      id="service_catalogue_id"
+                      name="service_catalogue_id"
+                      options={SERVICE_CATALOGUES.map((catalogue) => ({
+                        value: String(catalogue.id),
+                        label: catalogue.name,
+                      }))}
+                      value={
+                        SERVICE_CATALOGUES.find((catalogue) => catalogue.id === formData.service_catalogue_id)
+                          ? {
+                              value: String(formData.service_catalogue_id),
+                              label: SERVICE_CATALOGUES.find((catalogue) => catalogue.id === formData.service_catalogue_id)?.name || "",
+                            }
+                          : null
+                      }
+                      onChange={(selectedOption) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          service_catalogue_id: selectedOption ? parseInt(selectedOption.value) : 0,
+                        }))
+                      }
+                      placeholder="Select Service "
+                      styles={customSelectStyles}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="asset_no" className="block text-sm font-medium text-gray-700 mb-1">
+                      No. Asset <span className="text-red-500">*</span>
+                    </label>
+                    <CreatableSelect<OptionType>
+                      name="asset_no"
+                      id="asset_no"
+                      options={assetOptions}
+                      value={formData.asset_no ? { value: formData.asset_no, label: formData.asset_no } : null}
+                      onChange={handleAssetNoChange}
+                      onCreateOption={(inputValue) => {
+                        const newOption: OptionType = { value: inputValue, label: inputValue };
+                        setAssetOptions((prev) => [...prev, newOption]);
+                        handleAssetNoChange(newOption);
+                      }}
+                      placeholder="Type or select Asset No."
+                      styles={customSelectStyles}
+                      required
+                    />
+                  </div>
                 </div>
               </div>
 
-              {/* Attachments Input */}
+              <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+                <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                  <ListPlus className="mr-2 text-purple-500" /> Device & Complaint Details
+                </h2>
+                <div className="grid grid-cols-1 gap-6">
+                  <div>
+                    <label htmlFor="device_info" className="block text-sm font-medium text-gray-700 mb-1">
+                      Device Information <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      id="device_info"
+                      name="device_info"
+                      value={formData.device_info}
+                      onChange={handleChange}
+                      required
+                      rows={3}
+                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
+                      placeholder="Provide details about the device (e.g., model, serial number)."
+                    ></textarea>
+                  </div>
+                  <div>
+                    <label htmlFor="complaint" className="block text-sm font-medium text-gray-700 mb-1">
+                      Complaint <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      id="complaint"
+                      name="complaint"
+                      value={formData.complaint}
+                      onChange={handleChange}
+                      required
+                      rows={3}
+                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
+                      placeholder="Describe the complaint in detail."
+                    ></textarea>
+                  </div>
+                </div>
+              </div>
+
               <div className="mt-6 pt-6 border-t border-gray-100">
-                <label htmlFor="attachments" className="block text-sm font-medium text-gray-700 mb-1">
-                  Upload Files (Images, PDFs, Spreadsheets)
+                <label htmlFor="attachment" className="block text-sm font-medium text-gray-700 mb-1">
+                  Attachment (Optional)
                 </label>
                 <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-200 border-dashed rounded-lg cursor-pointer hover:border-blue-400 transition-all duration-200">
                   <div className="space-y-1 text-center">
@@ -603,61 +958,60 @@ const AddWorkOrderFormIT: React.FC = () => {
                         className="relative cursor-pointer rounded-md bg-white font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2"
                       >
                         <span>Upload a file</span>
-                        <input id="file-upload" name="file-upload" type="file" className="sr-only" multiple onChange={handleFileChange} />
+                        <input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleFileChange} />
                       </label>
                       <p className="pl-1">or drag and drop</p>
                     </div>
                     <p className="text-xs text-gray-500">PNG, JPG, GIF, PDF up to 10MB</p>
                   </div>
                 </div>
-                {formData.attachments.length > 0 && (
+                {selectedFile && (
                   <ul className="mt-3 border border-gray-200 rounded-md divide-y divide-gray-200">
-                    {formData.attachments.map((file, index) => (
-                      <li key={file.name} className="flex items-center justify-between py-2 pl-3 pr-4 text-sm">
-                        <div className="flex w-0 flex-1 items-center">
-                          <Paperclip className="h-5 w-5 flex-shrink-0 text-gray-400" aria-hidden="true" />
-                          <span className="ml-2 w-0 flex-1 truncate">{file.name}</span>
-                        </div>
-                        <div className="ml-4 flex-shrink-0">
-                          <motion.button type="button" onClick={() => handleRemoveFile(file.name)} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="font-medium text-red-600 hover:text-red-900 transition-colors duration-200">
-                            Remove
-                          </motion.button>
-                        </div>
-                      </li>
-                    ))}
+                    <li key={selectedFile.name} className="flex items-center justify-between py-2 pl-3 pr-4 text-sm">
+                      <div className="flex w-0 flex-1 items-center">
+                        <Paperclip className="h-5 w-5 flex-shrink-0 text-gray-400" aria-hidden="true" />
+                        <span className="ml-2 w-0 flex-1 truncate">{selectedFile.name}</span>
+                      </div>
+                      <div className="ml-4 flex-shrink-0">
+                        <motion.button type="button" onClick={handleRemoveFile} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="font-medium text-red-600 hover:text-red-900 transition-colors duration-200">
+                          Remove
+                        </motion.button>
+                      </div>
+                    </li>
                   </ul>
                 )}
               </div>
 
-              <div className="flex justify-end space-x-3 mt-6">
+              <div className="flex flex-col sm:flex-row justify-end gap-4 pt-6 border-t border-gray-100 mt-8">
                 <motion.button
                   type="button"
-                  onClick={() => navigate("/workorders/it")}
+                  onClick={() => {
+                    setFormData(initialFormData);
+                    setSelectedFile(null);
+                    setError(null);
+                    setSuccessMessage(null);
+                  }}
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
-                  className="inline-flex items-center px-5 py-2.5 border border-gray-200 text-base font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                  className="px-6 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 flex items-center justify-center"
                 >
-                  Cancel
+                  <Trash2 className="mr-2 h-5 w-5" /> Clear Form
                 </motion.button>
                 <motion.button
                   type="submit"
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
                   disabled={isLoading}
-                  className="inline-flex items-center px-5 py-2.5 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-6 py-3 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoading ? (
                     <>
-                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
+                      <Hourglass className="animate-spin mr-2 h-5 w-5" />
                       Adding...
                     </>
                   ) : (
                     <>
-                      <ListPlus className="mr-2 h-5 w-5" />
-                      Add Work Order
+                      <Save className="mr-2 h-5 w-5" /> Add Work Order
                     </>
                   )}
                 </motion.button>
@@ -667,11 +1021,11 @@ const AddWorkOrderFormIT: React.FC = () => {
         </main>
       </div>
 
-      {/* Success Modal */}
       <Modal isOpen={showSuccessModal} onClose={handleCloseSuccessModal} title="Success!">
         <div className="flex flex-col items-center justify-center py-4">
           <CheckCircle className="text-green-500 text-6xl mb-4" />
-          <p className="text-lg font-medium text-gray-800 text-center">Your work order has been added successfully!</p>
+          <p className="text-lg font-medium text-gray-800 text-center mb-2">{successMessage?.message}</p>
+          <p className="text-sm text-gray-600 mb-4">Work Order Number: {successMessage?.work_order?.work_order_no}</p>
           <motion.button
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}

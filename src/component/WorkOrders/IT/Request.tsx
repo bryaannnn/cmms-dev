@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useAuth, WorkOrderFormData, User } from "../../../routes/AuthContext";
+import { useAuth, WorkOrderData, User, Department } from "../../../routes/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
 import Sidebar from "../../Sidebar";
 import {
@@ -30,7 +30,6 @@ import {
   Printer,
 } from "lucide-react";
 
-// Interface for navigation items (reused from original WorkOrders.tsx)
 interface NavItemProps {
   icon: React.ReactNode;
   text: string;
@@ -38,7 +37,6 @@ interface NavItemProps {
   expanded: boolean;
 }
 
-// NavItem component for sidebar navigation (reused from original WorkOrders.tsx)
 const NavItem: React.FC<NavItemProps> = ({ icon, text, to, expanded }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -63,7 +61,6 @@ const NavItem: React.FC<NavItemProps> = ({ icon, text, to, expanded }) => {
   );
 };
 
-// Interface for statistic cards (reused from original WorkOrders.tsx)
 interface StatCardProps {
   title: string;
   value: string;
@@ -71,7 +68,6 @@ interface StatCardProps {
   icon: React.ReactNode;
 }
 
-// StatCard component to display key metrics (reused from original WorkOrders.tsx)
 const StatCard: React.FC<StatCardProps> = ({ title, value, change, icon }) => {
   const isPositive = change.startsWith("+");
   return (
@@ -94,249 +90,147 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, change, icon }) => {
   );
 };
 
-// Interface for modal properties (reused from original WorkOrders.tsx)
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
   children: React.ReactNode;
+  size?: "sm" | "md" | "lg" | "xl" | "full"; // Tambahkan prop size
 }
 
-// Modal component for displaying pop-up content (reused from original WorkOrders.tsx)
-const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
+const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = "md" }) => {
   if (!isOpen) return null;
 
+  // Menentukan max-width berdasarkan size
+  const maxWidthClass = {
+    sm: "max-w-sm",
+    md: "max-w-md",
+    lg: "max-w-lg",
+    xl: "max-w-4xl",
+    full: "max-w-full",
+  }[size];
+
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-      <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-auto p-6 border border-blue-100">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 overflow-y-auto">
+      <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className={`bg-white rounded-2xl shadow-2xl w-full ${maxWidthClass} mx-auto p-6 border border-blue-100`}>
         <div className="flex justify-between items-center border-b pb-3 mb-4 border-gray-100">
           <h3 className="text-2xl font-bold text-gray-900">{title}</h3>
           <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">
             <X size={24} />
           </motion.button>
         </div>
-        <div>{children}</div>
+        <div className="overflow-y-auto max-h-[70vh]">{children}</div>
       </motion.div>
     </motion.div>
   );
 };
 
-// WorkOrderDetailsForm component for viewing/editing work order details (adapted for user view)
-interface WorkOrderDetailsFormProps {
-  workOrder: WorkOrderFormData;
-  isEditing: boolean;
-  onSave: (order: WorkOrderFormData) => void;
-  onCancel: () => void;
-  onComplete: (id: number) => void;
-  onPrint: (id: number) => void;
-  users?: User[]; // List of users for assignment (though assignment is typically admin only)
+interface WorkOrderDetailsProps {
+  order: WorkOrderData;
+  onClose: () => void;
 }
 
-const WorkOrderDetailsForm: React.FC<WorkOrderDetailsFormProps> = ({ workOrder, isEditing, onSave, onCancel, onComplete, onPrint, users }) => {
-  const [formData, setFormData] = useState<WorkOrderFormData>(workOrder);
+const WorkOrderDetails: React.FC<WorkOrderDetailsProps> = ({ order, onClose }) => {
+  const displayValue = (value: any): string => {
+    if (value === null || value === undefined) return "-";
 
-  useEffect(() => {
-    setFormData(workOrder);
-  }, [workOrder]);
+    if (typeof value === "object" && value !== null) {
+      return value.name || "-";
+    }
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (typeof value === "string") {
+      return value.trim() !== "" ? value.trim() : "-";
+    }
+
+    if (typeof value === "number") {
+      return value.toLocaleString("id-ID");
+    }
+
+    return String(value);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSave(formData);
+  const formatDate = (dateString: string) => {
+    if (!dateString) return "-";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("id-ID", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
+
+  const DetailItem: React.FC<{ label: string; value: string }> = ({ label, value }) => (
+    <div className="flex flex-col">
+      <h4 className="text-sm font-medium text-gray-500 mb-1">{label}</h4>
+      <p className="w-full bg-blue-50 border border-blue-100 rounded-lg p-3 text-gray-800 text-base font-medium min-h-[44px] flex items-center">{value}</p>
+    </div>
+  );
+
+  const SectionTitle: React.FC<{ title: string }> = ({ title }) => <h3 className="text-lg font-bold text-gray-800 mb-4 pb-2 border-b border-blue-200 mt-6 first:mt-0">{title}</h3>;
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label htmlFor="detail-id" className="block text-sm font-medium text-gray-700">
-          Work Order ID
-        </label>
-        <input type="text" id="detail-id" value={formData.id} readOnly className="mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 bg-blue-50 cursor-not-allowed transition-all duration-200" />
+    <div className="space-y-6">
+      <SectionTitle title="General Information" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <DetailItem label="Work Order No" value={displayValue(order.work_order_no)} />
+        <DetailItem label="Date" value={formatDate(order.date)} />
+        <DetailItem label="Reception Method" value={displayValue(order.reception_method)} />
+        <DetailItem label="Requester" value={displayValue(order.requester?.name)} />
+        <DetailItem label="Department" value={displayValue(order.department?.name)} />
+        <DetailItem label="Known By" value={displayValue(order.known_by?.name)} />
       </div>
-      <div>
-        <label htmlFor="detail-title" className="block text-sm font-medium text-gray-700">
-          Title
-        </label>
-        <input
-          type="text"
-          id="detail-title"
-          name="title"
-          value={formData.title}
-          onChange={handleChange}
-          readOnly={!isEditing}
-          required
-          className={`mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
-        />
+
+      <SectionTitle title="Service Details" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <DetailItem label="Service Type" value={displayValue(order.service_type?.name)} />
+        <DetailItem label="Service" value={displayValue(order.service?.name)} />
+        <DetailItem label="No Asset" value={displayValue(order.asset_no)} />
       </div>
-      <div>
-        <label htmlFor="description" className="block text-sm font-medium text-gray-700">
-          Description
-        </label>
-        <textarea
-          id="description"
-          name="description"
-          value={formData.description || ""}
-          onChange={handleChange}
-          readOnly={!isEditing}
-          rows={3}
-          className={`mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
-        ></textarea>
+
+      <SectionTitle title="Device & Complaint" />
+      <div className="grid grid-cols-1 gap-4">
+        <DetailItem label="Device Information" value={displayValue(order.device_info)} />
+        <DetailItem label="Complaint" value={displayValue(order.complaint)} />
       </div>
-      <div>
-        <label htmlFor="detail-type" className="block text-sm font-medium text-gray-700">
-          Type
-        </label>
-        <select
-          id="detail-type"
-          name="type"
-          value={formData.type}
-          onChange={handleChange}
-          disabled={!isEditing}
-          required
-          className={`mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
-        >
-          <option value="preventive">Preventive</option>
-          <option value="corrective">Corrective</option>
-          <option value="inspection">Inspection</option>
-          <option value="emergency">Emergency</option>
-        </select>
+
+      <SectionTitle title="Handling Information" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <DetailItem label="Handling Status" value={displayValue(order.handling_status)} />
+        <DetailItem label="Assigned To" value={displayValue(order.assigned_to?.name)} />
+        <DetailItem label="Handling Date" value={formatDate(order.handling_date || "-")} />
+        <DetailItem label="Action Taken" value={displayValue(order.action_taken)} />
       </div>
-      <div>
-        <label htmlFor="detail-status" className="block text-sm font-medium text-gray-700">
-          Status
-        </label>
-        <select
-          id="detail-status"
-          name="status"
-          value={formData.status}
-          onChange={handleChange}
-          disabled={!isEditing}
-          required
-          className={`mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
-        >
-          <option value="open">Open</option>
-          <option value="in_progress">In Progress</option>
-          <option value="completed">Completed</option>
-          <option value="on_hold">On Hold</option>
-          <option value="cancelled">Cancelled</option>
-        </select>
-      </div>
-      <div>
-        <label htmlFor="detail-priority" className="block text-sm font-medium text-gray-700">
-          Priority
-        </label>
-        <select
-          id="detail-priority"
-          name="priority"
-          value={formData.priority}
-          onChange={handleChange}
-          disabled={!isEditing}
-          required
-          className={`mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
-        >
-          <option value="low">Low</option>
-          <option value="medium">Medium</option>
-          <option value="high">High</option>
-          <option value="critical">Critical</option>
-        </select>
-      </div>
-      <div>
-        <label htmlFor="detail-assignedTo" className="block text-sm font-medium text-gray-700">
-          Assigned To
-        </label>
-        <input
-          type="text"
-          id="detail-assignedTo"
-          name="assignedTo"
-          value={users?.find((u) => u.id === formData.assignedTo)?.name || "Not Assigned"}
-          readOnly
-          className="mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 bg-blue-50 cursor-not-allowed transition-all duration-200"
-        />
-      </div>
-      <div>
-        <label htmlFor="detail-createdBy" className="block text-sm font-medium text-gray-700">
-          Created By
-        </label>
-        <input type="text" id="detail-createdBy" value={formData.createdBy} readOnly className="mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 bg-blue-50 cursor-not-allowed transition-all duration-200" />
-      </div>
-      <div>
-        <label htmlFor="detail-createdAt" className="block text-sm font-medium text-gray-700">
-          Created At
-        </label>
-        <input
-          type="text"
-          id="detail-createdAt"
-          value={new Date(formData.createdAt).toLocaleDateString()}
-          readOnly
-          className="mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 bg-blue-50 cursor-not-allowed transition-all duration-200"
-        />
-      </div>
-      <div>
-        <label htmlFor="detail-dueDate" className="block text-sm font-medium text-gray-700">
-          Due Date
-        </label>
-        <input
-          type="date"
-          id="detail-dueDate"
-          name="dueDate"
-          value={formData.dueDate || ""}
-          onChange={handleChange}
-          readOnly={!isEditing}
-          className={`mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
-        />
-      </div>
-      <div className="flex justify-end space-x-3 mt-6">
+
+      {order.attachment && (
+        <>
+          <SectionTitle title="Attachment" />
+          <div className="grid grid-cols-1 gap-4">
+            <div className="flex items-center space-x-3">
+              <a href={order.attachment} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                View Attachment
+              </a>
+            </div>
+          </div>
+        </>
+      )}
+
+      <div className="flex justify-end pt-6 border-t border-gray-100 mt-8">
         <motion.button
           type="button"
-          onClick={onCancel}
-          whileHover={{ scale: 1.03 }}
+          onClick={onClose}
+          whileHover={{ scale: 1.03, boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)" }}
           whileTap={{ scale: 0.97 }}
-          className="inline-flex items-center px-5 py-2.5 border border-gray-200 text-base font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+          className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 font-semibold"
         >
-          {isEditing ? "Cancel" : "Close"}
+          Close
         </motion.button>
-        {isEditing && (
-          <motion.button
-            type="submit"
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            className="inline-flex items-center px-5 py-2.5 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
-          >
-            Save Changes
-          </motion.button>
-        )}
-        {!isEditing && formData.status !== "completed" && formData.status !== "cancelled" && (
-          <motion.button
-            type="button"
-            onClick={() => onComplete(formData.id)}
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            className="inline-flex items-center px-5 py-2.5 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200"
-          >
-            <CheckCircle size={18} className="mr-2" /> Mark as Completed
-          </motion.button>
-        )}
-        {!isEditing && (
-          <motion.button
-            type="button"
-            onClick={() => onPrint(formData.id)}
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            className="inline-flex items-center px-5 py-2.5 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors duration-200"
-          >
-            <Printer size={18} className="mr-2" /> Print
-          </motion.button>
-        )}
       </div>
-    </form>
+    </div>
   );
 };
 
-// Main IT Request Work Orders component
 const ITRequest: React.FC = () => {
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
@@ -345,7 +239,7 @@ const ITRequest: React.FC = () => {
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [showWorkOrderDetailsModal, setShowWorkOrderDetailsModal] = useState(false);
-  const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrderFormData | null>(null);
+  const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrderData | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [recordToDelete, setRecordToDelete] = useState<number | null>(null);
@@ -355,13 +249,14 @@ const ITRequest: React.FC = () => {
   const [showNotificationsPopup, setShowNotificationsPopup] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
-  // Use auth context for data operations and user permissions
-  const { user, hasPermission, submitWorkOrder, updateWorkOrder, deleteWorkOrder, getWorkOrderById, getWorkOrdersForUser, getUsers, getWorkOrders } = useAuth();
+  const { user, hasPermission, addWorkOrderIT, updateWorkOrderIT: updateWorkOrder, deleteWorkOrder, getWorkOrdersIT, getWorkOrdersForUser, getUsers } = useAuth();
   const navigate = useNavigate();
-  const [workOrders, setWorkOrders] = useState<WorkOrderFormData[]>([]);
+  const [workOrders, setWorkOrders] = useState<WorkOrderData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [users, setUsers] = useState<User[]>([]);
+
+  const [departments, setDepartments] = useState<Department[]>([]);
 
   const notificationsRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -375,7 +270,6 @@ const ITRequest: React.FC = () => {
   const isReports = location.pathname === "/workorders/it/reports";
   const isKnowledgeBase = location.pathname === "/workorders/it/knowledgebase";
 
-  // Effect for handling window resize
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768);
@@ -388,7 +282,6 @@ const ITRequest: React.FC = () => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Effect for handling clicks outside notification/profile popups
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
@@ -405,28 +298,27 @@ const ITRequest: React.FC = () => {
     };
   }, []);
 
-  // Effect to load work orders from AuthContext for the current user and department
   useEffect(() => {
     const loadWorkOrders = async () => {
-      if (!user?.id) {
-        setLoading(false);
-        setError("User not logged in or user ID not available.");
-        return;
-      }
       try {
         setLoading(true);
         setError(null);
-        // Fetch all work orders and filter by department and user on client-side
-        const allOrders = await getWorkOrders();
-        const fetchedUsers = await getUsers();
-        setUsers(fetchedUsers);
 
-        // Filter work orders relevant to the current user's department (IT)
-        // and orders created by or assigned to the current user
-        const filteredByDepartmentAndUser = allOrders.filter(
-          (order) => (order.createdBy === user.id || order.assignedTo === user.id) && order.assetType?.toLowerCase() === "it" // Assuming assetType can be used to filter by department
-        );
-        setWorkOrders(filteredByDepartmentAndUser);
+        // Fetch work orders
+        const allOrders = await getWorkOrdersIT();
+        console.log("All orders from API:", allOrders);
+
+        // Fetch users with error handling
+        let fetchedUsers: User[] = [];
+        try {
+          fetchedUsers = await getUsers();
+          console.log("Fetched users:", fetchedUsers);
+        } catch (userError) {
+          console.error("Error fetching users:", userError);
+        }
+
+        setUsers(fetchedUsers);
+        setWorkOrders(allOrders);
       } catch (err) {
         console.error("Error loading work orders:", err);
         setError("Failed to load work orders. Please try again.");
@@ -436,80 +328,53 @@ const ITRequest: React.FC = () => {
     };
 
     loadWorkOrders();
-  }, [getWorkOrders, getWorkOrdersForUser, user?.id, user?.department, getUsers]); // Depend on getWorkOrders, user.id, and user.department
+  }, [getWorkOrdersIT, getWorkOrdersForUser, user?.id, getUsers]);
 
-  // Helper function to get status badge color
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "open":
+      case "New":
         return "bg-gray-500 text-white";
-      case "in_progress":
+      case "Assignment":
         return "bg-blue-500 text-white";
-      case "completed":
+      case "Progress":
+        return "bg-yellow-500 text-white";
+      case "Done":
         return "bg-green-500 text-white";
-      case "cancelled":
+      case "Cancel":
         return "bg-red-500 text-white";
-      case "on_hold":
+      case "Waiting Part":
         return "bg-orange-500 text-white";
       default:
         return "bg-gray-500 text-white";
     }
   };
 
-  // Helper function to get priority badge color
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "low":
-        return "bg-blue-100 text-blue-800";
-      case "medium":
-        return "bg-green-100 text-green-800";
-      case "high":
-        return "bg-orange-100 text-orange-800";
-      case "critical":
-        return "bg-red-100 text-red-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
-  // Open work order details modal
   const openWorkOrderDetails = useCallback(
-    async (orderId: number, editMode: boolean) => {
-      try {
-        setLoading(true);
-        setError(null);
-        const order = await getWorkOrderById(orderId);
+    (orderId: number) => {
+      const order = workOrders.find((o) => o.id === orderId);
+      if (order) {
         setSelectedWorkOrder(order);
-        setIsEditing(editMode);
         setShowWorkOrderDetailsModal(true);
-      } catch (err) {
-        console.error("Error fetching work order details:", err);
-        setError("Failed to fetch work order details.");
-      } finally {
-        setLoading(false);
       }
     },
-    [getWorkOrderById]
+    [workOrders]
   );
 
-  // Handle adding a new work order (navigates to a separate add page)
   const handleAddWorkOrder = useCallback(() => {
     navigate(`/workorders/addworkorder`);
   }, [navigate]);
 
-  // Handle updating an existing work order
   const handleUpdateWorkOrder = useCallback(
-    async (updatedOrderData: WorkOrderFormData) => {
+    async (updatedOrderData: WorkOrderData) => {
       try {
         setLoading(true);
         setError(null);
-        const updatedOrder = await updateWorkOrder(updatedOrderData.id, updatedOrderData);
+        const updatedOrder = await updateWorkOrder(updatedOrderData);
         setWorkOrders((prev) => prev.map((order) => (order.id === updatedOrder.id ? updatedOrder : order)));
         setShowWorkOrderDetailsModal(false);
         setSelectedWorkOrder(null);
         setIsEditing(false);
       } catch (err) {
-        console.error("Error updating work order:", err);
         setError("Failed to update work order.");
       } finally {
         setLoading(false);
@@ -518,7 +383,6 @@ const ITRequest: React.FC = () => {
     [updateWorkOrder]
   );
 
-  // Handle marking a work order as completed
   const handleCompleteWorkOrder = useCallback(
     async (id: number) => {
       try {
@@ -526,16 +390,15 @@ const ITRequest: React.FC = () => {
         setError(null);
         const order = workOrders.find((o) => o.id === id);
         if (order) {
-          const updatedOrder = await updateWorkOrder(id, {
+          const updatedOrder = await updateWorkOrder({
             ...order,
-            status: "completed",
+            handling_status: "Done",
           });
           setWorkOrders((prev) => prev.map((o) => (o.id === id ? updatedOrder : o)));
         }
         setShowWorkOrderDetailsModal(false);
         setSelectedWorkOrder(null);
       } catch (err) {
-        console.error("Error completing work order:", err);
         setError("Failed to complete work order.");
       } finally {
         setLoading(false);
@@ -544,13 +407,11 @@ const ITRequest: React.FC = () => {
     [workOrders, updateWorkOrder]
   );
 
-  // Set record to delete and show confirmation modal
   const handleDeleteClick = useCallback((id: number) => {
     setRecordToDelete(id);
     setShowDeleteConfirm(true);
   }, []);
 
-  // Handle actual deletion of work order
   const handleDelete = useCallback(
     async (id: number) => {
       try {
@@ -561,7 +422,6 @@ const ITRequest: React.FC = () => {
         setShowDeleteConfirm(false);
         setRecordToDelete(null);
       } catch (err) {
-        console.error("Error deleting work order:", err);
         setError("Failed to delete work order.");
       } finally {
         setLoading(false);
@@ -570,42 +430,37 @@ const ITRequest: React.FC = () => {
     [deleteWorkOrder]
   );
 
-  // Placeholder for print functionality
   const handlePrintWorkOrder = useCallback((id: number) => {
-    console.log(`Printing Work Order ${id}... (Functionality not implemented)`);
+    console.log(`Printing Work Order ${id}`);
   }, []);
 
-  // Toggle sidebar visibility
   const toggleSidebar = () => {
     setSidebarOpen((prev) => !prev);
   };
 
-  // Filter work orders based on search query, status, and priority
-  const filteredWorkOrders = workOrders.filter((order) => {
+  const filteredWorkOrders = workOrders.filter((order: WorkOrderData) => {
     const matchesSearch =
-      order.title.toLowerCase().includes(searchQuery.toLowerCase()) || String(order.id).includes(searchQuery.toLowerCase()) || (users.find((u) => u.id === order.assignedTo)?.name || "").toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === "all" || order.status === statusFilter;
-    const matchesPriority = priorityFilter === "all" || order.priority === priorityFilter;
+      (order.service_type?.name?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
+      String(order.id).includes(searchQuery.toLowerCase()) ||
+      (users.find((u) => u.id === String(order.assigned_to_id))?.name?.toLowerCase() || "").includes(searchQuery.toLowerCase());
 
-    return matchesSearch && matchesStatus && matchesPriority;
+    const matchesStatus = statusFilter === "all" || order.handling_status === statusFilter;
+
+    return matchesSearch && matchesStatus;
   });
 
-  // Pagination logic
   const indexOfLastOrder = currentPage * ordersPerPage;
   const indexOfFirstOrder = indexOfLastOrder - ordersPerPage;
   const currentOrders = filteredWorkOrders.slice(indexOfFirstOrder, indexOfLastOrder);
   const totalPages = Math.ceil(filteredWorkOrders.length / ordersPerPage);
 
-  // Change page
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
-  // Effect to reset page and handle dark mode
   useEffect(() => {
     setCurrentPage(1);
     document.documentElement.classList.toggle("dark", darkMode);
   }, [searchQuery, statusFilter, priorityFilter, sidebarOpen, darkMode]);
 
-  // Loading state UI
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-blue-50">
@@ -615,7 +470,6 @@ const ITRequest: React.FC = () => {
     );
   }
 
-  // Error state UI
   if (error) {
     return (
       <div className="flex h-screen items-center justify-center bg-red-50">
@@ -627,11 +481,9 @@ const ITRequest: React.FC = () => {
 
   return (
     <div className="flex h-screen font-sans antialiased bg-blue-50 text-gray-900">
-      {/* Sidebar component */}
       <Sidebar />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header section */}
         <header className="bg-white border-b border-gray-100 p-4 flex items-center justify-between shadow-sm sticky top-0 z-30">
           <div className="flex items-center space-x-4">
             {isMobile && (
@@ -644,7 +496,6 @@ const ITRequest: React.FC = () => {
           </div>
 
           <div className="flex items-center space-x-3 relative">
-            {/* Dark mode toggle */}
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -655,7 +506,6 @@ const ITRequest: React.FC = () => {
               {darkMode ? <Sun className="text-yellow-400 text-xl" /> : <Moon className="text-xl" />}
             </motion.button>
 
-            {/* Notifications dropdown */}
             <div className="relative" ref={notificationsRef}>
               <motion.button
                 whileHover={{ scale: 1.05 }}
@@ -687,14 +537,11 @@ const ITRequest: React.FC = () => {
                       {filteredWorkOrders.slice(0, 3).map((order) => (
                         <div key={order.id} className="flex items-start px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-50 last:border-b-0">
                           <div className="p-2 mr-3 mt-0.5 rounded-full bg-blue-50 text-blue-600">
-                            {order.status === "completed" ? <CheckCircle className="text-green-500" /> : order.status === "in_progress" ? <Wrench className="text-blue-500" /> : <AlertTriangle className="text-yellow-500" />}
+                            {order.handling_status === "Done" ? <CheckCircle className="text-green-500" /> : order.handling_status === "Progress" ? <Wrench className="text-blue-500" /> : <AlertTriangle className="text-yellow-500" />}
                           </div>
                           <div>
                             <p className="font-medium text-sm text-gray-800">Work Order #{order.id}</p>
-                            <p className="text-xs text-gray-600 mt-1">{order.title}</p>
-                            <p className="text-xs text-gray-500 mt-1">
-                              {new Date(order.createdAt).toLocaleDateString()} at {new Date(order.createdAt).toLocaleTimeString()}
-                            </p>
+                            <p className="text-xs text-gray-600 mt-1">{order.requester?.name}</p>
                           </div>
                         </div>
                       ))}
@@ -715,7 +562,6 @@ const ITRequest: React.FC = () => {
               </AnimatePresence>
             </div>
 
-            {/* User profile dropdown */}
             <div className="relative" ref={profileRef}>
               <motion.button
                 whileHover={{ backgroundColor: "rgba(239, 246, 255, 0.7)" }}
@@ -778,31 +624,16 @@ const ITRequest: React.FC = () => {
           </div>
         </header>
 
-        {/* Main content area */}
         <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
-          {hasPermission("assign_workorders") && (
-            <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="isi style mb-6 flex space-x-6 border-b border-gray-200">
-              <motion.div
-                whileTap={{ scale: 0.98 }}
-                onClick={() => navigate("/workorders/it")}
-                className={`cursor-pointer px-4 py-3 text-sm font-medium ${isRequest ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
-              >
-                Request
-              </motion.div>
-              <motion.div
-                whileTap={{ scale: 0.98 }}
-                onClick={() => navigate("/workorders/it/approver")}
-                className={`cursor-pointer px-4 py-3 text-sm font-medium ${isApprover ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
-              >
-                Approver
-              </motion.div>
-              <motion.div
-                whileTap={{ scale: 0.98 }}
-                onClick={() => navigate("/workorders/it/assignment")}
-                className={`cursor-pointer px-4 py-3 text-sm font-medium ${isAssignment ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
-              >
-                Assignment
-              </motion.div>
+          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="isi style mb-6 flex space-x-6 border-b border-gray-200">
+            <motion.div
+              whileTap={{ scale: 0.98 }}
+              onClick={() => navigate("/workorders/it")}
+              className={`cursor-pointer px-4 py-3 text-sm font-medium ${isRequest ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
+            >
+              Request
+            </motion.div>
+            {hasPermission("assign_workorders") && (
               <motion.div
                 whileTap={{ scale: 0.98 }}
                 onClick={() => navigate("/workorders/it/receiver")}
@@ -810,22 +641,42 @@ const ITRequest: React.FC = () => {
               >
                 Receiver
               </motion.div>
+            )}
+            {hasPermission("assign_workorders") && (
               <motion.div
                 whileTap={{ scale: 0.98 }}
-                onClick={() => navigate("/workorders/it/reports")}
-                className={`cursor-pointer px-4 py-3 text-sm font-medium ${isReports ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
+                onClick={() => navigate("/workorders/it/assignment")}
+                className={`cursor-pointer px-4 py-3 text-sm font-medium ${isAssignment ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
               >
-                Reports
+                Assignment
               </motion.div>
+            )}
+            {hasPermission("assign_workorders") && (
               <motion.div
                 whileTap={{ scale: 0.98 }}
-                onClick={() => navigate("/workorders/it/knowledgebase")}
-                className={`cursor-pointer px-4 py-3 text-sm font-medium ${isKnowledgeBase ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
+                onClick={() => navigate("/workorders/it/approver")}
+                className={`cursor-pointer px-4 py-3 text-sm font-medium ${isApprover ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
               >
-                Knowledge Base
+                Approver
               </motion.div>
+            )}
+
+            <motion.div
+              whileTap={{ scale: 0.98 }}
+              onClick={() => navigate("/workorders/it/reports")}
+              className={`cursor-pointer px-4 py-3 text-sm font-medium ${isReports ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
+            >
+              Reports
             </motion.div>
-          )}
+
+            <motion.div
+              whileTap={{ scale: 0.98 }}
+              onClick={() => navigate("/workorders/it/knowledgebase")}
+              className={`cursor-pointer px-4 py-3 text-sm font-medium ${isKnowledgeBase ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
+            >
+              Knowledge Base
+            </motion.div>
+          </motion.div>
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-gray-900">IT Work Orders</h1>
@@ -833,7 +684,6 @@ const ITRequest: React.FC = () => {
             </div>
 
             <div className="flex flex-wrap gap-3">
-              {/* Create Work Order Button */}
               {hasPermission("create_workorders") && (
                 <motion.button
                   onClick={() => navigate("/workorders/it/addworkorder")}
@@ -846,7 +696,6 @@ const ITRequest: React.FC = () => {
                 </motion.button>
               )}
 
-              {/* Filters Toggle Button */}
               <motion.button
                 onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
                 whileHover={{ scale: 1.05, boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)" }}
@@ -860,22 +709,20 @@ const ITRequest: React.FC = () => {
             </div>
           </motion.div>
 
-          {/* Stat Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
             <StatCard title="Total IT Requests" value={filteredWorkOrders.length.toString()} change="+8%" icon={<Clipboard />} />
-            <StatCard title="Pending IT" value={filteredWorkOrders.filter((wo) => wo.status === "open").length.toString()} change="+3" icon={<Clock />} />
-            <StatCard title="IT In Progress" value={filteredWorkOrders.filter((wo) => wo.status === "in_progress").length.toString()} change="-1" icon={<Wrench />} />
-            <StatCard title="IT Completed" value={filteredWorkOrders.filter((wo) => wo.status === "completed").length.toString()} change="+5" icon={<CheckCircle />} />
+            <StatCard title="Pending IT" value={filteredWorkOrders.filter((wo) => wo.handling_status === "New").length.toString()} change="+3" icon={<Clock />} />
+            <StatCard title="IT Progress" value={filteredWorkOrders.filter((wo) => wo.handling_status === "Progress").length.toString()} change="-1" icon={<Wrench />} />
+            <StatCard title="IT Done" value={filteredWorkOrders.filter((wo) => wo.handling_status === "Done").length.toString()} change="+5" icon={<CheckCircle />} />
           </div>
 
-          {/* Search and Advanced Filters */}
           <motion.div layout className="mb-6 bg-white rounded-2xl shadow-md p-4 md:p-6 border border-blue-50">
             <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-4 md:space-y-0">
               <div className="flex-1 relative">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
                 <input
                   type="text"
-                  placeholder="Search IT requests by title, ID, or assignee..."
+                  placeholder="Search IT requests by device, ID, or assignee..."
                   className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-base transition-all duration-200"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -901,27 +748,14 @@ const ITRequest: React.FC = () => {
                       onChange={(e) => setStatusFilter(e.target.value)}
                     >
                       <option value="all">All Statuses</option>
-                      <option value="open">Open</option>
-                      <option value="in_progress">In Progress</option>
-                      <option value="completed">Completed</option>
-                      <option value="cancelled">Cancelled</option>
-                      <option value="on_hold">On Hold</option>
-                    </select>
-
-                    <select
-                      className="border border-gray-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-base appearance-none bg-no-repeat bg-right-12 bg-center-y transition-all duration-200"
-                      style={{
-                        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/svg%3E")`,
-                        backgroundSize: "1.2rem",
-                      }}
-                      value={priorityFilter}
-                      onChange={(e) => setPriorityFilter(e.target.value)}
-                    >
-                      <option value="all">All Priorities</option>
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High</option>
-                      <option value="critical">Critical</option>
+                      <option value="New">New</option>
+                      <option value="Assignment">Assignment</option>
+                      <option value="Progress">Progress</option>
+                      <option value="Waiting Part">Waiting Part</option>
+                      <option value="Vendor Escalation">Vendor Escalation</option>
+                      <option value="Waiting Approval">Waiting Approval</option>
+                      <option value="Cancel">Cancel</option>
+                      <option value="Done">Done</option>
                     </select>
                   </motion.div>
                 )}
@@ -929,19 +763,18 @@ const ITRequest: React.FC = () => {
             </div>
           </motion.div>
 
-          {/* Work Orders Table */}
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="bg-white rounded-2xl shadow-md overflow-hidden border border-blue-50">
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-100">
                 <thead className="bg-blue-50">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">No</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Tanggal</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ID.WO#</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Jenis Layanan</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Keluhan (Detail WO/ Issue)</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Informasi Perangkat</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Informasi Perangkat</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Date</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Device Information</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">No Asset</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Service Type</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Handling Status</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Assigned To</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
@@ -956,23 +789,26 @@ const ITRequest: React.FC = () => {
                         whileHover={{ backgroundColor: "rgba(239, 246, 255, 1)" }}
                         className="transition-colors duration-150"
                       >
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{order.title}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{order.id}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{new Date(order.date).toLocaleDateString()}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{order.type}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{users.find((u) => u.id === order.assignedTo)?.name || "Unassigned"}</td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full ${getPriorityColor(order.priority)} shadow-sm`}>{order.priority.charAt(0).toUpperCase() + order.priority.slice(1)}</span>
+                          <div className="text-sm font-medium text-gray-900">{order.device_info}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full ${getStatusColor(order.status)} shadow-sm`}>{order.status.charAt(0).toUpperCase() + order.status.slice(1).replace("_", " ")}</span>
+                          <div className="text-sm font-medium text-gray-900">{order.asset_no}</div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{new Date(order.createdAt).toLocaleDateString()}</td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{order.service_type?.name || "N/A"}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full ${getStatusColor(order.handling_status)} shadow-sm`}>{order.handling_status}</span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.assigned_to?.name || "Unassigned"}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium flex items-center space-x-2">
                           <motion.button
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
-                            onClick={() => openWorkOrderDetails(order.id, false)}
+                            onClick={() => openWorkOrderDetails(order.id)}
                             className="text-blue-600 hover:text-blue-800 transition-colors duration-200 flex items-center space-x-1"
                             title="View Details"
                           >
@@ -1005,7 +841,7 @@ const ITRequest: React.FC = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={7} className="px-6 py-10 text-center text-gray-600 text-lg">
+                      <td colSpan={8} className="px-6 py-10 text-center text-gray-600 text-lg">
                         No IT work order requests found matching your criteria.
                       </td>
                     </tr>
@@ -1015,7 +851,6 @@ const ITRequest: React.FC = () => {
             </div>
           </motion.div>
 
-          {/* Pagination */}
           {filteredWorkOrders.length > ordersPerPage && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="mt-8 flex flex-col sm:flex-row sm:items-center sm:justify-between">
               <div className="text-sm text-gray-600 mb-4 sm:mb-0">
@@ -1060,7 +895,6 @@ const ITRequest: React.FC = () => {
         </main>
       </div>
 
-      {/* Work Order Details/Edit Modal */}
       {selectedWorkOrder && (
         <Modal
           isOpen={showWorkOrderDetailsModal}
@@ -1069,25 +903,20 @@ const ITRequest: React.FC = () => {
             setSelectedWorkOrder(null);
             setIsEditing(false);
           }}
-          title={isEditing ? "Edit Work Order" : "Work Order Details"}
+          title={`Work Order Details #${selectedWorkOrder.id}`}
+          size="xl"
         >
-          <WorkOrderDetailsForm
-            workOrder={selectedWorkOrder}
-            isEditing={isEditing}
-            onSave={handleUpdateWorkOrder}
-            onCancel={() => {
+          <WorkOrderDetails
+            order={selectedWorkOrder}
+            onClose={() => {
               setShowWorkOrderDetailsModal(false);
               setSelectedWorkOrder(null);
               setIsEditing(false);
             }}
-            onComplete={handleCompleteWorkOrder}
-            onPrint={handlePrintWorkOrder}
-            users={users}
           />
         </Modal>
       )}
 
-      {/* Delete Confirmation Modal */}
       <Modal isOpen={showDeleteConfirm} onClose={() => setShowDeleteConfirm(false)} title="Confirm Deletion">
         <div className="space-y-5 text-center py-3">
           <AlertTriangle className="text-red-500 text-5xl mx-auto animate-pulse" />

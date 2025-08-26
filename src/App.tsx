@@ -26,16 +26,27 @@ import EditAssetPage from "./pages/EditAssets";
 // import EditWorkOrder from "./component/WorkOrders/EditWO";
 // import WorkOrderAdminDashboard from "./pages/WorkOrdersAdmin";
 import ITRequest from "./component/WorkOrders/IT/Request";
-import ITApprover from "./component/WorkOrders/IT/Approver";
+// import ITApprover from "./component/WorkOrders/IT/Approver";
 import ITAssignment from "./component/WorkOrders/IT/Assignment";
 import ITReceiver from "./component/WorkOrders/IT/Receiver";
-import ITReports from "./component/WorkOrders/IT/Reports";
+// import ITReports from "./component/WorkOrders/IT/Reports";
 import ITKnowledgeBase from "./component/WorkOrders/IT/KnowladgeBase";
-import AddWorkOrderForm from "./component/WorkOrders/TD/FormWO";
-import EditWorkOrder from "./component/WorkOrders/IT/EditIT";
+// import AddWorkOrderForm from "./component/WorkOrders/TD/FormWO";
+// import EditWorkOrder from "./component/WorkOrders/IT/EditIT";
 import AddWorkOrderFormIT from "./component/WorkOrders/IT/FormIT";
-import EditWorkOrderIT from "./component/WorkOrders/IT/EditIT";
+// import EditWorkOrderIT from "./component/WorkOrders/IT/EditIT";
 import WorkOrdersSelection from "./component/WorkOrders/WorkOrdersSelection";
+import WorkLocationSelection from "./component/WorkLocation/WorkLocationSelection";
+import WorkArrangementSelection from "./component/WorkArrangement/WorkArrangementSelection";
+import SparePartSelection from "./component/SparePart/SparePartSelection";
+import AssetsSelection from "./component/Assets/AssetsSelection";
+import ServiceSelection from "./component/Service/ServiceSelection";
+import MaintenanceActivitySelection from "./component/Maintenance Activity/MaintenanceActivitySelection";
+import MachineHistoryReports from "./component/MachineHistory/MaintenanceReports";
+import AuditTrail from "./component/Audit Trail/AuditTrail";
+import MonitoringMaintenance from "./component/Monitoring Maintenance/MonitoringMaintenance";
+import DetailMonitoringMaintenance from "./component/Monitoring Maintenance/DetailMonitoringMaintenance";
+import FormMonitoringMaintenance from "./component/Monitoring Maintenance/FormMonitoringMaintenance";
 
 function App() {
   return (
@@ -63,18 +74,21 @@ function App() {
         <Route path="/workorders/td/reports" element={<ReportsTD />} />
         <Route path="/workorders/td/knowledge-base" element={<KnowledgeBaseTD />} /> */}
 
-        {/* <Route path="/workorders/it" element={<ITRequest />} />
+        <Route path="/workorders/it" element={<ITRequest />} />
         <Route path="/workorders/it/addworkorder" element={<AddWorkOrderFormIT />} />
-        <Route path="/workorders/it/editworkorder/:id" element={<EditWorkOrderIT />} />
-        <Route path="/workorders/it/approver" element={<ITApprover />} />
+        {/* <Route path="/workorders/it/editworkorder/:id" element={<EditWorkOrderIT />} /> */}
+        {/* <Route path="/workorders/it/approver" element={<ITApprover />} /> */}
         <Route path="/workorders/it/assignment" element={<ITAssignment />} />
         <Route path="/workorders/it/receiver" element={<ITReceiver />} />
-        <Route path="/workorders/it/reports" element={<ITReports />} />
+        {/* <Route path="/workorders/it/reports" element={<ITReports />} /> */}
         <Route path="/workorders/it/knowledgebase" element={<ITKnowledgeBase />} />
-        <Route path="/permissions/adduser" element={<AddUserPage />} /> */}
+        <Route path="/permissions/adduser" element={<AddUserPage />} />
         {/* <Route path="/machinehistory/addmachinehistory" element={<FormMesin />} />
         <Route path="/machinehistory/edit/:id" element={<EditFormMesin />} /> */}
         <Route path="/workorders" element={<WorkOrdersSelection />} />
+        <Route path="/monitoringmaintenance/detailmonitoringmaintenance" element={<DetailMonitoringMaintenance />} />
+        <Route path="/monitoringmaintenance/formmonitoringmaintenance" element={<FormMonitoringMaintenance />} />
+        <Route path="/monitoringmaintenance" element={<MonitoringMaintenance />} />
 
         {/* Protected Routes */}
         {/* Dashboard */}
@@ -83,16 +97,49 @@ function App() {
           <Route path="/dashboard" element={<Dashboard />} />
         </Route>
 
+        <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}>
+          <Route path="/audittrail" element={<AuditTrail />} />
+        </Route>
+
+        <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}>
+          <Route path="/worklocation" element={<WorkLocationSelection />} />
+        </Route>
+
+        <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}>
+          <Route path="/workarrangement" element={<WorkArrangementSelection />} />
+        </Route>
+
+        <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}>
+          <Route path="/sparepart" element={<SparePartSelection />} />
+        </Route>
+
         {/* Assets Management */}
         <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}>
-          {/*
-            Removed the redundant <Route index element={<Assets />} /> here.
-            The explicit path="/assets" below is sufficient for the base Assets page
-            when nested under a Route element that already matches the parent path.
-          */}
-          <Route path="/assets" element={<Assets />} /> {/* Base Assets page */}
-          <Route path="/assets/addasset" element={<AddAsset />} />
-          <Route path="/assets/editasset/:id" element={<EditAssetPage />} />
+          <Route path="/assets" element={<AssetsSelection />} />
+          {/* <Route path="/assets/assetsgroup" element={<Assets />} /> */}
+          <Route path="/assets/assetsdata" element={<Assets />} />
+          <Route path="/assets/assetsdata/addasset" element={<AddAsset />} />
+          <Route path="/assets/assetsdata/editasset/:id" element={<EditAssetPage />} />
+        </Route>
+
+        <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}>
+          <Route path="/service" element={<ServiceSelection />} />
+        </Route>
+
+        <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}>
+          <Route path="/maintenanceactivity" element={<MaintenanceActivitySelection />} />
+        </Route>
+
+        {/* Machine History */}
+        <Route element={<ProtectedRoute requiredPermissions={["view_machinehistory"]} />}>
+          <Route path="/machinehistory" element={<MachineHistoryDashboard />} />
+          <Route path="/machinehistory/reports" element={<MachineHistoryReports />} />
+          <Route path="/machinehistory/addmachinehistory" element={<FormMesin />} />
+          <Route path="/machinehistory/edit/:id" element={<EditFormMesin />} />
+        </Route>
+
+        <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}>
+          <Route path="/monitoringmaintenance" element={<MonitoringMaintenance />} />
         </Route>
 
         {/* Work Orders */}
@@ -100,23 +147,16 @@ function App() {
           <Route path="/workorders" element={<WorkOrdersSelection />} />
           <Route path="/workorders/it" element={<ITRequest />} />
           <Route path="/workorders/it/addworkorder" element={<AddWorkOrderFormIT />} />
-          <Route path="/workorders/it/editworkorder/:id" element={<EditWorkOrderIT />} />
-          <Route path="/workorders/it/approver" element={<ITApprover />} />
+          {/* <Route path="/workorders/it/editworkorder/:id" element={<EditWorkOrderIT />} /> */}
+          {/* <Route path="/workorders/it/approver" element={<ITApprover />} /> */}
           <Route path="/workorders/it/assignment" element={<ITAssignment />} />
           <Route path="/workorders/it/receiver" element={<ITReceiver />} />
-          <Route path="/workorders/it/reports" element={<ITReports />} />
+          {/* <Route path="/workorders/it/reports" element={<ITReports />} /> */}
           <Route path="/workorders/it/knowledgebase" element={<ITKnowledgeBase />} />
           {/* <Route path="/workorders" element={<WorkOrdersDashboard />} />
           <Route path="/workordersadmin" element={<WorkOrderAdminDashboard />} />
           <Route path="/workorders/addworkorder" element={<FormWorkOrders />} />
           <Route path="/workorders/editworkorder/:id" element={<EditWorkOrder />} /> */}
-        </Route>
-
-        {/* Machine History */}
-        <Route element={<ProtectedRoute requiredPermissions={["view_machinehistory"]} />}>
-          <Route path="/machinehistory" element={<MachineHistoryDashboard />} />
-          <Route path="/machinehistory/addmachinehistory" element={<FormMesin />} />
-          <Route path="/machinehistory/edit/:id" element={<EditFormMesin />} />
         </Route>
 
         {/* Inventory */}

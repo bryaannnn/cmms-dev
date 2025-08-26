@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useAuth } from "../routes/AuthContext";
+import { Department, useAuth } from "../routes/AuthContext";
 import logoWida from "../assets/logo-wida.png";
 import Sidebar from "../component/Sidebar";
 import { motion, AnimatePresence } from "framer-motion";
@@ -66,7 +66,8 @@ interface User {
   roleId: string | null;
   permissions: string[];
   customPermissions: string[];
-  department?: string | null;
+  department?: Department;
+  department_id: number | null;
   rolePermissions?: string[];
 }
 
@@ -187,7 +188,8 @@ const PermissionsPage: React.FC = () => {
           email: user.email,
           roleId: user.roleId ? String(user.roleId) : null,
           customPermissions: user.customPermissions || [],
-          department: user.department || "none",
+          department: user.department.name || "none",
+          department_id: user.department_id || null,
           permissions: user.allPermissions,
         }));
 
@@ -380,9 +382,9 @@ const PermissionsPage: React.FC = () => {
     return role ? role.name : "No Role";
   };
 
-  const uniqueDepartments = ["all", ...new Set(users.map((u) => u.department || "").filter(Boolean))];
+  const uniqueDepartments = ["all", ...new Set(users.map((u) => u.department?.name || "").filter(Boolean))];
   const filteredUsers = users
-    .filter((user) => departmentFilter === "all" || user.department === departmentFilter)
+    .filter((user) => departmentFilter === "all" || user.department?.name === departmentFilter)
     .filter((user) => user.name.toLowerCase().includes(searchQuery.toLowerCase()) || user.nik.toLowerCase().includes(searchQuery.toLowerCase()));
 
   if (!hasPermission("15")) {
@@ -654,7 +656,7 @@ const PermissionsPage: React.FC = () => {
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{userItem.name}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{userItem.nik}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{userItem.email}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{userItem.department || "-"}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{userItem.department?.name || "-"}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{getRoleName(userItem.roleId)}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                             {userItem.roleId === "3" ? (
@@ -737,7 +739,7 @@ const PermissionsPage: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
-                    <div className="text-gray-600">{editingUser.department || "-"}</div>
+                    <div className="text-gray-600">{editingUser.department?.name || "-"}</div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>

@@ -14,3 +14,14 @@
 .sidebar-nav {
   -ms-overflow-style: none;
 }
+
+.disabled-field {
+  background-color: #f0f9ff;
+  border-color: #d1d5db;
+  cursor: not-allowed;
+}
+
+.disabled-field-text {
+  color: #374151;
+  font-weight: 500;
+}

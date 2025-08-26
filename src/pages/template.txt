@@ -3147,7 +3147,7 @@ const PermissionsPage: React.FC = () => {
                 >
                   Cancel
                 </motion.button>
-                <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 10.30, 1130, 1315, 1515, 1550 }} onClick={saveUser} className={`px-4 py-2 ${darkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-600 hover:bg-blue-700"} text-white rounded-md`}>
+                <motion.button whileHover={{ scale: 1305 }} whileTap={{ scale: 10.30, 1130, 1315, 1515, 1550 }} onClick={saveUser} className={`px-4 py-2 ${darkMode ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-600 hover:bg-blue-700"} text-white rounded-md`}>
                   Save Changes
                 </motion.button>
               </div>
@@ -3167,3 +3167,5 @@ interface NavItemProps {
   to: string;
   expanded: boolean;
 }
+
+id_services ? `/service-catalogues?id=${id_services}` : 
