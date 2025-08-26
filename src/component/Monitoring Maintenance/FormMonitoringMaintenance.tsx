@@ -1,9 +1,11 @@
 import React, { useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import Select from "react-select";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 import { motion, AnimatePresence } from "framer-motion";
 import Sidebar from "../Sidebar";
-import { X, CheckCircle, ArrowLeft, Save, Hourglass, Plus, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
+import { X, CheckCircle, ArrowLeft, Save, Hourglass, Plus, ChevronLeft, ChevronRight, Trash2, ArrowRight } from "lucide-react";
 
 interface ModalProps {
   isOpen: boolean;
@@ -40,6 +42,7 @@ interface ItemData {
 
 interface MachineData {
   mesin: string;
+  interval: string;
   items: ItemData[];
 }
 
@@ -49,7 +52,8 @@ interface UnitData {
 }
 
 interface FormState {
-  interval: string;
+  startDate: Date | null;
+  endDate: Date | null;
   units: UnitData[];
 }
 
@@ -61,12 +65,12 @@ const FormMonitoringMaintenance: React.FC = () => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   // Hardcode dummy data for a full dummy frontend
-  const dummyUnitList = useMemo(() => [{ nama_unit: "Unit Produksi A" }, { nama_unit: "Unit Pengemasan B" }, { nama_unit: "Unit Logistik C" }], []);
+  const dummyUnitList = useMemo(() => [{ nama_unit: "WY01" }, { nama_unit: "Unit Pengemasan B" }, { nama_unit: "Unit Logistik C" }], []);
 
   const dummyMesinList = useMemo(
     () => [
-      { nama_mesin: "Mesin A1", unit_id: "Unit Produksi A" },
-      { nama_mesin: "Mesin A2", unit_id: "Unit Produksi A" },
+      { nama_mesin: "Machine A", unit_id: "WY01" },
+      { nama_mesin: "Machine B", unit_id: "WY01" },
       { nama_mesin: "Mesin B1", unit_id: "Unit Pengemasan B" },
       { nama_mesin: "Mesin B2", unit_id: "Unit Pengemasan B" },
       { nama_mesin: "Mesin C1", unit_id: "Unit Logistik C" },
@@ -74,19 +78,20 @@ const FormMonitoringMaintenance: React.FC = () => {
     []
   );
 
-  const dummyItemList = useMemo(
+  const dummyItemsWithIntervals = useMemo(
     () => [
-      { item: "Suhu", satuan: "°C" },
-      { item: "Tekanan", satuan: "Bar" },
-      { item: "Kecepatan", satuan: "RPM" },
-      { item: "Kondisi Fisik", satuan: "" },
+      { unit: "WY01", machine: "Machine A", interval: "Weekly", item: "Hydraulic Pressure", satuan: "psi" },
+      { unit: "WY01", machine: "Machine A", interval: "Daily", item: "Oil Level", satuan: "L" },
+      { unit: "Unit Pengemasan B", machine: "Mesin B1", interval: "Monthly", item: "Temperature", satuan: "°C" },
+      { unit: "Unit Logistik C", machine: "Mesin C1", interval: "3 Months", item: "Bearing Condition", satuan: "Visual" },
     ],
     []
   );
 
   const initialFormData: FormState = {
-    interval: "",
-    units: [],
+    startDate: null,
+    endDate: null,
+    units: [{ unit: "", machines: [] }],
   };
 
   const [formData, setFormData] = useState<FormState>(initialFormData);
@@ -162,24 +167,22 @@ const FormMonitoringMaintenance: React.FC = () => {
     });
   }, []);
 
-  const handleAddUnit = useCallback(() => {
-    setFormData((prev) => ({
-      ...prev,
-      units: [...prev.units, { unit: "", machines: [] }],
-    }));
-  }, []);
-
-  const handleRemoveUnit = useCallback((unitIndex: number) => {
-    setFormData((prev) => ({
-      ...prev,
-      units: prev.units.filter((_, i) => i !== unitIndex),
-    }));
-  }, []);
-
   const handleAddMachine = useCallback((unitIndex: number) => {
     setFormData((prev) => {
       const newUnits = [...prev.units];
-      newUnits[unitIndex].machines = [...newUnits[unitIndex].machines, { mesin: "", items: [] }];
+      const newMachines = [...newUnits[unitIndex].machines];
+
+      // Check if the last machine field is empty
+      if (newMachines.length > 0) {
+        const lastMachine = newMachines[newMachines.length - 1];
+        if (!lastMachine.mesin && !lastMachine.interval) {
+          // If the last machine has empty fields, do not add a new one.
+          return prev;
+        }
+      }
+
+      newMachines.push({ mesin: "", interval: "", items: [] });
+      newUnits[unitIndex].machines = newMachines;
       return { ...prev, units: newUnits };
     });
   }, []);
@@ -188,26 +191,6 @@ const FormMonitoringMaintenance: React.FC = () => {
     setFormData((prev) => {
       const newUnits = [...prev.units];
       newUnits[unitIndex].machines = newUnits[unitIndex].machines.filter((_, i) => i !== machineIndex);
-      return { ...prev, units: newUnits };
-    });
-  }, []);
-
-  const handleAddItem = useCallback((unitIndex: number, machineIndex: number) => {
-    setFormData((prev) => {
-      const newUnits = [...prev.units];
-      const newMachines = [...newUnits[unitIndex].machines];
-      newMachines[machineIndex].items = [...newMachines[machineIndex].items, { item: "", satuan: "", standarMin: null, standarMax: null, standarVisual: "" }];
-      newUnits[unitIndex].machines = newMachines;
-      return { ...prev, units: newUnits };
-    });
-  }, []);
-
-  const handleRemoveItem = useCallback((unitIndex: number, machineIndex: number, itemIndex: number) => {
-    setFormData((prev) => {
-      const newUnits = [...prev.units];
-      const newMachines = [...newUnits[unitIndex].machines];
-      newMachines[machineIndex].items = newMachines[machineIndex].items.filter((_, i) => i !== itemIndex);
-      newUnits[unitIndex].machines = newMachines;
       return { ...prev, units: newUnits };
     });
   }, []);
@@ -240,13 +223,13 @@ const FormMonitoringMaintenance: React.FC = () => {
     return (
       <div className="flex justify-around items-center mb-8 border-b-2 border-gray-100">
         <button type="button" onClick={() => setCurrentStep(1)} className={`px-4 py-2 font-medium ${currentStep === 1 ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500"}`}>
-          1. Interval
+          1. Date
         </button>
         <button
           type="button"
           onClick={() => setCurrentStep(2)}
-          disabled={!formData.interval}
-          className={`px-4 py-2 font-medium ${currentStep === 2 ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500"} ${!formData.interval ? "opacity-50 cursor-not-allowed" : ""}`}
+          disabled={!formData.startDate || !formData.endDate}
+          className={`px-4 py-2 font-medium ${currentStep === 2 ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500"} ${!formData.startDate || !formData.endDate ? "opacity-50 cursor-not-allowed" : ""}`}
         >
           2. Unit
         </button>
@@ -256,7 +239,7 @@ const FormMonitoringMaintenance: React.FC = () => {
           disabled={!formData.units.some((u) => u.unit)}
           className={`px-4 py-2 font-medium ${currentStep === 3 ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500"} ${!formData.units.some((u) => u.unit) ? "opacity-50 cursor-not-allowed" : ""}`}
         >
-          3. Mesin
+          3. Machine & Interval
         </button>
         <button
           type="button"
@@ -275,19 +258,33 @@ const FormMonitoringMaintenance: React.FC = () => {
       case 1:
         return (
           <motion.div key="step1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }}>
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">Interval Monitoring</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {intervalOptions.map((option) => (
-                <motion.div
-                  key={option.value}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => handleUpdate("interval", option.value)}
-                  className={`cursor-pointer p-4 rounded-lg border-2 transition-all duration-200 ${formData.interval === option.value ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:bg-gray-50"}`}
-                >
-                  <span className="font-medium text-gray-800">{option.label}</span>
-                </motion.div>
-              ))}
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">Tanggal Monitoring</h2>
+            <div className="flex flex-col md:flex-row md:items-center gap-6 md:gap-8">
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                <DatePicker
+                  selected={formData.startDate}
+                  onChange={(date) => setFormData({ ...formData, startDate: date })}
+                  dateFormat="dd/MM/yyyy"
+                  className="w-full p-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholderText="Pilih Tanggal Mulai"
+                  isClearable
+                />
+              </div>
+              <div className="text-gray-400 hidden md:block mt-6">
+                <ArrowRight size={24} />
+              </div>
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                <DatePicker
+                  selected={formData.endDate}
+                  onChange={(date) => setFormData({ ...formData, endDate: date })}
+                  dateFormat="dd/MM/yyyy"
+                  className="w-full p-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholderText="Pilih Tanggal Selesai"
+                  isClearable
+                />
+              </div>
             </div>
           </motion.div>
         );
@@ -308,26 +305,15 @@ const FormMonitoringMaintenance: React.FC = () => {
                       styles={customSelectStyles}
                     />
                   </div>
-                  <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => handleRemoveUnit(unitIndex)} className="text-red-500 hover:text-red-700">
-                    <Trash2 size={20} />
-                  </motion.button>
                 </motion.div>
               ))}
             </div>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleAddUnit}
-              className="mt-4 flex items-center justify-center w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors duration-200"
-            >
-              <Plus size={20} className="mr-2" /> Tambah Unit
-            </motion.button>
           </motion.div>
         );
       case 3:
         return (
           <motion.div key="step3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.2 }}>
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">Mesin</h2>
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">Mesin & Interval</h2>
             <div className="space-y-6">
               {formData.units.map(
                 (unitData, unitIndex) =>
@@ -336,24 +322,55 @@ const FormMonitoringMaintenance: React.FC = () => {
                       <h3 className="font-semibold text-gray-700 mb-3">{unitData.unit}</h3>
                       <div className="space-y-4">
                         {unitData.machines.map((machineData, machineIndex) => (
-                          <motion.div key={machineIndex} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-3 border border-gray-300 rounded-lg bg-white flex items-center space-x-2">
-                            <div className="flex-1">
+                          <motion.div key={machineIndex} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-3 border border-gray-300 rounded-lg bg-white grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Mesin</label>
                               <Select
                                 options={dummyMesinList.filter((m) => m.unit_id === unitData.unit).map((m) => ({ value: m.nama_mesin, label: m.nama_mesin }))}
                                 value={machineData.mesin ? { value: machineData.mesin, label: machineData.mesin } : null}
-                                onChange={(option) => handleUpdate(`units[${unitIndex}].machines[${machineIndex}].mesin`, option ? option.value : "")}
+                                onChange={(option) => {
+                                  const selectedMachine = option ? option.value : "";
+                                  handleUpdate(`units[${unitIndex}].machines[${machineIndex}].mesin`, selectedMachine);
+                                  handleUpdate(`units[${unitIndex}].machines[${machineIndex}].items`, []);
+                                }}
                                 isClearable
                                 placeholder="Pilih Mesin"
                                 styles={customSelectStyles}
                               />
                             </div>
-                            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => handleRemoveMachine(unitIndex, machineIndex)} className="text-red-500 hover:text-red-700">
-                              <Trash2 size={20} />
-                            </motion.button>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Interval</label>
+                              <Select
+                                options={intervalOptions}
+                                value={machineData.interval ? { value: machineData.interval, label: machineData.interval } : null}
+                                onChange={(option) => {
+                                  const selectedInterval = option ? option.value : "";
+                                  handleUpdate(`units[${unitIndex}].machines[${machineIndex}].interval`, selectedInterval);
+                                  // Populate items based on selection
+                                  const filteredItems = dummyItemsWithIntervals
+                                    .filter((item) => item.unit === unitData.unit && item.machine === machineData.mesin && item.interval === selectedInterval)
+                                    .map((item) => ({
+                                      item: item.item,
+                                      satuan: item.satuan,
+                                      standarMin: null,
+                                      standarMax: null,
+                                      standarVisual: "",
+                                    }));
+                                  handleUpdate(`units[${unitIndex}].machines[${machineIndex}].items`, filteredItems);
+                                }}
+                                isClearable
+                                placeholder="Pilih Interval"
+                                styles={customSelectStyles}
+                              />
+                            </div>
+                            <div className="md:col-span-2 flex justify-end">
+                              <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => handleRemoveMachine(unitIndex, machineIndex)} className="text-red-500 hover:text-red-700">
+                                <Trash2 size={20} />
+                              </motion.button>
+                            </div>
                           </motion.div>
                         ))}
                       </div>
-                      {/* Perbaikan di sini: Tambahkan arrow function */}
                       <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
@@ -381,83 +398,50 @@ const FormMonitoringMaintenance: React.FC = () => {
                       machineData.mesin && (
                         <div key={`${unitIndex}-${machineIndex}`} className="p-4 border border-gray-200 rounded-lg bg-gray-50">
                           <h3 className="font-semibold text-gray-700 mb-3">
-                            {unitData.unit} - {machineData.mesin}
+                            {unitData.unit} - {machineData.mesin} ({machineData.interval})
                           </h3>
-                          <div className="space-y-4">
-                            {machineData.items.map((itemData, itemIndex) => (
-                              <motion.div key={itemIndex} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-3 border border-gray-300 rounded-lg bg-white grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                <div className="lg:col-span-3 flex justify-end">
-                                  <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => handleRemoveItem(unitIndex, machineIndex, itemIndex)} className="text-red-500 hover:text-red-700">
-                                    <Trash2 size={20} />
-                                  </motion.button>
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-1">Item</label>
-                                  <Select
-                                    options={dummyItemList.map((i) => ({ value: i.item, label: i.item }))}
-                                    value={itemData.item ? { value: itemData.item, label: itemData.item } : null}
-                                    onChange={(option) => {
-                                      handleUpdate(`units[${unitIndex}].machines[${machineIndex}].items[${itemIndex}].item`, option ? option.value : "");
-                                      if (option) {
-                                        const selectedItem = dummyItemList.find((i) => i.item === option.value);
-                                        if (selectedItem) {
-                                          handleUpdate(`units[${unitIndex}].machines[${machineIndex}].items[${itemIndex}].satuan`, selectedItem.satuan);
-                                        }
-                                      }
-                                    }}
-                                    isClearable
-                                    placeholder="Pilih Item"
-                                    styles={customSelectStyles}
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-1">Satuan</label>
-                                  <input
-                                    type="text"
-                                    value={itemData.satuan}
-                                    onChange={(e) => handleUpdate(`units[${unitIndex}].machines[${machineIndex}].items[${itemIndex}].satuan`, e.target.value)}
-                                    className="w-full p-2.5 border border-gray-300 rounded-lg"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-1">Standar Min</label>
-                                  <input
-                                    type="number"
-                                    value={itemData.standarMin ?? ""}
-                                    onChange={(e) => handleUpdate(`units[${unitIndex}].machines[${machineIndex}].items[${itemIndex}].standarMin`, e.target.value)}
-                                    className="w-full p-2.5 border border-gray-300 rounded-lg"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-1">Standar Max</label>
-                                  <input
-                                    type="number"
-                                    value={itemData.standarMax ?? ""}
-                                    onChange={(e) => handleUpdate(`units[${unitIndex}].machines[${machineIndex}].items[${itemIndex}].standarMax`, e.target.value)}
-                                    className="w-full p-2.5 border border-gray-300 rounded-lg"
-                                  />
-                                </div>
-                                <div className="lg:col-span-2">
-                                  <label className="block text-sm font-medium text-gray-700 mb-1">Standar Visual</label>
-                                  <textarea
-                                    rows={2}
-                                    value={itemData.standarVisual}
-                                    onChange={(e) => handleUpdate(`units[${unitIndex}].machines[${machineIndex}].items[${itemIndex}].standarVisual`, e.target.value)}
-                                    className="w-full p-2.5 border border-gray-300 rounded-lg"
-                                  />
-                                </div>
-                              </motion.div>
-                            ))}
-                          </div>
-                          {/* Perbaikan di sini: Tambahkan arrow function */}
-                          <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => handleAddItem(unitIndex, machineIndex)}
-                            className="mt-4 flex items-center justify-center w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors duration-200"
-                          >
-                            <Plus size={20} className="mr-2" /> Tambah Item
-                          </motion.button>
+                          {machineData.items.length > 0 ? (
+                            <div className="space-y-4">
+                              {machineData.items.map((itemData, itemIndex) => (
+                                <motion.div key={itemIndex} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-3 border border-gray-300 rounded-lg bg-white grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                  <div className="lg:col-span-3">
+                                    <h4 className="font-bold text-gray-800">
+                                      Item: {itemData.item} ({itemData.satuan})
+                                    </h4>
+                                  </div>
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Standar Min</label>
+                                    <input
+                                      type="number"
+                                      value={itemData.standarMin ?? ""}
+                                      onChange={(e) => handleUpdate(`units[${unitIndex}].machines[${machineIndex}].items[${itemIndex}].standarMin`, e.target.value)}
+                                      className="w-full p-2.5 border border-gray-300 rounded-lg"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Standar Max</label>
+                                    <input
+                                      type="number"
+                                      value={itemData.standarMax ?? ""}
+                                      onChange={(e) => handleUpdate(`units[${unitIndex}].machines[${machineIndex}].items[${itemIndex}].standarMax`, e.target.value)}
+                                      className="w-full p-2.5 border border-gray-300 rounded-lg"
+                                    />
+                                  </div>
+                                  <div className="lg:col-span-2">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Standar Visual</label>
+                                    <textarea
+                                      rows={2}
+                                      value={itemData.standarVisual}
+                                      onChange={(e) => handleUpdate(`units[${unitIndex}].machines[${machineIndex}].items[${itemIndex}].standarVisual`, e.target.value)}
+                                      className="w-full p-2.5 border border-gray-300 rounded-lg"
+                                    />
+                                  </div>
+                                </motion.div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-gray-500 italic mt-2">No matching items for the selected interval.</p>
+                          )}
                         </div>
                       )
                   )
@@ -473,13 +457,13 @@ const FormMonitoringMaintenance: React.FC = () => {
   const isNextDisabled = useMemo(() => {
     switch (currentStep) {
       case 1:
-        return !formData.interval;
+        return !formData.startDate || !formData.endDate;
       case 2:
-        return formData.units.length === 0 || formData.units.some((u) => !u.unit);
+        return !formData.units[0].unit;
       case 3:
-        return formData.units.some((u) => u.machines.length === 0 || u.machines.some((m) => !m.mesin));
+        return formData.units.some((u) => u.machines.length === 0 || u.machines.some((m) => !m.mesin || !m.interval));
       case 4:
-        return formData.units.some((u) => u.machines.some((m) => m.items.length === 0 || m.items.some((i) => !i.item)));
+        return formData.units.some((u) => u.machines.some((m) => m.items.length === 0));
       default:
         return true;
     }

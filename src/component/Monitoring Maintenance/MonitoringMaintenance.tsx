@@ -1,7 +1,7 @@
 import * as React from "react";
-import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import {
   Wrench,
   CheckCircle,
@@ -30,7 +30,7 @@ import {
   ThumbsDown,
   ChevronLeft,
 } from "lucide-react";
-import Sidebar from "../Sidebar";
+import Sidebar from "../Sidebar"; // Removed Sidebar import
 
 const getApprovalStatusColor = (status: string) => {
   switch (status) {
@@ -52,34 +52,33 @@ const getApprovalStatusColor = (status: string) => {
   }
 };
 
-// New helper function to get display status
 const getDisplayStatus = (status: ApprovalStatusType | MaintenanceTaskRecord["status"]) => {
   switch (status) {
     case "Approved":
-      return "Selesai";
+      return "Completed";
     case "Pending Employee":
     case "Pending Unit Head Engineering":
     case "Pending Unit Head Production Process":
     case "Pending Section Head Engineering":
     case "Pending Section Head Production Process":
-      return "Dalam Proses";
+      return "In Progress";
     case "Draft":
     case "Scheduled":
-      return "Belum Diproses";
+      return "Not Processed";
     case "Rejected":
-      return "Ditolak";
+      return "Rejected";
     case "Missed":
-      return "Terlewat";
+      return "Missed";
     case "Emergency":
-      return "Darurat";
+      return "Emergency";
     case "Completed":
-      return "Selesai";
+      return "Completed";
     case "Overdue":
-      return "Terlewat"; // Overdue is similar to missed in display context
+      return "Overdue";
     case "Pending Review":
-      return "Dalam Proses"; // Pending Review is similar to Pending Approval
+      return "In Progress";
     case "Reviewed":
-      return "Dalam Proses"; // Reviewed might still be in a process of final approval
+      return "In Progress";
     default:
       return "N/A";
   }
@@ -91,15 +90,10 @@ const getWeekOfMonth = (date: Date) => {
   return Math.ceil((startDay + 6 - dayOfWeek) / 7);
 };
 
-// Helper function to get ISO week number for a given date
 const getISOWeekNumber = (d: Date) => {
   d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-  // Set to nearest Thursday: current date + 4 - current day number (0-6)
-  // If Sunday is 0, need to convert to 7 if it's Sunday
   d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-  // Get first day of year
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  // Calculate full weeks to nearest Thursday
   const weekNo = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
   return weekNo;
 };
@@ -130,7 +124,7 @@ export interface MaintenanceTaskRecord {
   standartVisual: string;
   monitoringResult: string;
   msStatus: "OK" | "NG" | "N/A";
-  notes: string; // This property is required
+  notes: string;
   approvalStatus: ApprovalStatusType;
   currentApproverIndex: number;
   rejectionReason?: string;
@@ -189,8 +183,6 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, classNa
     <AnimatePresence>
       {isOpen && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4 backdrop-blur-sm">
-          {" "}
-          {/* Changed opacity to bg-opacity-60 */}
           <motion.div
             initial={{ y: 50, opacity: 0, scale: 0.95 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
@@ -253,7 +245,6 @@ const ApprovalFlow: React.FC<ApprovalFlowProps> = ({ record, onUpdateApproval, c
 
     if (newIndex >= APPROVAL_ROLES.length) {
       newStatus = "Approved";
-      // Corrected typo here from APPROVAL_ROOLO_ROLES.length to APPROVAL_ROLES.length
       newIndex = APPROVAL_ROLES.length;
     } else {
       newStatus = `Pending ${APPROVAL_ROLES[newIndex]}` as ApprovalStatusType;
@@ -281,10 +272,10 @@ const ApprovalFlow: React.FC<ApprovalFlowProps> = ({ record, onUpdateApproval, c
 
   return (
     <div className="space-y-4 p-4 border border-blue-100 bg-blue-50 rounded-lg">
-      <h3 className="text-lg font-semibold text-gray-800">Alur Persetujuan</h3>
+      <h3 className="text-lg font-semibold text-gray-800">Approval Flow</h3>
       <div className="flex items-center space-x-2 text-sm">
-        <span className="font-medium text-gray-700">Status Saat Ini:</span>
-        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getApprovalStatusColor(currentApprovalStatus)}`}>{getDisplayStatus(currentApprovalStatus)}</span> {/* Updated status display */}
+        <span className="font-medium text-gray-700">Current Status:</span>
+        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getApprovalStatusColor(currentApprovalStatus)}`}>{getDisplayStatus(currentApprovalStatus)}</span>
       </div>
 
       <div className="flex flex-col space-y-2">
@@ -308,8 +299,8 @@ const ApprovalFlow: React.FC<ApprovalFlowProps> = ({ record, onUpdateApproval, c
               {index < record.currentApproverIndex || record.approvalStatus === "Approved" ? <CheckCircle size={14} /> : record.approvalStatus === "Rejected" && index === record.currentApproverIndex ? <X size={14} /> : <Info size={14} />}
             </motion.div>
             <span className={`font-medium ${index === record.currentApproverIndex ? "text-blue-700" : "text-gray-700"}`}>{role}</span>
-            {record.rejectionReason && index === record.currentApproverIndex && record.approvalStatus === "Rejected" && <span className="ml-2 text-red-600 text-xs italic">Alasan: {record.rejectionReason}</span>}
-            {record.feedbackNotes && index === record.currentApproverIndex && record.approvalStatus.includes("Feedback") && <span className="ml-2 text-blue-600 text-xs italic">Umpan Balik: {record.feedbackNotes}</span>}
+            {record.rejectionReason && index === record.currentApproverIndex && record.approvalStatus === "Rejected" && <span className="ml-2 text-red-600 text-xs italic">Reason: {record.rejectionReason}</span>}
+            {record.feedbackNotes && index === record.currentApproverIndex && record.approvalStatus.includes("Feedback") && <span className="ml-2 text-blue-600 text-xs italic">Feedback: {record.feedbackNotes}</span>}
           </div>
         ))}
       </div>
@@ -317,13 +308,13 @@ const ApprovalFlow: React.FC<ApprovalFlowProps> = ({ record, onUpdateApproval, c
       {canApprove && (
         <div className="flex space-x-3 mt-4">
           <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={handleApprove} className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center text-sm font-semibold">
-            <ThumbsUp size={16} className="mr-2" /> Setujui
+            <ThumbsUp size={16} className="mr-2" /> Approve
           </motion.button>
           <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={handleReject} className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 flex items-center text-sm font-semibold">
-            <ThumbsDown size={16} className="mr-2" /> Tolak
+            <ThumbsDown size={16} className="mr-2" /> Reject
           </motion.button>
           <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={handleFeedback} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center text-sm font-semibold">
-            <MessageSquare size={16} className="mr-2" /> Umpan Balik
+            <MessageSquare size={16} className="mr-2" /> Feedback
           </motion.button>
         </div>
       )}
@@ -331,7 +322,7 @@ const ApprovalFlow: React.FC<ApprovalFlowProps> = ({ record, onUpdateApproval, c
       {showFeedbackInput && (
         <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2 }} className="mt-4">
           <label htmlFor="feedback-input" className="block text-sm font-medium text-gray-700 mb-2">
-            Berikan Umpan Balik:
+            Provide Feedback:
           </label>
           <textarea
             id="feedback-input"
@@ -339,10 +330,10 @@ const ApprovalFlow: React.FC<ApprovalFlowProps> = ({ record, onUpdateApproval, c
             value={feedback}
             onChange={(e) => setFeedback(e.target.value)}
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-            placeholder="Masukkan umpan balik atau alasan penolakan di sini..."
+            placeholder="Enter feedback or rejection reason here..."
           ></textarea>
           <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={submitFeedback} className="mt-3 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm font-semibold">
-            Kirim Umpan Balik
+            Send Feedback
           </motion.button>
         </motion.div>
       )}
@@ -359,27 +350,27 @@ interface DetailViewProps {
 const DetailView: React.FC<DetailViewProps> = ({ record, onUpdateApproval, currentUserRole }) => {
   return (
     <div className="space-y-6">
-      <SectionTitle title="Detail Pemantauan" />
+      <SectionTitle title="Monitoring Details" />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <DetailItem label="Interval Pemantauan" value={displayValue(record.interval)} />
+        <DetailItem label="Monitoring Interval" value={displayValue(record.interval)} />
         <DetailItem label="Unit" value={displayValue(record.unitWilayah)} />
-        <DetailItem label="Mesin" value={displayValue(record.mesin)} />
+        <DetailItem label="Machine" value={displayValue(record.mesin)} />
         <DetailItem label="Item" value={displayValue(record.item)} />
-        <DetailItem label="Satuan" value={displayValue(record.unitOfMeasure)} />
-        <DetailItem label="Hasil Pemantauan" value={displayValue(record.monitoringResult)} valueColorClass={record.msStatus === "OK" ? "text-green-600" : record.msStatus === "NG" ? "text-red-600" : "text-gray-900"} />
-        <DetailItem label="Status MS" value={displayValue(record.msStatus)} valueColorClass={record.msStatus === "OK" ? "text-green-600" : record.msStatus === "NG" ? "text-red-600" : "text-gray-900"} />
+        <DetailItem label="Unit of Measure" value={displayValue(record.unitOfMeasure)} />
+        <DetailItem label="Monitoring Result" value={displayValue(record.monitoringResult)} valueColorClass={record.msStatus === "OK" ? "text-green-600" : record.msStatus === "NG" ? "text-red-600" : "text-gray-900"} />
+        <DetailItem label="MS Status" value={displayValue(record.msStatus)} valueColorClass={record.msStatus === "OK" ? "text-green-600" : record.msStatus === "NG" ? "text-red-600" : "text-gray-900"} />
       </div>
 
-      <SectionTitle title="Standar" />
+      <SectionTitle title="Standard" />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <DetailItem label="Standar (Min)" value={displayValue(record.standardMin)} />
-        <DetailItem label="Standar (Max)" value={displayValue(record.standardMax)} />
-        <DetailItem label="Standar (Visual)" value={displayValue(record.standartVisual)} className="md:col-span-2" />
+        <DetailItem label="Standard (Min)" value={displayValue(record.standardMin)} />
+        <DetailItem label="Standard (Max)" value={displayValue(record.standardMax)} />
+        <DetailItem label="Visual Standard" value={displayValue(record.standartVisual)} className="md:col-span-2" />
       </div>
 
-      <SectionTitle title="Keterangan" />
+      <SectionTitle title="Description" />
       <div className="grid grid-cols-1">
-        <DetailItem label="Catatan" value={displayValue(record.notes)} />
+        <DetailItem label="Notes" value={displayValue(record.notes)} />
       </div>
 
       <ApprovalFlow record={record} onUpdateApproval={onUpdateApproval} currentUserRole={currentUserRole} />
@@ -403,7 +394,7 @@ const TrendAnalysis: React.FC<{ records: MaintenanceTaskRecord[] }> = ({ records
       .filter((r) => r.mesin === selectedMachine && r.item === selectedItem && !isNaN(parseFloat(r.monitoringResult)))
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
       .map((r) => ({
-        date: new Date(r.date).toLocaleDateString("id-ID"),
+        date: new Date(r.date).toLocaleDateString("en-US"),
         result: parseFloat(r.monitoringResult),
         msStatus: r.msStatus,
         notes: r.notes,
@@ -412,11 +403,11 @@ const TrendAnalysis: React.FC<{ records: MaintenanceTaskRecord[] }> = ({ records
 
   return (
     <div className="space-y-6 bg-white rounded-2xl shadow-md p-6 border border-gray-100">
-      <h3 className="text-xl font-bold text-gray-800">Analisis Tren</h3>
+      <h3 className="text-xl font-bold text-gray-800">Trend Analysis</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label htmlFor="machine-select" className="block text-sm font-medium text-gray-700">
-            Pilih Mesin
+            Select Machine
           </label>
           <select
             id="machine-select"
@@ -429,14 +420,14 @@ const TrendAnalysis: React.FC<{ records: MaintenanceTaskRecord[] }> = ({ records
           >
             {machines.map((m) => (
               <option key={m} value={m}>
-                {m || "Pilih Mesin"}
+                {m || "Select Machine"}
               </option>
             ))}
           </select>
         </div>
         <div>
           <label htmlFor="item-select" className="block text-sm font-medium text-gray-700">
-            Pilih Item
+            Select Item
           </label>
           <select
             id="item-select"
@@ -447,7 +438,7 @@ const TrendAnalysis: React.FC<{ records: MaintenanceTaskRecord[] }> = ({ records
           >
             {items.map((i) => (
               <option key={i} value={i}>
-                {i || "Pilih Item"}
+                {i || "Select Item"}
               </option>
             ))}
           </select>
@@ -457,16 +448,16 @@ const TrendAnalysis: React.FC<{ records: MaintenanceTaskRecord[] }> = ({ records
       {trendData.length > 0 && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }} className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
           <h4 className="text-lg font-semibold text-gray-800 mb-4">
-            Data Historis untuk {selectedItem} pada {selectedMachine}
+            Historical Data for {selectedItem} on {selectedMachine}
           </h4>
           <div className="overflow-x-auto custom-scrollbar">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hasil</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status MS</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Catatan</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Result</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">MS Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -487,12 +478,10 @@ const TrendAnalysis: React.FC<{ records: MaintenanceTaskRecord[] }> = ({ records
           </div>
         </motion.div>
       )}
-      {selectedMachine && selectedItem && trendData.length === 0 && <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100 text-center text-gray-500">Tidak ada data numerik yang tersedia untuk item ini.</div>}
+      {selectedMachine && selectedItem && trendData.length === 0 && <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100 text-center text-gray-500">No numeric data available for this item.</div>}
     </div>
   );
 };
-
-// Removed WeeklyView Component entirely
 
 const normalizeIntervalType = (interval: AddIntervalType | RoutineSchedule["interval"]): string => {
   const lowerCaseInterval = interval.toLowerCase();
@@ -505,7 +494,7 @@ const normalizeIntervalType = (interval: AddIntervalType | RoutineSchedule["inte
   if (lowerCaseInterval === "quarterly") return "quarterly";
   if (lowerCaseInterval === "semi-annual") return "semi-annual";
   if (lowerCaseInterval === "yearly") return "yearly";
-  return lowerCaseInterval; // Fallback for other potential interval types
+  return lowerCaseInterval;
 };
 
 const generateTasksFromSchedules = (schedules: RoutineSchedule[], startDate: Date, endDate: Date): MaintenanceTaskRecord[] => {
@@ -545,7 +534,6 @@ const generateTasksFromSchedules = (schedules: RoutineSchedule[], startDate: Dat
           shouldAddTask = true;
         }
       } else if (schedule.interval === "daily") {
-        // Added daily interval
         taskDate = new Date(currentProcessDate.getTime());
         shouldAddTask = true;
       }
@@ -564,8 +552,8 @@ const generateTasksFromSchedules = (schedules: RoutineSchedule[], startDate: Dat
           id: `routine-${schedule.id}-${taskDate.getTime()}`,
           mesin: schedule.mesin,
           date: taskDate.toISOString().split("T")[0],
-          perbaikanPerawatan: "Preventif",
-          description: `Pemeriksaan rutin terjadwal untuk ${schedule.mesin} - ${schedule.item}`,
+          perbaikanPerawatan: "Preventive",
+          description: `Scheduled routine inspection for ${schedule.mesin} - ${schedule.item}`,
           status: status,
           pic: "N/A",
           shift: "N/A",
@@ -581,8 +569,8 @@ const generateTasksFromSchedules = (schedules: RoutineSchedule[], startDate: Dat
           jenisGangguan: "N/A",
           bentukTindakan: "N/A",
           rootCause: "N/A",
-          jenisAktivitas: "Pemeliharaan",
-          kegiatan: "Pemeriksaan rutin",
+          jenisAktivitas: "Maintenance",
+          kegiatan: "Routine inspection",
           kodePart: "N/A",
           sparePart: "N/A",
           idPart: "N/A",
@@ -599,7 +587,7 @@ const generateTasksFromSchedules = (schedules: RoutineSchedule[], startDate: Dat
               ? "6 Months"
               : schedule.interval === "yearly"
               ? "1 Year"
-              : "Daily", // Corrected interval type mapping
+              : "Daily",
           unitWilayah: schedule.unitWilayah,
           item: schedule.item,
           unitOfMeasure: schedule.unitOfMeasure,
@@ -610,7 +598,7 @@ const generateTasksFromSchedules = (schedules: RoutineSchedule[], startDate: Dat
           msStatus: "N/A",
           approvalStatus: "Pending Employee",
           currentApproverIndex: 0,
-          notes: "N/A", // Added missing notes property
+          notes: "N/A",
         });
       }
 
@@ -641,8 +629,7 @@ interface Unit {
   machines: Machine[];
 }
 
-// New interfaces for the AddFormData structure
-type AddIntervalType = "Weekly" | "Monthly" | "3 Months" | "6 Months" | "1 Year" | "Daily";
+export type AddIntervalType = "Weekly" | "Monthly" | "3 Months" | "6 Months" | "1 Year" | "Daily";
 
 interface SelectedItemForMachine {
   id: string;
@@ -657,7 +644,7 @@ interface SelectedMachineInForm {
   id: string;
   name: string;
   selectedInterval: AddIntervalType | null;
-  selectedItems: SelectedItemForMachine[]; // This will now be auto-populated
+  selectedItems: SelectedItemForMachine[];
 }
 
 interface SelectedUnitInForm {
@@ -672,33 +659,42 @@ interface AddFormData {
   selectedUnits: SelectedUnitInForm[];
 }
 
-// Global static data for units and machines (expanded)
 const STATIC_UNITS: Unit[] = [
   {
     id: "unit-WY01",
     name: "WY01",
     machines: [
-      { id: "machine-A", name: "Mesin A", items: [] },
-      { id: "machine-B", name: "Mesin B", items: [] },
-      { id: "machine-C", name: "Mesin C", items: [] },
+      { id: "machine-A", name: "Machine A", items: [] },
+      { id: "machine-B", name: "Machine B", items: [] },
+      { id: "machine-C", name: "Machine C", items: [] },
     ],
   },
   {
     id: "unit-WY02",
     name: "WY02",
     machines: [
-      { id: "machine-D", name: "Mesin D", items: [] },
-      { id: "machine-E", name: "Mesin E", items: [] },
+      { id: "machine-D", name: "Machine D", items: [] },
+      { id: "machine-E", name: "Machine E", items: [] },
     ],
   },
   {
     id: "unit-WY03",
     name: "WY03",
-    machines: [{ id: "machine-F", name: "Mesin F", items: [] }],
+    machines: [{ id: "machine-F", name: "Machine F", items: [] }],
   },
 ];
 
+export const MaintenanceRecordsContext = React.createContext<
+  | {
+      records: MaintenanceTaskRecord[];
+      setRecords: React.Dispatch<React.SetStateAction<MaintenanceTaskRecord[]>>;
+      routineSchedules: RoutineSchedule[];
+    }
+  | undefined
+>(undefined);
+
 const MonitoringMaintenance: React.FC = () => {
+  const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
     const stored = localStorage.getItem("sidebarOpen");
     return JSON.parse(stored || "false");
@@ -710,22 +706,18 @@ const MonitoringMaintenance: React.FC = () => {
   const [showNotificationsPopup, setShowNotificationsPopup] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
-  // State baru untuk modal edit/isi formulir
-  const [showEditFormModal, setShowEditFormModal] = useState(false);
-  const [selectedRecordForEdit, setSelectedRecordForEdit] = useState<MaintenanceTaskRecord | null>(null);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<MaintenanceTaskRecord | null>(null);
-  const [viewMode, setViewMode] = useState<"calendar" | "table" | "trend">("calendar"); // Default to 'calendar'
+  const [viewMode, setViewMode] = useState<"calendar" | "table" | "trend">("calendar");
   const [filterStartDate, setFilterStartDate] = useState<Date | null>(null);
   const [filterEndDate, setFilterEndDate] = useState<Date | null>(null);
   const [selectedUnit, setSelectedUnit] = useState<string[]>([]);
-  const [selectedMachine, setSelectedMachine] = useState<string[]>([]); // Keep this state
+  const [selectedMachine, setSelectedMachine] = useState<string[]>([]);
   const [selectedItem, setSelectedItem] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [currentStep, setCurrentStep] = useState<number>(1);
-  const navigate = useNavigate();
 
   const [addForm, setAddForm] = useState<AddFormData>({
     startDate: null,
@@ -733,9 +725,9 @@ const MonitoringMaintenance: React.FC = () => {
     selectedUnits: [],
   });
 
-  // State baru untuk modal daftar jadwal harian
   const [showDailyScheduleModal, setShowDailyScheduleModal] = useState(false);
   const [dailySchedulesForSelectedDate, setDailySchedulesForSelectedDate] = useState<MaintenanceTaskRecord[]>([]);
+  const [selectedDateForDailySchedules, setSelectedDateForDailySchedules] = useState<string>("");
 
   const notificationsRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -750,14 +742,14 @@ const MonitoringMaintenance: React.FC = () => {
     const mockData: MaintenanceTaskRecord[] = [
       {
         id: "mock-1",
-        mesin: "Mesin A",
+        mesin: "Machine A",
         date: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 2).toISOString().split("T")[0],
-        perbaikanPerawatan: "Preventif",
-        description: "Inspeksi terjadwal untuk Mesin A.",
+        perbaikanPerawatan: "Preventive",
+        description: "Scheduled inspection for Machine A.",
         status: "Scheduled",
         pic: "Jane Doe",
         shift: "Shift A",
-        group: "Grup 1",
+        group: "Group 1",
         stopJam: 8,
         stopMenit: 0,
         startJam: 9,
@@ -769,8 +761,8 @@ const MonitoringMaintenance: React.FC = () => {
         jenisGangguan: "N/A",
         bentukTindakan: "N/A",
         rootCause: "N/A",
-        jenisAktivitas: "Pemeliharaan",
-        kegiatan: "Pemeriksaan rutin",
+        jenisAktivitas: "Maintenance",
+        kegiatan: "Routine inspection",
         kodePart: "N/A",
         sparePart: "N/A",
         idPart: "N/A",
@@ -778,27 +770,27 @@ const MonitoringMaintenance: React.FC = () => {
         unitSparePart: "N/A",
         interval: "Weekly",
         unitWilayah: "WY01",
-        item: "Tingkat Oli",
+        item: "Oil Level",
         unitOfMeasure: "L",
         standardMin: 5,
         standardMax: 7,
-        standartVisual: "Tidak ada kebocoran yang terlihat",
+        standartVisual: "No visible leaks",
         monitoringResult: "6.2",
         msStatus: "OK",
         approvalStatus: "Approved",
         currentApproverIndex: APPROVAL_ROLES.length,
-        notes: "Tidak ada masalah terdeteksi.", // Ensure notes property is present
+        notes: "No issues detected.",
       },
       {
         id: "mock-2",
-        mesin: "Mesin B",
+        mesin: "Machine B",
         date: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 5).toISOString().split("T")[0],
-        perbaikanPerawatan: "Preventif",
-        description: "Pemeliharaan yang terlambat untuk Mesin B.",
+        perbaikanPerawatan: "Preventive",
+        description: "Overdue maintenance for Machine B.",
         status: "Missed",
         pic: "John Smith",
         shift: "Shift B",
-        group: "Grup 2",
+        group: "Group 2",
         stopJam: 10,
         stopMenit: 0,
         startJam: 11,
@@ -810,8 +802,8 @@ const MonitoringMaintenance: React.FC = () => {
         jenisGangguan: "N/A",
         bentukTindakan: "N/A",
         rootCause: "N/A",
-        jenisAktivitas: "Pemeliharaan",
-        kegiatan: "Perbaikan besar",
+        jenisAktivitas: "Maintenance",
+        kegiatan: "Major repair",
         kodePart: "N/A",
         sparePart: "N/A",
         idPart: "N/A",
@@ -819,27 +811,27 @@ const MonitoringMaintenance: React.FC = () => {
         unitSparePart: "N/A",
         interval: "Monthly",
         unitWilayah: "WY02",
-        item: "Ketegangan Sabuk",
+        item: "Belt Tension",
         unitOfMeasure: "mm",
         standardMin: 2,
         standardMax: 4,
-        standartVisual: "Ketegangan baik",
+        standartVisual: "Good tension",
         monitoringResult: "N/A",
         msStatus: "N/A",
         approvalStatus: "Pending Unit Head Engineering",
         currentApproverIndex: 1,
-        notes: "Tugas belum dilakukan.", // Ensure notes property is present
+        notes: "Task not performed.",
       },
       {
         id: "mock-3",
-        mesin: "Mesin C",
+        mesin: "Machine C",
         date: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1).toISOString().split("T")[0],
-        perbaikanPerawatan: "Preventif",
-        description: "Perbaikan selesai pada Mesin C.",
+        perbaikanPerawatan: "Preventive",
+        description: "Repair completed on Machine C.",
         status: "Completed",
         pic: "Jane Doe",
         shift: "Shift C",
-        group: "Grup 3",
+        group: "Group 3",
         stopJam: 14,
         stopMenit: 30,
         startJam: 15,
@@ -851,8 +843,8 @@ const MonitoringMaintenance: React.FC = () => {
         jenisGangguan: "N/A",
         bentukTindakan: "N/A",
         rootCause: "N/A",
-        jenisAktivitas: "Pemeliharaan",
-        kegiatan: "Tindakan korektif",
+        jenisAktivitas: "Maintenance",
+        kegiatan: "Corrective action",
         kodePart: "N/A",
         sparePart: "N/A",
         idPart: "N/A",
@@ -860,27 +852,27 @@ const MonitoringMaintenance: React.FC = () => {
         unitSparePart: "N/A",
         interval: "3 Months",
         unitWilayah: "WY03",
-        item: "Kebisingan Bantalan",
+        item: "Bearing Noise",
         unitOfMeasure: "N/A",
         standardMin: null,
         standardMax: null,
-        standartVisual: "Tidak ada suara yang tidak biasa",
+        standartVisual: "No unusual sounds",
         monitoringResult: "OK",
         msStatus: "OK",
         approvalStatus: "Approved",
         currentApproverIndex: APPROVAL_ROLES.length,
-        notes: "Bantalan diganti, fungsi normal.", // Ensure notes property is present
+        notes: "Bearing replaced, normal function.",
       },
       {
         id: "mock-4",
-        mesin: "Mesin A",
+        mesin: "Machine A",
         date: new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString().split("T")[0],
-        perbaikanPerawatan: "Preventif",
-        description: "Perbaikan darurat pada Mesin A.",
+        perbaikanPerawatan: "Preventive",
+        description: "Emergency repair on Machine A.",
         status: "Emergency",
         pic: "John Smith",
         shift: "Shift A",
-        group: "Grup 1",
+        group: "Group 1",
         stopJam: 14,
         stopMenit: 30,
         startJam: 15,
@@ -892,8 +884,8 @@ const MonitoringMaintenance: React.FC = () => {
         jenisGangguan: "N/A",
         bentukTindakan: "N/A",
         rootCause: "N/A",
-        jenisAktivitas: "Pemeliharaan",
-        kegiatan: "Perbaikan darurat",
+        jenisAktivitas: "Maintenance",
+        kegiatan: "Emergency repair",
         kodePart: "N/A",
         sparePart: "N/A",
         idPart: "N/A",
@@ -901,27 +893,27 @@ const MonitoringMaintenance: React.FC = () => {
         unitSparePart: "N/A",
         interval: "Emergency",
         unitWilayah: "WY01",
-        item: "Integritas Sekering",
+        item: "Fuse Integrity",
         unitOfMeasure: "N/A",
         standardMin: null,
         standardMax: null,
-        standartVisual: "Sekering utuh",
+        standartVisual: "Fuse intact",
         monitoringResult: "OK",
         msStatus: "OK",
         approvalStatus: "Pending Section Head Production Process",
         currentApproverIndex: 4,
-        notes: "Sekering diganti. Mesin kembali online.", // Ensure notes property is present
+        notes: "Fuse replaced. Machine back online.",
       },
       {
         id: "mock-5",
-        mesin: "Mesin A",
+        mesin: "Machine A",
         date: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 10).toISOString().split("T")[0],
-        perbaikanPerawatan: "Pemantauan",
-        description: "Pemantauan untuk Mesin A - Tingkat Oli",
+        perbaikanPerawatan: "Monitoring",
+        description: "Monitoring for Machine A - Oil Level",
         status: "Completed",
         pic: "Jane Doe",
         shift: "Shift A",
-        group: "Grup 1",
+        group: "Group 1",
         stopJam: 0,
         stopMenit: 0,
         startJam: 0,
@@ -933,8 +925,8 @@ const MonitoringMaintenance: React.FC = () => {
         jenisGangguan: "N/A",
         bentukTindakan: "N/A",
         rootCause: "N/A",
-        jenisAktivitas: "Pemantauan",
-        kegiatan: "Pembacaan",
+        jenisAktivitas: "Monitoring",
+        kegiatan: "Reading",
         kodePart: "N/A",
         sparePart: "N/A",
         idPart: "N/A",
@@ -942,27 +934,27 @@ const MonitoringMaintenance: React.FC = () => {
         unitSparePart: "N/A",
         interval: "Daily",
         unitWilayah: "WY01",
-        item: "Tingkat Oli",
+        item: "Oil Level",
         unitOfMeasure: "L",
         standardMin: 5,
         standardMax: 7,
-        standartVisual: "Tidak ada kebocoran yang terlihat",
+        standartVisual: "No visible leaks",
         monitoringResult: "5.5",
         msStatus: "OK",
         approvalStatus: "Approved",
         currentApproverIndex: APPROVAL_ROLES.length,
-        notes: "Tingkat oli stabil.", // Ensure notes property is present
+        notes: "Oil level stable.",
       },
       {
         id: "mock-6",
-        mesin: "Mesin A",
+        mesin: "Machine A",
         date: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 20).toISOString().split("T")[0],
-        perbaikanPerawatan: "Pemantauan",
-        description: "Pemantauan untuk Mesin A - Tingkat Oli",
+        perbaikanPerawatan: "Monitoring",
+        description: "Monitoring for Machine A - Oil Level",
         status: "Completed",
         pic: "Jane Doe",
         shift: "Shift A",
-        group: "Grup 1",
+        group: "Group 1",
         stopJam: 0,
         stopMenit: 0,
         startJam: 0,
@@ -974,8 +966,8 @@ const MonitoringMaintenance: React.FC = () => {
         jenisGangguan: "N/A",
         bentukTindakan: "N/A",
         rootCause: "N/A",
-        jenisAktivitas: "Pemantauan",
-        kegiatan: "Pembacaan",
+        jenisAktivitas: "Monitoring",
+        kegiatan: "Reading",
         kodePart: "N/A",
         sparePart: "N/A",
         idPart: "N/A",
@@ -983,16 +975,16 @@ const MonitoringMaintenance: React.FC = () => {
         unitSparePart: "N/A",
         interval: "Daily",
         unitWilayah: "WY01",
-        item: "Tingkat Oli",
+        item: "Oil Level",
         unitOfMeasure: "L",
         standardMin: 5,
         standardMax: 7,
-        standartVisual: "Tidak ada kebocoran yang terlihat",
+        standartVisual: "No visible leaks",
         monitoringResult: "7.1",
         msStatus: "NG",
         approvalStatus: "Approved",
         currentApproverIndex: APPROVAL_ROLES.length,
-        notes: "Tingkat oli sedikit tinggi, periksa pengisian berlebih.", // Ensure notes property is present
+        notes: "Oil level slightly high, check for overfill.",
       },
     ];
     return mockData;
@@ -1002,44 +994,44 @@ const MonitoringMaintenance: React.FC = () => {
     () => [
       {
         id: "routine-1",
-        mesin: "Mesin D",
-        item: "Suhu Motor",
+        mesin: "Machine D",
+        item: "Motor Temperature",
         interval: "weekly",
         dayOfWeek: 1,
         unitWilayah: "WY04",
         unitOfMeasure: "°C",
         standardMin: 35,
         standardMax: 50,
-        standartVisual: "Tidak ada panas atau getaran berlebihan",
+        standartVisual: "No excessive heat or vibration",
       },
       {
         id: "routine-2",
-        mesin: "Mesin E",
-        item: "Tekanan Oli",
+        mesin: "Machine E",
+        item: "Oil Pressure",
         interval: "weekly",
         dayOfWeek: 5,
         unitWilayah: "WY05",
         unitOfMeasure: "Bar",
         standardMin: 2,
         standardMax: 3,
-        standartVisual: "Pengukur tekanan stabil",
+        standartVisual: "Stable pressure gauge",
       },
       {
         id: "routine-3",
-        mesin: "Mesin F",
-        item: "Kebersihan Filter Udara",
+        mesin: "Machine F",
+        item: "Air Filter Cleanliness",
         interval: "monthly",
         dayOfMonth: 15,
         unitWilayah: "WY06",
         unitOfMeasure: "N/A",
         standardMin: null,
         standardMax: null,
-        standartVisual: "Tidak ada penumpukan debu yang terlihat",
+        standartVisual: "No visible dust buildup",
       },
       {
         id: "routine-4",
-        mesin: "Mesin G",
-        item: "Tingkat Cairan Hidraulik",
+        mesin: "Machine G",
+        item: "Hydraulic Fluid Level",
         interval: "quarterly",
         dayOfMonth: 10,
         monthOfYear: 0,
@@ -1047,12 +1039,12 @@ const MonitoringMaintenance: React.FC = () => {
         unitOfMeasure: "L",
         standardMin: 10,
         standardMax: 12,
-        standartVisual: "Tingkat cairan dalam kaca penglihatan",
+        standartVisual: "Fluid level within sight glass",
       },
       {
         id: "routine-5",
-        mesin: "Mesin H",
-        item: "Getaran Kompresor",
+        mesin: "Machine H",
+        item: "Compressor Vibration",
         interval: "semi-annual",
         dayOfMonth: 20,
         monthOfYear: 1,
@@ -1060,12 +1052,12 @@ const MonitoringMaintenance: React.FC = () => {
         unitOfMeasure: "%",
         standardMin: 0,
         standardMax: 5,
-        standartVisual: "Pengoperasian lancar, tidak ada getaran abnormal",
+        standartVisual: "Smooth operation, no abnormal vibration",
       },
       {
         id: "routine-6",
-        mesin: "Mesin I",
-        item: "Pelumasan Bantalan",
+        mesin: "Machine I",
+        item: "Bearing Lubrication",
         interval: "yearly",
         dayOfMonth: 1,
         monthOfYear: 6,
@@ -1073,42 +1065,42 @@ const MonitoringMaintenance: React.FC = () => {
         unitOfMeasure: "N/A",
         standardMin: null,
         standardMax: null,
-        standartVisual: "Titik gemuk terlumasi penuh",
+        standartVisual: "Grease points fully lubricated",
       },
       {
         id: "routine-7",
-        mesin: "Mesin A",
-        item: "Tingkat Oli",
+        mesin: "Machine A",
+        item: "Oil Level",
         interval: "daily",
         unitWilayah: "WY01",
         unitOfMeasure: "L",
         standardMin: 5,
         standardMax: 7,
-        standartVisual: "Tidak ada kebocoran yang terlihat",
+        standartVisual: "No visible leaks",
       },
       {
         id: "routine-8",
-        mesin: "Mesin A",
-        item: "Tekanan Hidraulik",
+        mesin: "Machine A",
+        item: "Hydraulic Pressure",
         interval: "weekly",
-        dayOfWeek: 2, // Tuesday
+        dayOfWeek: 2,
         unitWilayah: "WY01",
         unitOfMeasure: "psi",
         standardMin: 1500,
         standardMax: 2000,
-        standartVisual: "Pembacaan pengukur stabil",
+        standartVisual: "Stable gauge reading",
       },
       {
         id: "routine-9",
-        mesin: "Mesin A",
-        item: "Kebersihan Filter Udara",
+        mesin: "Machine A",
+        item: "Air Filter Cleanliness",
         interval: "monthly",
         dayOfMonth: 1,
         unitWilayah: "WY01",
         unitOfMeasure: "N/A",
         standardMin: null,
         standardMax: null,
-        standartVisual: "Tidak ada debu",
+        standartVisual: "No dust",
       },
     ],
     []
@@ -1141,7 +1133,6 @@ const MonitoringMaintenance: React.FC = () => {
     if (selectedUnit.length > 0) {
       filtered = filtered.filter((record) => selectedUnit.includes(record.unitWilayah));
     }
-    // New filter for machines
     if (selectedMachine.length > 0) {
       filtered = filtered.filter((record) => selectedMachine.includes(record.mesin));
     }
@@ -1163,7 +1154,7 @@ const MonitoringMaintenance: React.FC = () => {
     }
 
     return filtered;
-  }, [records, filterStartDate, filterEndDate, selectedUnit, selectedMachine, selectedItem, searchTerm]); // Added selectedMachine to dependency array
+  }, [records, filterStartDate, filterEndDate, selectedUnit, selectedMachine, selectedItem, searchTerm]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -1197,28 +1188,23 @@ const MonitoringMaintenance: React.FC = () => {
   };
 
   const handleViewRecord = (record: MaintenanceTaskRecord) => {
-    // Memeriksa apakah ID catatan dimulai dengan "mock-" untuk mengidentifikasi catatan statis.
-    // Catatan yang berasal dari jadwal rutin ("routine-") atau yang baru ditambahkan melalui modal ("mon-")
-    // dianggap sebagai "data yang ada di tambah data" atau dihasilkan secara rutin.
     if (record.id.startsWith("mock-")) {
-      alert("Detail untuk data ini hanya tersedia jika ditambahkan melalui fitur 'Tambah Data' atau dihasilkan secara rutin.");
+      alert("Details for this data are only available if added via the 'Add Data' feature or generated routinely.");
       return;
     }
     setSelectedRecord(record);
     setShowDetailsModal(true);
   };
 
-  // Step 1: Choose Date Range
   interface Step1DateRangeProps {
     formData: AddFormData;
     setFormData: React.Dispatch<React.SetStateAction<AddFormData>>;
-    isEditMode: boolean; // New prop
   }
 
-  const Step1DateRange: React.FC<Step1DateRangeProps> = ({ formData, setFormData, isEditMode }) => (
+  const Step1DateRange: React.FC<Step1DateRangeProps> = ({ formData, setFormData }) => (
     <div>
       <label htmlFor="start-date" className="block text-sm font-medium text-gray-700">
-        Tanggal Mulai
+        Start Date
       </label>
       <input
         type="date"
@@ -1226,11 +1212,10 @@ const MonitoringMaintenance: React.FC = () => {
         value={formData.startDate ? formData.startDate.toISOString().split("T")[0] : ""}
         onChange={(e) => setFormData({ ...formData, startDate: e.target.value ? new Date(e.target.value) : null })}
         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-2.5"
-        disabled={isEditMode} // Disable in edit mode
       />
 
       <label htmlFor="end-date" className="block text-sm font-medium text-gray-700 mt-4">
-        Tanggal Berakhir
+        End Date
       </label>
       <input
         type="date"
@@ -1239,22 +1224,18 @@ const MonitoringMaintenance: React.FC = () => {
         onChange={(e) => setFormData({ ...formData, endDate: e.target.value ? new Date(e.target.value) : null })}
         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-2.5"
         min={formData.startDate ? formData.startDate.toISOString().split("T")[0] : undefined}
-        disabled={isEditMode} // Disable in edit mode
       />
     </div>
   );
 
-  // Step 2: Choose Units
   interface Step2UnitsProps {
     formData: AddFormData;
     setFormData: React.Dispatch<React.SetStateAction<AddFormData>>;
     availableUnits: Unit[];
-    isEditMode: boolean; // New prop
   }
 
-  const Step2Units: React.FC<Step2UnitsProps> = ({ formData, setFormData, availableUnits, isEditMode }) => {
+  const Step2Units: React.FC<Step2UnitsProps> = ({ formData, setFormData, availableUnits }) => {
     const handleUnitSelection = (unitId: string, isSelected: boolean) => {
-      if (isEditMode) return; // Prevent changes in edit mode
       setFormData((prev) => {
         const newSelectedUnits = isSelected ? [...prev.selectedUnits, { id: unitId, name: availableUnits.find((u) => u.id === unitId)?.name || "", machines: [] }] : prev.selectedUnits.filter((u) => u.id !== unitId);
         return { ...prev, selectedUnits: newSelectedUnits };
@@ -1263,7 +1244,7 @@ const MonitoringMaintenance: React.FC = () => {
 
     return (
       <div>
-        <h3 className="text-md font-semibold text-gray-700 mb-4">Pilih Unit</h3>
+        <h3 className="text-md font-semibold text-gray-700 mb-4">Select Unit</h3>
         <div className="space-y-2">
           {availableUnits.map((unit) => (
             <div key={unit.id} className="flex items-center">
@@ -1273,7 +1254,6 @@ const MonitoringMaintenance: React.FC = () => {
                 checked={formData.selectedUnits.some((u) => u.id === unit.id)}
                 onChange={(e) => handleUnitSelection(unit.id, e.target.checked)}
                 className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                disabled={isEditMode} // Disable in edit mode
               />
               <label htmlFor={`unit-${unit.id}`} className="ml-3 text-sm font-medium text-gray-700">
                 {unit.name}
@@ -1285,18 +1265,15 @@ const MonitoringMaintenance: React.FC = () => {
     );
   };
 
-  // Step 3: Choose Machines & Intervals per Machine
   interface Step3MachinesIntervalsProps {
     formData: AddFormData;
     setFormData: React.Dispatch<React.SetStateAction<AddFormData>>;
     availableUnits: Unit[];
-    routineSchedules: RoutineSchedule[]; // Pass routineSchedules here
-    isEditMode: boolean; // New prop
+    routineSchedules: RoutineSchedule[];
   }
 
-  const Step3MachinesIntervals: React.FC<Step3MachinesIntervalsProps> = ({ formData, setFormData, availableUnits, routineSchedules, isEditMode }) => {
+  const Step3MachinesIntervals: React.FC<Step3MachinesIntervalsProps> = ({ formData, setFormData, availableUnits, routineSchedules }) => {
     const handleMachineSelection = (unitId: string, machine: Machine, isSelected: boolean) => {
-      if (isEditMode) return; // Prevent changes in edit mode
       setFormData((prev) => {
         const unitIndex = prev.selectedUnits.findIndex((u) => u.id === unitId);
         if (unitIndex === -1) return prev;
@@ -1319,7 +1296,6 @@ const MonitoringMaintenance: React.FC = () => {
     };
 
     const handleIntervalChange = (unitId: string, machineId: string, interval: AddIntervalType) => {
-      if (isEditMode) return; // Prevent changes in edit mode
       setFormData((prev) => {
         const unitIndex = prev.selectedUnits.findIndex((u) => u.id === unitId);
         if (unitIndex === -1) return prev;
@@ -1331,17 +1307,10 @@ const MonitoringMaintenance: React.FC = () => {
         const machineToUpdate = updatedUnits[unitIndex].machines[machineIndex];
         machineToUpdate.selectedInterval = interval;
 
-        // Apply normalization to both the selected interval and the routine schedule intervals
         const normalizedSelectedInterval = normalizeIntervalType(interval);
 
-        // Automatically populate selectedItems based on the new interval
         const itemsForInterval = routineSchedules
-          .filter(
-            (s) =>
-              s.mesin === machineToUpdate.name &&
-              normalizeIntervalType(s.interval) === normalizedSelectedInterval && // Use normalized interval for matching
-              s.unitWilayah === updatedUnits[unitIndex].name // Ensure unit also matches
-          )
+          .filter((s) => s.mesin === machineToUpdate.name && normalizeIntervalType(s.interval) === normalizedSelectedInterval && s.unitWilayah === updatedUnits[unitIndex].name)
           .map((s) => ({
             id: `${machineToUpdate.id}-${s.id}`,
             name: s.item,
@@ -1359,7 +1328,7 @@ const MonitoringMaintenance: React.FC = () => {
 
     return (
       <div className="space-y-6">
-        {formData.selectedUnits.length === 0 && <p className="text-gray-500 text-center">Pilih unit di langkah sebelumnya.</p>}
+        {formData.selectedUnits.length === 0 && <p className="text-gray-500 text-center">Select a unit in the previous step.</p>}
         {formData.selectedUnits.map((selectedUnit) => {
           const fullUnit = availableUnits.find((u) => u.id === selectedUnit.id);
           const availableMachinesForUnit = fullUnit?.machines || [];
@@ -1377,7 +1346,6 @@ const MonitoringMaintenance: React.FC = () => {
                         checked={selectedUnit.machines.some((m) => m.id === machine.id)}
                         onChange={(e) => handleMachineSelection(selectedUnit.id, machine, e.target.checked)}
                         className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                        disabled={isEditMode} // Disable in edit mode
                       />
                       <label htmlFor={`machine-${machine.id}`} className="ml-3 text-sm font-medium text-gray-700">
                         {machine.name}
@@ -1388,9 +1356,8 @@ const MonitoringMaintenance: React.FC = () => {
                         value={selectedUnit.machines.find((m) => m.id === machine.id)?.selectedInterval || ""}
                         onChange={(e) => handleIntervalChange(selectedUnit.id, machine.id, e.target.value as AddIntervalType)}
                         className="ml-4 p-1.5 border border-gray-300 rounded-md text-sm"
-                        disabled={isEditMode} // Disable in edit mode
                       >
-                        <option value="">Pilih Interval</option>
+                        <option value="">Select Interval</option>
                         {["Daily", "Weekly", "Monthly", "3 Months", "6 Months", "1 Year"].map((interval) => (
                           <option key={interval} value={interval}>
                             {interval}
@@ -1408,121 +1375,30 @@ const MonitoringMaintenance: React.FC = () => {
     );
   };
 
-  // Step 4: Display Items per Machine (automatically populated by interval)
   interface Step4ItemsPerMachineProps {
     formData: AddFormData;
     setFormData: React.Dispatch<React.SetStateAction<AddFormData>>;
     routineSchedules: RoutineSchedule[];
-    isEditMode: boolean;
-    // Buat onUpdateRecord opsional
-    onUpdateRecord?: (updatedRecord: MaintenanceTaskRecord) => void;
-    recordForEdit?: MaintenanceTaskRecord | null;
   }
 
-  const Step4ItemsPerMachine: React.FC<Step4ItemsPerMachineProps> = ({ formData, setFormData, routineSchedules, isEditMode, recordForEdit, onUpdateRecord }) => {
-    // If in edit mode, we'll use the recordForEdit to display and modify.
-    // Otherwise, it's the normal add flow
-    const [localRecord, setLocalRecord] = useState<MaintenanceTaskRecord | null>(recordForEdit || null);
-
-    useEffect(() => {
-      setLocalRecord(recordForEdit || null);
-    }, [recordForEdit]);
-
-    const handleMonitoringResultChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (!localRecord) return;
-      setLocalRecord({ ...localRecord, monitoringResult: e.target.value });
-    };
-
-    const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      if (!localRecord) return;
-      setLocalRecord({ ...localRecord, notes: e.target.value });
-    };
-
-    const handleMsStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-      if (!localRecord) return;
-      setLocalRecord({ ...localRecord, msStatus: e.target.value as "OK" | "NG" | "N/A" });
-    };
-
-    // This function will be called by the "Simpan Semua" button in the modal footer
-
-    if (isEditMode && localRecord) {
-      return (
-        <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Isi Data Monitoring</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <DetailItem label="Tanggal" value={localRecord.date} />
-            <DetailItem label="Unit" value={localRecord.unitWilayah} />
-            <DetailItem label="Mesin" value={localRecord.mesin} />
-            <DetailItem label="Interval" value={localRecord.interval} />
-            <DetailItem label="Item" value={localRecord.item} />
-            <DetailItem label="Satuan" value={localRecord.unitOfMeasure} />
-            <DetailItem label="Standar Min" value={localRecord.standardMin} />
-            <DetailItem label="Standar Max" value={localRecord.standardMax} />
-            <DetailItem label="Standar Visual" value={localRecord.standartVisual} className="md:col-span-2" />
-          </div>
-
-          <div className="mt-4 p-4 border border-blue-200 rounded-lg bg-blue-50 space-y-3">
-            <div>
-              <label htmlFor="monitoring-result" className="block text-sm font-medium text-gray-700 mb-1">
-                Hasil Pemantauan
-              </label>
-              <input
-                type="text"
-                id="monitoring-result"
-                value={localRecord.monitoringResult === "N/A" ? "" : localRecord.monitoringResult}
-                onChange={handleMonitoringResultChange}
-                className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Masukkan hasil pemantauan"
-              />
-            </div>
-            <div>
-              <label htmlFor="ms-status" className="block text-sm font-medium text-gray-700 mb-1">
-                Status MS
-              </label>
-              <select id="ms-status" value={localRecord.msStatus} onChange={handleMsStatusChange} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
-                <option value="N/A">Pilih Status</option>
-                <option value="OK">OK</option>
-                <option value="NG">NG</option>
-              </select>
-            </div>
-            <div>
-              <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
-                Catatan
-              </label>
-              <textarea
-                id="notes"
-                rows={3}
-                value={localRecord.notes === "N/A" ? "" : localRecord.notes}
-                onChange={handleNotesChange}
-                className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Tambahkan catatan..."
-              ></textarea>
-            </div>
-          </div>
-          {/* We'll handle the save button in the modal footer */}
-        </div>
-      );
-    }
-
-    // Original flow for adding new records
+  const Step4ItemsPerMachine: React.FC<Step4ItemsPerMachineProps> = ({ formData, setFormData, routineSchedules }) => {
     return (
       <div className="space-y-6">
-        {formData.selectedUnits.length === 0 && <p className="text-gray-500 text-center">Pilih unit dan mesin di langkah sebelumnya.</p>}
+        {formData.selectedUnits.length === 0 && <p className="text-gray-500 text-center">Select units and machines in previous steps.</p>}
         {formData.selectedUnits.map((selectedUnit) => (
           <div key={selectedUnit.id} className="p-4 border rounded-md bg-gray-50">
             <h4 className="text-lg font-bold text-gray-800 mb-4">Unit: {selectedUnit.name}</h4>
-            {selectedUnit.machines.length === 0 && <p className="text-gray-500">Pilih mesin untuk unit ini di langkah sebelumnya.</p>}
+            {selectedUnit.machines.length === 0 && <p className="text-gray-500">Select machines for this unit in the previous step.</p>}
             {selectedUnit.machines.map((selectedMachine) => {
-              // The items are already populated in selectedMachine.selectedItems from Step 3
               const itemsToDisplay = selectedMachine.selectedItems;
 
               return (
                 <div key={selectedMachine.id} className="mb-6 p-3 border rounded-md bg-white shadow-sm">
                   <h5 className="text-md font-bold text-gray-700 mb-3">
-                    Mesin: {selectedMachine.name} (Interval: {selectedMachine.selectedInterval || "Belum Dipilih"})
+                    Machine: {selectedMachine.name} (Interval: {selectedMachine.selectedInterval || "Not Selected"})
                   </h5>
-                  {selectedMachine.selectedInterval === null && <p className="text-red-500 text-sm mb-2">Pilih interval untuk mesin ini di langkah sebelumnya.</p>}
-                  {itemsToDisplay.length === 0 && selectedMachine.selectedInterval !== null && <p className="text-gray-500 text-sm">Tidak ada item yang sesuai untuk interval yang dipilih.</p>}
+                  {selectedMachine.selectedInterval === null && <p className="text-red-500 text-sm mb-2">Select an interval for this machine in the previous step.</p>}
+                  {itemsToDisplay.length === 0 && selectedMachine.selectedInterval !== null && <p className="text-gray-500 text-sm">No matching items for the selected interval.</p>}
                   <div className="space-y-2">
                     {itemsToDisplay.map((item) => (
                       <p key={item.id} className="ml-3 text-sm font-medium text-gray-700">
@@ -1545,7 +1421,7 @@ const MonitoringMaintenance: React.FC = () => {
       const newRecords: MaintenanceTaskRecord[] = [];
 
       if (!addForm.startDate || !addForm.endDate) {
-        alert("Tanggal mulai dan tanggal berakhir harus dipilih.");
+        alert("Start date and end date must be selected.");
         return;
       }
 
@@ -1558,8 +1434,7 @@ const MonitoringMaintenance: React.FC = () => {
         addForm.selectedUnits.forEach((unit) => {
           unit.machines.forEach((machine) => {
             if (machine.selectedInterval && machine.selectedItems.length > 0) {
-              // Check if the current date matches the interval criteria for routine schedules
-              const currentDayOfWeek = currentDate.getDay(); // 0 for Sunday, 1 for Monday
+              const currentDayOfWeek = currentDate.getDay();
               const currentDayOfMonth = currentDate.getDate();
               const currentMonth = currentDate.getMonth();
 
@@ -1573,50 +1448,36 @@ const MonitoringMaintenance: React.FC = () => {
                   case "Daily":
                     return true;
                   case "Weekly":
-                    // getDay() returns 0 for Sunday, 1 for Monday, ..., 6 for Saturday
-                    // Our schedule.dayOfWeek should match this (e.g., 1 for Monday)
                     return schedule.dayOfWeek !== undefined && schedule.dayOfWeek === currentDayOfWeek;
                   case "Monthly":
                     return schedule.dayOfMonth !== undefined && schedule.dayOfMonth === currentDayOfMonth;
-                  case "3 Months": // Quarterly
-                    // MonthOfYear should be 0 (Jan), 3 (Apr), 6 (Jul), 9 (Oct) if dayOfMonth is set
+                  case "3 Months":
                     return schedule.dayOfMonth !== undefined && schedule.dayOfMonth === currentDayOfMonth && schedule.monthOfYear !== undefined && (currentMonth - schedule.monthOfYear) % 3 === 0;
-                  case "6 Months": // Semi-annual
-                    // MonthOfYear should be 0 (Jan), 6 (Jul) if dayOfMonth is set
+                  case "6 Months":
                     return schedule.dayOfMonth !== undefined && schedule.dayOfMonth === currentDayOfMonth && schedule.monthOfYear !== undefined && (currentMonth - schedule.monthOfYear) % 6 === 0;
-                  case "1 Year": // Yearly
+                  case "1 Year":
                     return schedule.dayOfMonth !== undefined && schedule.dayOfMonth === currentDayOfMonth && schedule.monthOfYear !== undefined && schedule.monthOfYear === currentMonth;
                   default:
                     return false;
                 }
               };
 
-              // Explicitly refine the type of machine.selectedInterval within this block
               const currentMachineInterval: AddIntervalType = machine.selectedInterval;
 
-              // Get relevant routine schedules to get standard details for items
-              // Ensure unitWilayah also matches for a stricter filter
-              const relevantSchedules = routineSchedules.filter(
-                (s) =>
-                  s.mesin === machine.name &&
-                  s.unitWilayah === unit.name && // Ensure unit also matches
-                  intervalMatches(currentMachineInterval, s)
-              );
+              const relevantSchedules = routineSchedules.filter((s) => s.mesin === machine.name && s.unitWilayah === unit.name && intervalMatches(currentMachineInterval, s));
 
               machine.selectedItems.forEach((item) => {
                 const newId = `mon-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-                // Find matching schedule to get standard values
                 const matchedSchedule = relevantSchedules.find((s) => s.item === item.name);
 
-                // Only add task if it matches a relevant schedule for the current date
                 if (matchedSchedule) {
                   newRecords.push({
                     id: newId,
                     mesin: machine.name,
                     date: todayDate,
-                    perbaikanPerawatan: "Preventif",
-                    description: `Pemantauan terjadwal untuk ${machine.name} - ${item.name}`,
+                    perbaikanPerawatan: "Preventive",
+                    description: `Scheduled monitoring for ${machine.name} - ${item.name}`,
                     status: "Scheduled",
                     pic: "N/A",
                     shift: "N/A",
@@ -1632,14 +1493,14 @@ const MonitoringMaintenance: React.FC = () => {
                     jenisGangguan: "N/A",
                     bentukTindakan: "N/A",
                     rootCause: "N/A",
-                    jenisAktivitas: "Pemeliharaan",
-                    kegiatan: "Pemeriksaan rutin",
+                    jenisAktivitas: "Maintenance",
+                    kegiatan: "Routine inspection",
                     kodePart: "N/A",
                     sparePart: "N/A",
                     idPart: "N/A",
                     jumlah: 0,
                     unitSparePart: "N/A",
-                    interval: currentMachineInterval, // Use the refined type here
+                    interval: currentMachineInterval,
                     unitWilayah: unit.name,
                     item: item.name,
                     unitOfMeasure: item.unitOfMeasure,
@@ -1650,14 +1511,14 @@ const MonitoringMaintenance: React.FC = () => {
                     msStatus: "N/A",
                     approvalStatus: "Pending Employee",
                     currentApproverIndex: 0,
-                    notes: "N/A", // Added missing notes property
+                    notes: "N/A",
                   });
                 }
               });
             }
           });
         });
-        currentDate.setDate(currentDate.getDate() + 1); // Move to the next day
+        currentDate.setDate(currentDate.getDate() + 1);
       }
 
       setRecords((prev: MaintenanceTaskRecord[]) => [...prev, ...newRecords]);
@@ -1670,18 +1531,18 @@ const MonitoringMaintenance: React.FC = () => {
       });
       setCurrentStep(1);
 
-      alert(`Berhasil menambahkan ${newRecords.length} catatan pemantauan.`);
+      alert(`Successfully added ${newRecords.length} monitoring records.`);
     } catch (err) {
-      console.error("Gagal menambahkan catatan pemantauan:", err);
-      setError("Gagal menambahkan data. Silakan coba lagi.");
+      console.error("Failed to add monitoring records:", err);
+      setError("Failed to add data. Please try again.");
     }
   };
 
   const handleUpdateRecord = useCallback((updatedRecord: MaintenanceTaskRecord) => {
     setRecords((prevRecords) => prevRecords.map((record) => (record.id === updatedRecord.id ? updatedRecord : record)));
-    setSelectedRecordForEdit(updatedRecord); // Update the record in the edit modal if it's still open
-    setShowEditFormModal(false); // Close the edit modal after saving
-    alert("Catatan monitoring berhasil diperbarui!");
+    // No need for selectedRecordForEdit state in MonitoringMaintenance
+    // setShowEditFormModal(false); // This would be called in FormMonitoringMaintenance
+    // alert("Monitoring record updated successfully!"); // This would be called in FormMonitoringMaintenance
   }, []);
 
   const handleUpdateApprovalStatus = useCallback(
@@ -1721,7 +1582,7 @@ const MonitoringMaintenance: React.FC = () => {
     setFilterStartDate(null);
     setFilterEndDate(null);
     setSelectedUnit([]);
-    setSelectedMachine([]); // Clear selected machine filter
+    setSelectedMachine([]);
     setSelectedItem([]);
     setSearchTerm("");
   };
@@ -1731,10 +1592,8 @@ const MonitoringMaintenance: React.FC = () => {
   };
 
   const getFirstDayOfMonth = (year: number, month: number) => {
-    // getDay() returns 0 for Sunday, 1 for Monday, etc.
-    // We want Monday to be the start of the week for display, so adjust if it's Sunday
     const day = new Date(year, month, 1).getDay();
-    return day === 0 ? 6 : day - 1; // Convert Sunday (0) to 6 (end of week if Monday is 0), otherwise day-1
+    return day === 0 ? 6 : day - 1;
   };
 
   const today = useMemo(() => new Date(), []);
@@ -1753,46 +1612,36 @@ const MonitoringMaintenance: React.FC = () => {
     setCurrentCalendarDate(new Date());
   };
 
-  // Fungsi baru untuk membuka modal daftar jadwal harian
   const handleOpenDailyScheduleModal = (schedules: MaintenanceTaskRecord[], date: string) => {
-    // Pass date to the handler
     setDailySchedulesForSelectedDate(schedules);
-    // Store the date string for the modal title
     setSelectedDateForDailySchedules(date);
     setShowDailyScheduleModal(true);
   };
-  // New state to store the date for the daily schedules modal title
-  const [selectedDateForDailySchedules, setSelectedDateForDailySchedules] = useState<string>("");
-
-  // Function to open the FormMonitoringMaintenance as a modal for editing
-  const handleEditRecordFromDailySchedule = (record: MaintenanceTaskRecord) => {
-    // Navigasi ke halaman detail dengan membawa data record sebagai state
-    navigate("/monitoringmaintenance/detailmonitoringmaintenance", {
-      state: { record },
-    });
+  //${record.id}
+  const handleNavigateToEditForm = (record: MaintenanceTaskRecord) => {
+    navigate(`/monitoringmaintenance/detailmonitoringmaintenance`);
+    setShowDailyScheduleModal(false);
   };
 
   const renderCalendarDays = () => {
     const year = currentCalendarDate.getFullYear();
     const month = currentCalendarDate.getMonth();
     const daysInMonth = getDaysInMonth(year, month);
-    const firstDayOfWeekOfMonth = getFirstDayOfMonth(year, month); // 0 (Mon) - 6 (Sun)
+    const firstDayOfWeekOfMonth = getFirstDayOfMonth(year, month);
 
     const calendarRows = [];
     let dayCounter = 1;
     let weekDays: React.ReactNode[] = [];
     let currentWeekStartDate: Date | null = null;
 
-    // Fill leading empty cells for the first week
     for (let i = 0; i < firstDayOfWeekOfMonth; i++) {
       weekDays.push(<div key={`empty-pre-${i}`} className="p-3 md:p-4 text-center text-gray-400 bg-gray-50 border border-gray-100 rounded-md min-h-[80px] md:min-h-[100px] flex items-center justify-center"></div>);
     }
 
-    // Populate days
     while (dayCounter <= daysInMonth) {
       const date = new Date(year, month, dayCounter);
       if (!currentWeekStartDate) {
-        currentWeekStartDate = date; // Set the start date for the current week
+        currentWeekStartDate = date;
       }
 
       const dateString = `${year}-${String(month + 1).padStart(2, "0")}-${String(dayCounter).padStart(2, "0")}`;
@@ -1806,32 +1655,29 @@ const MonitoringMaintenance: React.FC = () => {
         cellClasses += " bg-white";
       }
 
-      // Collect unique machine names for this day
       const uniqueMachinesOnDay = Array.from(new Set(dayRecords.map((r) => r.mesin)));
 
       weekDays.push(
         <div key={dateString} className={cellClasses}>
           <span className={`text-sm font-semibold ${isToday ? "text-blue-700" : "text-gray-800"}`}>{dayCounter}</span>
           <div className="flex flex-col items-center justify-center mt-1 space-y-0.5">
-            {dayRecords.length > 0 && ( // Tampilkan tombol hanya jika ada jadwal
+            {dayRecords.length > 0 && (
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="w-full text-center text-xs px-2 py-1 rounded-full overflow-hidden truncate bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors"
-                onClick={() => handleOpenDailyScheduleModal(dayRecords, dateString)} // Pass dateString
+                className="w-full text-center text-xs px-2 py-1 rounded-md overflow-hidden truncate bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors" // Changed rounded-full to rounded-md
+                onClick={() => handleOpenDailyScheduleModal(dayRecords, dateString)}
                 title={uniqueMachinesOnDay.join(", ")}
               >
-                {uniqueMachinesOnDay[0]} {uniqueMachinesOnDay.length > 1 ? `+${uniqueMachinesOnDay.length - 1} lainnya` : ""}
-                {dayRecords.length > 0 && <span className="ml-1">({dayRecords.length} jadwal)</span>}
+                {uniqueMachinesOnDay[0]} {uniqueMachinesOnDay.length > 1 ? `+${uniqueMachinesOnDay.length - 1} others` : ""}
+                {dayRecords.length > 0 && <span className="ml-1">({dayRecords.length} schedules)</span>}
               </motion.button>
             )}
           </div>
         </div>
       );
 
-      // Check if it's the end of a 7-day week (Sunday, or day 6 if Monday is 0) or the last day of the month
       if (weekDays.length === 7 || dayCounter === daysInMonth) {
-        // If it's the end of the month but the week isn't full, fill with empty cells
         while (weekDays.length < 7) {
           weekDays.push(<div key={`empty-post-${weekDays.length}`} className="p-3 md:p-4 text-center text-gray-400 bg-gray-50 border border-gray-100 rounded-md min-h-[80px] md:min-h-[100px] flex items-center justify-center"></div>);
         }
@@ -1843,8 +1689,8 @@ const MonitoringMaintenance: React.FC = () => {
             {weekDays}
           </React.Fragment>
         );
-        weekDays = []; // Reset for next week
-        currentWeekStartDate = null; // Reset for next week
+        weekDays = [];
+        currentWeekStartDate = null;
       }
       dayCounter++;
     }
@@ -1874,9 +1720,9 @@ const MonitoringMaintenance: React.FC = () => {
       newNotifications.push({
         id: `approval-${task.id}`,
         icon: <Bell className="text-orange-500" />,
-        title: `Persetujuan Dibutuhkan: ${task.mesin} - ${task.item}`,
-        description: `Catatan untuk ${task.mesin} - ${task.item} menunggu persetujuan Anda (${task.approvalStatus}).`,
-        date: new Date(task.date).toLocaleDateString("id-ID"),
+        title: `Approval Needed: ${task.mesin} - ${task.item}`,
+        description: `Record for ${task.mesin} - ${task.item} is awaiting your approval (${task.approvalStatus}).`,
+        date: new Date(task.date).toLocaleDateString("en-US"),
       });
     });
 
@@ -1884,9 +1730,9 @@ const MonitoringMaintenance: React.FC = () => {
       newNotifications.push({
         id: `overdue-${task.id}`,
         icon: <AlertTriangle className="text-red-500" />,
-        title: `Pemantauan Terlambat: ${task.mesin}`,
-        description: `Pemantauan untuk ${task.item} pada ${task.mesin} yang dijadwalkan pada ${new Date(task.date).toLocaleDateString("id-ID")} telah terlambat.`,
-        date: new Date(task.date).toLocaleDateString("id-ID"),
+        title: `Overdue Monitoring: ${task.mesin}`,
+        description: `Monitoring for ${task.item} on ${task.mesin} scheduled for ${new Date(task.date).toLocaleDateString("en-US")} is overdue.`,
+        date: new Date(task.date).toLocaleDateString("en-US"),
       });
     });
 
@@ -1933,64 +1779,42 @@ const MonitoringMaintenance: React.FC = () => {
   const isStep1Complete = addForm.startDate !== null && addForm.endDate !== null;
   const isStep2Complete = addForm.selectedUnits.length > 0;
   const isStep3Complete = addForm.selectedUnits.every((unit) => unit.machines.length > 0 && unit.machines.every((machine) => machine.selectedInterval !== null));
-  // Step 4 completion now checks if for every selected machine, there are items associated with its selected interval.
-  const isStep4Complete = addForm.selectedUnits.every((unit) =>
-    unit.machines.every(
-      (machine) =>
-        machine.selectedInterval === null || // If no interval is selected, it's not complete for this machine
-        (machine.selectedInterval !== null && machine.selectedItems.length > 0) // If interval is selected, there must be items
-    )
-  );
+  const isStep4Complete = addForm.selectedUnits.every((unit) => unit.machines.every((machine) => machine.selectedInterval === null || (machine.selectedInterval !== null && machine.selectedItems.length > 0)));
 
-  // Komponen modal baru untuk menampilkan daftar jadwal harian
   interface DailyScheduleListModalProps {
     isOpen: boolean;
     onClose: () => void;
     schedules: MaintenanceTaskRecord[];
-    onSelectSchedule: (record: MaintenanceTaskRecord) => void; // Pastikan tipe ini sesuai
+    onSelectSchedule: (record: MaintenanceTaskRecord) => void;
     titleDate: string;
   }
 
-  const DailyScheduleListModal: React.FC<DailyScheduleListModalProps> = ({
-    isOpen,
-    onClose,
-    schedules,
-    onSelectSchedule, // Pastikan prop ini ada
-    titleDate,
-  }) => {
+  const DailyScheduleListModal: React.FC<DailyScheduleListModalProps> = ({ isOpen, onClose, schedules, onSelectSchedule, titleDate }) => {
     const handleSelectAndClose = (record: MaintenanceTaskRecord) => {
       onSelectSchedule(record);
     };
 
     return (
-      <Modal isOpen={isOpen} onClose={onClose} title={`Jadwal Harian untuk ${new Date(titleDate).toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}`} className="max-w-md">
-        {" "}
-        {/* Dynamic title */}
+      <Modal isOpen={isOpen} onClose={onClose} title={`Daily Schedule for ${new Date(titleDate).toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}`} className="max-w-md">
         <div className="space-y-3">
           {schedules.length === 0 ? (
-            <p className="text-gray-600">Tidak ada jadwal untuk tanggal ini.</p>
+            <p className="text-gray-600">No schedules for this date.</p>
           ) : (
             schedules.map((schedule, index) => (
               <motion.button
                 key={schedule.id}
                 whileHover={{ scale: 1.02, backgroundColor: "rgba(239, 246, 255, 0.7)" }}
                 whileTap={{ scale: 0.98 }}
-                onClick={() => handleSelectAndClose(schedule)} // This now triggers edit form
-                className="w-full text-left p-4 border border-gray-200 rounded-lg shadow-sm bg-white hover:bg-blue-50 transition-colors duration-150 flex flex-col items-start" // Increased padding to p-4
+                onClick={() => handleSelectAndClose(schedule)}
+                className="w-full text-left p-4 border border-gray-200 rounded-lg shadow-sm bg-white hover:bg-blue-50 transition-colors duration-150 flex flex-col items-start"
               >
                 <p className="font-semibold text-gray-800 text-base">
                   Schedule {index + 1}: {schedule.mesin} - {schedule.item}
-                </p>{" "}
-                {/* Changed to "Schedule X: Mesin - Item" */}
+                </p>
                 <p className="text-sm text-gray-600">
                   Interval: {schedule.interval} | Unit: {schedule.unitWilayah}
-                </p>{" "}
-                {/* Adjusted font size */}
-                <p className={`mt-2 px-3 py-1 rounded-full text-sm font-semibold ${getApprovalStatusColor(schedule.approvalStatus)}`}>
-                  {" "}
-                  {/* Increased padding and font size */}
-                  {getDisplayStatus(schedule.approvalStatus)} {/* Updated status display */}
                 </p>
+                <p className={`mt-2 px-3 py-1 rounded-full text-sm font-semibold ${getApprovalStatusColor(schedule.approvalStatus)}`}>{getDisplayStatus(schedule.approvalStatus)}</p>
               </motion.button>
             ))
           )}
@@ -2000,533 +1824,491 @@ const MonitoringMaintenance: React.FC = () => {
   };
 
   return (
-    <div className={`flex h-screen font-sans antialiased bg-blue-50`}>
-      <Sidebar />
+    <MaintenanceRecordsContext.Provider value={{ records, setRecords, routineSchedules }}>
+      <div className={`flex h-screen font-sans antialiased bg-blue-50`}>
+        <Sidebar />
 
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white border-b border-gray-100 p-4 flex items-center justify-between shadow-sm sticky top-0 z-30">
-          <div className="flex items-center space-x-4">
-            {isMobile && (
-              <motion.button onClick={toggleSidebar} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
-                <ChevronRight className="text-xl" />
-              </motion.button>
-            )}
-            <Monitor className="text-xl text-blue-600" />
-            <h2 className="text-lg md:text-xl font-bold text-gray-900">Pemantauan Pemeliharaan</h2>
-          </div>
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <header className="bg-white border-b border-gray-100 p-4 flex items-center justify-between shadow-sm sticky top-0 z-30">
+            <div className="flex items-center space-x-4">
+              {isMobile && (
+                <motion.button onClick={toggleSidebar} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
+                  <ChevronRight className="text-xl" />
+                </motion.button>
+              )}
+              <Monitor className="text-xl text-blue-600" />
+              <h2 className="text-lg md:text-xl font-bold text-gray-900">Maintenance Monitoring</h2>
+            </div>
 
-          <div className="flex items-center space-x-3 relative">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setDarkMode(!darkMode)}
-              className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200"
-              aria-label={darkMode ? "Beralih ke mode terang" : "Beralih ke mode gelap"}
-            >
-              {darkMode ? <Sun className="text-yellow-400 text-xl" /> : <Moon className="text-xl" />}
-            </motion.button>
-
-            <div className="relative" ref={notificationsRef}>
+            <div className="flex items-center space-x-3 relative">
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => setShowNotificationsPopup(!showNotificationsPopup)}
-                className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200 relative"
-                aria-label="Notifikasi"
+                onClick={() => setDarkMode(!darkMode)}
+                className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200"
+                aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
               >
-                <Bell className="text-xl" />
-                {notifications.length > 0 && <span className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full animate-pulse border border-white"></span>}
+                {darkMode ? <Sun className="text-yellow-400 text-xl" /> : <Moon className="text-xl" />}
               </motion.button>
 
-              <AnimatePresence>
-                {showNotificationsPopup && (
-                  <motion.div
-                    ref={notificationsRef}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 20 }}
-                    transition={{ duration: 0.2 }}
-                    className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl overflow-hidden z-50 border border-gray-100"
-                  >
-                    <div className="p-4 border-b border-gray-100">
-                      <h3 className="text-lg font-semibold text-gray-800">Notifikasi</h3>
-                    </div>
-                    <div className="max-h-80 overflow-y-auto custom-scrollbar">
-                      {notifications.length > 0 ? (
-                        notifications.map((notif) => (
-                          <div key={notif.id} className="flex items-start p-4 border-b border-gray-50 last:border-b-0 hover:bg-blue-50 transition-colors cursor-pointer">
-                            {notif.icon && <div className="flex-shrink-0 mr-3">{notif.icon}</div>}
-                            <div>
-                              <p className="text-sm font-semibold text-gray-800">{notif.title}</p>
-                              <p className="text-xs text-gray-600 mt-1">{notif.description}</p>
-                              <p className="text-xs text-gray-400 mt-1">{notif.date}</p>
+              <div className="relative" ref={notificationsRef}>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setShowNotificationsPopup(!showNotificationsPopup)}
+                  className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200 relative"
+                  aria-label="Notifications"
+                >
+                  <Bell className="text-xl" />
+                  {notifications.length > 0 && <span className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full animate-pulse border border-white"></span>}
+                </motion.button>
+
+                <AnimatePresence>
+                  {showNotificationsPopup && (
+                    <motion.div
+                      ref={notificationsRef}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 20 }}
+                      transition={{ duration: 0.2 }}
+                      className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl overflow-hidden z-50 border border-gray-100"
+                    >
+                      <div className="p-4 border-b border-gray-100">
+                        <h3 className="text-lg font-semibold text-gray-800">Notifications</h3>
+                      </div>
+                      <div className="max-h-80 overflow-y-auto custom-scrollbar">
+                        {notifications.length > 0 ? (
+                          notifications.map((notif) => (
+                            <div key={notif.id} className="flex items-start p-4 border-b border-gray-50 last:border-b-0 hover:bg-blue-50 transition-colors cursor-pointer">
+                              {notif.icon && <div className="flex-shrink-0 mr-3">{notif.icon}</div>}
+                              <div>
+                                <p className="text-sm font-semibold text-gray-800">{notif.title}</p>
+                                <p className="text-xs text-gray-600 mt-1">{notif.description}</p>
+                                <p className="text-xs text-gray-400 mt-1">{notif.date}</p>
+                              </div>
                             </div>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="p-4 text-center text-gray-500 text-sm">Tidak ada notifikasi baru.</p>
-                      )}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+                          ))
+                        ) : (
+                          <p className="p-4 text-center text-gray-500 text-sm">No new notifications.</p>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
 
-            <div className="relative" ref={profileRef}>
-              <motion.button
-                whileHover={{ backgroundColor: "rgba(239, 246, 255, 0.7)" }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => setShowProfileMenu(!showProfileMenu)}
-                className="flex items-center space-x-2 cursor-pointer p-2 rounded-lg transition-colors duration-200"
-              >
-                <img
-                  src={`https://api.dicebear.com/7.x/initials/svg?seed=${dummyUser.name || "User"}&backgroundColor=0081ff,3d5a80,ffc300,e0b589&backgroundType=gradientLinear&radius=50`}
-                  alt="Avatar Pengguna"
-                  className="w-8 h-8 rounded-full border border-blue-200 object-cover"
-                />
-                <span className="font-medium text-gray-900 text-sm hidden sm:inline">{dummyUser.name}</span>
-                <ChevronDown className="text-gray-500 text-base" />
-              </motion.button>
+              <div className="relative" ref={profileRef}>
+                <motion.button
+                  whileHover={{ backgroundColor: "rgba(239, 246, 255, 0.7)" }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setShowProfileMenu(!showProfileMenu)}
+                  className="flex items-center space-x-2 cursor-pointer p-2 rounded-lg transition-colors duration-200"
+                >
+                  <img
+                    src={`https://api.dicebear.com/7.x/initials/svg?seed=${dummyUser.name || "User"}&backgroundColor=0081ff,3d5a80,ffc300,e0b589&backgroundType=gradientLinear&radius=50`}
+                    alt="User Avatar"
+                    className="w-8 h-8 rounded-full border border-blue-200 object-cover"
+                  />
+                  <span className="font-medium text-gray-900 text-sm hidden sm:inline">{dummyUser.name}</span>
+                  <ChevronDown className="text-gray-500 text-base" />
+                </motion.button>
 
-              <AnimatePresence>
-                {showProfileMenu && (
-                  <motion.div
-                    ref={profileRef}
-                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                    transition={{ duration: 0.2 }}
-                    className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-40 border border-gray-100"
-                  >
-                    <div className="px-4 py-2 text-xs text-gray-500 border-b border-gray-100">Masuk sebagai</div>
-                    <div className="px-4 py-2 font-semibold text-gray-800 border-b border-gray-100">{dummyUser.name || "Pengguna Tamu"}</div>
-                    <button onClick={() => setShowProfileMenu(false)} className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 w-full text-left">
-                      <UserIcon size={16} className="mr-2" /> Profil Saya
-                    </button>
-                    <button onClick={() => setShowProfileMenu(false)} className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 w-full text-left">
-                      <Settings size={16} className="mr-2" /> Pengaturan
-                    </button>
-                    <hr className="my-1 border-gray-100" />
-                    <motion.button onClick={() => setShowProfileMenu(false)} className="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full text-left">
-                      <LogOut size={16} className="mr-2" /> Keluar
-                    </motion.button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </div>
-        </header>
-
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
-          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-6 flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-                Pemantauan <span className="text-blue-600">Pemeliharaan</span>
-              </h1>
-              <p className="text-gray-600 mt-2 text-sm max-w-xl">Memantau dan menjadwalkan tugas pemeliharaan preventif untuk semua mesin, dan melacak kemajuan persetujuannya.</p>
-            </div>
-            <div className="flex items-center space-x-2">
-              <motion.button
-                onClick={() => {
-                  setShowAddModal(true);
-                  setAddForm({ startDate: null, endDate: null, selectedUnits: [] }); // Reset form on open
-                  setCurrentStep(1); // Start at step 1
-                }}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-full text-sm font-semibold shadow-md hover:bg-blue-700 transition-colors duration-200"
-              >
-                <Plus className="w-4 h-4 mr-2" /> Tambah Data
-              </motion.button>
-              <div className="flex space-x-1 p-1 bg-white rounded-full shadow-sm border border-gray-100">
-                {/* Removed Weekly Button */}
-                <motion.button
-                  onClick={() => setViewMode("calendar")}
-                  whileTap={{ scale: 0.95 }}
-                  className={`flex items-center px-4 py-2 rounded-full text-sm font-semibold transition-colors duration-200 ${viewMode === "calendar" ? "bg-blue-600 text-white shadow" : "text-gray-700 hover:bg-gray-100"}`}
-                >
-                  <Calendar className="w-4 h-4 mr-2" /> Kalender
-                </motion.button>
-                <motion.button
-                  onClick={() => setViewMode("table")}
-                  whileTap={{ scale: 0.95 }}
-                  className={`flex items-center px-4 py-2 rounded-full text-sm font-semibold transition-colors duration-200 ${viewMode === "table" ? "bg-blue-600 text-white shadow" : "text-gray-700 hover:bg-gray-100"}`}
-                >
-                  <Clipboard className="w-4 h-4 mr-2" /> Tabel
-                </motion.button>
-                <motion.button
-                  onClick={() => setViewMode("trend")}
-                  whileTap={{ scale: 0.95 }}
-                  className={`flex items-center px-4 py-2 rounded-full text-sm font-semibold transition-colors duration-200 ${viewMode === "trend" ? "bg-blue-600 text-white shadow" : "text-gray-700 hover:bg-gray-100"}`}
-                >
-                  <TrendingUp className="w-4 h-4 mr-2" /> Tren
-                </motion.button>
+                <AnimatePresence>
+                  {showProfileMenu && (
+                    <motion.div
+                      ref={profileRef}
+                      initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                      transition={{ duration: 0.2 }}
+                      className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-40 border border-gray-100"
+                    >
+                      <div className="px-4 py-2 text-xs text-gray-500 border-b border-gray-100">Logged in as</div>
+                      <div className="px-4 py-2 font-semibold text-gray-800 border-b border-gray-100">{dummyUser.name || "Guest User"}</div>
+                      <button onClick={() => setShowProfileMenu(false)} className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 w-full text-left">
+                        <UserIcon size={16} className="mr-2" /> My Profile
+                      </button>
+                      <button onClick={() => setShowProfileMenu(false)} className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 w-full text-left">
+                        <Settings size={16} className="mr-2" /> Settings
+                      </button>
+                      <hr className="my-1 border-gray-100" />
+                      <motion.button onClick={() => setShowProfileMenu(false)} className="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full text-left">
+                        <LogOut size={16} className="mr-2" /> Logout
+                      </motion.button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
-          </motion.div>
+          </header>
 
-          {loading ? (
-            <div className="bg-white rounded-2xl shadow-md p-8 text-center border border-blue-100">
-              <div className="animate-spin rounded-full h-14 w-14 border-t-4 border-b-4 border-blue-500 mx-auto mb-5"></div>
-              <p className="text-gray-600 text-base font-medium">Memuat data pemeliharaan...</p>
-            </div>
-          ) : records.length === 0 && viewMode !== "trend" ? (
-            <div className="bg-white rounded-2xl shadow-md p-8 text-center border border-blue-100">
-              <Info className="text-blue-500 text-4xl mx-auto mb-4" />
-              <p className="text-gray-700 text-base font-medium">Tidak ada data pemeliharaan yang tersedia.</p>
-            </div>
-          ) : (
-            <AnimatePresence mode="wait">
-              <motion.div key={viewMode} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
-                <div className="mb-8 bg-white rounded-2xl shadow-md p-5 border border-blue-100">
-                  <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-4 md:space-y-0 relative">
-                    <div className="flex-1 relative">
-                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
-                      <input
-                        type="text"
-                        placeholder="Cari berdasarkan tanggal, interval, atau catatan..."
-                        className="w-full pl-11 pr-4 py-2.5 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white text-sm transition-all duration-200 shadow-sm placeholder-gray-400"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        aria-label="Cari catatan"
-                      />
-                    </div>
-
-                    <motion.button
-                      whileHover={{ scale: 1.02, boxShadow: "0 4px 10px rgba(0, 0, 0, 0.08)" }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                      className="flex items-center space-x-2 bg-white border border-blue-200 text-gray-800 px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-sm font-semibold text-sm hover:bg-gray-50"
-                    >
-                      <Filter className="text-base" />
-                      <span>Filter</span>
-                      <motion.span animate={{ rotate: showAdvancedFilters ? 180 : 0 }} transition={{ duration: 0.2 }}>
-                        <ChevronDown className="text-base" />
-                      </motion.span>
-                    </motion.button>
-                  </div>
-
-                  <AnimatePresence>
-                    {showAdvancedFilters && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: "auto" }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full"
-                      >
-                        <div className="flex items-center space-x-2 bg-white p-2.5 rounded-lg border border-blue-200 shadow-sm">
-                          <Calendar className="text-gray-500 text-base" />
-                          {/* Replaced DatePicker with standard input type="date" */}
-                          <input
-                            type="date"
-                            value={filterStartDate ? filterStartDate.toISOString().split("T")[0] : ""}
-                            onChange={(e) => setFilterStartDate(e.target.value ? new Date(e.target.value) : null)}
-                            placeholder="Tanggal Mulai"
-                            className="w-24 focus:outline-none bg-transparent text-sm text-gray-800 placeholder-gray-400"
-                            aria-label="Tanggal Mulai"
-                          />
-                          <span className="text-gray-400">-</span>
-                          <input
-                            type="date"
-                            value={filterEndDate ? filterEndDate.toISOString().split("T")[0] : ""}
-                            onChange={(e) => setFilterEndDate(e.target.value ? new Date(e.target.value) : null)}
-                            placeholder="Tanggal Berakhir"
-                            className="w-24 focus:outline-none bg-transparent text-sm text-gray-800 placeholder-gray-400"
-                            aria-label="Tanggal Berakhir"
-                            min={filterStartDate ? filterStartDate.toISOString().split("T")[0] : undefined}
-                          />
-                          {(filterStartDate || filterEndDate) && (
-                            <motion.button
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.9 }}
-                              onClick={() => {
-                                setFilterStartDate(null);
-                                setFilterEndDate(null);
-                              }}
-                              className="p-1 rounded-full text-gray-400 hover:bg-gray-100 transition-colors"
-                              title="Hapus Tanggal"
-                              aria-label="Hapus rentang tanggal"
-                            >
-                              <X className="text-base" />
-                            </motion.button>
-                          )}
-                        </div>
-
-                        <div className="relative w-full">
-                          <select
-                            value={selectedUnit}
-                            onChange={(e) => setSelectedUnit(e.target.value ? [e.target.value] : [])}
-                            className="w-full border border-blue-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white text-sm text-left transition-all duration-200 shadow-sm cursor-pointer"
-                          >
-                            <option value="">Semua Unit</option>
-                            {uniqueUnits.map((unit) => (
-                              <option key={unit} value={unit}>
-                                {unit}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        {/* New filter for 'Mesin' (Machine) */}
-                        <div className="relative w-full">
-                          <select
-                            value={selectedMachine}
-                            onChange={(e) => setSelectedMachine(e.target.value ? [e.target.value] : [])}
-                            className="w-full border border-blue-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white text-sm text-left transition-all duration-200 shadow-sm cursor-pointer"
-                          >
-                            <option value="">Semua Mesin</option>
-                            {uniqueMachines.map((machine) => (
-                              <option key={machine} value={machine}>
-                                {machine}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+          <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
+            <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-6 flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
+                  Maintenance <span className="text-blue-600">Monitoring</span>
+                </h1>
+                <p className="text-gray-600 mt-2 text-sm max-w-xl">Monitor and schedule preventive maintenance tasks for all machines, and track their approval progress.</p>
+              </div>
+              <div className="flex items-center space-x-2">
+                <motion.button
+                  onClick={() => {
+                    setShowAddModal(true);
+                    setAddForm({ startDate: null, endDate: null, selectedUnits: [] });
+                    setCurrentStep(1);
+                  }}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-full text-sm font-semibold shadow-md hover:bg-blue-700 transition-colors duration-200"
+                >
+                  <Plus className="w-4 h-4 mr-2" /> Add Data
+                </motion.button>
+                <div className="flex space-x-1 p-1 bg-white rounded-full shadow-sm border border-gray-100">
+                  <motion.button
+                    onClick={() => setViewMode("calendar")}
+                    whileTap={{ scale: 0.95 }}
+                    className={`flex items-center px-4 py-2 rounded-full text-sm font-semibold transition-colors duration-200 ${viewMode === "calendar" ? "bg-blue-600 text-white shadow" : "text-gray-700 hover:bg-gray-100"}`}
+                  >
+                    <Calendar className="w-4 h-4 mr-2" /> Calendar
+                  </motion.button>
+                  <motion.button
+                    onClick={() => setViewMode("table")}
+                    whileTap={{ scale: 0.95 }}
+                    className={`flex items-center px-4 py-2 rounded-full text-sm font-semibold transition-colors duration-200 ${viewMode === "table" ? "bg-blue-600 text-white shadow" : "text-gray-700 hover:bg-gray-100"}`}
+                  >
+                    <Clipboard className="w-4 h-4 mr-2" /> Table
+                  </motion.button>
+                  <motion.button
+                    onClick={() => setViewMode("trend")}
+                    whileTap={{ scale: 0.95 }}
+                    className={`flex items-center px-4 py-2 rounded-full text-sm font-semibold transition-colors duration-200 ${viewMode === "trend" ? "bg-blue-600 text-white shadow" : "text-gray-700 hover:bg-gray-100"}`}
+                  >
+                    <TrendingUp className="w-4 h-4 mr-2" /> Trend
+                  </motion.button>
                 </div>
+              </div>
+            </motion.div>
 
-                {/* Removed WeeklyView Component */}
-                {viewMode === "calendar" && (
-                  <div className="bg-white rounded-2xl shadow-md p-6 border border-blue-100">
-                    <div className="flex justify-between items-center mb-4">
-                      <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={goToPreviousMonth} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
-                        <ChevronLeft size={20} />
-                      </motion.button>
-                      <h3 className="text-lg font-bold text-gray-800">{currentCalendarDate.toLocaleDateString("id-ID", { month: "long", year: "numeric" })}</h3>
-                      <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={goToNextMonth} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
-                        <ChevronRight size={20} />
-                      </motion.button>
+            {loading ? (
+              <div className="bg-white rounded-2xl shadow-md p-8 text-center border border-blue-100">
+                <div className="animate-spin rounded-full h-14 w-14 border-t-4 border-b-4 border-blue-500 mx-auto mb-5"></div>
+                <p className="text-gray-600 text-base font-medium">Loading maintenance data...</p>
+              </div>
+            ) : records.length === 0 && viewMode !== "trend" ? (
+              <div className="bg-white rounded-2xl shadow-md p-8 text-center border border-blue-100">
+                <Info className="text-blue-500 text-4xl mx-auto mb-4" />
+                <p className="text-gray-700 text-base font-medium">No monitoring data available.</p>
+              </div>
+            ) : (
+              <AnimatePresence mode="wait">
+                <motion.div key={viewMode} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
+                  <div className="mb-8 bg-white rounded-2xl shadow-md p-5 border border-blue-100">
+                    <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-4 md:space-y-0 relative">
+                      <div className="flex-1 relative">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
+                        <input
+                          type="text"
+                          placeholder="Search by date, interval, or machine..."
+                          className="w-full pl-11 pr-4 py-2.5 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white text-sm transition-all duration-200 shadow-sm placeholder-gray-400"
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          aria-label="Search records"
+                        />
+                      </div>
+
                       <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={goToCurrentMonth}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-full text-sm font-semibold shadow-md hover:bg-blue-700 transition-colors duration-200"
+                        whileHover={{ scale: 1.02, boxShadow: "0 4px 10px rgba(0, 0, 0, 0.08)" }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                        className="flex items-center space-x-2 bg-white border border-blue-200 text-gray-800 px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-sm font-semibold text-sm hover:bg-gray-50"
                       >
-                        Hari Ini
+                        <Filter className="text-base" />
+                        <span>Filter</span>
+                        <motion.span animate={{ rotate: showAdvancedFilters ? 180 : 0 }} transition={{ duration: 0.2 }}>
+                          <ChevronDown className="text-base" />
+                        </motion.span>
                       </motion.button>
                     </div>
-                    {/* Calendar Header with WN */}
-                    <div className="grid grid-cols-8 gap-2 text-center text-sm font-semibold text-gray-600 mb-2">
-                      <div className="text-center font-bold">WN</div>
-                      <div>Sen</div>
-                      <div>Sel</div>
-                      <div>Rab</div>
-                      <div>Kam</div>
-                      <div>Jum</div>
-                      <div>Sab</div>
-                      <div>Min</div>
-                    </div>
-                    {/* Calendar Days with WN */}
-                    <div className="grid grid-cols-8 gap-2">{renderCalendarDays()}</div>
+
+                    <AnimatePresence>
+                      {showAdvancedFilters && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full"
+                        >
+                          <div className="flex items-center space-x-2 bg-white p-2.5 rounded-lg border border-blue-200 shadow-sm">
+                            <Calendar className="text-gray-500 text-base" />
+                            <input
+                              type="date"
+                              value={filterStartDate ? filterStartDate.toISOString().split("T")[0] : ""}
+                              onChange={(e) => setFilterStartDate(e.target.value ? new Date(e.target.value) : null)}
+                              placeholder="Start Date"
+                              className="w-24 focus:outline-none bg-transparent text-sm text-gray-800 placeholder-gray-400"
+                              aria-label="Start Date"
+                            />
+                            <span className="text-gray-400">-</span>
+                            <input
+                              type="date"
+                              value={filterEndDate ? filterEndDate.toISOString().split("T")[0] : ""}
+                              onChange={(e) => setFilterEndDate(e.target.value ? new Date(e.target.value) : null)}
+                              placeholder="End Date"
+                              className="w-24 focus:outline-none bg-transparent text-sm text-gray-800 placeholder-gray-400"
+                              aria-label="End Date"
+                              min={filterStartDate ? filterStartDate.toISOString().split("T")[0] : undefined}
+                            />
+                            {(filterStartDate || filterEndDate) && (
+                              <motion.button
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                                onClick={() => {
+                                  setFilterStartDate(null);
+                                  setFilterEndDate(null);
+                                }}
+                                className="p-1 rounded-full text-gray-400 hover:bg-gray-100 transition-colors"
+                                title="Clear Date"
+                                aria-label="Clear date range"
+                              >
+                                <X className="text-base" />
+                              </motion.button>
+                            )}
+                          </div>
+
+                          <div className="relative w-full">
+                            <select
+                              value={selectedUnit}
+                              onChange={(e) => setSelectedUnit(e.target.value ? [e.target.value] : [])}
+                              className="w-full border border-blue-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white text-sm text-left transition-all duration-200 shadow-sm cursor-pointer"
+                            >
+                              <option value="">All Units</option>
+                              {uniqueUnits.map((unit) => (
+                                <option key={unit} value={unit}>
+                                  {unit}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="relative w-full">
+                            <select
+                              value={selectedMachine}
+                              onChange={(e) => setSelectedMachine(e.target.value ? [e.target.value] : [])}
+                              className="w-full border border-blue-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white text-sm text-left transition-all duration-200 shadow-sm cursor-pointer"
+                            >
+                              <option value="">All Machines</option>
+                              {uniqueMachines.map((machine) => (
+                                <option key={machine} value={machine}>
+                                  {machine}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
-                )}
-                {viewMode === "table" && (
-                  <div className="bg-white rounded-2xl shadow-md p-6 border border-blue-100">
-                    <div className="overflow-x-auto bg-white rounded-lg shadow-md mt-6 animate-fade-in">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Interval</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mesin</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hasil Pemantauan</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status MS</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Persetujuan</th>
-                            <th className="relative px-6 py-3">
-                              <span className="sr-only">Tindakan</span>
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {filteredRecords.length > 0 ? (
-                            filteredRecords.map((record) => (
-                              <motion.tr key={record.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="hover:bg-gray-50">
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{record.date}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{record.interval}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{record.unitWilayah}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{record.mesin}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{record.item}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{record.monitoringResult}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                  <span
-                                    className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                                      record.msStatus === "OK" ? "bg-green-100 text-green-800" : record.msStatus === "NG" ? "bg-red-100 text-red-800" : "bg-gray-100 text-gray-800"
-                                    }`}
-                                  >
-                                    {record.msStatus}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${getApprovalStatusColor(record.approvalStatus)}`}>{getDisplayStatus(record.approvalStatus)}</span> {/* Updated status display */}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                  <motion.button
-                                    whileHover={{ scale: 1.1 }}
-                                    whileTap={{ scale: 0.9 }}
-                                    onClick={() => handleViewRecord(record)}
-                                    className="text-blue-600 hover:text-blue-900 transition-colors duration-200"
-                                    title="Lihat Detail"
-                                  >
-                                    <Eye size={18} />
-                                  </motion.button>
-                                </td>
-                              </motion.tr>
-                            ))
-                          ) : (
+
+                  {viewMode === "calendar" && (
+                    <div className="bg-white rounded-2xl shadow-md p-6 border border-blue-100">
+                      <div className="flex justify-between items-center mb-4">
+                        <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={goToPreviousMonth} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
+                          <ChevronLeft size={20} />
+                        </motion.button>
+                        <h3 className="text-lg font-bold text-gray-800">{currentCalendarDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</h3>
+                        <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={goToNextMonth} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
+                          <ChevronRight size={20} />
+                        </motion.button>
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={goToCurrentMonth}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-full text-sm font-semibold shadow-md hover:bg-blue-700 transition-colors duration-200"
+                        >
+                          Today
+                        </motion.button>
+                      </div>
+                      <div className="grid grid-cols-8 gap-2 text-center text-sm font-semibold text-gray-600 mb-2">
+                        <div className="text-center font-bold">WN</div>
+                        <div>Mon</div>
+                        <div>Tue</div>
+                        <div>Wed</div>
+                        <div>Thu</div>
+                        <div>Fri</div>
+                        <div>Sat</div>
+                        <div>Sun</div>
+                      </div>
+                      <div className="grid grid-cols-8 gap-2">{renderCalendarDays()}</div>
+                    </div>
+                  )}
+                  {viewMode === "table" && (
+                    <div className="bg-white rounded-2xl shadow-md p-6 border border-blue-100">
+                      <div className="overflow-x-auto bg-white rounded-lg shadow-md mt-6 animate-fade-in">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50">
                             <tr>
-                              <td colSpan={9} className="px-6 py-4 text-center text-sm text-gray-500">
-                                Tidak ada data pemantauan yang ditemukan.
-                              </td>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Interval</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Machine</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monitoring Result</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">MS Status</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Approval</th>
+                              <th className="relative px-6 py-3">
+                                <span className="sr-only">Actions</span>
+                              </th>
                             </tr>
-                          )}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {filteredRecords.length > 0 ? (
+                              filteredRecords.map((record) => (
+                                <motion.tr key={record.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="hover:bg-gray-50">
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{record.date}</td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{record.interval}</td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{record.unitWilayah}</td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{record.mesin}</td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{record.item}</td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{record.monitoringResult}</td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                    <span
+                                      className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                                        record.msStatus === "OK" ? "bg-green-100 text-green-800" : record.msStatus === "NG" ? "bg-red-100 text-red-800" : "bg-gray-100 text-gray-800"
+                                      }`}
+                                    >
+                                      {record.msStatus}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${getApprovalStatusColor(record.approvalStatus)}`}>{getDisplayStatus(record.approvalStatus)}</span>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <motion.button
+                                      whileHover={{ scale: 1.1 }}
+                                      whileTap={{ scale: 0.9 }}
+                                      onClick={() => handleViewRecord(record)}
+                                      className="text-blue-600 hover:text-blue-900 transition-colors duration-200"
+                                      title="View Details"
+                                    >
+                                      <Eye size={18} />
+                                    </motion.button>
+                                  </td>
+                                </motion.tr>
+                              ))
+                            ) : (
+                              <tr>
+                                <td colSpan={9} className="px-6 py-4 text-center text-sm text-gray-500">
+                                  No monitoring data found.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
-                  </div>
-                )}
-                {viewMode === "trend" && <TrendAnalysis records={filteredRecords} />}
-              </motion.div>
-            </AnimatePresence>
-          )}
-        </main>
-      </div>
-
-      <Modal isOpen={showDetailsModal} onClose={() => setShowDetailsModal(false)} title="Detail Pemantauan">
-        {selectedRecord && (
-          <>
-            <DetailView record={selectedRecord} onUpdateApproval={handleUpdateApprovalStatus} currentUserRole={dummyUser.role} />
-
-            <div className="mt-6 pt-4 border-t border-gray-200 flex justify-center">
-              <motion.a
-                href="/detailmonitoring"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="px-5 py-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 font-semibold text-sm flex items-center"
-              >
-                <Eye className="w-4 h-4 mr-2" />
-                Lihat Detail Lengkap
-              </motion.a>
-            </div>
-          </>
-        )}
-      </Modal>
-
-      {/* Modal for Adding New Data */}
-      <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} title="Tambah Data Pemantauan Baru" className="max-w-3xl">
-        <div className="mb-4 flex border-b">
-          <button type="button" onClick={() => setCurrentStep(1)} className={`px-4 py-2 font-medium ${currentStep === 1 ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500"}`}>
-            1. Tanggal
-          </button>
-          <button
-            type="button"
-            onClick={() => isStep1Complete && setCurrentStep(2)}
-            className={`px-4 py-2 font-medium ${currentStep === 2 ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500"} ${!isStep1Complete ? "opacity-50 cursor-not-allowed" : ""}`}
-            disabled={!isStep1Complete}
-          >
-            2. Unit
-          </button>
-          <button
-            type="button"
-            onClick={() => isStep2Complete && setCurrentStep(3)}
-            className={`px-4 py-2 font-medium ${currentStep === 3 ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500"} ${!isStep2Complete ? "opacity-50 cursor-not-allowed" : ""}`}
-            disabled={!isStep2Complete}
-          >
-            3. Mesin & Interval
-          </button>
-          <button
-            type="button"
-            onClick={() => isStep3Complete && setCurrentStep(4)}
-            className={`px-4 py-2 font-medium ${currentStep === 4 ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500"} ${!isStep3Complete ? "opacity-50 cursor-not-allowed" : ""}`}
-            disabled={!isStep3Complete}
-          >
-            4. Item
-          </button>
+                  )}
+                  {viewMode === "trend" && <TrendAnalysis records={filteredRecords} />}
+                </motion.div>
+              </AnimatePresence>
+            )}
+          </main>
         </div>
 
-        <div className="min-h-[300px]">
-          {currentStep === 1 && <Step1DateRange formData={addForm} setFormData={setAddForm} isEditMode={false} />}
-          {currentStep === 2 && <Step2Units formData={addForm} setFormData={setAddForm} availableUnits={STATIC_UNITS} isEditMode={false} />}
-          {currentStep === 3 && <Step3MachinesIntervals formData={addForm} setFormData={setAddForm} availableUnits={STATIC_UNITS} routineSchedules={routineSchedules} isEditMode={false} />}
-          {currentStep === 4 && (
-            <Step4ItemsPerMachine
-              formData={addForm}
-              setFormData={setAddForm}
-              routineSchedules={routineSchedules}
-              isEditMode={false}
-              onUpdateRecord={() => {}} // Berikan fungsi kosong
-            />
-          )}
-        </div>
+        <Modal isOpen={showDetailsModal} onClose={() => setShowDetailsModal(false)} title="Monitoring Details">
+          {selectedRecord && (
+            <>
+              <DetailView record={selectedRecord} onUpdateApproval={handleUpdateApprovalStatus} currentUserRole={dummyUser.role} />
 
-        <div className="flex justify-between mt-6 pt-4 border-t">
-          {currentStep > 1 ? (
-            <button type="button" onClick={() => setCurrentStep(currentStep - 1)} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">
-              Kembali
+              <div className="mt-6 pt-4 border-t border-gray-200 flex justify-center">
+                <motion.a
+                  href="/detailmonitoring"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="px-5 py-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 font-semibold text-sm flex items-center"
+                >
+                  <Eye className="w-4 h-4 mr-2" />
+                  View Full Details
+                </motion.a>
+              </div>
+            </>
+          )}
+        </Modal>
+
+        <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} title="Add New Monitoring Data" className="max-w-3xl">
+          <div className="mb-4 flex border-b">
+            <button type="button" onClick={() => setCurrentStep(1)} className={`px-4 py-2 font-medium ${currentStep === 1 ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500"}`}>
+              1. Date
             </button>
-          ) : (
-            <div></div>
-          )}
-
-          {currentStep < 4 ? (
             <button
               type="button"
-              onClick={() => setCurrentStep(currentStep + 1)}
-              className={`px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 ${
-                (currentStep === 1 && !isStep1Complete) || (currentStep === 2 && !isStep2Complete) || (currentStep === 3 && !isStep3Complete) ? "opacity-50 cursor-not-allowed" : ""
-              }`}
-              disabled={(currentStep === 1 && !isStep1Complete) || (currentStep === 2 && !isStep2Complete) || (currentStep === 3 && !isStep3Complete)}
+              onClick={() => isStep1Complete && setCurrentStep(2)}
+              className={`px-4 py-2 font-medium ${currentStep === 2 ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500"} ${!isStep1Complete ? "opacity-50 cursor-not-allowed" : ""}`}
+              disabled={!isStep1Complete}
             >
-              Lanjut
+              2. Unit
             </button>
-          ) : (
-            <button type="button" onClick={handleAddRecord} className={`px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 ${!isStep4Complete ? "opacity-50 cursor-not-allowed" : ""}`} disabled={!isStep4Complete}>
-              Simpan Semua
+            <button
+              type="button"
+              onClick={() => isStep2Complete && setCurrentStep(3)}
+              className={`px-4 py-2 font-medium ${currentStep === 3 ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500"} ${!isStep2Complete ? "opacity-50 cursor-not-allowed" : ""}`}
+              disabled={!isStep2Complete}
+            >
+              3. Machine & Interval
             </button>
-          )}
-        </div>
-      </Modal>
+            <button
+              type="button"
+              onClick={() => isStep3Complete && setCurrentStep(4)}
+              className={`px-4 py-2 font-medium ${currentStep === 4 ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-500"} ${!isStep3Complete ? "opacity-50 cursor-not-allowed" : ""}`}
+              disabled={!isStep3Complete}
+            >
+              4. Item
+            </button>
+          </div>
 
-      {/* Modal untuk menampilkan daftar jadwal harian */}
-      <DailyScheduleListModal
-        isOpen={showDailyScheduleModal}
-        onClose={() => setShowDailyScheduleModal(false)}
-        schedules={dailySchedulesForSelectedDate}
-        onSelectSchedule={handleEditRecordFromDailySchedule} // Pastikan ini di-set dengan benar
-        titleDate={selectedDateForDailySchedules}
-      />
+          <div className="min-h-[300px]">
+            {currentStep === 1 && <Step1DateRange formData={addForm} setFormData={setAddForm} />}
+            {currentStep === 2 && <Step2Units formData={addForm} setFormData={setAddForm} availableUnits={STATIC_UNITS} />}
+            {currentStep === 3 && <Step3MachinesIntervals formData={addForm} setFormData={setAddForm} availableUnits={STATIC_UNITS} routineSchedules={routineSchedules} />}
+            {currentStep === 4 && <Step4ItemsPerMachine formData={addForm} setFormData={setAddForm} routineSchedules={routineSchedules} />}
+          </div>
 
-      {/* NEW: Modal for Editing/Filling Monitoring Data from Daily Schedule */}
-      <Modal isOpen={showEditFormModal} onClose={() => setShowEditFormModal(false)} title="Isi / Edit Data Monitoring" className="max-w-3xl">
-        {selectedRecordForEdit && (
-          <Step4ItemsPerMachine
-            formData={addForm} // dummy formData, not directly used in edit mode
-            setFormData={setAddForm} // dummy setFormData
-            routineSchedules={routineSchedules} // passed for context if needed, but not directly used for item population in edit
-            isEditMode={true}
-            recordForEdit={selectedRecordForEdit}
-            onUpdateRecord={handleUpdateRecord}
-          />
-        )}
-        <div className="flex justify-end mt-6 pt-4 border-t">
-          <button
-            type="button"
-            onClick={() => {
-              if (selectedRecordForEdit) {
-                handleUpdateRecord(selectedRecordForEdit); // Use the state from Step4ItemsPerMachine
-              }
-            }}
-            className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600"
-            disabled={!selectedRecordForEdit || selectedRecordForEdit.monitoringResult === "N/A" || selectedRecordForEdit.msStatus === "N/A"}
-          >
-            Simpan Perubahan
-          </button>
-        </div>
-      </Modal>
-    </div>
+          <div className="flex justify-between mt-6 pt-4 border-t">
+            {currentStep > 1 ? (
+              <button type="button" onClick={() => setCurrentStep(currentStep - 1)} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">
+                Back
+              </button>
+            ) : (
+              <div></div>
+            )}
+
+            {currentStep < 4 ? (
+              <button
+                type="button"
+                onClick={() => setCurrentStep(currentStep + 1)}
+                className={`px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 ${
+                  (currentStep === 1 && !isStep1Complete) || (currentStep === 2 && !isStep2Complete) || (currentStep === 3 && !isStep3Complete) ? "opacity-50 cursor-not-allowed" : ""
+                }`}
+                disabled={(currentStep === 1 && !isStep1Complete) || (currentStep === 2 && !isStep2Complete) || (currentStep === 3 && !isStep3Complete)}
+              >
+                Next
+              </button>
+            ) : (
+              <button type="button" onClick={handleAddRecord} className={`px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 ${!isStep4Complete ? "opacity-50 cursor-not-allowed" : ""}`} disabled={!isStep4Complete}>
+                Save All
+              </button>
+            )}
+          </div>
+        </Modal>
+
+        <DailyScheduleListModal
+          isOpen={showDailyScheduleModal}
+          onClose={() => setShowDailyScheduleModal(false)}
+          schedules={dailySchedulesForSelectedDate}
+          onSelectSchedule={handleNavigateToEditForm}
+          titleDate={selectedDateForDailySchedules}
+        />
+      </div>
+    </MaintenanceRecordsContext.Provider>
   );
 };
 
