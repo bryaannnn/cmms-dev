@@ -537,8 +537,8 @@ const DetailMonitoringMaintenance: React.FC = () => {
           if (machineResult.machineId === machineId) {
             let updatedApprovalStatus = { ...machineResult.approvalStatus };
             let updatedCommentsHistory = machineResult.commentsHistory || [];
-
-            if (DUMMY_USER_ROLE === "technician") {
+            //"technician"
+            if (DUMMY_USER_ROLE === "admin") {
               updatedApprovalStatus = {
                 ...updatedApprovalStatus,
                 [firstApproverRole]: "Pending",

@@ -38,7 +38,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
 };
 
 const AddWorkOrderFormIT: React.FC = () => {
-  const { addWorkOrderIT, user, getUsers, departments, services, getServices } = useAuth();
+  const { addWorkOrderIT, user, getUsers, departments, services, getServices, getDepartmentById } = useAuth();
   const navigate = useNavigate();
 
   const [allUsers, setAllUsers] = useState<User[]>([]);
@@ -65,18 +65,6 @@ const AddWorkOrderFormIT: React.FC = () => {
   const notificationsRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
-  // Replace the problematic section with:
-  let currentUserDepartment = "No department assigned";
-  if (user) {
-    if (user.department_id && user.department_name) {
-      currentUserDepartment = user.department_name;
-    } else if (typeof user.department === "object" && user.department?.name) {
-      currentUserDepartment = user.department.name;
-    }
-  }
-
-  const currentDepartmentHead = departmentHead?.name || "No department head assigned";
-
   const SERVICE_GROUPS = [
     { id: 1, name: "Hardware" },
     { id: 2, name: "Software" },
@@ -92,48 +80,23 @@ const AddWorkOrderFormIT: React.FC = () => {
     { id: 4, name: "Audit OFF", group_id: 2 },
   ];
 
-  const transformServiceData = (data: any[]): Service4[] => {
-    return data.map((service) => ({
-      id: service.id_service,
-      name: service.service_name,
-      group_id: service.service_type,
-      owner: {
-        id: service.service_owner,
-        name: `User ${service.service_owner}`,
-      },
-      description: service.service_description,
-      priority: service.priority,
-      sla: service.sla,
-      impact: service.impact,
-      pic: service.pic
-        ? {
-            id: service.pic,
-            name: `User ${service.pic}`,
-          }
-        : undefined,
-    }));
-  };
+  // useEffect(() => {
+  //   const getDepartmentHead = async () => {
+  //     if (user && user.department_id) {
+  //       try {
+  //         const department = await getDepartmentById(user.department_id);
+  //         if (department && department.head_id) {
+  //           console.log("Department head ID:", department.head_id);
+  //           // Anda bisa menggunakan head_id untuk mencari user yang sesuai
+  //         }
+  //       } catch (error) {
+  //         console.error("Failed to get department:", error);
+  //       }
+  //     }
+  //   };
 
-  const handleDepartmentChange = (selectedOption: OptionType | null) => {
-    if (!selectedOption) return;
-
-    const deptId = parseInt(selectedOption.value);
-    const selectedDept = departmentList.find((d) => d.id === deptId);
-
-    setFormData((prev) => ({
-      ...prev,
-      department_id: deptId,
-      known_by_id: selectedDept?.head_id || null,
-    }));
-
-    // Update department head display
-    if (selectedDept?.head_id) {
-      const headUser = allUsers.find((u) => parseInt(u.id) === selectedDept.head_id);
-      setDepartmentHead(headUser || null);
-    } else {
-      setDepartmentHead(null);
-    }
-  };
+  //   getDepartmentHead();
+  // }, [user, getDepartmentById]);
 
   const initialFormData: WorkOrderFormData = {
     date: new Date().toISOString().split("T")[0],
@@ -156,95 +119,37 @@ const AddWorkOrderFormIT: React.FC = () => {
 
   const [formData, setFormData] = useState<WorkOrderFormData>(initialFormData);
 
-  // useEffect(() => {
-  //   if (formData.reception_method === "Electronic Work Order System" && user) {
-  //     setFormData((prev) => ({
-  //       ...prev,
-  //       requester_id: parseInt(user.id),
-  //       department_id: user.department?.id || 0,
-  //       known_by_id: user.department?.head?.id || null,
-  //     }));
-
-  //     // Update department head display
-  //     if (user.department?.head) {
-  //       setDepartmentHead(user.department.head);
-  //     } else {
-  //       setDepartmentHead(null);
-  //     }
-  //   }
-  // }, [formData.reception_method, user]);
-
-  useEffect(() => {
-    // Set department head when department changes
-    if (formData.department_id) {
-      const selectedDept = departmentList.find((d) => d.id === formData.department_id);
-      if (selectedDept?.head_id) {
-        const headUser = allUsers.find((u) => parseInt(u.id) === selectedDept.head_id);
-        setDepartmentHead(headUser || null);
-        setFormData((prev) => ({
-          ...prev,
-          known_by_id: selectedDept.head_id,
-        }));
-      }
-    }
-  }, [formData.department_id, departmentList, allUsers]);
-
   const isElectronicMethod = formData.reception_method === "Electronic Work Order System";
 
-  const getFieldStyle = (isDisabled: boolean) => ({
-    control: (provided: any) => ({
-      ...provided,
-      backgroundColor: isDisabled ? "#f0f9ff" : "#ffffff",
-      borderColor: isDisabled ? "#d1d5db" : "#d1d5db",
-      cursor: isDisabled ? "not-allowed" : "default",
-      opacity: isDisabled ? 1 : 1,
-      pointerEvents: isDisabled ? "none" : "auto",
-      "&:hover": {
-        borderColor: isDisabled ? "#d1d5db" : "#9CA3AF",
+  const transformServiceData = (services: any[]): Service4[] => {
+    return services.map((service) => ({
+      id: service.id_service,
+      name: service.service_name,
+      group_id: service.service_type,
+      owner: {
+        id: service.service_owner?.id || 0,
+        name: service.service_owner?.name || `User ${service.service_owner}`,
       },
-    }),
-    dropdownIndicator: (provided: any) => ({
-      ...provided,
-      display: isDisabled ? "none" : "flex",
-    }),
-    indicatorSeparator: (provided: any) => ({
-      ...provided,
-      display: isDisabled ? "none" : "flex",
-    }),
-    // ... tambahkan style lainnya sesuai kebutuhan
-  });
-
-  const insights = [
-    {
-      id: 1,
-      title: "Maintenance Efficiency Improved",
-      description: "Preventive maintenance completion rate increased by 15% this month",
-      icon: <CheckCircle className="text-green-500" />,
-      date: "Today, 09:30 AM",
-    },
-    {
-      id: 2,
-      title: "3 Assets Requiring Attention",
-      description: "Critical assets showing signs of wear need inspection",
-      icon: <AlertTriangle className="text-yellow-500" />,
-      date: "Yesterday, 02:15 PM",
-    },
-    {
-      id: 3,
-      title: "Monthly Maintenance Completed",
-      description: "All scheduled maintenance tasks completed on time",
-      icon: <CheckCircle className="text-blue-500" />,
-      date: "Jul 28, 2023",
-    },
-  ];
+      description: service.service_description,
+      priority: service.priority,
+      sla: service.sla,
+      impact: service.impact,
+      pic: service.pic
+        ? {
+            id: service.pic.id || 0,
+            name: service.pic.name || `User ${service.pic}`,
+          }
+        : undefined,
+    }));
+  };
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const fetchedUsers = await getUsers();
+        console.log("Fetched users:", fetchedUsers);
         setAllUsers(fetchedUsers);
 
-        // Ekstrak departments dari users
         const departmentsMap = new Map<number, Department>();
         fetchedUsers.forEach((user) => {
           if (user.department) {
@@ -259,9 +164,10 @@ const AddWorkOrderFormIT: React.FC = () => {
         setDepartmentList(Array.from(departmentsMap.values()));
 
         if (user && user.id) {
-          const services = await getServices(parseInt(user.id));
-          setServiceList(transformServiceData(services));
-          setServiceTypeList(transformServiceData(services));
+          const servicesData = await getServices(parseInt(user.id));
+          const transformedServices = transformServiceData(servicesData);
+          setServiceList(transformedServices);
+          setServiceTypeList(transformedServices);
         }
       } catch (err) {
         console.error("Failed to fetch master data:", err);
@@ -272,30 +178,6 @@ const AddWorkOrderFormIT: React.FC = () => {
       fetchData();
     }
   }, [user, getUsers, getServices]);
-
-  // useEffect kedua untuk mengisi form
-  useEffect(() => {
-    if (user && formData.reception_method === "Electronic Work Order System") {
-      setFormData((prev) => ({
-        ...prev,
-        requester_id: parseInt(user.id),
-        department_id: user.department?.id || 0,
-        known_by_id: user.department?.head?.id || null,
-      }));
-    }
-  }, [user, formData.reception_method]);
-
-  // Contoh fungsi validasi
-  const validateUserData = (user: any): User => {
-    return {
-      ...user,
-      department: typeof user.department === "object" ? user.department : undefined,
-    };
-  };
-
-  const departmentName = user?.department?.name || "Default";
-
-  const currentDepartment = typeof user?.department === "object" ? user.department : { id: 0, name: "Unassigned", head_id: null };
 
   useEffect(() => {
     if (formData.reception_method === "Electronic Work Order System" && user) {
@@ -359,61 +241,46 @@ const AddWorkOrderFormIT: React.FC = () => {
     setSidebarOpen((prev) => !prev);
   };
 
-  const handleChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement> | OptionType | null, actionMeta?: { name?: keyof WorkOrderFormData }) => {
-      let name: keyof WorkOrderFormData;
-      let value: string | number | null;
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement> | OptionType | null, actionMeta?: { name?: keyof WorkOrderFormData }) => {
+    let name: keyof WorkOrderFormData;
+    let value: string | number | null;
 
-      if (e && "target" in e) {
-        name = e.target.name as keyof WorkOrderFormData;
-        value = e.target.value;
-      } else if (e && typeof e === "object" && "value" in e && actionMeta?.name) {
-        name = actionMeta.name;
-        value = e.value;
-      } else if (e === null && actionMeta?.name) {
-        name = actionMeta.name;
-        value = null;
-      } else {
-        return;
-      }
+    if (e && "target" in e) {
+      name = e.target.name as keyof WorkOrderFormData;
+      value = e.target.value;
+    } else if (e && typeof e === "object" && "value" in e && actionMeta?.name) {
+      name = actionMeta.name;
+      value = e.value;
+    } else if (e === null && actionMeta?.name) {
+      name = actionMeta.name;
+      value = null;
+    } else {
+      return;
+    }
 
-      setFormData((prev) => {
-        const newFormData = { ...prev };
+    setFormData((prev) => {
+      const newFormData = { ...prev };
 
-        // Handle known_by_id and received_by_id (can be null)
-        if (name === "known_by_id" || name === "received_by_id") {
-          return {
-            ...newFormData,
-            [name]: value !== null ? parseInt(String(value), 10) || null : null,
-          };
-        }
-
-        // Handle numeric fields
-        if (["requester_id", "department_id", "service_group_id", "service_catalogue_id"].includes(name)) {
-          return {
-            ...newFormData,
-            [name]: parseInt(String(value), 10) || 0,
-          };
-        }
-
-        // Handle all other fields
+      if (name === "known_by_id" || name === "received_by_id") {
         return {
           ...newFormData,
-          [name]: value,
+          [name]: value !== null ? parseInt(String(value), 10) || null : null,
         };
-      });
-    },
-    [user, departments]
-  );
+      }
 
-  const isDepartmentObject = (dept: any): dept is Department => {
-    return dept && typeof dept === "object" && "id" in dept && "name" in dept;
-  };
+      if (["requester_id", "department_id", "service_group_id", "service_catalogue_id"].includes(name)) {
+        return {
+          ...newFormData,
+          [name]: parseInt(String(value), 10) || 0,
+        };
+      }
 
-  // Penggunaan:
-  {
-    isDepartmentObject(user?.department) ? <span>{user.department.name}</span> : <span>No department assigned</span>;
-  }
+      return {
+        ...newFormData,
+        [name]: value,
+      };
+    });
+  }, []);
 
   const handleReceptionMethodChange = (selectedOption: OptionType | null) => {
     const method = selectedOption?.value || "";
@@ -463,6 +330,7 @@ const AddWorkOrderFormIT: React.FC = () => {
 
       if (!formData.department_id || formData.department_id === 0) {
         setError("Please select a valid department before submitting");
+        setIsLoading(false);
         return;
       }
 
@@ -560,6 +428,46 @@ const AddWorkOrderFormIT: React.FC = () => {
     }),
   };
 
+  const insights = [
+    {
+      id: 1,
+      title: "Maintenance Efficiency Improved",
+      description: "Preventive maintenance completion rate increased by 15% this month",
+      icon: <CheckCircle className="text-green-500" />,
+      date: "Today, 09:30 AM",
+    },
+    {
+      id: 2,
+      title: "3 Assets Requiring Attention",
+      description: "Critical assets showing signs of wear need inspection",
+      icon: <AlertTriangle className="text-yellow-500" />,
+      date: "Yesterday, 02:15 PM",
+    },
+    {
+      id: 3,
+      title: "Monthly Maintenance Completed",
+      description: "All scheduled maintenance tasks completed on time",
+      icon: <CheckCircle className="text-blue-500" />,
+      date: "Jul 28, 2023",
+    },
+  ];
+
+  const getCurrentDepartmentHead = () => {
+    if (!user || !user.department || !user.department.head) return "No department head assigned";
+    return user.department.head.name || "No department head assigned";
+  };
+
+  useEffect(() => {
+    console.log("Current user:", user);
+    console.log("User department:", user?.department);
+    console.log("Department head:", user?.department?.head);
+  }, [user]);
+
+  const getCurrentUserDepartment = () => {
+    if (!user || !user.department) return "No department assigned";
+    return user.department.name || "No department assigned";
+  };
+
   return (
     <div className="flex h-screen font-sans antialiased bg-blue-50 text-gray-900">
       <Sidebar />
@@ -633,7 +541,6 @@ const AddWorkOrderFormIT: React.FC = () => {
                     <div className="px-4 py-2 border-t border-gray-100 text-center">
                       <button
                         onClick={() => {
-                          console.log("View All Notifications clicked");
                           setShowNotificationsPopup(false);
                         }}
                         className="text-blue-600 hover:underline text-sm font-medium"
@@ -797,22 +704,21 @@ const AddWorkOrderFormIT: React.FC = () => {
                       />
                     )}
                   </div>
-                  {/* Department Field */}
                   <div>
                     <label htmlFor="department_id" className="block text-sm font-medium text-gray-700 mb-1">
                       Department <span className="text-red-500">*</span>
                     </label>
                     <div className="flex items-center p-2.5 border border-gray-300 rounded-lg bg-blue-50 text-gray-700">
-                      <span>{user?.department?.name || "No department assigned"}</span>
+                      <span>{user?.department_name}</span>
                     </div>
                   </div>
-                  {/* Known By Field */}
+
                   <div>
                     <label htmlFor="known_by_id" className="block text-sm font-medium text-gray-700 mb-1">
                       Known By
                     </label>
                     <div className="flex items-center p-2.5 border border-gray-300 rounded-lg bg-blue-50 text-gray-700">
-                      <span>{user?.department?.head?.name || "No department head"}</span>
+                      <span>{user?.department?.head?.name}</span>
                     </div>
                   </div>
                 </div>

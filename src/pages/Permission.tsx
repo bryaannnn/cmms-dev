@@ -66,7 +66,7 @@ interface User {
   roleId: string | null;
   permissions: string[];
   customPermissions: string[];
-  department?: Department;
+  department?: Department | null;
   department_id: number | null;
   rolePermissions?: string[];
 }

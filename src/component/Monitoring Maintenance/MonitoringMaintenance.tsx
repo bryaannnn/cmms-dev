@@ -2,6 +2,7 @@ import * as React from "react";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import { useAuth, MonitoringSchedule } from "../../routes/AuthContext";
 import {
   Wrench,
   CheckCircle,
@@ -719,6 +720,9 @@ const MonitoringMaintenance: React.FC = () => {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [currentStep, setCurrentStep] = useState<number>(1);
 
+  const { getMonitoringSchedules } = useAuth();
+  const [schedules, setSchedules] = useState<MonitoringSchedule[]>([]);
+
   const [addForm, setAddForm] = useState<AddFormData>({
     startDate: null,
     endDate: null,
@@ -731,6 +735,21 @@ const MonitoringMaintenance: React.FC = () => {
 
   const notificationsRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const fetchSchedules = async () => {
+      try {
+        const data = await getMonitoringSchedules();
+        setSchedules(data);
+      } catch (error) {
+        console.error("Error fetching monitoring schedules:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSchedules();
+  }, [getMonitoringSchedules]);
 
   const dummyUser = {
     name: "John Doe",
@@ -1953,15 +1972,14 @@ const MonitoringMaintenance: React.FC = () => {
               <div className="flex items-center space-x-2">
                 <motion.button
                   onClick={() => {
-                    setShowAddModal(true);
-                    setAddForm({ startDate: null, endDate: null, selectedUnits: [] });
-                    setCurrentStep(1);
+                    navigate("/monitoringmaintenance/formmonitoringmaintenance  ");
+                    setShowProfileMenu(false);
                   }}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-full text-sm font-semibold shadow-md hover:bg-blue-700 transition-colors duration-200"
                 >
-                  <Plus className="w-4 h-4 mr-2" /> Add Data
+                  <Plus className="w-4 h-4 mr-2" /> Add Schedule
                 </motion.button>
                 <div className="flex space-x-1 p-1 bg-white rounded-full shadow-sm border border-gray-100">
                   <motion.button
@@ -2008,7 +2026,7 @@ const MonitoringMaintenance: React.FC = () => {
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
                         <input
                           type="text"
-                          placeholder="Search by date, interval, or machine..."
+                          placeholder="Search by Interval, unit, or machine..."
                           className="w-full pl-11 pr-4 py-2.5 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white text-sm transition-all duration-200 shadow-sm placeholder-gray-400"
                           value={searchTerm}
                           onChange={(e) => setSearchTerm(e.target.value)}

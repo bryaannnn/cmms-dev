@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { getProjectEnvVariables } from "../shared/projectEnvVariables";
+import { fetchWithAuth } from "./api";
 
 export const roleMapping: Record<string, { name: string; isDepartmentHead?: boolean; isSuperadmin?: boolean }> = {
   "1": { name: "admin", isDepartmentHead: true },
@@ -92,6 +93,49 @@ export interface Role {
   isSuperadmin?: boolean;
 }
 
+interface RootObject {
+  success: boolean;
+  message: string;
+  data: Datum[];
+}
+
+interface Datum {
+  id: number;
+  name: string;
+  nik: string;
+  email: string;
+  avatar: string;
+  department: Department2 | null;
+  position: null | string;
+  email_verified_at: null;
+  created_at: string;
+  updated_at: string;
+  department_id: null | number;
+}
+
+interface Department2 {
+  id: number;
+  name: string;
+  head_id: number;
+  created_at: string;
+  updated_at: string;
+  head: Head2;
+}
+
+interface Head2 {
+  id: number;
+  name: string;
+  nik: string;
+  email: string;
+  avatar: string;
+  department: string;
+  position: string;
+  email_verified_at: null;
+  created_at: string;
+  updated_at: string;
+  department_id: number;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -101,7 +145,7 @@ export interface User {
   roles?: string[];
   customPermissions?: string[];
   permissions?: PermissionName[];
-  department?: Department;
+  department: Department | null;
   rolePermissions?: string[];
   access_token?: string;
   refresh_token?: string;
@@ -110,6 +154,10 @@ export interface User {
   department_name: string | null;
   avatar_url?: string;
   position?: string | null;
+  avatar?: string;
+  email_verified_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Mesin {
@@ -247,8 +295,8 @@ export interface Head {
 export interface Department {
   id: number;
   name: string | null;
-  head?: Head | null;
   head_id: number | null;
+  head?: Head | null;
 }
 
 export interface UserWithDepartment extends SimpleUser {
@@ -575,48 +623,69 @@ export interface AuditLog {
 type TypeInterval = "weekly" | "monthly" | "3 months" | "6 months" | "1 year";
 
 export interface MonitoringActivity {
-  id: number,
-  id_monitoring_schedule: number,
-  monitoring_date: string,
-  monitoring_result: string,
-  tms_ms_result: string,
-  info_result: string,
+  id: number;
+  id_monitoring_schedule: number;
+  monitoring_date: string;
+  monitoring_result: string;
+  tms_ms_result: string;
+  info_result: string;
 }
 
 export interface MonitoringSchedule {
-  id: number,
-  year: string,
-  month: string,
-  date_start: string,
-  date_end: string,
-  unit: string,
-  id_machine_data: number,
-  id_machine_item: number,
-  id_interval: number
+  id: number;
+  year: string;
+  month: string;
+  date_start: string;
+  date_end: string;
+  unit: string;
+  id_machine_data: number;
+  id_machine_item: number;
+  id_interval: number;
 }
 
 export interface MonitoringInterval {
-  id: number,
-  type_interval: string, 
+  id: number;
+  type_interval: string;
 }
 
 export interface MachineData {
-  id: number,
-  unit: number,
-  machine: string,
+  id: number;
+  unit: number;
+  machine: string;
 }
 
 export interface MachineItem {
-  id: number,
-  id_machine_data: number,
-  machine_item: string,
-  unit: string, 
+  id: number;
+  id_machine_data: number;
+  machine_item: string;
+  unit: string;
+}
+
+export interface MonitoringSchedule {
+  id_monitoring_schedule: number;
+  tahun: string;
+  bulan: string;
+  tgl_start: string;
+  tgl_end: string;
+  unit: string;
+  id_mesins: number;
+  id_interval: number;
+  created_at: string;
+  updated_at: string;
+  data_mesin: any | null;
+  monitoring_interval: {
+    id_interval: number;
+    type_interval: string;
+    created_at: string;
+    updated_at: string;
+  };
+  monitoring_activities: any[];
 }
 
 // monitoring maintenance stop
 
 interface EditingUser extends User {
-  department?: Department;
+  department: Department;
 }
 
 function mapApiToMachineHistoryRecord(apiData: any, masterData: AllMasterData | null): MachineHistoryRecord {
@@ -701,15 +770,36 @@ interface AuthContextType {
   editAsset: (assetData: AssetData) => Promise<any>;
   deleteAsset: (assetId: string) => Promise<any>;
   getAuditTrail: () => Promise<AuditLog[]>;
-  // getService: (id: number) => Promise<Service>;
+  // getService: (id: number) => Promise<Service>;S
   getServices: (id_services: number) => Promise<ServiceCatalogue2[]>;
   getServiceGroup: (id: string | number) => Promise<ServiceGroup>;
+  getDepartment: () => Promise<Department[]>; // Tambahkan ini
+  getDepartmentById?: (id: string | number) => Promise<Department | null>; // Opsional
+  getMonitoringSchedules: () => Promise<MonitoringSchedule[]>;
 }
 
 const projectEnvVariables = getProjectEnvVariables();
 const AuthContext = createContext<AuthContextType | null>(null);
 
 const mapApiToUser = (apiUser: any): User => {
+  const department = apiUser.department
+    ? {
+        id: apiUser.department.id,
+        name: apiUser.department.name,
+        head_id: apiUser.department.head_id,
+        head: apiUser.department.head
+          ? {
+              id: apiUser.department.head.id,
+              name: apiUser.department.head.name,
+              email: apiUser.department.head.email,
+              avatar: apiUser.department.head.avatar,
+              department: apiUser.department.head.department,
+              position: apiUser.department.head.position,
+              department_id: apiUser.department.head.department_id,
+            }
+          : null,
+      }
+    : null;
   return {
     id: String(apiUser.id),
     name: apiUser.name,
@@ -719,13 +809,14 @@ const mapApiToUser = (apiUser: any): User => {
     roles: apiUser.roles || [],
     customPermissions: apiUser.customPermissions || [],
     permissions: apiUser.permissions || apiUser.allPermissions || [],
-    department: apiUser.department || null, // Ubah dari "none" ke null
+    department: department,
     access_token: apiUser.access_token,
     refresh_token: apiUser.refresh_token,
     isSuperadmin: apiUser.roles?.includes("superadmin") || false,
     avatar_url: apiUser.avatar_url,
-    department_id: apiUser.department_id || apiUser.department?.id || null, // Tambahkan ini
-    department_name: apiUser.department_name || apiUser.department?.name || null, // Tambahkan ini
+    avatar: apiUser.avatar,
+    department_id: apiUser.department_id || apiUser.department?.id || null,
+    department_name: apiUser.department?.name || null,
     position: apiUser.position,
   };
 };
@@ -1522,47 +1613,60 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     _setEditingUser(user);
   }, []);
 
-  const getMonitoringActivity = useCallback(async (): Promise<MonitoringActivity[]> => {
+  const getDepartment = useCallback(async (): Promise<Department[]> => {
     try {
-      const response = await fetchWithAuth("/monitoring-activity");
-      const usersData = Array.isArray(response) ? response : response.data || [];
-      return usersData.map((apiUser: any) => mapApiToUser(apiUser));
+      const response = await fetchWithAuth("/department");
+      return response.data || response;
     } catch (error) {
-      console.error("Failed to fetch users:", error);
+      console.error("Failed to fetch departments:", error);
       return [];
     }
   }, [fetchWithAuth]);
 
-  const getMonitoringSchedule = useCallback(async (): Promise<MonitoringSchedule[]> => {
-    try {
-      const response = await fetchWithAuth("/monitoring-schedule");
-      const usersData = Array.isArray(response) ? response : response.data || [];
-      return usersData.map((apiUser: any) => mapApiToUser(apiUser));
-    } catch (error) {
-      console.error("Failed to fetch users:", error);
-      return [];
-    }
-  }, [fetchWithAuth]);
+  const getDepartmentById = useCallback(
+    async (id: string | number): Promise<Department | null> => {
+      try {
+        const response = await fetchWithAuth(`/department/${id}`);
+        return response.data || response;
+      } catch (error) {
+        console.error(`Failed to fetch department with id ${id}:`, error);
+        return null;
+      }
+    },
+    [fetchWithAuth]
+  );
 
-  const getMachineData = useCallback(async (): Promise<MachineData[]> => {
+  const getMonitoringSchedules = useCallback(async (): Promise<MonitoringSchedule[]> => {
     try {
-      const response = await fetchWithAuth("/machine-data");
-      const usersData = Array.isArray(response) ? response : response.data || [];
-      return usersData.map((apiUser: any) => mapApiToUser(apiUser));
-    } catch (error) {
-      console.error("Failed to fetch users:", error);
-      return [];
-    }
-  }, [fetchWithAuth]);
+      const response = await fetchWithAuth("/monitoring-schedules");
 
-  const getMonitoringInterval = useCallback(async (): Promise<MonitoringInterval[]> => {
-    try {
-      const response = await fetchWithAuth("/monitoring-interval");
-      const usersData = Array.isArray(response) ? response : response.data || [];
-      return usersData.map((apiUser: any) => mapApiToUser(apiUser));
-    } catch (error) {
-      console.error("Failed to fetch users:", error);
+      // Handle berbagai format response
+      if (Array.isArray(response)) {
+        return response;
+      }
+
+      if (response && response.success !== undefined) {
+        if (response.success && Array.isArray(response.data)) {
+          return response.data;
+        }
+        if (response.success && Array.isArray(response.result)) {
+          return response.result;
+        }
+      }
+
+      if (response && Array.isArray(response.data)) {
+        return response.data;
+      }
+
+      if (response && Array.isArray(response.result)) {
+        return response.result;
+      }
+
+      console.warn("Unexpected monitoring schedule response format:", response);
       return [];
+    } catch (error) {
+      console.error("Error fetching monitoring schedule:", error);
+      throw new Error(`Failed to fetch monitoring schedule: ${error instanceof Error ? error.message : String(error)}`);
     }
   }, [fetchWithAuth]);
 
@@ -1616,6 +1720,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         cancelWorkOrder,
         getWorkOrdersForUser,
         getAuditTrail,
+        getDepartment,
+        getDepartmentById,
+        getMonitoringSchedules,
       }}
     >
       {children}
