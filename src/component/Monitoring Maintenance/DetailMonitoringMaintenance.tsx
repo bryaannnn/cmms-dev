@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Calendar, Wrench, ChevronDown, CheckCircle, XCircle, Save, Info, MessageSquare, Clock, UserCog, Plus, ArrowLeft, Hourglass } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useAuth, MonitoringActivity } from "../../routes/AuthContext";
 import Sidebar from "../Sidebar";
 
 interface MonitoringItem {
@@ -260,6 +261,9 @@ const DetailMonitoringMaintenance: React.FC = () => {
   const [showApprovalConfigModal, setShowApprovalConfigModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  const { addMonitoringActivities } = useAuth();
+  const [loading, setLoading] = useState(false);
+
   const ALL_APPROVAL_ROLES: { key: ApprovalRoleKeys; name: string }[] = [
     { key: "unitHeadEngineering", name: "Unit Head Engineering" },
     { key: "unitHeadProcess", name: "Unit Head Process" },
@@ -268,6 +272,32 @@ const DetailMonitoringMaintenance: React.FC = () => {
   ];
 
   const DUMMY_USERS = ["John Doe", "Jane Smith", "Peter Jones", "Alice Brown", "Bob White"];
+
+  const handleSubmit = async () => {
+    const activities = [
+      {
+        id_monitoring_schedule: 2,
+        id_item_mesin: 3,
+        tgl_monitoring: "2025-08-29",
+        hasil_monitoring: "70",
+        hasil_keterangan: "Tekanan Tertekan, Project Plan di Decline Semua",
+      },
+      {
+        id_monitoring_schedule: 1,
+        id_item_mesin: 2,
+        tgl_monitoring: "2025-08-25",
+        hasil_monitoring: "5.5",
+        hasil_keterangan: "Suhu sedikit naik.",
+      },
+    ];
+
+    try {
+      const result = await addMonitoringActivities(activities);
+      console.log("Activities added successfully:", result);
+    } catch (error) {
+      console.error("Failed to add activities:", error);
+    }
+  };
 
   useEffect(() => {
     const initialResults: MachineResults[] = initialSchedule.machines.map((machine) => ({

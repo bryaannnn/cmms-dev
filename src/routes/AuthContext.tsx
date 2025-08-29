@@ -682,6 +682,26 @@ export interface MonitoringSchedule {
   monitoring_activities: any[];
 }
 
+// Interface untuk POST /monitoring-activities
+export interface MonitoringActivityPost {
+  id_monitoring_schedule: number;
+  id_item_mesin: number;
+  tgl_monitoring: string;
+  hasil_monitoring: string;
+  hasil_keterangan: string;
+}
+
+export interface MonitoringActivityResponse {
+  id_monitoring_activity?: number;
+  id_monitoring_schedule: number;
+  id_item_mesin: number;
+  tgl_monitoring: string;
+  hasil_monitoring: string;
+  hasil_keterangan: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 // monitoring maintenance stop
 
 interface EditingUser extends User {
@@ -776,6 +796,7 @@ interface AuthContextType {
   getDepartment: () => Promise<Department[]>; // Tambahkan ini
   getDepartmentById?: (id: string | number) => Promise<Department | null>; // Opsional
   getMonitoringSchedules: () => Promise<MonitoringSchedule[]>;
+  addMonitoringActivities: (activities: MonitoringActivityPost[]) => Promise<MonitoringActivityResponse[]>;
 }
 
 const projectEnvVariables = getProjectEnvVariables();
@@ -1670,6 +1691,37 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [fetchWithAuth]);
 
+  const addMonitoringActivities = useCallback(
+    async (activities: MonitoringActivityPost[]): Promise<MonitoringActivityResponse[]> => {
+      try {
+        const response = await fetchWithAuth("/monitoring-activities", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(activities),
+        });
+
+        // Handle response format
+        if (Array.isArray(response)) {
+          return response;
+        }
+
+        if (response && Array.isArray(response.data)) {
+          return response.data;
+        }
+
+        // Jika response tidak sesuai format yang diharapkan
+        console.warn("Unexpected response format from monitoring-activities POST:", response);
+        return [];
+      } catch (error) {
+        console.error("Error adding monitoring activities:", error);
+        throw new Error(`Failed to add monitoring activities: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
   return (
     <AuthContext.Provider
       value={{
@@ -1723,6 +1775,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         getDepartment,
         getDepartmentById,
         getMonitoringSchedules,
+        addMonitoringActivities,
       }}
     >
       {children}
