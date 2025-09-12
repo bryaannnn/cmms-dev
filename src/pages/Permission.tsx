@@ -177,20 +177,23 @@ const PermissionsPage: React.FC = () => {
   }, [sidebarOpen]);
 
   useEffect(() => {
+    // Ganti bagian fetchData di useEffect
     const fetchData = async () => {
       try {
-        const [fetchedUsers, fetchedRoles] = await Promise.all([getUsers(), fetchWithAuth("/roles")]);
+        const [usersResponse, fetchedRoles] = await Promise.all([getUsers(), fetchWithAuth("/roles")]);
 
-        const mappedUsers = fetchedUsers.map((user: any) => ({
+        // Perbaiki pemrosesan users
+        const usersData = usersResponse ? usersResponse : usersResponse;
+        const mappedUsers = usersData.map((user: any) => ({
           id: String(user.id),
           name: user.name,
           nik: user.nik,
           email: user.email,
-          roleId: user.roleId ? String(user.roleId) : null,
+          roleId: user.role_id ? String(user.role_id) : null, // Perhatikan field name
           customPermissions: user.customPermissions || [],
-          department: user.department.name || "none",
+          department: user.department || null,
           department_id: user.department_id || null,
-          permissions: user.allPermissions,
+          permissions: user.permissions || user.allPermissions || [],
         }));
 
         const mappedRoles = fetchedRoles.map((role: any) => ({

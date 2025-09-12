@@ -5,7 +5,6 @@ import Sidebar from "../../Sidebar";
 import { X, Clock, CheckCircle, ToolCase, ArrowLeft, Save, Trash2, Hourglass, ListPlus, Paperclip, Sun, Moon, Settings, Bell, User as UserIcon, ChevronDown, ChevronRight, ChevronLeft, LogOut, AlertTriangle } from "lucide-react";
 import Select from "react-select";
 import CreatableSelect from "react-select/creatable";
-import { useAuth, User as AuthUser, Department, WorkOrderFormData } from "../../../routes/AuthContext";
 
 interface ModalProps {
   isOpen: boolean;
@@ -17,6 +16,32 @@ interface ModalProps {
 interface OptionType {
   value: string;
   label: string;
+}
+
+interface User {
+  id: string;
+  name: string;
+  department_id?: number;
+  department_name?: string;
+  department?: {
+    id: number;
+    name: string;
+    head_id: number | null;
+    head: {
+      id: number;
+      name: string;
+    } | null;
+  };
+}
+
+interface Department {
+  id: number;
+  name: string;
+  head_id: number | null;
+  head: {
+    id: number;
+    name: string;
+  } | null;
 }
 
 interface Service4 {
@@ -37,25 +62,162 @@ interface Service4 {
   };
 }
 
-// Perbaiki interface di FormIT.tsx
-interface WorkOrderFormDataLocal {
+interface WorkOrderFormData {
   date: string;
   reception_method: string;
   requester_id: number;
   known_by_id: number | null;
   department_id: number;
-  service_type_id: string;
-  service_id: string;
+  service_group_id: number;
+  service_catalogue_id: number;
   asset_no: string;
   device_info: string;
   complaint: string;
-  attachment: string | null; // ✅ Hapus undefined, hanya string | null
+  attachment: string | null;
   received_by_id: number | null;
   handling_date: string | null;
   action_taken: string | null;
   handling_status: string;
   remarks: string | null;
 }
+
+// Auth Context Mock
+const AuthContext = React.createContext({
+  addWorkOrderIT: (formData: WorkOrderFormData, file?: File | null) => Promise.resolve({ work_order_no: "WO-12345" }),
+  user: {
+    id: "1",
+    name: "John Doe",
+    department_id: 1,
+    department_name: "IT Department",
+    department: {
+      id: 1,
+      name: "IT Department",
+      head_id: 2,
+      head: {
+        id: 2,
+        name: "Jane Smith",
+      },
+    },
+  },
+  getUsers: () =>
+    Promise.resolve([
+      {
+        id: "1",
+        name: "John Doe",
+        department_id: 1,
+        department_name: "IT Department",
+        department: {
+          id: 1,
+          name: "IT Department",
+          head_id: 2,
+          head: {
+            id: 2,
+            name: "Jane Smith",
+          },
+        },
+      },
+      {
+        id: "2",
+        name: "Jane Smith",
+        department_id: 1,
+        department_name: "IT Department",
+        department: {
+          id: 1,
+          name: "IT Department",
+          head_id: 2,
+          head: {
+            id: 2,
+            name: "Jane Smith",
+          },
+        },
+      },
+      {
+        id: "3",
+        name: "Robert Johnson",
+        department_id: 2,
+        department_name: "Finance",
+        department: {
+          id: 2,
+          name: "Finance",
+          head_id: 5,
+          head: {
+            id: 5,
+            name: "Michael Brown",
+          },
+        },
+      },
+      {
+        id: "4",
+        name: "Emily Davis",
+        department_id: 3,
+        department_name: "Operations",
+        department: {
+          id: 3,
+          name: "Operations",
+          head_id: 6,
+          head: {
+            id: 6,
+            name: "Sarah Wilson",
+          },
+        },
+      },
+    ]),
+  departments: [
+    { id: 1, name: "IT Department", head_id: 2, head: { id: 2, name: "Jane Smith" } },
+    { id: 2, name: "Finance", head_id: 5, head: { id: 5, name: "Michael Brown" } },
+    { id: 3, name: "Operations", head_id: 6, head: { id: 6, name: "Sarah Wilson" } },
+  ],
+  services: [
+    { id: 1, name: "Server Maintenance", group_id: 1, owner: { id: 1, name: "John Doe" }, description: "Server maintenance and troubleshooting", priority: "High", sla: "4 hours", impact: "Critical" },
+    { id: 2, name: "Software Installation", group_id: 2, owner: { id: 2, name: "Jane Smith" }, description: "Software installation and configuration", priority: "Medium", sla: "24 hours", impact: "Medium" },
+    { id: 3, name: "Network Issues", group_id: 3, owner: { id: 3, name: "Robert Johnson" }, description: "Network connectivity problems", priority: "High", sla: "2 hours", impact: "Critical" },
+  ],
+  getServices: (userId: number) =>
+    Promise.resolve([
+      {
+        id_service: 1,
+        service_name: "Server Maintenance",
+        service_type: 1,
+        service_owner: { id: 1, name: "John Doe" },
+        service_description: "Server maintenance and troubleshooting",
+        priority: "High",
+        sla: "4 hours",
+        impact: "Critical",
+        pic: { id: 1, name: "John Doe" },
+      },
+      {
+        id_service: 2,
+        service_name: "Software Installation",
+        service_type: 2,
+        service_owner: { id: 2, name: "Jane Smith" },
+        service_description: "Software installation and configuration",
+        priority: "Medium",
+        sla: "24 hours",
+        impact: "Medium",
+        pic: { id: 2, name: "Jane Smith" },
+      },
+      {
+        id_service: 3,
+        service_name: "Network Issues",
+        service_type: 3,
+        service_owner: { id: 3, name: "Robert Johnson" },
+        service_description: "Network connectivity problems",
+        priority: "High",
+        sla: "2 hours",
+        impact: "Critical",
+        pic: { id: 3, name: "Robert Johnson" },
+      },
+    ]),
+  getDepartmentById: (id: number) =>
+    Promise.resolve({
+      id: id,
+      name: "IT Department",
+      head_id: 2,
+      head: { id: 2, name: "Jane Smith" },
+    }),
+});
+
+const useAuth = () => React.useContext(AuthContext);
 
 const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
   if (!isOpen) return null;
@@ -75,12 +237,13 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
   );
 };
 
-const AddWorkOrderFormIT: React.FC = () => {
-  const { addWorkOrderIT, user, getUsers, getServices, getDepartment } = useAuth();
+const AddWorkOrderFormITD: React.FC = () => {
+  const { addWorkOrderIT, user, getUsers, departments, services, getServices, getDepartmentById } = useAuth();
   const navigate = useNavigate();
 
-  const [allUsers, setAllUsers] = useState<AuthUser[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
   const [departmentList, setDepartmentList] = useState<Department[]>([]);
+  const [serviceTypeList, setServiceTypeList] = useState<Service4[]>([]);
   const [serviceList, setServiceList] = useState<Service4[]>([]);
   const [assetOptions, setAssetOptions] = useState<OptionType[]>([]);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -100,9 +263,6 @@ const AddWorkOrderFormIT: React.FC = () => {
   const notificationsRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
-  const [filteredServices, setFilteredServices] = useState<Service4[]>([]);
-  const [isServicesLoading, setIsServicesLoading] = useState(false);
-
   const SERVICE_GROUPS = [
     { id: 1, name: "Hardware" },
     { id: 2, name: "Software" },
@@ -118,14 +278,14 @@ const AddWorkOrderFormIT: React.FC = () => {
     { id: 4, name: "Audit OFF", group_id: 2 },
   ];
 
-  const initialFormData: WorkOrderFormDataLocal = {
+  const initialFormData: WorkOrderFormData = {
     date: new Date().toISOString().split("T")[0],
     reception_method: "Electronic Work Order System",
     requester_id: user?.id ? parseInt(user.id) : 0,
     known_by_id: user?.department?.head_id || null,
-    department_id: user?.department_id || 0,
-    service_type_id: "", // Changed from service_group_id
-    service_id: "", // Changed from service_catalogue_id
+    department_id: user?.department?.id || 0,
+    service_group_id: 0,
+    service_catalogue_id: 0,
     asset_no: "",
     device_info: "",
     complaint: "",
@@ -137,23 +297,23 @@ const AddWorkOrderFormIT: React.FC = () => {
     remarks: null,
   };
 
-  const [formData, setFormData] = useState<WorkOrderFormDataLocal>(initialFormData);
+  const [formData, setFormData] = useState<WorkOrderFormData>(initialFormData);
 
   const isElectronicMethod = formData.reception_method === "Electronic Work Order System";
 
   const transformServiceData = (services: any[]): Service4[] => {
     return services.map((service) => ({
-      id: service.id_service || service.id,
-      name: service.service_name || service.name,
-      group_id: service.service_type || service.group_id,
+      id: service.id_service,
+      name: service.service_name,
+      group_id: service.service_type,
       owner: {
-        id: service.service_owner?.id || service.owner?.id || 0,
-        name: service.service_owner?.name || service.owner?.name || `User ${service.service_owner}`,
+        id: service.service_owner?.id || 0,
+        name: service.service_owner?.name || `User ${service.service_owner}`,
       },
-      description: service.service_description || service.description || "",
-      priority: service.priority || "",
-      sla: service.sla || "",
-      impact: service.impact || "",
+      description: service.service_description,
+      priority: service.priority,
+      sla: service.sla,
+      impact: service.impact,
       pic: service.pic
         ? {
             id: service.pic.id || 0,
@@ -163,21 +323,30 @@ const AddWorkOrderFormIT: React.FC = () => {
     }));
   };
 
-  // Di useEffect untuk fetch data
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const departmentsResponse = await getDepartment();
-        setDepartmentList(departmentsResponse);
-
         const fetchedUsers = await getUsers();
         setAllUsers(fetchedUsers);
+
+        const departmentsMap = new Map<number, Department>();
+        fetchedUsers.forEach((user) => {
+          if (user.department) {
+            departmentsMap.set(user.department.id, {
+              id: user.department.id,
+              name: user.department.name,
+              head_id: user.department.head_id,
+              head: user.department.head,
+            });
+          }
+        });
+        setDepartmentList(Array.from(departmentsMap.values()));
 
         if (user && user.id) {
           const servicesData = await getServices(parseInt(user.id));
           const transformedServices = transformServiceData(servicesData);
-          setServiceList(transformedServices); // ✅ Simpan semua services
-          console.log("Services loaded:", transformedServices);
+          setServiceList(transformedServices);
+          setServiceTypeList(transformedServices);
         }
       } catch (err) {
         console.error("Failed to fetch master data:", err);
@@ -187,12 +356,12 @@ const AddWorkOrderFormIT: React.FC = () => {
     if (user) {
       fetchData();
     }
-  }, [user, getUsers, getServices, getDepartment]);
+  }, [user, getUsers, getServices]);
 
   useEffect(() => {
     if (formData.reception_method === "Electronic Work Order System" && user) {
-      // Get department head from current user's department
-      const headId = user.department?.head_id || null;
+      const userDept = departmentList.find((d) => d.id === user.department_id);
+      const headId = userDept?.head_id || null;
 
       setFormData((prev) => ({
         ...prev,
@@ -201,7 +370,7 @@ const AddWorkOrderFormIT: React.FC = () => {
         known_by_id: headId,
       }));
     }
-  }, [formData.reception_method, user]);
+  }, [formData.reception_method, user, departmentList]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -232,14 +401,14 @@ const AddWorkOrderFormIT: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (formData.service_type_id && serviceList.length > 0) {
-      const filtered = serviceList.filter((service) => String(service.group_id) === formData.service_type_id);
-
-      setFilteredServices(filtered);
+    if (formData.service_group_id) {
+      const filteredServices = services.filter((service) => service.group_id === formData.service_group_id);
+      setServiceList(filteredServices);
     } else {
-      setFilteredServices([]);
+      setServiceList([]);
+      setFormData((prev) => ({ ...prev, service_catalogue_id: 0 }));
     }
-  }, [formData.service_type_id, serviceList]);
+  }, [formData.service_group_id, services]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", darkMode);
@@ -251,28 +420,45 @@ const AddWorkOrderFormIT: React.FC = () => {
     setSidebarOpen((prev) => !prev);
   };
 
-  // Di FormIT.tsx - perbaiki handleChange
-  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement> | OptionType | null, name?: keyof WorkOrderFormData) => {
-    let fieldName: keyof WorkOrderFormData;
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement> | OptionType | null, actionMeta?: { name?: keyof WorkOrderFormData }) => {
+    let name: keyof WorkOrderFormData;
     let value: string | number | null;
 
     if (e && "target" in e) {
-      fieldName = e.target.name as keyof WorkOrderFormData;
+      name = e.target.name as keyof WorkOrderFormData;
       value = e.target.value;
-    } else if (e && typeof e === "object" && "value" in e && name) {
-      fieldName = name;
+    } else if (e && typeof e === "object" && "value" in e && actionMeta?.name) {
+      name = actionMeta.name;
       value = e.value;
-    } else if (e === null && name) {
-      fieldName = name;
+    } else if (e === null && actionMeta?.name) {
+      name = actionMeta.name;
       value = null;
     } else {
       return;
     }
 
-    setFormData((prev) => ({
-      ...prev,
-      [fieldName]: value,
-    }));
+    setFormData((prev) => {
+      const newFormData = { ...prev };
+
+      if (name === "known_by_id" || name === "received_by_id") {
+        return {
+          ...newFormData,
+          [name]: value !== null ? parseInt(String(value), 10) || null : null,
+        };
+      }
+
+      if (["requester_id", "department_id", "service_group_id", "service_catalogue_id"].includes(name)) {
+        return {
+          ...newFormData,
+          [name]: parseInt(String(value), 10) || 0,
+        };
+      }
+
+      return {
+        ...newFormData,
+        [name]: value,
+      };
+    });
   }, []);
 
   const handleReceptionMethodChange = (selectedOption: OptionType | null) => {
@@ -293,104 +479,73 @@ const AddWorkOrderFormIT: React.FC = () => {
     });
   };
 
-  const handleAssetNoChange = (newValue: OptionType | null) => {
+  const handleAssetNoChange = useCallback((newValue: OptionType | null) => {
     setFormData((prev) => ({
       ...prev,
       asset_no: newValue ? newValue.value : "",
     }));
-  };
+  }, []);
 
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       setSelectedFile(e.target.files[0]);
-      setFormData((prev) => ({
-        ...prev,
-        attachment: e.target.files![0].name, // ✅ Pastikan string, bukan undefined
-      }));
+      setFormData((prev) => ({ ...prev, attachment: e.target.files![0].name }));
     } else {
       setSelectedFile(null);
-      setFormData((prev) => ({
-        ...prev,
-        attachment: null, // ✅ Explicitly set to null
-      }));
+      setFormData((prev) => ({ ...prev, attachment: null }));
     }
   }, []);
 
   const handleRemoveFile = useCallback(() => {
     setSelectedFile(null);
-    setFormData((prev) => ({
-      ...prev,
-      attachment: null, // ✅ Explicitly set to null
-    }));
+    setFormData((prev) => ({ ...prev, attachment: null }));
   }, []);
 
-  // Di FormIT.tsx
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!formData.service_type_id) {
-      setError("Service Type is required");
-      return;
-    }
-    if (!formData.service_id) {
-      setError("Service is required");
-      return;
-    }
-
-    if (!formData.complaint.trim()) {
-      setError("Complaint is required");
-      return;
-    }
-
-    try {
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
       setIsLoading(true);
       setError(null);
 
-      // Convert to numbers and validate/ay
-      const serviceTypeId = Number(formData.service_type_id);
-      const serviceId = Number(formData.service_id);
-
-      if (isNaN(serviceTypeId) || isNaN(serviceId)) {
-        setError("Invalid service type or service ID");
+      if (!formData.department_id || formData.department_id === 0) {
+        setError("Please select a valid department before submitting");
+        setIsLoading(false);
         return;
       }
 
-      // Create payload with proper number values
-      const payload: WorkOrderFormData = {
-        ...formData,
-        service_type_id: serviceTypeId,
-        service_id: serviceId,
-      };
+      if (
+        !formData.date ||
+        !formData.reception_method ||
+        !formData.requester_id ||
+        !formData.department_id ||
+        !formData.service_group_id ||
+        !formData.service_catalogue_id ||
+        !formData.asset_no ||
+        !formData.device_info ||
+        !formData.complaint
+      ) {
+        setError("Please fill in all required fields.");
+        setIsLoading(false);
+        return;
+      }
 
-      await addWorkOrderIT(payload, selectedFile);
-
-      setSuccessMessage({
-        message: "Work Order created successfully!",
-        work_order: { work_order_no: "WO-" + Date.now() },
-      });
-      setShowSuccessModal(true);
-    } catch (error: any) {
-      console.error("Submit error:", error);
-      setError(error.message || "Failed to create work order. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleServiceGroupChange = (selectedOption: OptionType | null) => {
-    setFormData((prev) => ({
-      ...prev,
-      service_type_id: selectedOption ? selectedOption.value : "",
-      service_id: "",
-    }));
-  };
-
-  const handleServiceCatalogueChange = (selectedOption: OptionType | null) => {
-    setFormData((prev) => ({
-      ...prev,
-      service_id: selectedOption ? selectedOption.value : "",
-    }));
-  };
+      try {
+        const createdOrder = await addWorkOrderIT(formData, selectedFile);
+        setSuccessMessage({
+          message: "Work Order created successfully!",
+          work_order: createdOrder,
+        });
+        setShowSuccessModal(true);
+        setFormData(initialFormData);
+        setSelectedFile(null);
+      } catch (err: any) {
+        setError(err.message || "Failed to create work order");
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [formData, selectedFile, addWorkOrderIT]
+  );
 
   const handleCloseSuccessModal = useCallback(() => {
     setShowSuccessModal(false);
@@ -476,6 +631,16 @@ const AddWorkOrderFormIT: React.FC = () => {
     },
   ];
 
+  const getCurrentDepartmentHead = () => {
+    if (!user || !user.department || !user.department.head) return "No department head assigned";
+    return user.department.head.name || "No department head assigned";
+  };
+
+  const getCurrentUserDepartment = () => {
+    if (!user || !user.department) return "No department assigned";
+    return user.department.name || "No department assigned";
+  };
+
   const handleRequesterChange = useCallback(
     (selectedOption: OptionType | null) => {
       if (!selectedOption) return;
@@ -484,53 +649,33 @@ const AddWorkOrderFormIT: React.FC = () => {
       const selectedUser = allUsers.find((user) => parseInt(user.id) === selectedUserId);
 
       if (selectedUser) {
-        // Gunakan departmentList yang sudah diambil dari API
-        const userDepartment = departmentList.find((dept) => dept.id === selectedUser.department_id);
-
         setFormData((prev) => ({
           ...prev,
           requester_id: selectedUserId,
-          department_id: selectedUser.department_id || 0,
-          known_by_id: userDepartment?.head_id || null,
+          department_id: selectedUser.department?.id || 0,
+          known_by_id: selectedUser.department?.head_id || null,
         }));
       }
     },
-    [allUsers, departmentList]
+    [allUsers]
   );
 
   const getRequesterDepartment = () => {
     if (isElectronicMethod) {
-      // Untuk electronic method, gunakan department user yang login
-      const userDepartment = departmentList.find((dept) => dept.id === user?.department_id);
-      return userDepartment?.name || "No department assigned";
+      return user?.department_name || "No department assigned";
     }
 
-    // Untuk metode lainnya, gunakan department dari form data
-    const department = departmentList.find((dept) => dept.id === formData.department_id);
-    return department?.name || "No department assigned";
+    const selectedUser = allUsers.find((u) => parseInt(u.id) === formData.requester_id);
+    return selectedUser?.department?.name || "No department assigned";
   };
 
   const getRequesterDepartmentHead = () => {
     if (isElectronicMethod) {
-      // Untuk electronic method, cari kepala department dari department user
-      const userDepartment = departmentList.find((dept) => dept.id === user?.department_id);
-
-      if (userDepartment && userDepartment.head_id) {
-        const headUser = allUsers.find((user) => parseInt(user.id) === userDepartment.head_id);
-        return headUser?.name || "No department head assigned";
-      }
-      return "No department head assigned";
+      return user?.department?.head?.name || "No department head assigned";
     }
 
-    // Untuk metode lainnya, cari kepala department dari department yang dipilih
-    const department = departmentList.find((dept) => dept.id === formData.department_id);
-
-    if (department && department.head_id) {
-      const headUser = allUsers.find((user) => parseInt(user.id) === department.head_id);
-      return headUser?.name || "No department head assigned";
-    }
-
-    return "No department head assigned";
+    const selectedUser = allUsers.find((u) => parseInt(u.id) === formData.requester_id);
+    return selectedUser?.department?.head?.name || "No department head assigned";
   };
 
   return (
@@ -809,21 +954,26 @@ const AddWorkOrderFormIT: React.FC = () => {
                       Service Type <span className="text-red-500">*</span>
                     </label>
                     <Select
-                      id="service_type_id"
-                      name="service_type_id"
+                      id="service_group_id"
+                      name="service_group_id"
                       options={SERVICE_GROUPS.map((group) => ({
                         value: String(group.id),
                         label: group.name,
                       }))}
                       value={
-                        formData.service_type_id
+                        SERVICE_GROUPS.find((group) => group.id === formData.service_group_id)
                           ? {
-                              value: formData.service_type_id,
-                              label: SERVICE_GROUPS.find((group) => String(group.id) === formData.service_type_id)?.name || "",
+                              value: String(formData.service_group_id),
+                              label: SERVICE_GROUPS.find((group) => group.id === formData.service_group_id)?.name || "",
                             }
                           : null
                       }
-                      onChange={handleServiceGroupChange}
+                      onChange={(selectedOption) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          service_group_id: selectedOption ? parseInt(selectedOption.value) : 0,
+                        }))
+                      }
                       placeholder="Select Service Type"
                       styles={customSelectStyles}
                       required
@@ -831,30 +981,34 @@ const AddWorkOrderFormIT: React.FC = () => {
                   </div>
 
                   <div>
-                    <label htmlFor="service_id" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="service_catalogue_id" className="block text-sm font-medium text-gray-700 mb-1">
                       Service <span className="text-red-500">*</span>
                     </label>
                     <Select
-                      id="service_id"
-                      name="service_id"
-                      options={filteredServices.map((service) => ({
-                        value: String(service.id), // penting
-                        label: service.name,
+                      id="service_catalogue_id"
+                      name="service_catalogue_id"
+                      options={SERVICE_CATALOGUES.map((catalogue) => ({
+                        value: String(catalogue.id),
+                        label: catalogue.name,
                       }))}
                       value={
-                        formData.service_id
+                        SERVICE_CATALOGUES.find((catalogue) => catalogue.id === formData.service_catalogue_id)
                           ? {
-                              value: formData.service_id,
-                              label: filteredServices.find((s) => String(s.id) === formData.service_id)?.name || "",
+                              value: String(formData.service_catalogue_id),
+                              label: SERVICE_CATALOGUES.find((catalogue) => catalogue.id === formData.service_catalogue_id)?.name || "",
                             }
                           : null
                       }
-                      onChange={handleServiceCatalogueChange}
-                      placeholder="Select Service"
+                      onChange={(selectedOption) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          service_catalogue_id: selectedOption ? parseInt(selectedOption.value) : 0,
+                        }))
+                      }
+                      placeholder="Select Service "
                       styles={customSelectStyles}
+                      required
                     />
-
-                    {filteredServices.length === 0 && formData.service_type_id && <p className="text-sm text-yellow-500 mt-1">No services available for selected type</p>}
                   </div>
                   <div>
                     <label htmlFor="asset_no" className="block text-sm font-medium text-gray-700 mb-1">
@@ -1012,4 +1166,4 @@ const AddWorkOrderFormIT: React.FC = () => {
   );
 };
 
-export default AddWorkOrderFormIT;
+export default AddWorkOrderFormITD;

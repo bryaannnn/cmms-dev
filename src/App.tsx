@@ -47,6 +47,15 @@ import AuditTrail from "./component/Audit Trail/AuditTrail";
 import MonitoringMaintenance from "./component/Monitoring Maintenance/MonitoringMaintenance";
 import DetailMonitoringMaintenance from "./component/Monitoring Maintenance/DetailMonitoringMaintenance";
 import FormMonitoringMaintenance from "./component/Monitoring Maintenance/FormMonitoringMaintenance";
+import WorkflowSelection from "./component/Workflow Approval/WorkflowSelection";
+import WorkflowApprovalMonitoring from "./component/Workflow Approval/WorkflowApprovalMonitoring";
+import WorkOrderApproval from "./component/Workflow Approval/WorkOrderApproval";
+import AddWorkOrderFormITDummy from "./component/WorkOrders/DUMMY/FormITDummy";
+import RequestD from "./component/WorkOrders/DUMMY/RequestD";
+import ITReceiverD from "./component/WorkOrders/DUMMY/ReceiverD";
+import ITAssignmentD from "./component/WorkOrders/DUMMY/AssignmentD";
+import ITReportsD from "./component/WorkOrders/DUMMY/ReportsD";
+import AddWorkOrderFormITD from "./component/WorkOrders/DUMMY/FormITDummy";
 
 function App() {
   return (
@@ -74,8 +83,19 @@ function App() {
         <Route path="/workorders/td/reports" element={<ReportsTD />} />
         <Route path="/workorders/td/knowledge-base" element={<KnowledgeBaseTD />} /> */}
 
+        {/* DUMMY Work Order IT */}
+        <Route path="/workorders/itD" element={<RequestD />} />
+        <Route path="/workorders/it/addworkorderD" element={<AddWorkOrderFormITD />} />
+        {/* <Route path="/workorders/it/editworkorder/:id" element={<EditWorkOrderIT />} /> */}
+        {/* <Route path="/workorders/it/approver" element={<ITApprover />} /> */}
+        <Route path="/workorders/it/assignmentD" element={<ITAssignmentD />} />
+        <Route path="/workorders/it/receiverD" element={<ITReceiverD />} />
+        <Route path="/workorders/it/reportsD" element={<ITReportsD />} />
+        <Route path="/workorders/it/knowledgebased" element={<ITKnowledgeBase />} />
+
         <Route path="/workorders/it" element={<ITRequest />} />
-        <Route path="/workorders/it/addworkorder" element={<AddWorkOrderFormIT />} />
+        {/* <Route path="/workorders/it/addworkorder" element={<AddWorkOrderFormIT />} /> */}
+        <Route path="/workorders/it/addworkorderdummy" element={<AddWorkOrderFormITDummy />} />
         {/* <Route path="/workorders/it/editworkorder/:id" element={<EditWorkOrderIT />} /> */}
         {/* <Route path="/workorders/it/approver" element={<ITApprover />} /> */}
         <Route path="/workorders/it/assignment" element={<ITAssignment />} />
@@ -83,12 +103,15 @@ function App() {
         {/* <Route path="/workorders/it/reports" element={<ITReports />} /> */}
         <Route path="/workorders/it/knowledgebase" element={<ITKnowledgeBase />} />
         <Route path="/permissions/adduser" element={<AddUserPage />} />
-        {/* <Route path="/machinehistory/addmachinehistory" element={<FormMesin />} />
+        {/* <Route path="/machinehistory/addmachinehistory" element={<FormMesin />} />  
         <Route path="/machinehistory/edit/:id" element={<EditFormMesin />} /> */}
         <Route path="/workorders" element={<WorkOrdersSelection />} />
         <Route path="/monitoringmaintenance/detailmonitoringmaintenance" element={<DetailMonitoringMaintenance />} />
         <Route path="/monitoringmaintenance/formmonitoringmaintenance" element={<FormMonitoringMaintenance />} />
         <Route path="/monitoringmaintenance" element={<MonitoringMaintenance />} />
+        <Route path="/workflowapproval" element={<WorkflowSelection />} />
+        <Route path="/workflowapproval/monitoringapproval" element={<WorkflowApprovalMonitoring />} />
+        <Route path="/workflowapproval/workorderapproval" element={<WorkOrderApproval />} />
 
         {/* Protected Routes */}
         {/* Dashboard */}
@@ -99,6 +122,10 @@ function App() {
 
         <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}>
           <Route path="/audittrail" element={<AuditTrail />} />
+        </Route>
+
+        <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}>
+          <Route path="/workflowapproval" element={<WorkflowSelection />} />
         </Route>
 
         <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}>

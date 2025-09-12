@@ -292,11 +292,19 @@ export interface Head {
   department_id: number;
 }
 
+// Di dalam komponen atau file terpisah
 export interface Department {
   id: number;
-  name: string | null;
+  name: string;
   head_id: number | null;
-  head?: Head | null;
+  created_at?: string;
+  updated_at?: string;
+  head?: {
+    // Opsional, jika ingin menambahkan data kepala department
+    id: number;
+    name: string;
+    email: string;
+  } | null;
 }
 
 export interface UserWithDepartment extends SimpleUser {
@@ -398,22 +406,24 @@ export interface WorkOrderFormData {
   date: string;
   reception_method: string;
   assigned_to_id?: number | null;
-  requester_id: number | string;
-  known_by_id: number | null; // Diubah untuk menerima null
-  department_id: number | string;
-  service_group_id: number | string; // Ganti dari service_type_id
-  service_catalogue_id: number | string; // Ganti dari service_id
+  requester_id: number;
+  known_by_id: number | null;
+  department_id: number;
+  service_type_id: number; // ✅ ini yang dikirim
+  service_id: number; // ✅ ini yang dikirim
   asset_no: string;
   device_info: string;
   complaint: string;
   attachment: string | null;
-  received_by_id: number | null; // Diubah untuk menerima null
+  received_by_id: number | null;
   handling_date: string | null;
   action_taken: string | null;
   handling_status: string;
   remarks: string | null;
+  // relasi opsional
   requester?: UserWithDepartment;
-  known_by?: SimpleUser | null; // Diubah untuk menerima null
+  attachment_filename?: string;
+  known_by?: SimpleUser | null;
   department?: Department;
   service_type?: SimpleUser | null;
   service?: Service4 | null;
@@ -682,6 +692,37 @@ export interface MonitoringSchedule {
   monitoring_activities: any[];
 }
 
+// Tambahkan di bagian interface yang sesuai
+export interface MonitoringScheduleRequest {
+  tahun: number;
+  bulan: string;
+  tgl_start: string;
+  tgl_end: string;
+  unit: string;
+  id_mesins: number;
+  id_interval: number;
+}
+
+export interface MonitoringScheduleResponse {
+  id_monitoring_schedule: number;
+  tahun: string;
+  bulan: string;
+  tgl_start: string;
+  tgl_end: string;
+  unit: string;
+  id_mesins: number;
+  id_interval: number;
+  created_at: string;
+  updated_at: string;
+  data_mesin?: any;
+  monitoring_interval?: {
+    id_interval: number;
+    type_interval: string;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
 // Interface untuk POST /monitoring-activities
 export interface MonitoringActivityPost {
   id_monitoring_schedule: number;
@@ -762,7 +803,7 @@ interface AuthContextType {
   masterData: AllMasterData | null;
   isMasterDataLoading: boolean;
   getWorkOrdersIT: () => Promise<WorkOrderData[]>;
-  addWorkOrderIT: (data: WorkOrderFormData, file?: File | null) => Promise<WorkOrderData>;
+  addWorkOrderIT: (data: WorkOrderFormData | FormData, file?: File | null) => Promise<WorkOrderData>;
   updateWorkOrderIT: (data: WorkOrderFormData) => Promise<WorkOrderData>;
   deleteWorkOrder: (id: number) => Promise<any>;
   assignWorkOrderIT: (id: number, assignedToUserId: number) => Promise<WorkOrderData>;
@@ -792,10 +833,13 @@ interface AuthContextType {
   getAuditTrail: () => Promise<AuditLog[]>;
   // getService: (id: number) => Promise<Service>;S
   getServices: (id_services: number) => Promise<ServiceCatalogue2[]>;
+  getServiceGroups: (id: string | number) => Promise<ServiceGroup[]>;
   getServiceGroup: (id: string | number) => Promise<ServiceGroup>;
+
   getDepartment: () => Promise<Department[]>; // Tambahkan ini
   getDepartmentById?: (id: string | number) => Promise<Department | null>; // Opsional
   getMonitoringSchedules: () => Promise<MonitoringSchedule[]>;
+  addMonitoringSchedule: (data: MonitoringScheduleRequest) => Promise<MonitoringScheduleResponse>;
   addMonitoringActivities: (activities: MonitoringActivityPost[]) => Promise<MonitoringActivityResponse[]>;
 }
 
@@ -813,29 +857,21 @@ const mapApiToUser = (apiUser: any): User => {
               id: apiUser.department.head.id,
               name: apiUser.department.head.name,
               email: apiUser.department.head.email,
-              avatar: apiUser.department.head.avatar,
-              department: apiUser.department.head.department,
-              position: apiUser.department.head.position,
-              department_id: apiUser.department.head.department_id,
             }
           : null,
       }
     : null;
+
   return {
     id: String(apiUser.id),
     name: apiUser.name,
     nik: apiUser.nik,
     email: apiUser.email,
-    roleId: apiUser.roleId || null,
+    roleId: apiUser.role_id ? String(apiUser.role_id) : null, // Perhatikan field name
     roles: apiUser.roles || [],
     customPermissions: apiUser.customPermissions || [],
     permissions: apiUser.permissions || apiUser.allPermissions || [],
     department: department,
-    access_token: apiUser.access_token,
-    refresh_token: apiUser.refresh_token,
-    isSuperadmin: apiUser.roles?.includes("superadmin") || false,
-    avatar_url: apiUser.avatar_url,
-    avatar: apiUser.avatar,
     department_id: apiUser.department_id || apiUser.department?.id || null,
     department_name: apiUser.department?.name || null,
     position: apiUser.position,
@@ -1372,27 +1408,63 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     [fetchWithAuth]
   );
 
+  // Tambahkan fungsi ini di AuthContext.tsx
+  // Located in AuthContext.tsx
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
+  // Located in AuthContext.tsx
+  // Di AuthContext.tsx - perbaiki addWorkOrderIT
   const addWorkOrderIT = useCallback(
-    async (data: WorkOrderFormData, file?: File | null): Promise<WorkOrderData> => {
-      const formData = new FormData();
-      formData.append("date", data.date);
-      formData.append("reception_method", data.reception_method);
-      formData.append("requester_id", String(data.requester_id));
-      formData.append("known_by_id", data.known_by_id ? String(data.known_by_id) : "");
-      formData.append("department_id", String(data.department_id));
-      formData.append("service_group_id", String(data.service_group_id));
-      formData.append("service_catalogue_id", String(data.service_catalogue_id));
-      formData.append("complaint", data.complaint);
-      formData.append("asset_no", data.asset_no);
-      formData.append("device_info", data.device_info);
-      if (file) formData.append("attachment", file);
-      formData.append("remarks", data.remarks || "");
+    async (data: WorkOrderFormData | FormData, file?: File | null): Promise<WorkOrderData> => {
+      // Handle jika data sudah berupa FormData (dari caller lain)
+      if (data instanceof FormData) {
+        // Jika sudah FormData, langsung kirim
+        const response = await fetchWithAuth("/ayam", {
+          method: "POST",
+          body: data,
+        });
+        return response.work_order || response;
+      }
+
+      // Handle WorkOrderFormData (dari FormIT.tsx)
+      const formDataToSend = new FormData();
+
+      // Append semua field data dengan konversi number yang benar
+      // Di AuthContext.tsx - dalam addWorkOrderIT
+      Object.entries(data).forEach(([key, value]) => {
+        if (value !== null && value !== undefined) {
+          // Ensure service IDs are properly formatted numbers
+          if (key === "service_type_id" || key === "service_id") {
+            const numValue = Number(value);
+            if (!isNaN(numValue)) {
+              formDataToSend.append(key, numValue.toString());
+            } else {
+              console.error(`Invalid ${key}:`, value);
+            }
+          } else {
+            formDataToSend.append(key, String(value));
+          }
+        }
+      });
+
+      // Append file jika ada
+      if (file) {
+        formDataToSend.append("attachment", file);
+      }
 
       const response = await fetchWithAuth("/ayam", {
         method: "POST",
-        body: formData,
+        body: formDataToSend,
       });
-      return response.work_order;
+
+      return response.work_order || response;
     },
     [fetchWithAuth]
   );
@@ -1491,7 +1563,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const getUsers = useCallback(async (): Promise<User[]> => {
     try {
       const response = await fetchWithAuth("/users");
-      const usersData = Array.isArray(response) ? response : response.data || [];
+
+      // Handle different response formats
+      let usersData;
+      if (response && response.success !== undefined) {
+        usersData = response.data || [];
+      } else if (Array.isArray(response)) {
+        usersData = response;
+      } else {
+        usersData = [];
+      }
+
       return usersData.map((apiUser: any) => mapApiToUser(apiUser));
     } catch (error) {
       console.error("Failed to fetch users:", error);
@@ -1591,10 +1673,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     [fetchWithAuth]
   );
 
+  const getServiceGroups = useCallback(async (): Promise<ServiceGroup[]> => {
+    try {
+      const response = await fetchWithAuth("/service-groups");
+      return response.data || [];
+    } catch (error) {
+      console.error("Failed to fetch service groups:", error);
+      return [];
+    }
+  }, [fetchWithAuth]);
+
   const getServiceGroup = useCallback(
     async (id: string | number): Promise<ServiceGroup> => {
-      const responseData = await fetchWithAuth(`/service-groups`);
-      return responseData.data;
+      try {
+        const response = await fetchWithAuth(`/service-groups/${id}`);
+        return response.data;
+      } catch (error) {
+        console.error(`Failed to fetch service group with id ${id}:`, error);
+        throw error;
+      }
     },
     [fetchWithAuth]
   );
@@ -1659,7 +1756,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const getMonitoringSchedules = useCallback(async (): Promise<MonitoringSchedule[]> => {
     try {
-      const response = await fetchWithAuth("/monitoring-schedules");
+      const response = await fetchWithAuth("/monitoring-schedule");
 
       // Handle berbagai format response
       if (Array.isArray(response)) {
@@ -1690,6 +1787,55 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       throw new Error(`Failed to fetch monitoring schedule: ${error instanceof Error ? error.message : String(error)}`);
     }
   }, [fetchWithAuth]);
+
+  const addMonitoringSchedule = useCallback(
+    async (data: MonitoringScheduleRequest): Promise<MonitoringScheduleResponse> => {
+      try {
+        const response = await fetchWithAuth("/monitoring-schedule", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(data),
+        });
+
+        if (!response) {
+          throw new Error("No response from server");
+        }
+
+        // Handle success false response
+        if (response.success === false) {
+          throw new Error(response.message || "Failed to create monitoring schedule");
+        }
+
+        // Extract data based on common response patterns
+        const responseData = response.data || response.result || response;
+
+        if (!responseData) {
+          throw new Error("Invalid response format");
+        }
+
+        return responseData;
+      } catch (error) {
+        console.error("Error adding monitoring schedule:", error);
+
+        if (error instanceof Error) {
+          if (error.message.includes("401")) {
+            throw new Error("Unauthorized - Please login again");
+          }
+          if (error.message.includes("404")) {
+            throw new Error("Endpoint not found");
+          }
+          if (error.message.includes("500")) {
+            throw new Error("Server error - Please try again later");
+          }
+        }
+
+        throw new Error(`Failed to add monitoring schedule: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
 
   const addMonitoringActivities = useCallback(
     async (activities: MonitoringActivityPost[]): Promise<MonitoringActivityResponse[]> => {
@@ -1749,6 +1895,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         departments: [],
         services: [],
         getServices,
+        getServiceGroups,
         getServiceGroup,
         changePassword,
         fetchUser,
@@ -1775,6 +1922,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         getDepartment,
         getDepartmentById,
         getMonitoringSchedules,
+        addMonitoringSchedule,
         addMonitoringActivities,
       }}
     >

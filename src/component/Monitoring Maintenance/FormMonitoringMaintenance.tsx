@@ -35,9 +35,6 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
 interface ItemData {
   item: string;
   satuan: string;
-  standarMin: number | null;
-  standarMax: number | null;
-  standarVisual: string;
 }
 
 interface MachineData {
@@ -134,7 +131,6 @@ const FormMonitoringMaintenance: React.FC = () => {
 
   const intervalOptions = useMemo(
     () => [
-      { value: "Daily", label: "Daily" },
       { value: "Weekly", label: "Weekly" },
       { value: "Monthly", label: "Monthly" },
       { value: "3 Months", label: "3 Months" },
@@ -347,15 +343,7 @@ const FormMonitoringMaintenance: React.FC = () => {
                                   const selectedInterval = option ? option.value : "";
                                   handleUpdate(`units[${unitIndex}].machines[${machineIndex}].interval`, selectedInterval);
                                   // Populate items based on selection
-                                  const filteredItems = dummyItemsWithIntervals
-                                    .filter((item) => item.unit === unitData.unit && item.machine === machineData.mesin && item.interval === selectedInterval)
-                                    .map((item) => ({
-                                      item: item.item,
-                                      satuan: item.satuan,
-                                      standarMin: null,
-                                      standarMax: null,
-                                      standarVisual: "",
-                                    }));
+                                  const filteredItems = dummyItemsWithIntervals.filter((item) => item.unit === unitData.unit && item.machine === machineData.mesin && item.interval === selectedInterval);
                                   handleUpdate(`units[${unitIndex}].machines[${machineIndex}].items`, filteredItems);
                                 }}
                                 isClearable
@@ -403,39 +391,10 @@ const FormMonitoringMaintenance: React.FC = () => {
                           {machineData.items.length > 0 ? (
                             <div className="space-y-4">
                               {machineData.items.map((itemData, itemIndex) => (
-                                <motion.div key={itemIndex} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-3 border border-gray-300 rounded-lg bg-white grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                  <div className="lg:col-span-3">
-                                    <h4 className="font-bold text-gray-800">
-                                      Item: {itemData.item} ({itemData.satuan})
-                                    </h4>
-                                  </div>
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Standar Min</label>
-                                    <input
-                                      type="number"
-                                      value={itemData.standarMin ?? ""}
-                                      onChange={(e) => handleUpdate(`units[${unitIndex}].machines[${machineIndex}].items[${itemIndex}].standarMin`, e.target.value)}
-                                      className="w-full p-2.5 border border-gray-300 rounded-lg"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Standar Max</label>
-                                    <input
-                                      type="number"
-                                      value={itemData.standarMax ?? ""}
-                                      onChange={(e) => handleUpdate(`units[${unitIndex}].machines[${machineIndex}].items[${itemIndex}].standarMax`, e.target.value)}
-                                      className="w-full p-2.5 border border-gray-300 rounded-lg"
-                                    />
-                                  </div>
-                                  <div className="lg:col-span-2">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Standar Visual</label>
-                                    <textarea
-                                      rows={2}
-                                      value={itemData.standarVisual}
-                                      onChange={(e) => handleUpdate(`units[${unitIndex}].machines[${machineIndex}].items[${itemIndex}].standarVisual`, e.target.value)}
-                                      className="w-full p-2.5 border border-gray-300 rounded-lg"
-                                    />
-                                  </div>
+                                <motion.div key={itemIndex} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-3 border border-gray-300 rounded-lg bg-white">
+                                  <h4 className="font-bold text-gray-800">
+                                    Item: {itemData.item} ({itemData.satuan})
+                                  </h4>
                                 </motion.div>
                               ))}
                             </div>

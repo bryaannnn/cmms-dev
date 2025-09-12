@@ -1,8 +1,23 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Calendar, Wrench, ChevronDown, CheckCircle, XCircle, Save, Info, MessageSquare, Clock, UserCog, Plus, ArrowLeft, Hourglass } from "lucide-react";
+import {
+  Calendar,
+  Wrench,
+  ChevronDown,
+  CheckCircle,
+  XCircle,
+  Save,
+  Info,
+  MessageSquare,
+  Clock,
+  UserCog,
+  Plus,
+  ArrowLeft,
+  Hourglass,
+  X,
+  History, // Menggunakan ikon untuk riwayat
+} from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useAuth, MonitoringActivity } from "../../routes/AuthContext";
 import Sidebar from "../Sidebar";
 
 interface MonitoringItem {
@@ -17,12 +32,9 @@ interface MonitoringItem {
 interface MachineDetail {
   id: string;
   name: string;
-  items: MonitoringItem[];
-}
-
-interface WeeklySchedule {
+  interval: string;
   period: string;
-  machines: MachineDetail[];
+  items: MonitoringItem[];
 }
 
 interface ItemResult {
@@ -52,11 +64,20 @@ interface CommentEntry {
   parentId?: string | null;
 }
 
+interface ActivityLogEntry {
+  type: "submission" | "approval" | "rejection" | "feedback" | "edit";
+  timestamp: string;
+  actor: UserRoleType;
+  description: string;
+  details?: string;
+}
+
 interface MachineResults {
   machineId: string;
   itemResults: ItemResult[];
   approvalStatus: ApprovalRole;
   commentsHistory: CommentEntry[];
+  activityHistory: ActivityLogEntry[]; // Menambahkan riwayat aktivitas
   isSaved: boolean;
   submissionDate?: string;
 }
@@ -77,7 +98,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
         <div className="flex justify-between items-center border-b pb-3 mb-4 border-gray-100">
           <h3 className="text-2xl font-bold text-gray-900">{title}</h3>
           <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">
-            <XCircle size={24} />
+            <X size={24} />
           </motion.button>
         </div>
         <div>{children}</div>
@@ -86,53 +107,33 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
   );
 };
 
-const DUMMY_SCHEDULE: WeeklySchedule = {
-  period: "12 - 18 Agustus 2024",
-  machines: [
-    {
-      id: "MACH-A01",
-      name: "Mesin A01 (Produksi) - Unit WY01",
-      items: [
-        { id: 101, name: "Oil Level", uom: "Level", visual: "Normal" },
-        { id: 102, name: "Belt Tension", uom: "Kekencangan", visual: "Baik" },
-        { id: 103, name: "Temperature", uom: "°C", min: 20, max: 40 },
-        { id: 104, name: "Pressure", uom: "Bar", min: 1.5, max: 3.0 },
-      ],
-    },
-    {
-      id: "MACH-A02",
-      name: "Mesin A02 (Packaging) - Unit WY01",
-      items: [
-        { id: 201, name: "Motor Sound", uom: "Visual", visual: "Tidak ada suara aneh" },
-        { id: 202, name: "Vibration", uom: "mm/s", min: 0.1, max: 1.0 },
-      ],
-    },
-    {
-      id: "MACH-B01",
-      name: "Mesin B01 (Quality Control) - Unit WY02",
-      items: [
-        { id: 301, name: "pH Level", uom: "pH", min: 6.0, max: 8.0 },
-        { id: 302, name: "Filter Condition", uom: "Visual", visual: "Bersih" },
-      ],
-    },
+// DUMMY DATA FOR A SINGLE MACHINE
+const DUMMY_MACHINE_DETAIL: MachineDetail = {
+  id: "MACH-A01",
+  name: "Mesin A01 (Produksi) - Unit WY01",
+  interval: "Weekly",
+  period: "01 Sep 2025 - 07 Sep 2025",
+  items: [
+    { id: 101, name: "Oil Level", uom: "Level", visual: "Normal" },
+    { id: 102, name: "Belt Tension", uom: "Kekencangan", visual: "Baik" },
+    { id: 103, name: "Temperature", uom: "°C", min: 20, max: 40 },
+    { id: 104, name: "Pressure", uom: "Bar", min: 1.5, max: 3.0 },
+    { id: 105, name: "Motor Sound", uom: "Visual", visual: "Tidak ada suara aneh" },
+    { id: 106, name: "Vibration", uom: "mm/s", min: 0.1, max: 1.0 },
+    { id: 107, name: "pH Level", uom: "pH", min: 6.0, max: 8.0 },
+    { id: 108, name: "Filter Condition", uom: "Visual", visual: "Bersih" },
   ],
 };
 
-let DUMMY_USER_ROLE: UserRoleType = "admin";
-
-const DEFAULT_APPROVAL_FLOW_ORDER: ApprovalRoleKeys[] = ["unitHeadEngineering", "unitHeadProcess", "sectionHeadEngineering", "sectionHeadProcess"];
-
-interface ConfigurableApprovalStep {
-  order: number;
-  role: ApprovalRoleKeys;
-  assignee: string;
-}
+let DUMMY_USER_ROLE: UserRoleType = "technician";
+// Dummy dynamic approval flow. In a real app, this would be fetched from a global state or API.
+const DUMMY_APPROVAL_FLOW_ORDER: ApprovalRoleKeys[] = ["unitHeadEngineering", "unitHeadProcess", "sectionHeadEngineering", "sectionHeadProcess"];
 
 interface CommentItemProps {
   comment: CommentEntry;
   machineId: string;
   currentUserRole: UserRoleType;
-  onAddCommentOrReply: (machineId: string, role: UserRoleType, commentText: string, parentId?: string | null) => void;
+  onAddCommentOrReply: (machineId: string, role: UserRoleType, commentText: string, parentId: string | null) => void;
   depth: number;
 }
 
@@ -195,182 +196,71 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment, machineId, currentUs
   );
 };
 
-interface CommentSectionProps {
-  machineId: string;
-  commentsHistory: CommentEntry[];
-  currentUserRole: UserRoleType;
-  onAddCommentOrReply: (machineId: string, role: UserRoleType, commentText: string, parentId?: string | null) => void;
-}
-
-const CommentSection: React.FC<CommentSectionProps> = ({ machineId, commentsHistory, currentUserRole, onAddCommentOrReply }) => {
-  const [newCommentText, setNewCommentText] = useState("");
-
-  const handlePostTopLevelComment = () => {
-    if (newCommentText.trim()) {
-      onAddCommentOrReply(machineId, currentUserRole, newCommentText, null);
-      setNewCommentText("");
-    }
-  };
-
-  const sortedComments = useMemo(() => {
-    if (!commentsHistory) return [];
-    const topLevelComments = commentsHistory.filter((c) => c.parentId === null || c.parentId === undefined);
-    topLevelComments.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-
-    const buildTree = (comments: CommentEntry[], parentId: string | null = null): CommentEntry[] => {
-      return comments
-        .filter((comment) => comment.parentId === parentId)
-        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-        .map((comment) => ({
-          ...comment,
-          replies: buildTree(comments, comment.id),
-        }));
-    };
-
-    return buildTree(commentsHistory);
-  }, [commentsHistory]);
-
-  return (
-    <div className="mt-8 pt-6 border-t border-gray-200">
-      <h4 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-        <MessageSquare className="mr-2 text-gray-600" size={20} />
-        Komentar
-      </h4>
-      <div className="mt-6 space-y-4">
-        {sortedComments.length > 0 ? (
-          sortedComments.map((comment) => <CommentItem key={comment.id} comment={comment} machineId={machineId} currentUserRole={currentUserRole} onAddCommentOrReply={onAddCommentOrReply} depth={0} />)
-        ) : (
-          <p className="text-gray-500 text-sm">Belum ada komentar.</p>
-        )}
-      </div>
-    </div>
-  );
-};
-
 const DetailMonitoringMaintenance: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const initialSchedule = (location.state as { schedule: WeeklySchedule })?.schedule || DUMMY_SCHEDULE;
+  const singleMachine: MachineDetail | null = (location.state as { machine: MachineDetail })?.machine || DUMMY_MACHINE_DETAIL;
 
-  const [expandedMachines, setExpandedMachines] = useState<string[]>([]);
-  const [monitoringResults, setMonitoringResults] = useState<MachineResults[]>([]);
-  const [allMachinesMonitoringSaved, setAllMachinesMonitoringSaved] = useState<boolean>(false);
-  const [isApprovalFlowConfigured, setIsApprovalFlowConfigured] = useState<boolean>(false);
-  const [feedbackState, setFeedbackState] = useState<Record<string, Record<ApprovalRoleKeys, { showInput: boolean; text: string }>>>({});
-  const [customApprovalFlow, setCustomApprovalFlow] = useState<ConfigurableApprovalStep[]>(() => DEFAULT_APPROVAL_FLOW_ORDER.map((role, index) => ({ order: index + 1, role, assignee: "" })));
-  const [showApprovalConfigModal, setShowApprovalConfigModal] = useState(false);
+  const [monitoringResults, setMonitoringResults] = useState<MachineResults | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-
-  const { addMonitoringActivities } = useAuth();
-  const [loading, setLoading] = useState(false);
-
-  const ALL_APPROVAL_ROLES: { key: ApprovalRoleKeys; name: string }[] = [
-    { key: "unitHeadEngineering", name: "Unit Head Engineering" },
-    { key: "unitHeadProcess", name: "Unit Head Process" },
-    { key: "sectionHeadEngineering", name: "Section Head Engineering" },
-    { key: "sectionHeadProcess", name: "Section Head Process" },
-  ];
-
-  const DUMMY_USERS = ["John Doe", "Jane Smith", "Peter Jones", "Alice Brown", "Bob White"];
-
-  const handleSubmit = async () => {
-    const activities = [
-      {
-        id_monitoring_schedule: 2,
-        id_item_mesin: 3,
-        tgl_monitoring: "2025-08-29",
-        hasil_monitoring: "70",
-        hasil_keterangan: "Tekanan Tertekan, Project Plan di Decline Semua",
-      },
-      {
-        id_monitoring_schedule: 1,
-        id_item_mesin: 2,
-        tgl_monitoring: "2025-08-25",
-        hasil_monitoring: "5.5",
-        hasil_keterangan: "Suhu sedikit naik.",
-      },
-    ];
-
-    try {
-      const result = await addMonitoringActivities(activities);
-      console.log("Activities added successfully:", result);
-    } catch (error) {
-      console.error("Failed to add activities:", error);
-    }
-  };
+  const [activeTab, setActiveTab] = useState<"approval" | "history">("approval"); // State untuk tab
+  const [feedbackState, setFeedbackState] = useState<Record<ApprovalRoleKeys, { showInput: boolean; text: string }>>({
+    unitHeadEngineering: { showInput: false, text: "" },
+    unitHeadProcess: { showInput: false, text: "" },
+    sectionHeadEngineering: { showInput: false, text: "" },
+    sectionHeadProcess: { showInput: false, text: "" },
+  });
 
   useEffect(() => {
-    const initialResults: MachineResults[] = initialSchedule.machines.map((machine) => ({
-      machineId: machine.id,
-      itemResults: machine.items.map((item) => ({
-        itemId: item.id,
-        result: "",
-        status: "Pending",
-        remarks: "",
-      })),
-      approvalStatus: {
-        unitHeadEngineering: "Pending",
-        unitHeadProcess: "Pending",
-        sectionHeadEngineering: "Pending",
-        sectionHeadProcess: "Pending",
-      },
-      commentsHistory: [],
-      isSaved: false,
-    }));
-    setMonitoringResults(initialResults);
+    if (singleMachine) {
+      const initialResults: MachineResults = {
+        machineId: singleMachine.id,
+        itemResults: singleMachine.items.map((item) => ({
+          itemId: item.id,
+          result: "",
+          status: "Pending",
+          remarks: "",
+        })),
+        approvalStatus: {
+          unitHeadEngineering: "Pending",
+          unitHeadProcess: "Pending",
+          sectionHeadEngineering: "Pending",
+          sectionHeadProcess: "Pending",
+        },
+        commentsHistory: [],
+        activityHistory: [], // Inisialisasi riwayat aktivitas
+        isSaved: false,
+      };
+      setMonitoringResults(initialResults);
+    }
+  }, [singleMachine]);
 
-    const initialFeedbackState: Record<string, Record<ApprovalRoleKeys, { showInput: boolean; text: string }>> = {};
-    initialSchedule.machines.forEach((machine) => {
-      initialFeedbackState[machine.id] = {
-        unitHeadEngineering: { showInput: false, text: "" },
-        unitHeadProcess: { showInput: false, text: "" },
-        sectionHeadEngineering: { showInput: false, text: "" },
-        sectionHeadProcess: { showInput: false, text: "" },
+  const handleResultChange = (itemId: number, value: string | number, itemType: "numeric" | "visual", min?: number, max?: number) => {
+    setMonitoringResults((prevResults) => {
+      if (!prevResults) return null;
+      return {
+        ...prevResults,
+        itemResults: prevResults.itemResults.map((item) =>
+          item.itemId === itemId
+            ? {
+                ...item,
+                result: value,
+                status: itemType === "numeric" ? determineNumericStatus(Number(value), min, max) : value === "MS" ? "MS" : value === "TMS" ? "TMS" : "Pending",
+              }
+            : item
+        ),
       };
     });
-    setFeedbackState(initialFeedbackState);
-
-    if (initialSchedule.machines.length > 0) {
-      setExpandedMachines([initialSchedule.machines[0].id]);
-    }
-  }, [initialSchedule]);
-
-  const toggleMachine = (machineId: string) => {
-    setExpandedMachines((prev) => (prev.includes(machineId) ? prev.filter((id) => id !== machineId) : [...prev, machineId]));
   };
 
-  const handleResultChange = (machineId: string, itemId: number, value: string | number, itemType: "numeric" | "visual", min?: number, max?: number) => {
-    setMonitoringResults((prevResults) =>
-      prevResults.map((machine) =>
-        machine.machineId === machineId
-          ? {
-              ...machine,
-              itemResults: machine.itemResults.map((item) =>
-                item.itemId === itemId
-                  ? {
-                      ...item,
-                      result: value,
-                      status: itemType === "numeric" ? determineNumericStatus(Number(value), min, max) : value === "N/A" ? "N/A" : value === "Keras" ? "TMS" : "MS",
-                    }
-                  : item
-              ),
-            }
-          : machine
-      )
-    );
-  };
-
-  const handleRemarksChange = (machineId: string, itemId: number, value: string) => {
-    setMonitoringResults((prevResults) =>
-      prevResults.map((machine) =>
-        machine.machineId === machineId
-          ? {
-              ...machine,
-              itemResults: machine.itemResults.map((item) => (item.itemId === itemId ? { ...item, remarks: value } : item)),
-            }
-          : machine
-      )
-    );
+  const handleRemarksChange = (itemId: number, value: string) => {
+    setMonitoringResults((prevResults) => {
+      if (!prevResults) return null;
+      return {
+        ...prevResults,
+        itemResults: prevResults.itemResults.map((item) => (item.itemId === itemId ? { ...item, remarks: value } : item)),
+      };
+    });
   };
 
   const determineNumericStatus = (result: number, min?: number, max?: number): "MS" | "TMS" | "N/A" | "Pending" => {
@@ -428,220 +318,191 @@ const DetailMonitoringMaintenance: React.FC = () => {
   };
 
   const handleAddCommentOrReply = useCallback((machineId: string, role: UserRoleType, commentText: string, parentId: string | null = null) => {
-    setMonitoringResults((prevResults) =>
-      prevResults.map((machine) => {
-        if (machine.machineId === machineId) {
-          const newComment: CommentEntry = {
-            id: crypto.randomUUID(),
-            role,
-            comment: commentText,
-            timestamp: new Date().toLocaleString(),
-            replies: [],
-            parentId: parentId,
-          };
+    setMonitoringResults((prevResults) => {
+      if (!prevResults || prevResults.machineId !== machineId) return prevResults;
+      const newComment: CommentEntry = {
+        id: crypto.randomUUID(),
+        role,
+        comment: commentText,
+        timestamp: new Date().toLocaleString(),
+        replies: [],
+        parentId: parentId,
+      };
 
-          const addRecursive = (comments: CommentEntry[], newComment: CommentEntry): CommentEntry[] => {
-            if (newComment.parentId === null) {
-              return [...comments, newComment];
-            }
-            return comments.map((c) => (c.id === newComment.parentId ? { ...c, replies: c.replies ? [...c.replies, newComment] : [newComment] } : { ...c, replies: c.replies ? addRecursive(c.replies, newComment) : c.replies }));
-          };
-
-          const currentCommentsHistory = machine.commentsHistory || [];
-          return {
-            ...machine,
-            commentsHistory: addRecursive(currentCommentsHistory, newComment),
-          };
+      const addRecursive = (comments: CommentEntry[], newComment: CommentEntry): CommentEntry[] => {
+        if (newComment.parentId === null) {
+          return [...comments, newComment];
         }
-        return machine;
-      })
-    );
+        return comments.map((c) => (c.id === newComment.parentId ? { ...c, replies: c.replies ? [...c.replies, newComment] : [newComment] } : { ...c, replies: c.replies ? addRecursive(c.replies, newComment) : c.replies }));
+      };
+
+      const currentCommentsHistory = prevResults.commentsHistory || [];
+      return {
+        ...prevResults,
+        commentsHistory: addRecursive(currentCommentsHistory, newComment),
+      };
+    });
   }, []);
 
-  const handleApproval = (machineId: string, role: ApprovalRoleKeys, action: "Approved" | "Rejected" | "FeedbackGiven", feedbackReason?: string) => {
-    setMonitoringResults((prevResults) =>
-      prevResults.map((machine) => {
-        if (machine.machineId === machineId) {
-          let updatedCommentsHistory = machine.commentsHistory || [];
+  const handleApproval = (role: ApprovalRoleKeys, action: "Approved" | "Rejected" | "FeedbackGiven", feedbackReason?: string) => {
+    if (!monitoringResults) return;
 
-          if ((action === "FeedbackGiven" || action === "Rejected") && feedbackReason) {
-            const newComment: CommentEntry = {
-              id: crypto.randomUUID(),
-              role,
-              comment: feedbackReason,
-              timestamp: new Date().toLocaleString(),
-              replies: [],
-              parentId: null,
-            };
-            updatedCommentsHistory = [...updatedCommentsHistory, newComment];
-          } else if (action === "Approved") {
-            updatedCommentsHistory = updatedCommentsHistory.filter((c) => !(c.role === role && (c.parentId === null || c.parentId === undefined))) || [];
-          }
+    setMonitoringResults((prevResults) => {
+      if (!prevResults) return null;
+      let updatedCommentsHistory = prevResults.commentsHistory || [];
+      let updatedActivityHistory = [...prevResults.activityHistory];
+      const timestamp = new Date().toLocaleString();
 
-          const updatedMachine = {
-            ...machine,
-            approvalStatus: {
-              ...machine.approvalStatus,
-              [role]: action,
-            },
-            commentsHistory: updatedCommentsHistory,
-          };
-
-          return updatedMachine;
-        }
-        return machine;
-      })
-    );
-
-    setFeedbackState((prev) => {
-      const newFeedbackState = { ...prev };
-      const typedRole = role as ApprovalRoleKeys;
-      if (newFeedbackState[machineId] && newFeedbackState[machineId][typedRole]) {
-        newFeedbackState[machineId][typedRole] = { showInput: false, text: "" };
-      }
-      return newFeedbackState;
-    });
-  };
-
-  const toggleFeedbackInput = (machineId: string, role: ApprovalRoleKeys) => {
-    setFeedbackState((prev) => {
-      const newFeedbackState = { ...prev };
-      if (!newFeedbackState[machineId]) {
-        newFeedbackState[machineId] = {
-          unitHeadEngineering: { showInput: false, text: "" },
-          unitHeadProcess: { showInput: false, text: "" },
-          sectionHeadEngineering: { showInput: false, text: "" },
-          sectionHeadProcess: { showInput: false, text: "" },
+      if ((action === "FeedbackGiven" || action === "Rejected") && feedbackReason) {
+        const newComment: CommentEntry = {
+          id: crypto.randomUUID(),
+          role,
+          comment: feedbackReason,
+          timestamp,
+          replies: [],
+          parentId: null,
         };
-      } else {
-        newFeedbackState[machineId] = { ...newFeedbackState[machineId] };
+        updatedCommentsHistory = [...updatedCommentsHistory, newComment];
+
+        const activityDescription = action === "FeedbackGiven" ? "Memberi feedback." : "Menolak laporan.";
+        updatedActivityHistory.push({
+          type: action === "FeedbackGiven" ? "feedback" : "rejection",
+          timestamp,
+          actor: role,
+          description: `${getRoleName(role)} ${activityDescription}`,
+          details: feedbackReason,
+        });
+      } else if (action === "Approved") {
+        updatedCommentsHistory = updatedCommentsHistory.filter((c) => !(c.role === role && (c.parentId === null || c.parentId === undefined))) || [];
+
+        updatedActivityHistory.push({
+          type: "approval",
+          timestamp,
+          actor: role,
+          description: `${getRoleName(role)} menyetujui laporan.`,
+        });
       }
+
+      const updatedMachine = {
+        ...prevResults,
+        approvalStatus: {
+          ...prevResults.approvalStatus,
+          [role]: action,
+        },
+        commentsHistory: updatedCommentsHistory,
+        activityHistory: updatedActivityHistory,
+      };
+
+      return updatedMachine;
+    });
+
+    setFeedbackState((prev) => {
+      const newFeedbackState = { ...prev };
       const typedRole = role as ApprovalRoleKeys;
-      if (newFeedbackState[machineId][typedRole]) {
-        newFeedbackState[machineId][typedRole] = {
-          ...newFeedbackState[machineId][typedRole],
-          showInput: !newFeedbackState[machineId][typedRole].showInput,
+      if (newFeedbackState[typedRole]) {
+        newFeedbackState[typedRole] = { showInput: false, text: "" };
+      }
+      return newFeedbackState;
+    });
+  };
+
+  const toggleFeedbackInput = (role: ApprovalRoleKeys) => {
+    setFeedbackState((prev) => {
+      const newFeedbackState = { ...prev };
+      const typedRole = role as ApprovalRoleKeys;
+      if (newFeedbackState[typedRole]) {
+        newFeedbackState[typedRole] = {
+          ...newFeedbackState[typedRole],
+          showInput: !newFeedbackState[typedRole].showInput,
         };
       }
       return newFeedbackState;
     });
   };
 
-  const updateFeedbackText = (machineId: string, role: ApprovalRoleKeys, text: string) => {
+  const updateFeedbackText = (role: ApprovalRoleKeys, text: string) => {
     setFeedbackState((prev) => {
       const newFeedbackState = { ...prev };
       const typedRole = role as ApprovalRoleKeys;
-      if (newFeedbackState[machineId]) {
-        newFeedbackState[machineId] = { ...newFeedbackState[machineId] };
-        if (newFeedbackState[machineId][typedRole]) {
-          newFeedbackState[machineId][typedRole] = {
-            ...newFeedbackState[machineId][typedRole],
-            text: text,
-          };
-        }
+      if (newFeedbackState[typedRole]) {
+        newFeedbackState[typedRole] = {
+          ...newFeedbackState[typedRole],
+          text: text,
+        };
       }
       return newFeedbackState;
     });
   };
 
-  const handleSaveMachineResults = (machineId: string) => {
+  const handleSaveMachineResults = () => {
+    if (!singleMachine || !monitoringResults) return;
     setIsSaving(true);
     let isValid = true;
     const pendingItems: { item: string }[] = [];
-    const currentMachineResult = monitoringResults.find((m) => m.machineId === machineId);
-    const firstApproverRole = getCurrentApprovalFlowOrder()[0];
 
-    if (currentMachineResult) {
-      currentMachineResult.itemResults.forEach((itemResult) => {
-        const originalItem = initialSchedule.machines.find((m) => m.id === machineId)?.items.find((i) => i.id === itemResult.itemId);
-        if (originalItem && (itemResult.result === "" || itemResult.status === "Pending")) {
-          isValid = false;
-          pendingItems.push({ item: originalItem.name });
-        }
-      });
-    }
+    monitoringResults.itemResults.forEach((itemResult) => {
+      const originalItem = singleMachine.items.find((i) => i.id === itemResult.itemId);
+      if (originalItem && (itemResult.result === "" || itemResult.status === "Pending")) {
+        isValid = false;
+        pendingItems.push({ item: originalItem.name });
+      }
+    });
 
     if (isValid) {
-      setMonitoringResults((prevResults) =>
-        prevResults.map((machineResult) => {
-          if (machineResult.machineId === machineId) {
-            let updatedApprovalStatus = { ...machineResult.approvalStatus };
-            let updatedCommentsHistory = machineResult.commentsHistory || [];
-            //"technician"
-            if (DUMMY_USER_ROLE === "admin") {
-              updatedApprovalStatus = {
-                ...updatedApprovalStatus,
-                [firstApproverRole]: "Pending",
-              };
-            } else if (DUMMY_USER_ROLE === "admin") {
-              updatedApprovalStatus = {
-                ...updatedApprovalStatus,
-                [firstApproverRole]: "Edited",
-              };
+      setMonitoringResults((prevResults) => {
+        if (!prevResults) return null;
+        let updatedApprovalStatus = { ...prevResults.approvalStatus };
+        let updatedCommentsHistory = prevResults.commentsHistory || [];
+        let updatedActivityHistory = [...prevResults.activityHistory];
+        const timestamp = new Date().toLocaleString();
+        const firstApproverRole = DUMMY_APPROVAL_FLOW_ORDER[0];
 
-              const editedComment: CommentEntry = {
-                id: crypto.randomUUID(),
-                role: DUMMY_USER_ROLE,
-                comment: `Data diedit oleh ${getRoleName(DUMMY_USER_ROLE)}.`,
-                timestamp: new Date().toLocaleString(),
-                replies: [],
-                parentId: null,
-              };
-              updatedCommentsHistory = [...updatedCommentsHistory, editedComment];
-            }
+        if (DUMMY_USER_ROLE === "technician") {
+          updatedApprovalStatus = {
+            ...updatedApprovalStatus,
+            [firstApproverRole]: "Pending",
+          };
+          updatedActivityHistory.push({
+            type: "submission",
+            timestamp,
+            actor: DUMMY_USER_ROLE,
+            description: `${getRoleName(DUMMY_USER_ROLE)} mengisi dan mengajukan laporan.`,
+          });
+        } else if (DUMMY_USER_ROLE === "admin") {
+          updatedApprovalStatus = {
+            ...updatedApprovalStatus,
+            [firstApproverRole]: "Edited",
+          };
+          updatedCommentsHistory.push({
+            id: crypto.randomUUID(),
+            role: DUMMY_USER_ROLE,
+            comment: `Data diedit oleh ${getRoleName(DUMMY_USER_ROLE)}.`,
+            timestamp,
+            replies: [],
+            parentId: null,
+          });
+          updatedActivityHistory.push({
+            type: "edit",
+            timestamp,
+            actor: DUMMY_USER_ROLE,
+            description: `${getRoleName(DUMMY_USER_ROLE)} mengedit dan mengajukan laporan.`,
+          });
+        }
 
-            return {
-              ...machineResult,
-              isSaved: true,
-              submissionDate: new Date().toISOString(),
-              approvalStatus: updatedApprovalStatus,
-              commentsHistory: updatedCommentsHistory,
-            };
-          }
-          return machineResult;
-        })
-      );
-      const currentMachineName = initialSchedule.machines.find((m) => m.id === machineId)?.name || machineId;
-      alert(`Hasil monitoring untuk ${currentMachineName} berhasil disimpan!`);
+        return {
+          ...prevResults,
+          isSaved: true,
+          submissionDate: new Date().toISOString(),
+          approvalStatus: updatedApprovalStatus,
+          commentsHistory: updatedCommentsHistory,
+          activityHistory: updatedActivityHistory,
+        };
+      });
+      alert(`Hasil monitoring untuk ${singleMachine.name} berhasil disimpan!`);
     } else {
-      const currentMachineName = initialSchedule.machines.find((m) => m.id === machineId)?.name || machineId;
-      alert(`Harap isi semua hasil monitoring yang diperlukan untuk ${currentMachineName}. Item yang belum diisi: ` + pendingItems.map((p) => p.item).join(", "));
+      alert(`Harap isi semua hasil monitoring yang diperlukan untuk ${singleMachine.name}. Item yang belum diisi: ` + pendingItems.map((p) => p.item).join(", "));
     }
     setIsSaving(false);
-  };
-
-  const totalMachines = initialSchedule.machines.length;
-  const totalItems = initialSchedule.machines.reduce((machineAcc, machine) => machineAcc + machine.items.length, 0);
-
-  const handleAddApprovalStep = () => {
-    setCustomApprovalFlow((prev) => [...prev, { order: prev.length + 1, role: "unitHeadEngineering", assignee: "" }]);
-  };
-
-  const handleRemoveApprovalStep = (index: number) => {
-    setCustomApprovalFlow((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleApprovalStepChange = (index: number, field: "role" | "assignee", value: string) => {
-    setCustomApprovalFlow((prev) => prev.map((step, i) => (i === index ? { ...step, [field]: value as ApprovalRoleKeys | string } : step)));
-  };
-
-  const handleSaveApprovalFlow = () => {
-    const isComplete = customApprovalFlow.every((step) => step.role && step.assignee);
-    if (!isComplete) {
-      alert("Harap lengkapi semua peran dan penanggung jawab.");
-      return;
-    }
-    setIsApprovalFlowConfigured(true);
-    setShowApprovalConfigModal(false);
-    alert("Alur persetujuan berhasil disimpan!");
-  };
-
-  const getCurrentApprovalFlowOrder = (): ApprovalRoleKeys[] => {
-    const sortedFlow = [...customApprovalFlow].sort((a, b) => a.order - b.order);
-    if (sortedFlow.length > 0 && sortedFlow.every((step) => step.role && step.assignee)) {
-      return sortedFlow.map((step) => step.role);
-    }
-    return DEFAULT_APPROVAL_FLOW_ORDER;
   };
 
   const calculateShouldShowActionButtons = (
@@ -674,10 +535,6 @@ const DetailMonitoringMaintenance: React.FC = () => {
       return false;
     }
 
-    if (currentRoleIndex === 0) {
-      return true;
-    }
-
     for (let i = 0; i < currentRoleIndex; i++) {
       const prevRoleInFlow = approvalFlowOrder[i];
       if (currentMachineApprovalStatus?.[prevRoleInFlow] !== "Approved") {
@@ -687,6 +544,49 @@ const DetailMonitoringMaintenance: React.FC = () => {
 
     return true;
   };
+
+  const groupedComments = useMemo(() => {
+    if (!monitoringResults?.commentsHistory)
+      return {
+        unitHeadEngineering: [],
+        unitHeadProcess: [],
+        sectionHeadEngineering: [],
+        sectionHeadProcess: [],
+      };
+
+    const buildTree = (comments: CommentEntry[], parentId: string | null = null): CommentEntry[] => {
+      return comments
+        .filter((comment: CommentEntry) => comment.parentId === parentId)
+        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+        .map((comment) => ({
+          ...comment,
+          replies: buildTree(comments, comment.id),
+        }));
+    };
+
+    const commentsByRole: Record<ApprovalRoleKeys, CommentEntry[]> = {
+      unitHeadEngineering: [],
+      unitHeadProcess: [],
+      sectionHeadEngineering: [],
+      sectionHeadProcess: [],
+    };
+
+    DUMMY_APPROVAL_FLOW_ORDER.forEach((role) => {
+      const commentsForRole = monitoringResults.commentsHistory.filter((c: CommentEntry) => c.role === role);
+      commentsByRole[role] = buildTree(commentsForRole);
+    });
+    return commentsByRole;
+  }, [monitoringResults?.commentsHistory]);
+
+  if (!singleMachine || !monitoringResults) {
+    return (
+      <div className="flex justify-center items-center h-screen bg-gray-100">
+        <p className="text-gray-600">Loading machine details...</p>
+      </div>
+    );
+  }
+
+  const isEditable = !monitoringResults.isSaved && ((DUMMY_USER_ROLE as string) === "technician" || (DUMMY_USER_ROLE as string) === "admin");
 
   return (
     <div className="flex h-screen font-sans antialiased bg-blue-50 text-gray-900">
@@ -698,7 +598,7 @@ const DetailMonitoringMaintenance: React.FC = () => {
               <ArrowLeft className="text-xl" />
               <span className="font-semibold text-sm hidden md:inline">Back</span>
             </motion.button>
-            <h2 className="text-lg md:text-xl font-bold text-gray-900 ml-4">Monitoring Maintenance</h2>
+            <h2 className="text-lg md:text-xl font-bold text-gray-900 ml-4">Monitoring & Maintenance</h2>
           </div>
         </header>
 
@@ -707,193 +607,177 @@ const DetailMonitoringMaintenance: React.FC = () => {
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Detail Monitoring & Maintenance</h1>
               <p className="text-gray-600 mt-1">
-                Period: <span className="font-semibold text-gray-800">{initialSchedule.period}</span>
+                Machine: <span className="font-semibold text-gray-800">{singleMachine.name}</span>
+              </p>
+              <p className="text-gray-600 mt-1">
+                Interval: <span className="font-semibold text-gray-800">{singleMachine.interval}</span>
+              </p>
+              <p className="text-gray-600 mt-1">
+                Periode: <span className="font-semibold text-gray-800">{singleMachine.period}</span>
               </p>
               <div className="text-sm text-gray-500 mt-2 flex items-center space-x-4">
                 <p>
-                  <span className="font-semibold">{totalMachines}</span> Machines
-                </p>
-                <p>
-                  <span className="font-semibold">{totalItems}</span> Items
+                  <span className="font-semibold">{singleMachine.items.length}</span> Items
                 </p>
               </div>
             </div>
-            {DUMMY_USER_ROLE === "admin" && (
-              <motion.button
-                onClick={() => setShowApprovalConfigModal(true)}
-                whileHover={{ scale: 1.05, boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)" }}
-                whileTap={{ scale: 0.95 }}
-                className="flex items-center space-x-2 bg-white border border-gray-200 text-gray-800 px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md"
-              >
-                <UserCog className="text-lg" />
-                Configure Approval Flow
-              </motion.button>
-            )}
           </motion.div>
 
           <div className="space-y-6">
-            {initialSchedule.machines.map((machine, machineIndex) => {
-              const machineResult = monitoringResults.find((m) => m.machineId === machine.id);
-              const firstApproverRole = getCurrentApprovalFlowOrder()[0];
-              const isEditable = !machineResult?.isSaved && ((DUMMY_USER_ROLE as string) === "technician" || (DUMMY_USER_ROLE as string) === "admin");
-
-              return (
-                <motion.div key={machine.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: machineIndex * 0.1 + 0.1, duration: 0.2 }} className="bg-white rounded-lg border border-gray-200 shadow-sm">
-                  <button onClick={() => toggleMachine(machine.id)} className="w-full text-left p-4 flex justify-between items-center text-base font-semibold text-gray-800 focus:outline-none hover:bg-gray-100 transition-colors">
-                    <span>{machine.name}</span>
-                    <motion.div initial={false} animate={{ rotate: expandedMachines.includes(machine.id) ? 180 : 0 }}>
-                      <ChevronDown className="text-gray-400" size={20} />
-                    </motion.div>
-                  </button>
-
-                  <AnimatePresence>
-                    {expandedMachines.includes(machine.id) && (
-                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2 }} className="p-4 border-t border-gray-200">
-                        <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
-                          <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                              <tr>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                  Nama Item
-                                </th>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                  Standar
-                                </th>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                  Hasil
-                                </th>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                  Status
-                                </th>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                  Catatan
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                              {machine.items.map((item) => {
-                                const currentResult = machineResult?.itemResults.find((i) => i.itemId === item.id);
-                                return (
-                                  <tr key={item.id}>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.name}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.visual ? `${item.visual} (${item.uom})` : `${item.min} - ${item.max} ${item.uom}`}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                      {item.uom === "Visual" || item.uom === "Level" || item.uom === "Kekencangan" ? (
-                                        <select
-                                          className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-                                          value={currentResult?.result || ""}
-                                          onChange={(e) => handleResultChange(machine.id, item.id, e.target.value, "visual")}
-                                          disabled={!isEditable}
-                                        >
-                                          <option value="">Pilih</option>
-                                          <option value="N/A">N/A</option>
-                                          <option value="Fungsi Normal">Fungsi Normal</option>
-                                          <option value="Fungsi Bersih">Fungsi Bersih</option>
-                                          <option value="Tidak Bocor">Tidak Bocor</option>
-                                          <option value="Baik">Baik</option>
-                                          <option value="Tidak Bersuara">Tidak Bersuara</option>
-                                          <option value="Keras">Keras</option>
-                                        </select>
-                                      ) : (
-                                        <input
-                                          type="number"
-                                          step="0.01"
-                                          value={currentResult?.result as string}
-                                          onChange={(e) => handleResultChange(machine.id, item.id, e.target.value, "numeric", item.min, item.max)}
-                                          disabled={!isEditable}
-                                          className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700 text-sm disabled:bg-gray-50 disabled:cursor-not-allowed"
-                                          placeholder="Input result"
-                                        />
-                                      )}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                      <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${getStatusColors(currentResult?.status || "Pending")}`}>{currentResult?.status}</span>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                      <textarea
-                                        rows={1}
-                                        value={currentResult?.remarks}
-                                        onChange={(e) => handleRemarksChange(machine.id, item.id, e.target.value)}
-                                        disabled={!isEditable}
-                                        className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700 text-sm disabled:bg-gray-50 disabled:cursor-not-allowed"
-                                        placeholder="Tambahkan catatan..."
-                                      />
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-
-                        <div className="flex justify-end mt-6">
-                          <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => handleSaveMachineResults(machine.id)}
-                            disabled={!isEditable || isSaving}
-                            className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {isSaving ? (
-                              <>
-                                <Hourglass className="animate-spin mr-2 h-5 w-5" />
-                                Saving...
-                              </>
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.2 }} className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+              <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Nama Item
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Standar
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Hasil
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Catatan
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {singleMachine.items.map((item) => {
+                      const currentResult = monitoringResults.itemResults.find((i) => i.itemId === item.id);
+                      return (
+                        <tr key={item.id}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.name}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.visual ? `${item.visual} (${item.uom})` : `${item.min} - ${item.max} ${item.uom}`}</td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {item.uom === "Visual" || item.uom === "Level" || item.uom === "Kekencangan" ? (
+                              <select
+                                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                                value={currentResult?.result || ""}
+                                onChange={(e) => handleResultChange(item.id, e.target.value, "visual")}
+                                disabled={!isEditable}
+                              >
+                                <option value="">Pilih</option>
+                                <option value="MS">MS</option>
+                                <option value="TMS">TMS</option>
+                              </select>
                             ) : (
-                              <>
-                                <Save className="mr-2 h-5 w-5" />
-                                Save Monitoring
-                              </>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={currentResult?.result as string}
+                                onChange={(e) => handleResultChange(item.id, e.target.value, "numeric", item.min, item.max)}
+                                disabled={!isEditable}
+                                className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700 text-sm disabled:bg-gray-50 disabled:cursor-not-allowed"
+                                placeholder="Input result"
+                              />
                             )}
-                          </motion.button>
-                        </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${getStatusColors(currentResult?.status || "Pending")}`}>{currentResult?.status}</span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <textarea
+                              rows={1}
+                              value={currentResult?.remarks}
+                              onChange={(e) => handleRemarksChange(item.id, e.target.value)}
+                              disabled={!isEditable}
+                              className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700 text-sm disabled:bg-gray-50 disabled:cursor-not-allowed"
+                              placeholder="Tambahkan catatan..."
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
 
-                        <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm mt-8">
-                          <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                            <Info className="mr-2 text-blue-500" />
-                            Approval Status
-                          </h3>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {Object.entries(machineResult?.approvalStatus || {}).map(([roleKey, status]) => {
-                              const typedRole = roleKey as ApprovalRoleKeys;
-                              const shouldShowActionButtons = calculateShouldShowActionButtons(DUMMY_USER_ROLE, typedRole, status, machineResult?.approvalStatus, getCurrentApprovalFlowOrder(), machineResult?.isSaved || false);
+              <div className="flex justify-end mt-6">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleSaveMachineResults}
+                  disabled={!isEditable || isSaving}
+                  className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSaving ? (
+                    <>
+                      <Hourglass className="animate-spin mr-2 h-5 w-5" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-5 w-5" />
+                      Save Monitoring
+                    </>
+                  )}
+                </motion.button>
+              </div>
 
-                              return (
-                                <div key={roleKey} className="flex items-center justify-between p-3 rounded-lg border border-gray-200">
-                                  <span className="text-sm font-medium text-gray-700">{getRoleName(typedRole)}</span>
-                                  <div className="flex items-center space-x-2">
-                                    <span className={`text-xs font-medium px-3 py-1 rounded-full ${getApprovalStatusColors(status)}`}>{status === "Edited" ? `Edited by ${getRoleName(typedRole)}` : status}</span>
-                                    {shouldShowActionButtons && (
-                                      <div className="flex space-x-1">
-                                        <motion.button
-                                          whileHover={{ scale: 1.05 }}
-                                          whileTap={{ scale: 0.95 }}
-                                          onClick={() => handleApproval(machine.id, roleKey as ApprovalRoleKeys, "Approved")}
-                                          className="p-1 rounded-full text-green-600 hover:bg-green-100 transition-colors"
-                                        >
-                                          <CheckCircle size={20} />
-                                        </motion.button>
-                                        <motion.button
-                                          whileHover={{ scale: 1.05 }}
-                                          whileTap={{ scale: 0.95 }}
-                                          onClick={() => toggleFeedbackInput(machine.id, roleKey as ApprovalRoleKeys)}
-                                          className="p-1 rounded-full text-blue-600 hover:bg-blue-100 transition-colors"
-                                        >
-                                          <MessageSquare size={20} />
-                                        </motion.button>
-                                      </div>
-                                    )}
+              <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm mt-8">
+                <div className="flex items-center space-x-4 mb-4 border-b border-gray-200">
+                  <motion.button
+                    whileHover={{ scale: 1.03 }}
+                    onClick={() => setActiveTab("approval")}
+                    className={`pb-3 px-2 font-semibold text-gray-700 transition-colors flex items-center space-x-2 ${activeTab === "approval" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-500 hover:text-gray-700"}`}
+                  >
+                    <Info className="h-5 w-5" />
+                    <span>Approval Status</span>
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.03 }}
+                    onClick={() => setActiveTab("history")}
+                    className={`pb-3 px-2 font-semibold text-gray-700 transition-colors flex items-center space-x-2 ${activeTab === "history" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-500 hover:text-gray-700"}`}
+                  >
+                    <History className="h-5 w-5" />
+                    <span>History Activity</span>
+                  </motion.button>
+                </div>
+
+                {activeTab === "approval" ? (
+                  <AnimatePresence mode="wait">
+                    <motion.div key="approval-tab" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.2 }} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {Object.entries(monitoringResults.approvalStatus).map(([roleKey, status]) => {
+                        const typedRole = roleKey as ApprovalRoleKeys;
+                        const shouldShowActionButtons = calculateShouldShowActionButtons(DUMMY_USER_ROLE, typedRole, status, monitoringResults.approvalStatus, DUMMY_APPROVAL_FLOW_ORDER, monitoringResults.isSaved);
+                        const commentsForThisRole = groupedComments[typedRole] || [];
+
+                        return (
+                          <div key={roleKey} className="p-3 rounded-lg border border-gray-200">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium text-gray-700">{getRoleName(typedRole)}</span>
+                              <div className="flex items-center space-x-2">
+                                <span className={`text-xs font-medium px-3 py-1 rounded-full ${getApprovalStatusColors(status)}`}>{status === "Edited" ? `Edited by ${getRoleName(typedRole)}` : status}</span>
+                                {shouldShowActionButtons && (
+                                  <div className="flex space-x-1">
+                                    <motion.button
+                                      whileHover={{ scale: 1.05 }}
+                                      whileTap={{ scale: 0.95 }}
+                                      onClick={() => handleApproval(roleKey as ApprovalRoleKeys, "Approved")}
+                                      className="p-1 rounded-full text-green-600 hover:bg-green-100 transition-colors"
+                                    >
+                                      <CheckCircle size={20} />
+                                    </motion.button>
+                                    <motion.button
+                                      whileHover={{ scale: 1.05 }}
+                                      whileTap={{ scale: 0.95 }}
+                                      onClick={() => toggleFeedbackInput(roleKey as ApprovalRoleKeys)}
+                                      className="p-1 rounded-full text-blue-600 hover:bg-blue-100 transition-colors"
+                                    >
+                                      <MessageSquare size={20} />
+                                    </motion.button>
                                   </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
+                                )}
+                              </div>
+                            </div>
 
-                        {Object.entries(feedbackState[machine.id] || {}).map(
-                          ([roleKey, state]) =>
-                            state.showInput && (
-                              <AnimatePresence key={roleKey}>
+                            <AnimatePresence>
+                              {feedbackState[typedRole]?.showInput && (
                                 <motion.div
                                   initial={{ opacity: 0, height: 0 }}
                                   animate={{ opacity: 1, height: "auto" }}
@@ -901,11 +785,11 @@ const DetailMonitoringMaintenance: React.FC = () => {
                                   transition={{ duration: 0.2 }}
                                   className="mt-4 p-4 bg-gray-100 rounded-lg border border-gray-200"
                                 >
-                                  <h5 className="text-sm font-semibold text-gray-800 mb-2">Alasan untuk Feedback ({getRoleName(roleKey as ApprovalRoleKeys)})</h5>
+                                  <h5 className="text-sm font-semibold text-gray-800 mb-2">Alasan untuk Feedback ({getRoleName(typedRole)})</h5>
                                   <textarea
                                     rows={2}
-                                    value={state.text}
-                                    onChange={(e) => updateFeedbackText(machine.id, roleKey as ApprovalRoleKeys, e.target.value)}
+                                    value={feedbackState[typedRole]?.text}
+                                    onChange={(e) => updateFeedbackText(typedRole, e.target.value)}
                                     className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700 text-sm"
                                     placeholder="Tulis alasan feedback atau penolakan..."
                                   ></textarea>
@@ -913,89 +797,63 @@ const DetailMonitoringMaintenance: React.FC = () => {
                                     <motion.button
                                       whileHover={{ scale: 1.05 }}
                                       whileTap={{ scale: 0.95 }}
-                                      onClick={() => handleApproval(machine.id, roleKey as ApprovalRoleKeys, "FeedbackGiven", state.text)}
+                                      onClick={() => handleApproval(typedRole, "FeedbackGiven", feedbackState[typedRole].text)}
                                       className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-semibold transition-colors"
                                     >
                                       Kirim Feedback
                                     </motion.button>
                                   </div>
                                 </motion.div>
-                              </AnimatePresence>
-                            )
-                        )}
+                              )}
+                            </AnimatePresence>
 
-                        <CommentSection machineId={machine.id} commentsHistory={machineResult?.commentsHistory || []} currentUserRole={DUMMY_USER_ROLE} onAddCommentOrReply={handleAddCommentOrReply} />
-                      </motion.div>
-                    )}
+                            <div className="mt-4">
+                              {commentsForThisRole.length > 0 ? (
+                                commentsForThisRole.map((comment) => <CommentItem key={comment.id} comment={comment} machineId={singleMachine.id} currentUserRole={DUMMY_USER_ROLE} onAddCommentOrReply={handleAddCommentOrReply} depth={0} />)
+                              ) : (
+                                <p className="text-gray-500 text-sm">Belum ada komentar.</p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </motion.div>
                   </AnimatePresence>
-                </motion.div>
-              );
-            })}
+                ) : (
+                  <AnimatePresence mode="wait">
+                    <motion.div key="history-tab" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.2 }} className="space-y-4">
+                      {monitoringResults.activityHistory.length > 0 ? (
+                        monitoringResults.activityHistory.map((activity, index) => (
+                          <motion.div
+                            key={index}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: index * 0.05 }}
+                            className="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg border border-gray-200 shadow-sm"
+                          >
+                            <div className="mt-1 flex-shrink-0">
+                              <History size={20} className="text-blue-500" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm font-semibold text-gray-800">{activity.description}</p>
+                              <p className="text-xs text-gray-500 mt-1">
+                                <span className="font-medium text-gray-600">Oleh: {getRoleName(activity.actor)}</span> - {activity.timestamp}
+                              </p>
+                              {activity.details && <p className="text-sm text-gray-700 italic mt-2">"{activity.details}"</p>}
+                            </div>
+                          </motion.div>
+                        ))
+                      ) : (
+                        <p className="text-gray-500 text-sm">Belum ada aktivitas yang tercatat.</p>
+                      )}
+                    </motion.div>
+                  </AnimatePresence>
+                )}
+              </div>
+            </motion.div>
           </div>
         </main>
       </div>
-
-      <Modal isOpen={showApprovalConfigModal} onClose={() => setShowApprovalConfigModal(false)} title="Konfigurasi Alur Persetujuan">
-        <div className="space-y-4">
-          <p className="text-sm text-gray-600">Atur urutan dan penanggung jawab untuk setiap langkah persetujuan.</p>
-          {customApprovalFlow.map((step, index) => (
-            <div key={index} className="flex items-center space-x-3 p-3 bg-gray-100 rounded-lg border border-gray-200">
-              <span className="text-gray-500 font-semibold">{index + 1}.</span>
-              <div className="flex-1 space-y-2">
-                <select
-                  value={step.role}
-                  onChange={(e) => handleApprovalStepChange(index, "role", e.target.value)}
-                  className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700 text-sm"
-                >
-                  {ALL_APPROVAL_ROLES.map((role) => (
-                    <option key={role.key} value={role.key}>
-                      {role.name}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="text"
-                  value={step.assignee}
-                  onChange={(e) => handleApprovalStepChange(index, "assignee", e.target.value)}
-                  placeholder="Nama Penanggung Jawab"
-                  className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700 text-sm"
-                />
-              </div>
-              <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => handleRemoveApprovalStep(index)} className="text-red-600 hover:text-red-800 transition-colors">
-                <XCircle size={20} />
-              </motion.button>
-            </div>
-          ))}
-          <div className="flex justify-between items-center mt-6">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleAddApprovalStep}
-              className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-semibold flex items-center text-sm"
-            >
-              <Plus size={18} className="mr-2" /> Tambah Langkah
-            </motion.button>
-            <div className="flex space-x-3">
-              <motion.button
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-                onClick={() => setShowApprovalConfigModal(false)}
-                className="px-5 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-100 text-gray-700 transition-colors duration-200 font-semibold text-sm"
-              >
-                Batal
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-                onClick={handleSaveApprovalFlow}
-                className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors font-semibold text-sm"
-              >
-                Simpan Alur
-              </motion.button>
-            </div>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 };

@@ -138,6 +138,7 @@ const Sidebar: React.FC = () => {
               {sidebarOpen && <h3 className="text-xs font-semibold uppercase text-gray-400 px-4 pt-4 pb-1 tracking-wider">System</h3>}
               {hasPermission("23") && <NavItem icon={<ListCheck />} text="Audit Trail" to="/audittrail" expanded={sidebarOpen} />}
               {hasPermission("23") && <NavItem icon={<History />} text="Backup & Restore" to="/backupandrestore" expanded={sidebarOpen} />}
+              {hasPermission("23") && <NavItem icon={<History />} text="Workflow Approval" to="/workflowapproval" expanded={sidebarOpen} />}
 
               {sidebarOpen && <h3 className="text-xs font-semibold uppercase text-gray-400 px-4 pt-4 pb-1 tracking-wider">Master</h3>}
               {hasPermission("23") && <NavItem icon={<MapPin />} text="Work Location" to="/worklocation" expanded={sidebarOpen} />}
