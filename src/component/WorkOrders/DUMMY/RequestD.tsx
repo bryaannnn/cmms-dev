@@ -55,6 +55,7 @@ type WorkOrder = {
   department?: Department | null;
   known_by?: User | null;
   handling_status: string;
+  resolved_confirmed?: boolean; // Tambahkan ini
   assigned_to?: User | null;
   assigned_to_id?: string | number | null;
   handling_date?: string | null;
@@ -71,7 +72,7 @@ type WorkOrderCreate = {
   asset_no?: string;
 };
 
-const STORAGE_KEY = "workorders.it.v1";
+const STORAGE_KEY = "workorders.it.v5";
 
 const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
@@ -96,6 +97,7 @@ const seedData = (): { workOrders: WorkOrder[]; users: User[] } => {
       department: users[0].department,
       known_by: users[1],
       handling_status: "New",
+      resolved_confirmed: false, // Tambahkan ini
       assigned_to: null,
       assigned_to_id: null,
       handling_date: null,
@@ -108,7 +110,7 @@ const seedData = (): { workOrders: WorkOrder[]; users: User[] } => {
       work_order_no: "WO-2025-0002",
       date: new Date(now.getTime() - 1000 * 60 * 60 * 24).toISOString(),
       complaint: "Email not syncing",
-      device_info: "Laptop",
+      device_info: "Charger Laptop",
       asset_no: "AS-0456",
       service_type: { id: 2, name: "Software" },
       service: { id: 2, name: "Support" },
@@ -116,7 +118,74 @@ const seedData = (): { workOrders: WorkOrder[]; users: User[] } => {
       requester: users[1],
       department: users[1].department,
       known_by: users[0],
-      handling_status: "Progress",
+      handling_status: "In Progress",
+      resolved_confirmed: false, // Tambahkan ini
+      assigned_to: users[0],
+      assigned_to_id: users[0].id,
+      handling_date: null,
+      action_taken: "Checked IMAP settings",
+      attachment: null,
+      work_order_extra: null,
+    },
+    {
+      id: 3,
+      work_order_no: "WO-2025-0003",
+      date: new Date(now.getTime() - 1000 * 60 * 60 * 24).toISOString(),
+      complaint: "Email not syncing",
+      device_info: "Kabel",
+      asset_no: "AS-0456",
+      service_type: { id: 1, name: "Hardware" },
+      service: { id: 2, name: "Support" },
+      reception_method: "Electronic Work Order System",
+      requester: users[1],
+      department: users[1].department,
+      known_by: users[0],
+      handling_status: "Escalated",
+      resolved_confirmed: false, // Tambahkan ini
+      assigned_to: users[0],
+      assigned_to_id: users[0].id,
+      handling_date: null,
+      action_taken: "Checked IMAP settings",
+      attachment: null,
+      work_order_extra: null,
+    },
+    {
+      id: 4,
+      work_order_no: "WO-2025-0004",
+      date: new Date(now.getTime() - 1000 * 60 * 60 * 24).toISOString(),
+      complaint: "Email not syncing",
+      device_info: "PC",
+      asset_no: "AS-0456",
+      service_type: { id: 1, name: "Hardware" },
+      service: { id: 2, name: "Support" },
+      reception_method: "Electronic Work Order System",
+      requester: users[1],
+      department: users[1].department,
+      known_by: users[0],
+      handling_status: "Resolved",
+      resolved_confirmed: true, // Tambahkan ini
+      assigned_to: users[0],
+      assigned_to_id: users[0].id,
+      handling_date: null,
+      action_taken: "Checked IMAP settings",
+      attachment: null,
+      work_order_extra: null,
+    },
+    {
+      id: 5,
+      work_order_no: "WO-2025-0005",
+      date: new Date(now.getTime() - 1000 * 60 * 60 * 24).toISOString(),
+      complaint: "Email not syncing",
+      device_info: "PC",
+      asset_no: "AS-0456",
+      service_type: { id: 1, name: "Hardware" },
+      service: { id: 2, name: "Support" },
+      reception_method: "Electronic Work Order System",
+      requester: users[1],
+      department: users[1].department,
+      known_by: users[0],
+      handling_status: "Closed",
+      resolved_confirmed: true, // Tambahkan ini
       assigned_to: users[0],
       assigned_to_id: users[0].id,
       handling_date: null,
@@ -284,7 +353,7 @@ const WorkOrderDetails: React.FC<{ order: WorkOrder; onClose: () => void }> = ({
 
       <SectionTitle title="Handling Information" />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <DetailItem label="Handling Status" value={displayValue(order.handling_status)} />
+        <DetailItem label="Ticket Status" value={displayValue(order.handling_status)} />
         <DetailItem label="Assigned To" value={displayValue(order.assigned_to?.name)} />
         <DetailItem label="Handling Date" value={formatDate(order.handling_date || "-")} />
         <DetailItem label="Action Taken" value={displayValue(order.action_taken)} />
@@ -413,16 +482,20 @@ const ITRequest: React.FC = () => {
     switch (status) {
       case "New":
         return "bg-gray-500 text-white";
-      case "Assignment":
-        return "bg-blue-500 text-white";
-      case "Progress":
-        return "bg-yellow-500 text-white";
-      case "Done":
-        return "bg-green-500 text-white";
-      case "Cancel":
+      case "Assigned":
+        return "bg-blue-600 text-white";
+      case "In Progress":
+        return "bg-cyan-500 text-white";
+      case "Escalated":
+        return "bg-purple-500 text-white";
+      case "Vendor Handled":
         return "bg-red-500 text-white";
-      case "Waiting Part":
+      case "Resolved":
         return "bg-orange-500 text-white";
+      case "Cancel":
+        return "bg-gray-500 text-white";
+      case "Closed":
+        return "bg-gray-500 text-white";
       default:
         return "bg-gray-500 text-white";
     }
@@ -439,12 +512,13 @@ const ITRequest: React.FC = () => {
     [workOrders]
   );
 
-  const handleUpdateWorkOrder = useCallback(async (updatedOrderData: WorkOrder) => {
+  const handleUpdateWorkOrder = useCallback(async (id: number, patch: Partial<WorkOrder>) => {
     try {
       setLoading(true);
       setError(null);
-      const updated = await updateWorkOrderById(updatedOrderData.id, updatedOrderData);
+      const updated = await updateWorkOrderById(id, patch);
       setWorkOrders((prev) => prev.map((order) => (order.id === updated.id ? updated : order)));
+      // Jika Anda ingin menutup modal setelah update, Anda bisa tambahkan ini
       setShowWorkOrderDetailsModal(false);
       setSelectedWorkOrder(null);
       setIsEditing(false);
@@ -462,7 +536,7 @@ const ITRequest: React.FC = () => {
         setError(null);
         const order = workOrders.find((o) => o.id === id);
         if (order) {
-          const updatedOrder = await updateWorkOrderById(id, { ...order, handling_status: "Done" });
+          const updatedOrder = await updateWorkOrderById(id, { ...order, handling_status: "Closed" });
           setWorkOrders((prev) => prev.map((o) => (o.id === id ? updatedOrder : o)));
         }
         setShowWorkOrderDetailsModal(false);
@@ -638,7 +712,7 @@ const ITRequest: React.FC = () => {
                       {filteredWorkOrders.slice(0, 3).map((order) => (
                         <div key={order.id} className="flex items-start px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-50 last:border-b-0">
                           <div className="p-2 mr-3 mt-0.5 rounded-full bg-blue-50 text-blue-600">
-                            {order.handling_status === "Done" ? <CheckCircle className="text-green-500" /> : order.handling_status === "Progress" ? <Wrench className="text-blue-500" /> : <AlertTriangle className="text-yellow-500" />}
+                            {order.handling_status === "Closed" ? <CheckCircle className="text-green-500" /> : order.handling_status === "Progress" ? <Wrench className="text-blue-500" /> : <AlertTriangle className="text-yellow-500" />}
                           </div>
                           <div>
                             <p className="font-medium text-sm text-gray-800">Work Order #{order.id}</p>
@@ -867,8 +941,8 @@ const ITRequest: React.FC = () => {
               >
                 <div className="flex items-center justify-between z-10 relative">
                   <div>
-                    <p className="text-sm font-medium text-gray-500 mb-1">IT Done</p>
-                    <p className="text-3xl font-bold text-gray-900">{filteredWorkOrders.filter((wo) => wo.handling_status === "Done").length}</p>
+                    <p className="text-sm font-medium text-gray-500 mb-1">IT Closed</p>
+                    <p className="text-3xl font-bold text-gray-900">{filteredWorkOrders.filter((wo) => wo.handling_status === "Closed").length}</p>
                   </div>
                   <div className="p-2 rounded-full bg-blue-50 text-blue-600 text-2xl opacity-90 transition-all duration-200">
                     <CheckCircle />
@@ -912,13 +986,13 @@ const ITRequest: React.FC = () => {
                     >
                       <option value="all">All Statuses</option>
                       <option value="New">New</option>
-                      <option value="Assignment">Assignment</option>
-                      <option value="Progress">Progress</option>
-                      <option value="Waiting Part">Waiting Part</option>
-                      <option value="Vendor Escalation">Vendor Escalation</option>
-                      <option value="Waiting Approval">Waiting Approval</option>
+                      <option value="Assigned">Assigned</option>
+                      <option value="In Progress">In Progress</option>
+                      <option value="Escalated">Escalated</option>
+                      <option value="Vendor Handled">Vendor Handled</option>
+                      <option value="Resolved">Resolved</option>
                       <option value="Cancel">Cancel</option>
-                      <option value="Done">Done</option>
+                      <option value="Closed">Closed</option>
                     </select>
                   </motion.div>
                 )}
@@ -936,7 +1010,7 @@ const ITRequest: React.FC = () => {
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Device Information</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">No Asset</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Service Type</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Handling Status</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Ticket Status</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Assigned To</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                   </tr>
@@ -968,6 +1042,7 @@ const ITRequest: React.FC = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.assigned_to?.name || "Unassigned"}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium flex items-center space-x-2">
+                          {/* Tombol View (Eye) selalu tersedia untuk semua status */}
                           <motion.button
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
@@ -977,24 +1052,54 @@ const ITRequest: React.FC = () => {
                           >
                             <Eye className="text-lg" />
                           </motion.button>
-                          <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => navigate(`/workorders/editworkorder/${order.id}`)}
-                            className="text-gray-600 hover:text-gray-800 transition-colors duration-200 flex items-center space-x-1"
-                            title="Edit Work Order"
-                          >
-                            <Edit className="text-lg" />
-                          </motion.button>
-                          <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => handleDeleteClick(order.id)}
-                            className="text-red-600 hover:text-red-800 transition-colors duration-200 flex items-center space-x-1"
-                            title="Delete Work Order"
-                          >
-                            <Trash2 className="text-lg" />
-                          </motion.button>
+
+                          {/* Kondisi untuk tombol Edit dan Delete - hanya jika status 'New' */}
+                          {order.handling_status === "New" && (
+                            <>
+                              <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => navigate(`/workorders/editworkorder/${order.id}`)}
+                                className="text-gray-600 hover:text-gray-800 transition-colors duration-200 flex items-center space-x-1"
+                                title="Edit Work Order"
+                              >
+                                <Edit className="text-lg" />
+                              </motion.button>
+                              <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => handleDeleteClick(order.id)}
+                                className="text-red-600 hover:text-red-800 transition-colors duration-200 flex items-center space-x-1"
+                                title="Delete Work Order"
+                              >
+                                <Trash2 className="text-lg" />
+                              </motion.button>
+                            </>
+                          )}
+
+                          {/* Kondisi untuk tombol "Mark as Closed" atau "Cancel" - hanya jika status "Resolved" */}
+                          {order.handling_status === "Resolved" && (
+                            <>
+                              <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => handleUpdateWorkOrder(order.id, { handling_status: "Closed" })} // Gunakan fungsi untuk update status
+                                className="text-green-600 hover:text-green-800 transition-colors duration-200 flex items-center space-x-1"
+                                title="Mark as Closed"
+                              >
+                                <CheckCircle className="text-lg" />
+                              </motion.button>
+                              <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => handleUpdateWorkOrder(order.id, { handling_status: "Cancel" })} // Gunakan fungsi untuk update status
+                                className="text-red-600 hover:text-red-800 transition-colors duration-200 flex items-center space-x-1"
+                                title="Cancel Work Order"
+                              >
+                                <X className="text-lg" />
+                              </motion.button>
+                            </>
+                          )}
                         </td>
                       </motion.tr>
                     ))

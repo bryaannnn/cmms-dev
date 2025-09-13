@@ -56,6 +56,8 @@ import ITReceiverD from "./component/WorkOrders/DUMMY/ReceiverD";
 import ITAssignmentD from "./component/WorkOrders/DUMMY/AssignmentD";
 import ITReportsD from "./component/WorkOrders/DUMMY/ReportsD";
 import AddWorkOrderFormITD from "./component/WorkOrders/DUMMY/FormITDummy";
+import ServiceGroup from "./component/Service/ServiceGroups";
+import ServiceCatalogue from "./component/Service/ServiceCatalogue";
 
 function App() {
   return (
@@ -113,6 +115,9 @@ function App() {
         <Route path="/workflowapproval/monitoringapproval" element={<WorkflowApprovalMonitoring />} />
         <Route path="/workflowapproval/workorderapproval" element={<WorkOrderApproval />} />
 
+        <Route path="/servicegroups" element={<ServiceGroup />} />
+        <Route path="/servicecatalogue" element={<ServiceCatalogue />} />
+
         {/* Protected Routes */}
         {/* Dashboard */}
         <Route element={<ProtectedRoute />}>
@@ -151,6 +156,7 @@ function App() {
 
         <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}>
           <Route path="/service" element={<ServiceSelection />} />
+          {/* <Route path="/servicegroups" element={<ServiceGroup />} /> */}
         </Route>
 
         <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}>

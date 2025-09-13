@@ -318,9 +318,9 @@ const EditAssignmentForm: React.FC<EditAssignmentFormProps> = ({ workOrder, onSa
           >
             <option value="">Select Status</option>
             <option value="Progress">Progress</option>
-            <option value="Waiting Part">Waiting Part</option>
-            <option value="Vendor Escalation">Vendor Escalation</option>
-            <option value="Waiting Approval">Waiting Approval</option>
+            <option value="Escalated">Escalated</option>
+            <option value="Vendor Handled">Vendor Handled</option>
+            <option value="Resolved">Resolved</option>
           </select>
         </div>
         <div>
@@ -463,7 +463,7 @@ const ITAssignmentD: React.FC = () => {
         no_asset: "PC-001",
         device_info: "Desktop PC",
         complaint: "The network connection is unstable in the main office.",
-        handling_status: "Assignment",
+        handling_status: "Assigned",
         assigned_to: "Technician A",
         date: "2025-08-01T10:00:00Z",
         handling_date: "",
@@ -481,7 +481,7 @@ const ITAssignmentD: React.FC = () => {
         no_asset: "NB-002",
         device_info: "Laptop",
         complaint: "Need to install new CRM software on my laptop.",
-        handling_status: "Progress",
+        handling_status: "In Progress",
         assigned_to: "Technician B",
         date: "2025-08-02T14:30:00Z",
         handling_date: "2025-08-02T14:45:00Z",
@@ -499,7 +499,7 @@ const ITAssignmentD: React.FC = () => {
         no_asset: "PR-003",
         device_info: "Multifunction Printer",
         complaint: "The printer is not printing properly. Paper is getting stuck.",
-        handling_status: "Assignment",
+        handling_status: "Assigned",
         assigned_to: "Technician A",
         date: "2025-08-03T09:15:00Z",
         handling_date: "",
@@ -517,7 +517,7 @@ const ITAssignmentD: React.FC = () => {
         no_asset: "PC-004",
         device_info: "Desktop PC",
         complaint: "My computer won't turn on.",
-        handling_status: "Waiting Part",
+        handling_status: "Escalated",
         assigned_to: "Technician A",
         date: "2025-08-04T16:20:00Z",
         handling_date: "2025-08-04T17:00:00Z",
@@ -535,7 +535,7 @@ const ITAssignmentD: React.FC = () => {
         no_asset: "NA",
         device_info: "User Account",
         complaint: "I forgot my password and can't log in.",
-        handling_status: "Assignment",
+        handling_status: "Assigned",
         assigned_to: "Technician A",
         date: "2025-08-05T08:45:00Z",
         handling_date: "",
@@ -553,7 +553,7 @@ const ITAssignmentD: React.FC = () => {
         no_asset: "NA",
         device_info: "New Employee Account",
         complaint: "Need to set up an account for a new hire.",
-        handling_status: "Assignment",
+        handling_status: "Assigned",
         assigned_to: "Technician A",
         date: "2025-08-06T10:00:00Z",
         handling_date: "",
@@ -571,7 +571,7 @@ const ITAssignmentD: React.FC = () => {
         no_asset: "SRV-001",
         device_info: "Production Server",
         complaint: "Routine server maintenance is due.",
-        handling_status: "Progress",
+        handling_status: "In Progress",
         assigned_to: "Technician A",
         date: "2025-08-07T13:00:00Z",
         handling_date: "2025-08-07T14:00:00Z",
@@ -589,7 +589,7 @@ const ITAssignmentD: React.FC = () => {
         no_asset: "NA",
         device_info: "Software Suite",
         complaint: "Need to renew our financial software license.",
-        handling_status: "Waiting Approval",
+        handling_status: "Resolved",
         assigned_to: "Technician A",
         date: "2025-08-08T09:00:00Z",
         handling_date: "2025-08-08T09:30:00Z",
@@ -607,7 +607,7 @@ const ITAssignmentD: React.FC = () => {
         no_asset: "ROOM-001",
         device_info: "Meeting Room PC",
         complaint: "Video conferencing is not working properly in the main meeting room.",
-        handling_status: "Vendor Escalation",
+        handling_status: "Vendor Handled",
         assigned_to: "Technician A",
         date: "2025-08-09T11:20:00Z",
         handling_date: "2025-08-09T12:00:00Z",
@@ -625,7 +625,7 @@ const ITAssignmentD: React.FC = () => {
         no_asset: "SRV-002",
         device_info: "Test Server",
         complaint: "Need to migrate test server to new hardware.",
-        handling_status: "Progress",
+        handling_status: "In Progress",
         assigned_to: "Technician A",
         date: "2025-08-10T09:00:00Z",
         handling_date: "2025-08-10T10:00:00Z",
@@ -643,7 +643,7 @@ const ITAssignmentD: React.FC = () => {
         no_asset: "NA",
         device_info: "Design Software",
         complaint: "Requesting a new license for design software.",
-        handling_status: "Assignment",
+        handling_status: "Assigned",
         assigned_to: "Technician A",
         date: "2025-08-11T16:00:00Z",
         handling_date: "",
@@ -658,15 +658,15 @@ const ITAssignmentD: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "Assignment":
+      case "Assigned":
         return "bg-blue-600 text-white";
-      case "Progress":
+      case "In Progress":
         return "bg-cyan-500 text-white";
-      case "Waiting Part":
+      case "Escalated":
         return "bg-purple-500 text-white";
-      case "Vendor Escalation":
+      case "Vendor Handled":
         return "bg-red-500 text-white";
-      case "Waiting Approval":
+      case "Resolved":
         return "bg-orange-500 text-white";
       default:
         return "bg-gray-500 text-white";
@@ -705,7 +705,7 @@ const ITAssignmentD: React.FC = () => {
       return matchesSearch && matchesStatus;
     })
     .sort((a, b) => {
-      const statusOrder = ["Assignment", "Progress", "Waiting Part", "Vendor Escalation", "Waiting Approval"];
+      const statusOrder = ["Assigned", "In Progress", "Escalated", "Vendor Handled", "Resolved"];
       const statusA = a.handling_status;
       const statusB = b.handling_status;
 
@@ -812,7 +812,7 @@ const ITAssignmentD: React.FC = () => {
                     <div className="max-h-64 overflow-y-auto custom-scrollbar">
                       {filteredWorkOrders.slice(0, 3).map((order) => (
                         <div key={order.id} className="flex items-start px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-50 last:border-b-0">
-                          <div className="p-2 mr-3 mt-0.5 rounded-full bg-blue-50 text-blue-600">{order.handling_status === "Waiting Approval" ? <AlertTriangle className="text-orange-500" /> : <Wrench className="text-blue-500" />}</div>
+                          <div className="p-2 mr-3 mt-0.5 rounded-full bg-blue-50 text-blue-600">{order.handling_status === "Resolved" ? <AlertTriangle className="text-orange-500" /> : <Wrench className="text-blue-500" />}</div>
                           <div>
                             <p className="font-medium text-sm text-gray-800">Work Order #{order.id}</p>
                             <p className="text-xs text-gray-600 mt-1">{order.complaint}</p>
@@ -941,7 +941,7 @@ const ITAssignmentD: React.FC = () => {
           </motion.div>
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">IT Work Order Assignment</h1>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">IT Assignment</h1>
               <p className="text-gray-600 mt-1">Assign IT-related work orders to technicians</p>
             </div>
           </motion.div>
@@ -949,8 +949,8 @@ const ITAssignmentD: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
             <StatCard title="Total IT Assignments" value={filteredWorkOrders.length.toString()} change="+8%" icon={<Clipboard />} />
             <StatCard title="New Assignments" value={filteredWorkOrders.filter((wo) => wo.handling_status === "Assignment").length.toString()} change="+3" icon={<Clock />} />
-            <StatCard title="In Progress" value={filteredWorkOrders.filter((wo) => ["Progress", "Waiting Part", "Vendor Escalation"].includes(wo.handling_status)).length.toString()} change="-1" icon={<Wrench />} />
-            <StatCard title="Waiting Approval" value={filteredWorkOrders.filter((wo) => wo.handling_status === "Waiting Approval").length.toString()} change="+1" icon={<CheckCircle />} />
+            <StatCard title="In Progress" value={filteredWorkOrders.filter((wo) => ["Progress", "Escalated", "Vendor Handled"].includes(wo.handling_status)).length.toString()} change="-1" icon={<Wrench />} />
+            <StatCard title="Resolved" value={filteredWorkOrders.filter((wo) => wo.handling_status === "Resolved").length.toString()} change="+1" icon={<CheckCircle />} />
           </div>
 
           <motion.div layout className="mb-6 bg-white rounded-2xl shadow-md p-4 md:p-6 border border-blue-50">
@@ -987,9 +987,9 @@ const ITAssignmentD: React.FC = () => {
                       <option value="all">All Statuses</option>
                       <option value="New">New</option>
                       <option value="Progress">Progress</option>
-                      <option value="Waiting Part">Waiting Part</option>
-                      <option value="Vendor Escalation">Vendor Escalation</option>
-                      <option value="Waiting Approval">Waiting Approval</option>
+                      <option value="Escalated">Escalated</option>
+                      <option value="Vendor Handled">Vendor Handled</option>
+                      <option value="Resolved">Resolved</option>
                     </select>
                   </motion.div>
                 )}
