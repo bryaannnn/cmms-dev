@@ -146,7 +146,7 @@ const Sidebar: React.FC = () => {
               {hasPermission("15") && <NavItem icon={<Key />} text="User Management" to="/permissions" expanded={sidebarOpen} />}
               {hasPermission("23") && <NavItem icon={<Wrench />} text="Spare Part" to="/sparepart" expanded={sidebarOpen} />}
               {hasPermission("3") && <NavItem icon={<Package />} text="Assets" to="/assets" expanded={sidebarOpen} />}
-              {hasPermission("3") && <NavItem icon={<LifeBuoy />} text="Service" to="/service" expanded={sidebarOpen} />}
+              {hasPermission("3") && <NavItem icon={<LifeBuoy />} text="Services" to="/services" expanded={sidebarOpen} />}
               {hasPermission("3") && <NavItem icon={<ToolCase />} text="Maintenance Activity" to="/maintenanceactivity" expanded={sidebarOpen} />}
 
               {sidebarOpen && <h3 className="text-xs font-semibold uppercase text-gray-400 px-4 pt-4 pb-1 tracking-wider">Maintenance</h3>}

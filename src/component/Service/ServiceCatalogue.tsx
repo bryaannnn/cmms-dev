@@ -1,7 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Sidebar from "../../component/Sidebar";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Upload, Filter, ChevronDown, Search, X, Bell, Moon, Sun, UserIcon, ChevronRight, Edit, Trash2, Info } from "lucide-react";
+import { Plus, Upload, Filter, ChevronDown, Search, X, Bell, Moon, Sun, UserIcon, ChevronRight, Edit, Trash2, Info, Folder, Eye } from "lucide-react";
+import { useAuth } from "../../routes/AuthContext";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+import { useNavigate } from "react-router-dom";
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
@@ -16,28 +20,32 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
-interface Service {
-  id: string;
-  serviceId: string;
-  name: string;
-  description?: string;
-  groupId?: string | null;
-  priority: "Low" | "Medium" | "High" | "Critical";
-  owners: string[];
-  slaHours: number;
-  impact?: string;
-  createdAt: string;
+type PriorityType = "Low" | "Medium" | "High" | "Critical";
+
+interface ServiceCatalogue {
+  id: number;
+  service_name: string;
+  service_description: string;
+  service_type: number;
+  priority: PriorityType;
+  service_owner: number;
+  sla: number;
+  impact: string;
+  created_at: string;
+  updated_at: string;
 }
 
 interface ServiceGroup {
-  id: string;
-  name: string;
+  id: number | string;
+  name?: string | null;
+  group_name?: string | null;
+  group_description?: string | null;
 }
 
-const STORAGE_KEY = "service.catalogue.v1";
-const GROUPS_KEY = "service.groups.v1";
-
-const dummyUsers = ["User 1", "User 2", "User 3"];
+interface User {
+  id: number;
+  name: string;
+}
 
 const Modal: React.FC<{ isOpen: boolean; onClose: () => void; title: string; className?: string; children?: React.ReactNode }> = ({ isOpen, onClose, title, children, className }) => {
   return (
@@ -87,11 +95,19 @@ const StatCard: React.FC<{ title: string; value: string; change?: string; icon?:
   );
 };
 
-const ServiceCatalogue: React.FC = () => {
-  const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
+const ServiceCataloguePage: React.FC = () => {
+  const auth = useAuth();
+  const [sidebarOpen] = useState<boolean>(() => {
     const stored = localStorage.getItem("sidebarOpen");
     return stored ? JSON.parse(stored) : false;
   });
+  const navigate = useNavigate();
+  const [selectedService, setSelectedService] = useState<ServiceCatalogue | null>(null);
+  const openDetailModal = (s: ServiceCatalogue) => {
+    setSelectedService(s);
+    setShowDetailModal(true);
+  };
+  const [showDetailModal, setShowDetailModal] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotificationsPopup, setShowNotificationsPopup] = useState(false);
@@ -100,265 +116,116 @@ const ServiceCatalogue: React.FC = () => {
   const [groupFilter, setGroupFilter] = useState<string | "">("");
   const [priorityFilter, setPriorityFilter] = useState<string | "">("");
   const [loading, setLoading] = useState(true);
-  const [services, setServices] = useState<Service[]>([]);
+  const [services, setServices] = useState<ServiceCatalogue[]>([]);
   const [groups, setGroups] = useState<ServiceGroup[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [showFormModal, setShowFormModal] = useState(false);
-  const [editingService, setEditingService] = useState<Service | null>(null);
+  const [editingService, setEditingService] = useState<ServiceCatalogue | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [serviceToDelete, setServiceToDelete] = useState<string | null>(null);
+  const [serviceToDelete, setServiceToDelete] = useState<number | null>(null);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [importing, setImporting] = useState(false);
   const debouncedSearch = useDebounce(searchQuery, 300);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const recordsPerPage = 10;
-  const [sortConfig, setSortConfig] = useState<{ key: string; direction: "ascending" | "descending" } | null>({ key: "createdAt", direction: "descending" });
+  const [sortConfig, setSortConfig] = useState<{ key: keyof ServiceCatalogue; direction: "ascending" | "descending" } | null>({
+    key: "created_at",
+    direction: "descending",
+  });
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  const artificialDelay = (min = 200, max = 400) =>
-    new Promise((res) => {
-      const t = Math.floor(Math.random() * (max - min + 1)) + min;
-      setTimeout(res, t);
-    });
-
-  const readGroupsFromStorage = useCallback((): ServiceGroup[] => {
+  const loadServiceGroups = useCallback(async () => {
     try {
-      const raw = localStorage.getItem(GROUPS_KEY);
-      if (!raw) {
-        const seeded = [
-          { id: "grp-1", name: "IT Services" },
-          { id: "grp-2", name: "Facilities" },
-          { id: "grp-3", name: "HR Services" },
-        ];
-        localStorage.setItem(GROUPS_KEY, JSON.stringify(seeded));
-        return seeded;
-      }
-      return JSON.parse(raw) as ServiceGroup[];
-    } catch {
-      return [];
+      const res = await auth.getServiceGroups(0);
+      const normalized = (res || []).map((g: any) => {
+        if (g.group_name || g.group_description) return { id: g.id, group_name: g.group_name, group_description: g.group_description, name: g.group_name || g.name };
+        return { id: g.id, name: (g as any).name || null };
+      });
+      setGroups(normalized);
+    } catch (e) {
+      setGroups([]);
     }
-  }, []);
+  }, [auth]);
 
-  const seedServicesIfEmpty = useCallback(() => {
+  const loadUsers = useCallback(async () => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) {
-        const seeded: Service[] = [
-          {
-            id: `${Date.now()}-1`,
-            serviceId: "SRV-001",
-            name: "Network Setup",
-            description: "Setup office LAN and Wi-Fi",
-            groupId: "grp-1",
-            priority: "High",
-            owners: ["User 1"],
-            slaHours: 24,
-            impact: "Medium",
-            createdAt: new Date().toISOString(),
-          },
-          {
-            id: `${Date.now()}-2`,
-            serviceId: "SRV-002",
-            name: "Printer Maintenance",
-            description: "Repair and maintain printers",
-            groupId: "grp-2",
-            priority: "Medium",
-            owners: ["User 2"],
-            slaHours: 48,
-            impact: "Low",
-            createdAt: new Date().toISOString(),
-          },
-          {
-            id: `${Date.now()}-3`,
-            serviceId: "SRV-003",
-            name: "Account Provisioning",
-            description: "Create and manage user accounts",
-            groupId: "grp-1",
-            priority: "Critical",
-            owners: ["User 1", "User 3"],
-            slaHours: 4,
-            impact: "High",
-            createdAt: new Date().toISOString(),
-          },
-          {
-            id: `${Date.now()}-4`,
-            serviceId: "SRV-004",
-            name: "Office Relocation",
-            description: "Coordinate office moving services",
-            groupId: "grp-2",
-            priority: "Low",
-            owners: ["User 3"],
-            slaHours: 168,
-            impact: "Low",
-            createdAt: new Date().toISOString(),
-          },
-          {
-            id: `${Date.now()}-5`,
-            serviceId: "SRV-005",
-            name: "Payroll Query",
-            description: "Resolve payroll inquiries",
-            groupId: "grp-3",
-            priority: "High",
-            owners: ["User 2"],
-            slaHours: 48,
-            impact: "Medium",
-            createdAt: new Date().toISOString(),
-          },
-        ];
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
-      }
-    } catch {}
-  }, []);
-
-  const fetchServiceCatalogue = useCallback(async (): Promise<Service[]> => {
-    await artificialDelay();
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return [];
-      const parsed = JSON.parse(raw) as Service[];
-      return parsed.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+      const res = await auth.getUsers();
+      const mapped = (res || []).map((u: any) => ({ id: Number(u.id), name: u.name }));
+      setUsers(mapped);
     } catch {
-      return [];
+      setUsers([]);
     }
+  }, [auth]);
+
+  const mapApiToLocal = useCallback((api: any): ServiceCatalogue => {
+    return {
+      id: api.id ?? 0, // default ke 0 atau null
+      service_name: api.service_name ?? api.name ?? "",
+      service_description: api.service_description ?? api.description ?? "",
+      service_type: Number(api.service_type ?? api.service_type ?? 0),
+      priority: (api.priority as PriorityType) ?? "Low",
+      service_owner: Number(api.service_owner ?? api.service_owner ?? api.owner ?? 0),
+      sla: Number(api.sla ?? api.sla ?? 0),
+      impact: api.impact ?? "",
+      created_at: api.created_at ?? api.createdAt ?? new Date().toISOString(),
+      updated_at: api.updated_at ?? api.updatedAt ?? new Date().toISOString(),
+    };
   }, []);
 
-  const persistServices = useCallback((data: Service[]) => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  }, []);
-
-  const createService = useCallback(
-    async (payload: Omit<Service, "id" | "createdAt">) => {
-      await artificialDelay();
-      const now = new Date().toISOString();
-      const id = `${Date.now()}-${Math.floor(Math.random() * 10000)}`;
-      const newItem: Service = { ...payload, id, createdAt: now };
-      const current = (await fetchServiceCatalogue()) || [];
-      const updated = [newItem, ...current];
-      persistServices(updated);
-      setServices(updated);
-      return newItem;
-    },
-    [fetchServiceCatalogue, persistServices]
-  );
-
-  const updateService = useCallback(
-    async (id: string, patch: Partial<Service>) => {
-      await artificialDelay();
-      const current = (await fetchServiceCatalogue()) || [];
-      const updated = current.map((s) => (s.id === id ? { ...s, ...patch } : s));
-      persistServices(updated);
-      setServices(updated);
-      return updated.find((s) => s.id === id) || null;
-    },
-    [fetchServiceCatalogue, persistServices]
-  );
-
-  const deleteService = useCallback(
-    async (id: string) => {
-      await artificialDelay();
-      const current = (await fetchServiceCatalogue()) || [];
-      const updated = current.filter((s) => s.id !== id);
-      persistServices(updated);
-      setServices(updated);
-      return true;
-    },
-    [fetchServiceCatalogue, persistServices]
-  );
+  const loadServices = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await auth.getServices(0);
+      const list = (res || []).map(mapApiToLocal);
+      list.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+      setServices(list);
+    } catch (e) {
+      setError("Failed to load service catalogue.");
+      setServices([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [auth, mapApiToLocal]);
 
   useEffect(() => {
-    seedServicesIfEmpty();
-    const g = readGroupsFromStorage();
-    setGroups(g);
     let mounted = true;
-    setLoading(true);
-    fetchServiceCatalogue()
-      .then((res) => {
-        if (mounted) setServices(res);
-      })
-      .catch(() => {
-        if (mounted) setServices([]);
-      })
-      .finally(() => {
-        if (mounted) setLoading(false);
-      });
+    if (mounted) {
+      loadServices();
+      loadServiceGroups();
+      loadUsers();
+    }
     return () => {
       mounted = false;
     };
-  }, [fetchServiceCatalogue, readGroupsFromStorage, seedServicesIfEmpty]);
+  }, [loadServices, loadServiceGroups, loadUsers]);
 
   const showToast = (type: "success" | "error", message: string) => {
     setToast({ type, message });
     setTimeout(() => setToast(null), 3000);
   };
 
-  const openAddModal = () => {
-    setEditingService(null);
-    setShowFormModal(true);
-  };
-
-  const openEditModal = (s: Service) => {
-    setEditingService(s);
-    setShowFormModal(true);
-  };
-
-  const handleDelete = (id: string) => {
-    setServiceToDelete(id);
-    setShowDeleteConfirm(true);
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!serviceToDelete) return;
-    try {
-      await deleteService(serviceToDelete);
-      setShowDeleteConfirm(false);
-      setServiceToDelete(null);
-      showToast("success", "Service deleted");
-    } catch {
-      showToast("error", "Failed to delete service");
-    }
-  };
-
-  const filteredServices = useMemo(() => {
-    let list = [...services];
-    if (debouncedSearch.trim()) {
-      const q = debouncedSearch.toLowerCase().trim();
-      list = list.filter((s) => s.name.toLowerCase().includes(q) || s.serviceId.toLowerCase().includes(q) || (s.description || "").toLowerCase().includes(q));
-    }
-    if (groupFilter) {
-      list = list.filter((s) => s.groupId === groupFilter);
-    }
-    if (priorityFilter) {
-      list = list.filter((s) => s.priority === priorityFilter);
-    }
-    if (sortConfig) {
-      list.sort((a, b) => {
-        const aVal = (a as any)[sortConfig.key];
-        const bVal = (b as any)[sortConfig.key];
-        if (aVal < bVal) return sortConfig.direction === "ascending" ? -1 : 1;
-        if (aVal > bVal) return sortConfig.direction === "ascending" ? 1 : -1;
-        return 0;
-      });
-    }
-    return list;
-  }, [services, debouncedSearch, groupFilter, priorityFilter, sortConfig]);
-
-  const totalServices = filteredServices.length;
+  const totalServices = services.length;
   const priorityCounts = useMemo(() => {
-    const map = { Critical: 0, High: 0, Medium: 0, Low: 0 };
+    const map: Record<PriorityType, number> = { Critical: 0, High: 0, Medium: 0, Low: 0 };
     services.forEach((s) => {
-      map[s.priority] = (map[s.priority] || 0) + 1;
+      const p = (s.priority || "Low") as PriorityType;
+      map[p] = (map[p] || 0) + 1;
     });
     return map;
   }, [services]);
 
   const averageSLA = useMemo(() => {
     if (services.length === 0) return 0;
-    const sum = services.reduce((acc, s) => acc + (s.slaHours || 0), 0);
+    const sum = services.reduce((acc, s) => acc + (s.sla || 0), 0);
     return Math.round((sum / services.length) * 100) / 100;
   }, [services]);
 
   const totalOwners = useMemo(() => {
-    const set = new Set<string>();
-    services.forEach((s) => s.owners.forEach((o) => set.add(o)));
+    const set = new Set<number>();
+    services.forEach((s) => set.add(s.service_owner));
     return set.size;
   }, [services]);
 
@@ -368,7 +235,7 @@ const ServiceCatalogue: React.FC = () => {
     setSearchQuery("");
   };
 
-  const requestSort = (key: string) => {
+  const requestSort = (key: keyof ServiceCatalogue) => {
     let direction: "ascending" | "descending" = "ascending";
     if (sortConfig && sortConfig.key === key && sortConfig.direction === "ascending") {
       direction = "descending";
@@ -385,46 +252,29 @@ const ServiceCatalogue: React.FC = () => {
         .split("\n")
         .map((r) => r.trim())
         .filter(Boolean);
-      const parsed: Service[] = [];
+      const payloads: any[] = [];
       for (let i = 0; i < rows.length; i++) {
         const cols = rows[i].split(",").map((c) => c.trim());
-        const serviceId = cols[0] || `IMP-${Date.now()}-${i}`;
-        const name = cols[1] || `Imported Service ${i + 1}`;
-        const description = cols[2] || "";
-        const groupName = cols[3] || groups[0]?.name || "Imported Group";
-        let group = groups.find((g) => g.name.toLowerCase() === groupName.toLowerCase());
-        if (!group) {
-          group = { id: `grp-${Date.now()}-${i}`, name: groupName };
-          const updatedGroups = [...groups, group];
-          setGroups(updatedGroups);
-          localStorage.setItem(GROUPS_KEY, JSON.stringify(updatedGroups));
-        }
-        const priority = (cols[4] as any) || "Low";
-        const owners = (cols[5] &&
-          cols[5]
-            .split(";")
-            .map((s) => s.trim())
-            .filter(Boolean)) || ["User 1"];
-        const slaHours = Number(cols[6]) || 24;
-        const item: Service = {
-          id: `${Date.now()}-imp-${i}`,
-          serviceId,
-          name,
-          description,
-          groupId: group.id,
-          priority: priority === "Critical" ? "Critical" : priority === "High" ? "High" : priority === "Medium" ? "Medium" : "Low",
-          owners,
-          slaHours,
+        const payload = {
+          service_name: cols[1] || `Imported Service ${i + 1}`,
+          service_description: cols[2] || "",
+          service_type: groups[0] ? Number(groups[0].id) : 0,
+          priority: (cols[4] as PriorityType) || "Low",
+          service_owner: users[0] ? users[0].id : 0,
+          sla: Number(cols[6]) || 24,
           impact: cols[7] || "",
-          createdAt: new Date().toISOString(),
         };
-        parsed.push(item);
+        payloads.push(payload);
       }
-      const current = await fetchServiceCatalogue();
-      const updated = [...parsed, ...current];
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      setServices(updated);
-      showToast("success", `Imported ${parsed.length} services`);
+      for (const p of payloads) {
+        await auth.fetchWithAuth("/service-catalogues", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(p),
+        });
+      }
+      await loadServices();
+      showToast("success", `Imported ${payloads.length} services`);
     } catch {
       showToast("error", "Import failed");
     } finally {
@@ -438,59 +288,135 @@ const ServiceCatalogue: React.FC = () => {
     e.target.value = "";
   };
 
-  const Form: React.FC = () => {
-    const [serviceName, setServiceName] = useState(editingService?.name || "");
-    const [serviceId, setServiceId] = useState(editingService?.serviceId || `SRV-${Math.floor(100 + Math.random() * 900)}`);
-    const [description, setDescription] = useState(editingService?.description || "");
-    const [groupId, setGroupId] = useState<string | "">((editingService?.groupId as string) || "");
-    const [priority, setPriority] = useState<Service["priority"]>(editingService?.priority || "Low");
-    const [ownersState, setOwnersState] = useState<string[]>(editingService?.owners || []);
-    const [slaHours, setSlaHours] = useState<number>(editingService?.slaHours || 24);
-    const [impact, setImpact] = useState(editingService?.impact || "");
-    const [saving, setSaving] = useState(false);
-    const [errors, setErrors] = useState<{ name?: string }>({});
+  const openAddModal = () => {
+    setEditingService(null);
+    setShowFormModal(true);
+  };
 
-    const toggleOwner = (owner: string) => {
-      if (ownersState.includes(owner)) {
-        setOwnersState((p) => p.filter((o) => o !== owner));
-      } else {
-        setOwnersState((p) => [...p, owner]);
+  const openEditModal = (s: ServiceCatalogue) => {
+    setEditingService(s);
+    setShowFormModal(true);
+  };
+
+  const handleDelete = (id: number) => {
+    setServiceToDelete(id);
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!serviceToDelete) return;
+    setSaving(true);
+    try {
+      await auth.fetchWithAuth(`/service-catalogues/${serviceToDelete}`, { method: "DELETE" });
+      await loadServices();
+      setShowDeleteConfirm(false);
+      setServiceToDelete(null);
+      showToast("success", "Service deleted");
+    } catch {
+      showToast("error", "Failed to delete service");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const filteredServices = useMemo(() => {
+    let list = [...services];
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.toLowerCase().trim();
+      list = list.filter((s) => s.service_name.toLowerCase().includes(q) || (s.service_description || "").toLowerCase().includes(q));
+    }
+    if (groupFilter) {
+      list = list.filter((s) => String(s.service_type) === String(groupFilter));
+    }
+    if (priorityFilter) {
+      list = list.filter((s) => s.priority === priorityFilter);
+    }
+    if (sortConfig) {
+      list.sort((a, b) => {
+        const aVal = (a as any)[sortConfig.key];
+        const bVal = (b as any)[sortConfig.key];
+        if (aVal < bVal) return sortConfig.direction === "ascending" ? -1 : 1;
+        if (aVal > bVal) return sortConfig.direction === "ascending" ? 1 : -1;
+        return 0;
+      });
+    }
+    return list;
+  }, [services, debouncedSearch, groupFilter, priorityFilter, sortConfig]);
+
+  const indexOfLastRecord = currentPage * recordsPerPage;
+  const indexOfFirstRecord = indexOfLastRecord - recordsPerPage;
+  const currentRecords = filteredServices.slice(indexOfFirstRecord, indexOfLastRecord);
+  const totalPages = Math.max(1, Math.ceil(filteredServices.length / recordsPerPage));
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (!(target as HTMLElement)?.closest?.(".profile-menu")) {
+        setShowProfileMenu(false);
+      }
+      if (!(target as HTMLElement)?.closest?.(".notifications-popup")) {
+        setShowNotificationsPopup(false);
       }
     };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const Form: React.FC = () => {
+    const [serviceName, setServiceName] = useState(editingService?.service_name || "");
+    const [description, setDescription] = useState(editingService?.service_description || "");
+    const [groupId, setGroupId] = useState<number | "">((editingService?.service_type as number) || "");
+    const [priority, setPriority] = useState<PriorityType>(editingService?.priority || "Low");
+    const [ownerId, setOwnerId] = useState<number | "">((editingService?.service_owner as number) || (users[0] ? users[0].id : ""));
+    const [slaHours, setSlaHours] = useState<number>(editingService?.sla || 24);
+    const [impact, setImpact] = useState(editingService?.impact || "");
+    const [formErrors, setFormErrors] = useState<{ service_name?: string; service_type?: string; priority?: string; sla?: string }>({});
 
     const handleSave = async () => {
-      setErrors({});
+      setFormErrors({});
       if (!serviceName.trim()) {
-        setErrors({ name: "Service Name is required" });
+        setFormErrors({ service_name: "Service Name is required" });
+        return;
+      }
+      if (!groupId) {
+        setFormErrors((p) => ({ ...p, service_type: "Service Type is required" }));
+        return;
+      }
+      if (!priority) {
+        setFormErrors((p) => ({ ...p, priority: "Priority is required" }));
+        return;
+      }
+      if (isNaN(Number(slaHours))) {
+        setFormErrors((p) => ({ ...p, sla: "SLA must be a number" }));
         return;
       }
       setSaving(true);
       try {
+        const payload = {
+          service_name: serviceName.trim(),
+          service_description: description.trim(),
+          service_type: Number(groupId),
+          priority,
+          service_owner: Number(ownerId) || 0,
+          sla: Number(slaHours) || 0,
+          impact: impact.trim(),
+        };
         if (editingService) {
-          await updateService(editingService.id, {
-            name: serviceName.trim(),
-            description: description.trim(),
-            groupId: groupId || null,
-            priority,
-            owners: ownersState.length ? ownersState : ["User 1"],
-            slaHours: Number(slaHours) || 0,
-            impact: impact.trim(),
-            serviceId: serviceId.trim(),
+          await auth.fetchWithAuth(`/service-catalogues/${editingService.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
           });
           showToast("success", "Service updated");
         } else {
-          await createService({
-            serviceId: serviceId.trim(),
-            name: serviceName.trim(),
-            description: description.trim(),
-            groupId: groupId || null,
-            priority,
-            owners: ownersState.length ? ownersState : ["User 1"],
-            slaHours: Number(slaHours) || 0,
-            impact: impact.trim(),
+          await auth.fetchWithAuth("/service-catalogues", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
           });
           showToast("success", "Service created");
         }
+        await loadServices();
         setShowFormModal(false);
       } catch {
         showToast("error", "Save failed");
@@ -505,11 +431,7 @@ const ServiceCatalogue: React.FC = () => {
           <div>
             <label className="text-sm font-medium text-gray-700">Service Name *</label>
             <input value={serviceName} onChange={(e) => setServiceName(e.target.value)} className="w-full mt-2 px-4 py-2 border border-blue-200 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
-            {errors.name && <p className="text-xs text-red-600 mt-1">{errors.name}</p>}
-          </div>
-          <div>
-            <label className="text-sm font-medium text-gray-700">Service ID</label>
-            <input value={serviceId} onChange={(e) => setServiceId(e.target.value)} className="w-full mt-2 px-4 py-2 border border-blue-200 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
+            {formErrors.service_name && <p className="text-xs text-red-600 mt-1">{formErrors.service_name}</p>}
           </div>
           <div>
             <label className="text-sm font-medium text-gray-700">Service Description</label>
@@ -521,22 +443,27 @@ const ServiceCatalogue: React.FC = () => {
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-700">Service Type</label>
-            <select value={groupId} onChange={(e) => setGroupId(e.target.value)} className="w-full mt-2 px-4 py-2 border border-blue-200 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+            <label className="text-sm font-medium text-gray-700">Service Type *</label>
+            <select
+              value={groupId}
+              onChange={(e) => setGroupId(e.target.value ? Number(e.target.value) : "")}
+              className="w-full mt-2 px-4 py-2 border border-blue-200 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+            >
               <option value="">-- Select Group --</option>
               {groups.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.name}
+                <option key={String(g.id)} value={String(g.id)}>
+                  {g.group_name ?? (g as any).name ?? String(g.id)}
                 </option>
               ))}
             </select>
+            {formErrors.service_type && <p className="text-xs text-red-600 mt-1">{formErrors.service_type}</p>}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium text-gray-700">Priority</label>
+              <label className="text-sm font-medium text-gray-700">Priority *</label>
               <select
                 value={priority}
-                onChange={(e) => setPriority(e.target.value as Service["priority"])}
+                onChange={(e) => setPriority(e.target.value as PriorityType)}
                 className="w-full mt-2 px-4 py-2 border border-blue-200 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30"
               >
                 <option value="Low">Low</option>
@@ -544,27 +471,33 @@ const ServiceCatalogue: React.FC = () => {
                 <option value="High">High</option>
                 <option value="Critical">Critical</option>
               </select>
+              {formErrors.priority && <p className="text-xs text-red-600 mt-1">{formErrors.priority}</p>}
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-700">SLA (hours)</label>
+              <label className="text-sm font-medium text-gray-700">SLA (hours) *</label>
               <input
                 type="number"
                 value={slaHours}
                 onChange={(e) => setSlaHours(Number(e.target.value))}
                 className="w-full mt-2 px-4 py-2 border border-blue-200 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30"
               />
+              {formErrors.sla && <p className="text-xs text-red-600 mt-1">{formErrors.sla}</p>}
             </div>
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-700">Service Owner(s)</label>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {dummyUsers.map((u) => (
-                <label key={u} className="inline-flex items-center space-x-2 bg-white border border-blue-100 rounded-md px-3 py-1 text-sm cursor-pointer">
-                  <input type="checkbox" checked={ownersState.includes(u)} onChange={() => toggleOwner(u)} className="form-checkbox h-4 w-4 text-blue-600" />
-                  <span className="text-gray-700">{u}</span>
-                </label>
+            <label className="text-sm font-medium text-gray-700">Service Owner</label>
+            <select
+              value={ownerId}
+              onChange={(e) => setOwnerId(e.target.value ? Number(e.target.value) : "")}
+              className="w-full mt-2 px-4 py-2 border border-blue-200 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+            >
+              <option value="">-- Select Owner --</option>
+              {users.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name}
+                </option>
               ))}
-            </div>
+            </select>
           </div>
           <div>
             <label className="text-sm font-medium text-gray-700">Impact</label>
@@ -584,7 +517,8 @@ const ServiceCatalogue: React.FC = () => {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={handleSave}
-            className="px-5 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 font-semibold text-sm"
+            disabled={saving}
+            className="px-5 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 font-semibold text-sm disabled:opacity-60"
           >
             {saving ? "Saving..." : "Save"}
           </motion.button>
@@ -592,25 +526,6 @@ const ServiceCatalogue: React.FC = () => {
       </div>
     );
   };
-
-  const indexOfLastRecord = currentPage * recordsPerPage;
-  const indexOfFirstRecord = indexOfLastRecord - recordsPerPage;
-  const currentRecords = filteredServices.slice(indexOfFirstRecord, indexOfLastRecord);
-  const totalPages = Math.ceil(filteredServices.length / recordsPerPage);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (!(target as HTMLElement)?.closest?.(".profile-menu")) {
-        setShowProfileMenu(false);
-      }
-      if (!(target as HTMLElement)?.closest?.(".notifications-popup")) {
-        setShowNotificationsPopup(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   return (
     <div className={`flex h-screen font-sans antialiased bg-blue-50`}>
@@ -620,7 +535,7 @@ const ServiceCatalogue: React.FC = () => {
           <div className="flex items-center space-x-4">
             <motion.div className="flex items-center space-x-3">
               <motion.div className="text-xl text-blue-600">
-                <Search />
+                <Folder />
               </motion.div>
               <h2 className="text-lg md:text-xl font-bold text-gray-900">Service Catalogue</h2>
             </motion.div>
@@ -679,13 +594,13 @@ const ServiceCatalogue: React.FC = () => {
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between space-y-5 md:space-y-0">
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-                Service Catalogue <span className="text-blue-600">Services</span>
+                Service <span className="text-blue-600">Catalogue</span>
               </h1>
               <p className="text-gray-600 mt-2 text-sm max-w-xl">Browse and manage the list of available services.</p>
             </div>
             <div className="flex flex-wrap gap-3 items-center">
               <motion.button
-                onClick={openAddModal}
+                onClick={() => navigate(`/services/servicecatalogues/addservicecatalogue`)}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md font-semibold text-sm"
@@ -726,199 +641,220 @@ const ServiceCatalogue: React.FC = () => {
             <StatCard title="Total Owners" value={String(totalOwners)} change="+0" icon={<UserIcon />} />
           </div>
 
-          <motion.div layout className="mb-8 bg-white rounded-2xl shadow-md p-5 border border-blue-100">
-            <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-4 md:space-y-0 relative">
-              <div className="flex-1 relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  placeholder="Search by service name, ID, or description..."
-                  className="w-full pl-11 pr-4 py-2.5 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white text-sm transition-all duration-200 shadow-sm placeholder-gray-400"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }}>
+            <div className="mb-4 flex items-center justify-between space-x-4">
+              <div className="flex items-center w-full max-w-xl space-x-2">
+                <div className="relative flex-1">
+                  <input
+                    ref={searchInputRef}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search services by name or description..."
+                    className="w-full px-4 py-2 rounded-lg border border-blue-100 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 text-sm"
+                  />
+                </div>
+                <button
+                  onClick={() => {
+                    setSearchQuery("");
+                    searchInputRef.current?.focus();
+                  }}
+                  className="px-3 py-2 border border-blue-100 rounded-lg bg-white text-sm"
+                >
+                  Clear
+                </button>
               </div>
             </div>
 
-            <AnimatePresence>
-              {showAdvancedFilters && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full"
-                >
-                  <div>
-                    <label className="text-sm font-medium text-gray-700">By Service Group</label>
-                    <select
-                      value={groupFilter}
-                      onChange={(e) => setGroupFilter(e.target.value as any)}
-                      className="w-full mt-2 px-4 py-2 border border-blue-200 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                    >
-                      <option value="">All Groups</option>
-                      {groups.map((g) => (
-                        <option key={g.id} value={g.id}>
-                          {g.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-700">By Priority</label>
-                    <select
-                      value={priorityFilter}
-                      onChange={(e) => setPriorityFilter(e.target.value as any)}
-                      className="w-full mt-2 px-4 py-2 border border-blue-200 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                    >
-                      <option value="">All Priorities</option>
-                      <option value="Critical">Critical</option>
-                      <option value="High">High</option>
-                      <option value="Medium">Medium</option>
-                      <option value="Low">Low</option>
-                    </select>
-                  </div>
-                  <div className="flex items-end space-x-2">
-                    <button onClick={clearFilters} className="w-full px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-100 text-gray-700 transition-colors duration-200 text-sm">
-                      Clear Filters
-                    </button>
+            {showAdvancedFilters && (
+              <AnimatePresence>
+                <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} className="bg-white rounded-2xl p-4 mb-6 border border-blue-100">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">Service Group</label>
+                      <select value={groupFilter} onChange={(e) => setGroupFilter(e.target.value)} className="w-full mt-2 px-4 py-2 border border-blue-200 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+                        <option value="">All Groups</option>
+                        {groups.map((g) => (
+                          <option key={String(g.id)} value={String(g.id)}>
+                            {g.group_name ?? (g as any).name ?? String(g.id)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">By Priority</label>
+                      <select
+                        value={priorityFilter}
+                        onChange={(e) => setPriorityFilter(e.target.value as any)}
+                        className="w-full mt-2 px-4 py-2 border border-blue-200 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                      >
+                        <option value="">All Priorities</option>
+                        <option value="Critical">Critical</option>
+                        <option value="High">High</option>
+                        <option value="Medium">Medium</option>
+                        <option value="Low">Low</option>
+                      </select>
+                    </div>
+                    <div className="flex items-end space-x-2">
+                      <button onClick={clearFilters} className="w-full px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-100 text-gray-700 transition-colors duration-200 text-sm">
+                        Clear Filters
+                      </button>
+                    </div>
                   </div>
                 </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
+              </AnimatePresence>
+            )}
 
-          {loading ? (
-            <div className="bg-white rounded-2xl shadow-md p-8 text-center border border-blue-100">
-              <div className="animate-spin rounded-full h-14 w-14 border-t-4 border-b-4 border-blue-500 mx-auto mb-5"></div>
-              <p className="text-gray-600 text-base font-medium">Loading service catalogue...</p>
-            </div>
-          ) : filteredServices.length === 0 ? (
-            <div className="bg-white rounded-2xl shadow-md p-8 text-center border border-blue-100">
-              <Info className="text-blue-500 text-4xl mx-auto mb-4" />
-              <p className="text-gray-700 text-base font-medium">{debouncedSearch || groupFilter || priorityFilter ? "No services found matching your filters." : "No services available."}</p>
-              {(debouncedSearch || groupFilter || priorityFilter) && (
-                <button onClick={clearFilters} className="mt-5 px-5 py-2 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors duration-200 text-sm">
-                  Clear All Filters
-                </button>
-              )}
-            </div>
-          ) : (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="bg-white rounded-2xl shadow-md overflow-hidden border border-blue-100">
-              <div className="overflow-x-auto custom-scrollbar">
-                <table className="min-w-full divide-y divide-blue-100">
-                  <thead className="bg-blue-50">
-                    <tr>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">No</th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider" onClick={() => requestSort("serviceId")}>
-                        Service ID
-                      </th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider" onClick={() => requestSort("name")}>
-                        Service Name
-                      </th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Service Group</th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Priority</th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Service Owner(s)</th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">SLA (hrs)</th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-blue-100">
-                    {currentRecords.map((s, idx) => (
-                      <motion.tr key={s.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.15 }} whileHover={{ backgroundColor: "rgba(239,246,255,0.5)" }}>
-                        <td className="px-5 py-3 whitespace-nowrap text-sm text-gray-700">{indexOfFirstRecord + idx + 1}</td>
-                        <td className="px-5 py-3 whitespace-nowrap text-sm text-gray-900">{s.serviceId}</td>
-                        <td className="px-5 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{s.name}</td>
-                        <td className="px-5 py-3 text-sm text-gray-600 max-w-xs truncate">{s.description || "-"}</td>
-                        <td className="px-5 py-3 whitespace-nowrap text-sm text-gray-700">{groups.find((g) => g.id === s.groupId)?.name || "-"}</td>
-                        <td className="px-5 py-3 whitespace-nowrap text-sm">
-                          <span
-                            className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-bold rounded-full shadow-sm ${
-                              s.priority === "Critical"
-                                ? "bg-red-100 text-red-800 border border-red-200"
-                                : s.priority === "High"
-                                ? "bg-yellow-100 text-yellow-800 border border-yellow-200"
-                                : s.priority === "Medium"
-                                ? "bg-blue-100 text-blue-800 border border-blue-200"
-                                : "bg-gray-100 text-gray-800 border border-gray-200"
-                            }`}
-                          >
-                            {s.priority}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3 text-sm text-gray-700">{s.owners.join(", ") || "-"}</td>
-                        <td className="px-5 py-3 text-sm text-gray-700">{s.slaHours}</td>
-
-                        <td className="px-5 py-3 whitespace-nowrap text-sm font-medium space-x-1.5">
-                          <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => openEditModal(s)}
-                            className="text-yellow-600 hover:text-yellow-800 transition-colors duration-200 p-1 rounded-full hover:bg-yellow-50"
-                            title="Edit"
-                          >
-                            <Edit className="inline text-base" />
-                          </motion.button>
-                          <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => handleDelete(s.id)}
-                            className="text-red-600 hover:text-red-800 transition-colors duration-200 p-1 rounded-full hover:bg-red-50"
-                            title="Delete"
-                          >
-                            <Trash2 className="inline text-base" />
-                          </motion.button>
-                        </td>
-                      </motion.tr>
-                    ))}
-                  </tbody>
-                </table>
+            {loading ? (
+              <div className="bg-white rounded-2xl shadow-md p-8 text-center border border-blue-100">
+                <div className="animate-spin rounded-full h-14 w-14 border-t-4 border-b-4 border-blue-500 mx-auto mb-5"></div>
+                <p className="text-gray-600 text-base font-medium">Loading service catalogue...</p>
               </div>
-            </motion.div>
-          )}
-
-          {filteredServices.length > recordsPerPage && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="mt-8 flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
-              <div className="text-sm text-gray-600">
-                Showing <span className="font-semibold">{indexOfFirstRecord + 1}</span> to <span className="font-semibold">{Math.min(indexOfLastRecord, filteredServices.length)}</span> of{" "}
-                <span className="font-semibold">{filteredServices.length}</span> results
+            ) : error ? (
+              <div className="bg-white rounded-2xl shadow-md p-6 text-center border border-yellow-100">
+                <Info className="text-yellow-500 text-4xl mx-auto mb-4" />
+                <p className="text-gray-700 text-base font-medium">{error}</p>
+                <div className="mt-4">
+                  <button onClick={loadServices} className="px-4 py-2 bg-blue-600 text-white rounded-md">
+                    Retry
+                  </button>
+                </div>
               </div>
-              <div className="flex space-x-2">
-                <motion.button
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="px-4 py-2 border border-blue-200 rounded-md bg-white text-gray-700 hover:bg-blue-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm font-medium text-sm"
-                >
-                  Previous
-                </motion.button>
-                {Array.from({ length: totalPages }, (_, i) => (
+            ) : filteredServices.length === 0 ? (
+              <div className="bg-white rounded-2xl shadow-md p-8 text-center border border-blue-100">
+                <Info className="text-blue-500 text-4xl mx-auto mb-4" />
+                <p className="text-gray-700 text-base font-medium">{debouncedSearch || groupFilter || priorityFilter ? "No services found matching your filters." : "No services available."}</p>
+                {(debouncedSearch || groupFilter || priorityFilter) && (
+                  <button onClick={clearFilters} className="mt-5 px-5 py-2 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors duration-200 text-sm">
+                    Clear All Filters
+                  </button>
+                )}
+              </div>
+            ) : (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="bg-white rounded-2xl shadow-md overflow-hidden border border-blue-100">
+                <div className="overflow-x-auto custom-scrollbar">
+                  <table className="min-w-full divide-y divide-blue-100">
+                    <thead className="bg-blue-50">
+                      <tr>
+                        <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">No</th>
+                        <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider" onClick={() => requestSort("service_name")}>
+                          Service Name
+                        </th>
+                        <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Group</th>
+                        <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Priority</th>
+                        <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Service Owner</th>
+                        <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">SLA (hrs)</th>
+                        <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Impact</th>
+                        <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-blue-50">
+                      {currentRecords.map((s, idx) => {
+                        const ownerName = users.find((u) => u.id === Number(s.service_owner))?.name ?? String(s.service_owner);
+                        const groupName = groups.find((g) => String(g.id) === String(s.service_type))?.group_name ?? (groups.find((g) => String(g.id) === String(s.service_type)) as any)?.name ?? String(s.service_type);
+                        return (
+                          <motion.tr key={s.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.02 * idx }}>
+                            <td className="px-5 py-3 whitespace-nowrap text-sm text-gray-600">{indexOfFirstRecord + idx + 1}</td>
+                            <td className="px-5 py-3 text-sm font-medium text-gray-900">{s.service_name}</td>
+                            <td className="px-5 py-3 text-sm text-gray-700">{groupName}</td>
+                            <td className="px-5 py-3 text-sm text-gray-700">
+                              <span
+                                className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
+                                  s.priority === "Critical"
+                                    ? "bg-red-100 text-red-700 border border-red-200"
+                                    : s.priority === "High"
+                                    ? "bg-yellow-100 text-yellow-800 border border-yellow-200"
+                                    : s.priority === "Medium"
+                                    ? "bg-blue-100 text-blue-800 border border-blue-200"
+                                    : "bg-gray-100 text-gray-800 border border-gray-200"
+                                }`}
+                              >
+                                {s.priority}
+                              </span>
+                            </td>
+                            <td className="px-5 py-3 text-sm text-gray-700">{ownerName}</td>
+                            <td className="px-5 py-3 text-sm text-gray-700">{s.sla}</td>
+                            <td className="px-5 py-3 text-sm text-gray-700">{s.impact || "-"}</td>
+                            {/* Tabel Actions */}
+                            <td className="px-5 py-3 whitespace-nowrap text-sm font-medium space-x-1.5">
+                              <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => openDetailModal(s)}
+                                className="text-blue-600 hover:text-blue-800 transition-colors duration-200 p-1 rounded-full hover:bg-blue-50"
+                                title="View Details"
+                              >
+                                <Eye className="inline text-base" />
+                              </motion.button>
+                              <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => navigate(`/services/servicecatalogues/editservicecatalogue/${s.id}`)}
+                                className="text-yellow-600 hover:text-yellow-800 transition-colors duration-200 p-1 rounded-full hover:bg-yellow-50"
+                                title="Edit"
+                              >
+                                <Edit className="inline text-base" />
+                              </motion.button>
+                              <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => handleDelete(s.id)}
+                                className="text-red-600 hover:text-red-800 transition-colors duration-200 p-1 rounded-full hover:bg-red-50"
+                                title="Delete"
+                              >
+                                <Trash2 className="inline text-base" />
+                              </motion.button>
+                            </td>
+                          </motion.tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </motion.div>
+            )}
+
+            {filteredServices.length > recordsPerPage && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="mt-8 flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
+                <div className="text-sm text-gray-600">
+                  Showing <span className="font-semibold">{indexOfFirstRecord + 1}</span> to <span className="font-semibold">{Math.min(indexOfLastRecord, filteredServices.length)}</span> of{" "}
+                  <span className="font-semibold">{filteredServices.length}</span> results
+                </div>
+                <div className="flex space-x-2">
                   <motion.button
-                    key={i + 1}
                     whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.97 }}
-                    onClick={() => setCurrentPage(i + 1)}
-                    className={`px-3.5 py-2 rounded-md transition-colors duration-200 shadow-sm font-medium text-sm ${
-                      currentPage === i + 1 ? "bg-blue-600 text-white shadow-md" : "bg-white text-gray-700 hover:bg-blue-50 border border-blue-200"
-                    }`}
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="px-4 py-2 border border-blue-200 rounded-md bg-white text-gray-700 hover:bg-blue-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm font-medium text-sm"
                   >
-                    {i + 1}
+                    Previous
                   </motion.button>
-                ))}
-                <motion.button
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  className="px-4 py-2 border border-blue-200 rounded-md bg-white text-gray-700 hover:bg-blue-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm font-medium text-sm"
-                >
-                  Next
-                </motion.button>
-              </div>
-            </motion.div>
-          )}
+                  {Array.from({ length: totalPages }, (_, i) => (
+                    <motion.button
+                      key={i + 1}
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.97 }}
+                      onClick={() => setCurrentPage(i + 1)}
+                      className={`px-3.5 py-2 rounded-md transition-colors duration-200 shadow-sm font-medium text-sm ${
+                        currentPage === i + 1 ? "bg-blue-600 text-white shadow-md" : "bg-white text-gray-700 hover:bg-blue-50 border border-blue-200"
+                      }`}
+                    >
+                      {i + 1}
+                    </motion.button>
+                  ))}
+                  <motion.button
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-4 py-2 border border-blue-200 rounded-md bg-white text-gray-700 hover:bg-blue-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm font-medium text-sm"
+                  >
+                    Next
+                  </motion.button>
+                </div>
+              </motion.div>
+            )}
+          </motion.div>
         </main>
       </div>
 
@@ -943,7 +879,8 @@ const ServiceCatalogue: React.FC = () => {
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
               onClick={handleConfirmDelete}
-              className="px-5 py-2.5 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200 font-semibold text-sm"
+              disabled={saving}
+              className="px-5 py-2.5 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200 font-semibold text-sm disabled:opacity-60"
             >
               Delete
             </motion.button>
@@ -951,21 +888,54 @@ const ServiceCatalogue: React.FC = () => {
         </div>
       </Modal>
 
-      {/* Modal Read Details
-      <Modal isOpen={showReadModal} onClose={() => setShowReadModal(false)} title="Service Details" className="max-w-2xl">
-        {readingService && (
-          <div className="space-y-4 text-sm">
-            <p><span className="font-semibold">Service ID:</span> {readingService.serviceId}</p>
-            <p><span className="font-semibold">Service Name:</span> {readingService.name}</p>
-            <p><span className="font-semibold">Description:</span> {readingService.description || "-"}</p>
-            <p><span className="font-semibold">Group:</span> {groups.find((g) => g.id === readingService.groupId)?.name || "-"}</p>
-            <p><span className="font-semibold">Priority:</span> {readingService.priority}</p>
-            <p><span className="font-semibold">Owners:</span> {readingService.owners.join(", ")}</p>
-            <p><span className="font-semibold">SLA:</span> {readingService.slaHours} hrs</p>
-            <p><span className="font-semibold">Impact:</span> {readingService.impact || "-"}</p>
+      <Modal isOpen={showDetailModal} onClose={() => setShowDetailModal(false)} title="Service Details" className="max-w-2xl">
+        {selectedService && (
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-sm font-semibold text-gray-600">Service Name</h3>
+              <p className="text-gray-800">{selectedService.service_name}</p>
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-gray-600">Description</h3>
+              <p className="text-gray-800 whitespace-pre-line">{selectedService.service_description || "-"}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-600">Group</h3>
+                <p className="text-gray-800">
+                  {groups.find((g) => String(g.id) === String(selectedService.service_type))?.group_name ?? (groups.find((g) => String(g.id) === String(selectedService.service_type)) as any)?.name ?? selectedService.service_type}
+                </p>
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-gray-600">Priority</h3>
+                <p className="text-gray-800">{selectedService.priority}</p>
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-gray-600">Service Owner</h3>
+                <p className="text-gray-800">{users.find((u) => u.id === Number(selectedService.service_owner))?.name ?? selectedService.service_owner}</p>
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-gray-600">SLA (hours)</h3>
+                <p className="text-gray-800">{selectedService.sla}</p>
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-gray-600">Impact</h3>
+                <p className="text-gray-800">{selectedService.impact || "-"}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-600">Created At</h3>
+                <p className="text-gray-800">{new Date(selectedService.created_at).toLocaleString()}</p>
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-gray-600">Updated At</h3>
+                <p className="text-gray-800">{new Date(selectedService.updated_at).toLocaleString()}</p>
+              </div>
+            </div>
           </div>
         )}
-      </Modal> */}
+      </Modal>
 
       {toast && (
         <div className={`fixed bottom-6 right-6 z-50`}>
@@ -983,4 +953,4 @@ const ServiceCatalogue: React.FC = () => {
   );
 };
 
-export default ServiceCatalogue;
+export default ServiceCataloguePage;

@@ -314,35 +314,17 @@ export interface UserWithDepartment extends SimpleUser {
   department_name: string;
 }
 
-export interface ServiceCatalogue1 {
-  id: string | number;
-  service_description: string;
-  service_type: string;
-  priority: "low" | "medium" | "high" | "critical";
-  service_owner: number;
-  sla: number;
-  impact: string;
-  pic: string[];
-}
-
-export interface ServiceCatalogue2 {
-  id_service: number;
+export interface ServiceCatalogue {
+  id: number;
   service_name: string;
   service_description: string;
   service_type: number;
   priority: string;
-  service_owner: SimpleUser;
+  service_owner: number;
   sla: number;
   impact: string;
-  pic: SimpleUser;
   created_at: string;
   updated_at: string;
-}
-
-export interface ServiceGroup {
-  id: string | number;
-  group_name: string | null;
-  group_description: string | null;
 }
 
 export interface Service4 {
@@ -568,6 +550,7 @@ export interface ServiceGroup {
   id: string | number;
   group_name: string | null;
   group_description: string | null;
+  name?: string;
 }
 
 type AssetStatus = "running" | "maintenance" | "breakdown" | "idle";
@@ -832,12 +815,17 @@ interface AuthContextType {
   deleteAsset: (assetId: string) => Promise<any>;
   getAuditTrail: () => Promise<AuditLog[]>;
   // getService: (id: number) => Promise<Service>;S
-  getServices: (id_services: number) => Promise<ServiceCatalogue2[]>;
+  getServices: (id: number) => Promise<ServiceCatalogue[]>;
+  addServiceCatalogue: (data: { service_name: string; service_description: string; service_type: number; priority: string; service_owner: number; sla: number; impact: string }) => Promise<ServiceCatalogue>;
+  updateServiceCatalogue: (id: string | number, data: { service_name: string; service_description: string; service_type: number; priority: string; service_owner: number; sla: number; impact: string }) => Promise<ServiceCatalogue>;
+  deleteServiceCatalogue: (id: string | number) => Promise<void>;
   getServiceGroups: (id: string | number) => Promise<ServiceGroup[]>;
   getServiceGroup: (id: string | number) => Promise<ServiceGroup>;
-
-  getDepartment: () => Promise<Department[]>; // Tambahkan ini
-  getDepartmentById?: (id: string | number) => Promise<Department | null>; // Opsional
+  addServiceGroup: (data: { group_name: string; group_description?: string | null }) => Promise<ServiceGroup>;
+  updateServiceGroup: (id: string | number, data: { group_name: string; group_description?: string | null }) => Promise<ServiceGroup>;
+  deleteServiceGroup: (id: string | number) => Promise<void>;
+  getDepartment: () => Promise<Department[]>;
+  getDepartmentById?: (id: string | number) => Promise<Department | null>;
   getMonitoringSchedules: () => Promise<MonitoringSchedule[]>;
   addMonitoringSchedule: (data: MonitoringScheduleRequest) => Promise<MonitoringScheduleResponse>;
   addMonitoringActivities: (activities: MonitoringActivityPost[]) => Promise<MonitoringActivityResponse[]>;
@@ -1696,32 +1684,185 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     [fetchWithAuth]
   );
 
+  const addServiceGroup = useCallback(
+    async (data: { group_name: string; group_description?: string | null }): Promise<ServiceGroup> => {
+      try {
+        const response = await fetchWithAuth("/service-groups", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(data),
+        });
+
+        if (!response) {
+          throw new Error("No response from server");
+        }
+
+        if (response.success === false) {
+          throw new Error(response.message || "Failed to create service group");
+        }
+
+        // Biasanya backend kirim data di response.data, tapi kita fallback ke response langsung
+        const responseData = response.data || response;
+
+        return {
+          id: responseData.id,
+          group_name: responseData.group_name,
+          group_description: responseData.group_description,
+        };
+      } catch (error) {
+        console.error("Error adding service group:", error);
+        throw new Error(`Failed to add service group: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const updateServiceGroup = useCallback(
+    async (id: string | number, data: { group_name: string; group_description?: string | null }): Promise<ServiceGroup> => {
+      try {
+        const response = await fetchWithAuth(`/service-groups/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+
+        const responseData = response.data || response;
+
+        return {
+          id: responseData.id,
+          group_name: responseData.group_name,
+          group_description: responseData.group_description,
+        };
+      } catch (error) {
+        console.error(`Failed to update service group with id ${id}:`, error);
+        throw new Error(`Failed to update service group: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const deleteServiceGroup = useCallback(
+    async (id: string | number): Promise<void> => {
+      try {
+        await fetchWithAuth(`/service-groups/${id}`, {
+          method: "DELETE",
+        });
+      } catch (error) {
+        console.error(`Failed to delete service group with id ${id}:`, error);
+        throw new Error(`Failed to delete service group: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
   const getServices = useCallback(
-    async (id_services: number): Promise<ServiceCatalogue2[]> => {
+    async (id: number): Promise<ServiceCatalogue[]> => {
       try {
         const responseData = await fetchWithAuth("/service-catalogues");
         return responseData.data.map((service: any) => ({
-          id_service: service.id_service,
+          id: service.id,
           service_name: service.service_name,
           service_description: service.service_description,
           service_type: service.service_type,
           priority: service.priority,
-          service_owner: {
-            id: service.service_owner,
-            name: `User ${service.service_owner}`,
-          },
+          service_owner: service.service_owner,
           sla: service.sla,
           impact: service.impact,
-          pic: {
-            id: service.pic,
-            name: `User ${service.pic}`,
-          },
           created_at: service.created_at,
           updated_at: service.updated_at,
         }));
       } catch (error) {
         console.error("Failed to fetch services:", error);
         return [];
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const addServiceCatalogue = useCallback(
+    async (data: { service_name: string; service_description: string; service_type: number; priority: string; service_owner: number; sla: number; impact: string }): Promise<ServiceCatalogue> => {
+      try {
+        const response = await fetchWithAuth("/service-catalogues", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+
+        const responseData = response.data || response;
+
+        return {
+          id: responseData.id,
+          service_name: responseData.service_name,
+          service_description: responseData.service_description,
+          service_type: responseData.service_type,
+          priority: responseData.priority,
+          service_owner: responseData.service_owner,
+          sla: responseData.sla,
+          impact: responseData.impact,
+          created_at: responseData.created_at,
+          updated_at: responseData.updated_at,
+        };
+      } catch (error) {
+        console.error("Error adding service catalogue:", error);
+        throw new Error(`Failed to add service catalogue: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const updateServiceCatalogue = useCallback(
+    async (
+      id: string | number,
+      data: {
+        service_name: string;
+        service_description: string;
+        service_type: number;
+        priority: string;
+        service_owner: number;
+        sla: number;
+        impact: string;
+      }
+    ): Promise<ServiceCatalogue> => {
+      try {
+        const response = await fetchWithAuth(`/service-catalogues/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+
+        const responseData = response.data || response;
+
+        return {
+          id: responseData.id,
+          service_name: responseData.service_name,
+          service_description: responseData.service_description,
+          service_type: responseData.service_type,
+          priority: responseData.priority,
+          service_owner: responseData.service_owner,
+          sla: responseData.sla,
+          impact: responseData.impact,
+          created_at: responseData.created_at,
+          updated_at: responseData.updated_at,
+        };
+      } catch (error) {
+        console.error(`Failed to update service catalogue with id ${id}:`, error);
+        throw new Error(`Failed to update service catalogue: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const deleteServiceCatalogue = useCallback(
+    async (id: string | number): Promise<void> => {
+      try {
+        await fetchWithAuth(`/service-catalogues/${id}`, {
+          method: "DELETE",
+        });
+      } catch (error) {
+        console.error(`Failed to delete service catalogue with id ${id}:`, error);
+        throw new Error(`Failed to delete service catalogue: ${error instanceof Error ? error.message : String(error)}`);
       }
     },
     [fetchWithAuth]
@@ -1895,8 +2036,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         departments: [],
         services: [],
         getServices,
+        addServiceCatalogue,
+        updateServiceCatalogue,
+        deleteServiceCatalogue,
         getServiceGroups,
         getServiceGroup,
+        addServiceGroup,
+        updateServiceGroup,
+        deleteServiceGroup,
         changePassword,
         fetchUser,
         fetchedUsers,

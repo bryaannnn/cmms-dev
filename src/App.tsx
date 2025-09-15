@@ -58,6 +58,10 @@ import ITReportsD from "./component/WorkOrders/DUMMY/ReportsD";
 import AddWorkOrderFormITD from "./component/WorkOrders/DUMMY/FormITDummy";
 import ServiceGroup from "./component/Service/ServiceGroups";
 import ServiceCatalogue from "./component/Service/ServiceCatalogue";
+import FormServiceGroup from "./component/Service/FormGroup";
+import FormEditServiceGroup from "./component/Service/EditGroup";
+import FormEditServiceCatalogue from "./component/Service/EditCatalogue";
+import FormServiceCatalogue from "./component/Service/FormCatalogue";
 
 function App() {
   return (
@@ -115,8 +119,7 @@ function App() {
         <Route path="/workflowapproval/monitoringapproval" element={<WorkflowApprovalMonitoring />} />
         <Route path="/workflowapproval/workorderapproval" element={<WorkOrderApproval />} />
 
-        <Route path="/servicegroups" element={<ServiceGroup />} />
-        <Route path="/servicecatalogue" element={<ServiceCatalogue />} />
+        <Route path="/services/servicecatalogues" element={<ServiceCatalogue />} />
 
         {/* Protected Routes */}
         {/* Dashboard */}
@@ -155,8 +158,13 @@ function App() {
         </Route>
 
         <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}>
-          <Route path="/service" element={<ServiceSelection />} />
-          {/* <Route path="/servicegroups" element={<ServiceGroup />} /> */}
+          <Route path="/services" element={<ServiceSelection />} />
+          <Route path="/services/servicegroups" element={<ServiceGroup />} />
+          <Route path="/services/servicegroups/addservicegroup" element={<FormServiceGroup />} />
+          <Route path="/services/servicegroups/editservicegroup/:id" element={<FormEditServiceGroup />} />
+          <Route path="/services/servicecatalogues" element={<ServiceCatalogue />} />
+          <Route path="/services/servicecatalogues/addservicecatalogue" element={<FormServiceCatalogue />} />
+          <Route path="/services/servicecatalogues/editservicecatalogue/:id" element={<FormEditServiceCatalogue />} />
         </Route>
 
         <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}>

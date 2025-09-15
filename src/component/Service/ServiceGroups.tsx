@@ -1,7 +1,10 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import Sidebar from "../../component/Sidebar";
 import { motion, AnimatePresence } from "framer-motion";
 import { Folder, Plus, Edit, Trash2, X } from "lucide-react";
+import PageHeader from "../../component/PageHeader";
+import { useAuth } from "../../routes/AuthContext";
 
 interface ServiceGroup {
   id: number;
@@ -9,73 +12,13 @@ interface ServiceGroup {
   description?: string;
 }
 
-const LS_KEY = "service.groups.v1";
-
-const randomDelay = () => 200 + Math.floor(Math.random() * 201);
-
-const fetchServiceGroups = async (): Promise<ServiceGroup[]> => {
-  try {
-    await new Promise((res) => setTimeout(res, randomDelay()));
-    const raw = localStorage.getItem(LS_KEY);
-    if (!raw) {
-      const seed: ServiceGroup[] = [
-        { id: 1, name: "Hardware", description: "Hardware related services" },
-        { id: 2, name: "Software", description: "Software related services" },
-        { id: 3, name: "Network", description: "Network related services" },
-        { id: 4, name: "Infrastructure", description: "Infrastructure support" },
-        { id: 5, name: "Industrial Support", description: "Support for industrial systems" },
-      ];
-      localStorage.setItem(LS_KEY, JSON.stringify(seed));
-      return seed;
-    }
-    return JSON.parse(raw) as ServiceGroup[];
-  } catch {
-    return [];
-  }
-};
-
-const createServiceGroup = async (payload: Omit<ServiceGroup, "id">): Promise<ServiceGroup | null> => {
-  try {
-    await new Promise((res) => setTimeout(res, randomDelay()));
-    const groups = await fetchServiceGroups();
-    const nextId = groups.length > 0 ? Math.max(...groups.map((g) => g.id)) + 1 : 1;
-    const newGroup: ServiceGroup = { id: nextId, ...payload };
-    const updated = [...groups, newGroup];
-    localStorage.setItem(LS_KEY, JSON.stringify(updated));
-    return newGroup;
-  } catch {
-    return null;
-  }
-};
-
-const updateServiceGroup = async (id: number, patch: Partial<Omit<ServiceGroup, "id">>): Promise<ServiceGroup | null> => {
-  try {
-    await new Promise((res) => setTimeout(res, randomDelay()));
-    const groups = await fetchServiceGroups();
-    const idx = groups.findIndex((g) => g.id === id);
-    if (idx === -1) return null;
-    const updatedGroup = { ...groups[idx], ...patch };
-    groups[idx] = updatedGroup;
-    localStorage.setItem(LS_KEY, JSON.stringify(groups));
-    return updatedGroup;
-  } catch {
-    return null;
-  }
-};
-
-const deleteServiceGroup = async (id: number): Promise<boolean> => {
-  try {
-    await new Promise((res) => setTimeout(res, randomDelay()));
-    const groups = await fetchServiceGroups();
-    const updated = groups.filter((g) => g.id !== id);
-    localStorage.setItem(LS_KEY, JSON.stringify(updated));
-    return true;
-  } catch {
-    return false;
-  }
-};
-
-const Modal: React.FC<{ isOpen: boolean; onClose: () => void; title: string; className?: string; children: React.ReactNode }> = ({ isOpen, onClose, title, children, className }) => {
+const Modal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  className?: string;
+  children: React.ReactNode;
+}> = ({ isOpen, onClose, title, children, className }) => {
   return (
     <AnimatePresence>
       {isOpen && (
@@ -113,24 +56,57 @@ const ServiceGroup: React.FC = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
+  const [isMobile] = useState(window.innerWidth < 768);
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    const stored = localStorage.getItem("sidebarOpen");
+    return stored ? JSON.parse(stored) : false;
+  });
+
+  const navigate = useNavigate();
+
+  const { getServiceGroups, getServiceGroup, hasPermission } = useAuth();
+
+  const toggleSidebar = () => {
+    const newState = !sidebarOpen;
+    setSidebarOpen(newState);
+    localStorage.setItem("sidebarOpen", JSON.stringify(newState));
+  };
+
+  const loadServiceGroups = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await getServiceGroups(0);
+      const mapped = data.map((g) => ({
+        id: Number(g.id),
+        name: g.group_name ?? "",
+        description: g.group_description ?? undefined,
+      }));
+      setGroups(mapped);
+    } catch (err) {
+      setError("Failed to load service groups");
+      console.error("Error loading service groups:", err);
+    } finally {
+      if (mountedRef.current) {
+        setLoading(false);
+      }
+    }
+  }, [getServiceGroups]);
 
   useEffect(() => {
     mountedRef.current = true;
-    const load = async () => {
-      setLoading(true);
-      const data = await fetchServiceGroups();
-      if (mountedRef.current) {
-        setGroups(data);
-        setLoading(false);
-      }
-    };
-    load();
+    loadServiceGroups();
+
     return () => {
       mountedRef.current = false;
     };
-  }, []);
+  }, [loadServiceGroups]);
 
   const openAdd = () => {
+    if (!hasPermission("manage_users")) {
+      setError("You don't have permission to add service groups");
+      return;
+    }
+
     setEditing(null);
     setName("");
     setDescription("");
@@ -139,6 +115,11 @@ const ServiceGroup: React.FC = () => {
   };
 
   const openEdit = (g: ServiceGroup) => {
+    if (!hasPermission("manage_users")) {
+      setError("You don't have permission to edit service groups");
+      return;
+    }
+
     setEditing(g);
     setName(g.name);
     setDescription(g.description || "");
@@ -151,30 +132,46 @@ const ServiceGroup: React.FC = () => {
       setError("Group Name is required");
       return;
     }
+
     setSaving(true);
     setError(null);
+
     try {
+      // In a real implementation, you would call your API here
+      // For now, we'll simulate the API call
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
       if (editing) {
-        const updated = await updateServiceGroup(editing.id, { name: name.trim(), description: description.trim() || undefined });
-        if (updated) {
-          setGroups((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
-        }
+        // Update existing group
+        setGroups((prev) => prev.map((p) => (p.id === editing.id ? { ...p, name: name.trim(), description: description.trim() || undefined } : p)));
       } else {
-        const created = await createServiceGroup({ name: name.trim(), description: description.trim() || undefined });
-        if (created) {
-          setGroups((prev) => [...prev, created]);
-        }
+        // Add new group
+        const newGroup: ServiceGroup = {
+          id: groups.length > 0 ? Math.max(...groups.map((g) => g.id)) + 1 : 1,
+          name: name.trim(),
+          description: description.trim() || undefined,
+        };
+        setGroups((prev) => [...prev, newGroup]);
       }
+
       setShowModal(false);
       setEditing(null);
       setName("");
       setDescription("");
+    } catch (err) {
+      setError("Failed to save service group");
+      console.error("Error saving service group:", err);
     } finally {
       setSaving(false);
     }
   };
 
   const confirmDelete = (id: number) => {
+    if (!hasPermission("manage_users")) {
+      setError("You don't have permission to delete service groups");
+      return;
+    }
+
     setDeletingId(id);
     setShowDeleteConfirm(true);
     setError(null);
@@ -182,17 +179,20 @@ const ServiceGroup: React.FC = () => {
 
   const handleDelete = async () => {
     if (deletingId === null) return;
+
     setSaving(true);
     setError(null);
+
     try {
-      const ok = await deleteServiceGroup(deletingId);
-      if (ok) {
-        setGroups((prev) => prev.filter((g) => g.id !== deletingId));
-      } else {
-        setError("Failed to delete. Please try again.");
-      }
+      // In a real implementation, you would call your API here
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      setGroups((prev) => prev.filter((g) => g.id !== deletingId));
       setShowDeleteConfirm(false);
       setDeletingId(null);
+    } catch (err) {
+      setError("Failed to delete service group");
+      console.error("Error deleting service group:", err);
     } finally {
       setSaving(false);
     }
@@ -201,13 +201,9 @@ const ServiceGroup: React.FC = () => {
   return (
     <div className={`flex h-screen font-sans antialiased bg-blue-50`}>
       <Sidebar />
+
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white border-b border-gray-100 p-4 flex items-center justify-between shadow-sm sticky top-0 z-30">
-          <div className="flex items-center space-x-4">
-            <Folder className="text-xl text-blue-600" />
-            <h2 className="text-lg md:text-xl font-bold text-gray-900">Service Groups</h2>
-          </div>
-        </header>
+        <PageHeader mainTitle="Service Groups" mainTitleHighlight="Groups" description="Manage service groups used across the service management system." icon={<Folder />} isMobile={isMobile} toggleSidebar={toggleSidebar} />
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-8 flex items-center justify-between">
@@ -217,15 +213,18 @@ const ServiceGroup: React.FC = () => {
               </h1>
               <p className="text-gray-600 mt-2 text-sm max-w-xl">Manage service groups used across the service management system.</p>
             </div>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={openAdd}
-              className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md font-semibold text-sm"
-            >
-              <Plus className="text-base" />
-              <span>Add Group</span>
-            </motion.button>
+
+            {hasPermission("manage_users") && (
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => navigate("/service/servicegroups/addservicegroup")}
+                className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md font-semibold text-sm"
+              >
+                <Plus className="text-base" />
+                <span>Add Group</span>
+              </motion.button>
+            )}
           </motion.div>
 
           {loading ? (
@@ -239,9 +238,11 @@ const ServiceGroup: React.FC = () => {
                 <Folder />
               </div>
               <p className="text-gray-700 text-base font-medium">No service groups available.</p>
-              <button onClick={openAdd} className="mt-5 px-5 py-2 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors duration-200 text-sm">
-                Create first group
-              </button>
+              {hasPermission("manage_users") && (
+                <button onClick={() => navigate(`/service/servicegroups/`)} className="mt-5 px-5 py-2 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors duration-200 text-sm">
+                  Create first group
+                </button>
+              )}
             </div>
           ) : (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="bg-white rounded-2xl shadow-md overflow-hidden border border-blue-100">
@@ -252,7 +253,7 @@ const ServiceGroup: React.FC = () => {
                       <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ID</th>
                       <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Group Name</th>
                       <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Group Description</th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                      {hasPermission("manage_users") && <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>}
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-blue-100">
@@ -274,26 +275,28 @@ const ServiceGroup: React.FC = () => {
                         <td className="px-5 py-3">
                           <div className="text-sm text-gray-600 truncate max-w-xs">{g.description || "-"}</div>
                         </td>
-                        <td className="px-5 py-3 whitespace-nowrap text-sm font-medium space-x-1.5">
-                          <motion.button
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                            onClick={() => openEdit(g)}
-                            className="text-yellow-600 hover:text-yellow-800 transition-colors duration-200 p-1 rounded-full hover:bg-yellow-50"
-                            title="Edit"
-                          >
-                            <Edit className="inline text-base" />
-                          </motion.button>
-                          <motion.button
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                            onClick={() => confirmDelete(g.id)}
-                            className="text-red-600 hover:text-red-800 transition-colors duration-200 p-1 rounded-full hover:bg-red-50"
-                            title="Delete"
-                          >
-                            <Trash2 className="inline text-base" />
-                          </motion.button>
-                        </td>
+                        {hasPermission("manage_users") && (
+                          <td className="px-5 py-3 whitespace-nowrap text-sm font-medium space-x-1.5">
+                            <motion.button
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.9 }}
+                              onClick={() => navigate(`/service/servicegroups/editservicegroup/${g.id}`)}
+                              className="text-yellow-600 hover:text-yellow-800 transition-colors duration-200 p-1 rounded-full hover:bg-yellow-50"
+                              title="Edit"
+                            >
+                              <Edit className="inline text-base" />
+                            </motion.button>
+                            <motion.button
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.9 }}
+                              onClick={() => confirmDelete(g.id)}
+                              className="text-red-600 hover:text-red-800 transition-colors duration-200 p-1 rounded-full hover:bg-red-50"
+                              title="Delete"
+                            >
+                              <Trash2 className="inline text-base" />
+                            </motion.button>
+                          </td>
+                        )}
                       </motion.tr>
                     ))}
                   </tbody>
@@ -302,7 +305,11 @@ const ServiceGroup: React.FC = () => {
             </motion.div>
           )}
 
-          {error && <div className="mt-4 text-sm text-red-600 font-medium">{error}</div>}
+          {error && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-600 font-medium">{error}</p>
+            </div>
+          )}
         </main>
       </div>
 
@@ -341,12 +348,16 @@ const ServiceGroup: React.FC = () => {
               whileTap={{ scale: 0.97 }}
               onClick={handleSave}
               disabled={saving}
-              className="px-5 py-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 font-semibold text-sm"
+              className="px-5 py-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 font-semibold text-sm"
             >
-              Save
+              {saving ? "Saving..." : "Save"}
             </motion.button>
           </div>
-          {error && <div className="text-sm text-red-600 font-medium">{error}</div>}
+          {error && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-600 font-medium">{error}</p>
+            </div>
+          )}
         </div>
       </Modal>
 
@@ -369,9 +380,10 @@ const ServiceGroup: React.FC = () => {
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
               onClick={handleDelete}
-              className="px-5 py-2.5 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200 font-semibold text-sm"
+              disabled={saving}
+              className="px-5 py-2.5 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200 font-semibold text-sm"
             >
-              Delete
+              {saving ? "Deleting..." : "Delete"}
             </motion.button>
           </div>
         </div>
