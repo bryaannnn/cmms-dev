@@ -25,9 +25,8 @@ import EditAssetPage from "./pages/EditAssets";
 // import FormWorkOrders from "./component/WorkOrders/FormWO";
 // import EditWorkOrder from "./component/WorkOrders/EditWO";
 // import WorkOrderAdminDashboard from "./pages/WorkOrdersAdmin";
-import ITRequest from "./component/WorkOrders/IT/Request";
 // import ITApprover from "./component/WorkOrders/IT/Approver";
-import ITAssignment from "./component/WorkOrders/IT/Assignment";
+// import ITAssignment from "./component/WorkOrders/IT/Assignment";
 import ITReceiver from "./component/WorkOrders/IT/Receiver";
 // import ITReports from "./component/WorkOrders/IT/Reports";
 import ITKnowledgeBase from "./component/WorkOrders/IT/KnowladgeBase";
@@ -62,6 +61,17 @@ import FormServiceGroup from "./component/Service/FormGroup";
 import FormEditServiceGroup from "./component/Service/EditGroup";
 import FormEditServiceCatalogue from "./component/Service/EditCatalogue";
 import FormServiceCatalogue from "./component/Service/FormCatalogue";
+import DepartmentPage from "./component/WorkLocation/Department";
+import FormDepartment from "./component/WorkLocation/FormDepartment";
+import EditDepartment from "./component/WorkLocation/EditDepartment";
+import StopTimePage from "./component/Maintenance Activity/Stop Times/StopTime";
+import FormStopTimes from "./component/Maintenance Activity/Stop Times/FomStopTimes";
+import EditStopTimes from "./component/Maintenance Activity/Stop Times/EditStopTimes";
+import ActivityTypePage from "./component/Maintenance Activity/Activity Type/AcitvityType";
+import FormActivityType from "./component/Maintenance Activity/Activity Type/FomActivityType";
+import EditActivityType from "./component/Maintenance Activity/Activity Type/EditActivityType";
+import ITRequest2 from "./component/WorkOrders/IT/Request2";
+import EditWorkOrderFormIT from "./component/WorkOrders/IT/EditIT";
 
 function App() {
   return (
@@ -74,6 +84,7 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/unauthorized" element={<UnauthorizedPage />} />
+        <Route path="/dashboard" element={<Dashboard />} />
         {/* <Route path="/permissions" element={<PermissionsPage />} /> */}
         {/* <Route path="/workorders" element={<WorkOrdersDashboard />} />
         <Route path="/workordersadmin" element={<WorkOrderAdminDashboard />} />
@@ -89,8 +100,10 @@ function App() {
         <Route path="/workorders/td/reports" element={<ReportsTD />} />
         <Route path="/workorders/td/knowledge-base" element={<KnowledgeBaseTD />} /> */}
 
+        <Route path="/maintenanceactivity/activitytypes/addactivitytype" element={<FormActivityType />} />
+
         {/* DUMMY Work Order IT */}
-        <Route path="/workorders/itD" element={<RequestD />} />
+        <Route path="/workorders/itD" element={<ITRequest2 />} />
         <Route path="/workorders/it/addworkorderD" element={<AddWorkOrderFormITD />} />
         {/* <Route path="/workorders/it/editworkorder/:id" element={<EditWorkOrderIT />} /> */}
         {/* <Route path="/workorders/it/approver" element={<ITApprover />} /> */}
@@ -99,16 +112,16 @@ function App() {
         <Route path="/workorders/it/reportsD" element={<ITReportsD />} />
         <Route path="/workorders/it/knowledgebased" element={<ITKnowledgeBase />} />
 
-        <Route path="/workorders/it" element={<ITRequest />} />
+        {/* <Route path="/workorders/it" element={<ITRequest />} /> */}
         {/* <Route path="/workorders/it/addworkorder" element={<AddWorkOrderFormIT />} /> */}
         <Route path="/workorders/it/addworkorderdummy" element={<AddWorkOrderFormITDummy />} />
         {/* <Route path="/workorders/it/editworkorder/:id" element={<EditWorkOrderIT />} /> */}
         {/* <Route path="/workorders/it/approver" element={<ITApprover />} /> */}
-        <Route path="/workorders/it/assignment" element={<ITAssignment />} />
-        <Route path="/workorders/it/receiver" element={<ITReceiver />} />
+        {/* <Route path="/workorders/it/assignment" element={<ITAssignment />} />
+        <Route path="/workorders/it/receiver" element={<ITReceiver />} /> */}
         {/* <Route path="/workorders/it/reports" element={<ITReports />} /> */}
-        <Route path="/workorders/it/knowledgebase" element={<ITKnowledgeBase />} />
-        <Route path="/permissions/adduser" element={<AddUserPage />} />
+        {/* <Route path="/workorders/it/knowledgebase" element={<ITKnowledgeBase />} />
+        <Route path="/permissions/adduser" element={<AddUserPage />} /> */}
         {/* <Route path="/machinehistory/addmachinehistory" element={<FormMesin />} />  
         <Route path="/machinehistory/edit/:id" element={<EditFormMesin />} /> */}
         <Route path="/workorders" element={<WorkOrdersSelection />} />
@@ -120,6 +133,9 @@ function App() {
         <Route path="/workflowapproval/workorderapproval" element={<WorkOrderApproval />} />
 
         <Route path="/services/servicecatalogues" element={<ServiceCatalogue />} />
+        <Route path="/worklocation/departments" element={<DepartmentPage />} />
+        <Route path="/worklocation/departments/adddepartment" element={<FormDepartment />} />
+        <Route path="/worklocation/departments/editdepartment" element={<EditDepartment />} />
 
         {/* Protected Routes */}
         {/* Dashboard */}
@@ -138,6 +154,9 @@ function App() {
 
         <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}>
           <Route path="/worklocation" element={<WorkLocationSelection />} />
+          <Route path="/worklocation/department" element={<DepartmentPage />} />
+          <Route path="/worklocation/department/adddepartment" element={<FormDepartment />} />
+          <Route path="/worklocation/department/editdepartment/:id" element={<EditDepartment />} />
         </Route>
 
         <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}>
@@ -169,6 +188,12 @@ function App() {
 
         <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}>
           <Route path="/maintenanceactivity" element={<MaintenanceActivitySelection />} />
+          <Route path="/maintenanceactivity/stoptimes" element={<StopTimePage />} />
+          <Route path="/maintenanceactivity/stoptimes/addstoptime" element={<FormStopTimes />} />
+          <Route path="/maintenanceactivity/stoptimes/editstoptime/:id" element={<EditStopTimes />} />
+          <Route path="/maintenanceactivity/activitytypes" element={<ActivityTypePage />} />
+          <Route path="/maintenanceactivity/activitytypes/addactivitytype" element={<FormActivityType />} />
+          <Route path="/maintenanceactivity/activitytypes/editactivitytype/:id" element={<EditActivityType />} />
         </Route>
 
         {/* Machine History */}
@@ -186,18 +211,13 @@ function App() {
         {/* Work Orders */}
         <Route element={<ProtectedRoute requiredPermissions={["view_workorders"]} />}>
           <Route path="/workorders" element={<WorkOrdersSelection />} />
-          <Route path="/workorders/it" element={<ITRequest />} />
+          <Route path="/workorders/it" element={<ITRequest2 />} />
           <Route path="/workorders/it/addworkorder" element={<AddWorkOrderFormIT />} />
-          {/* <Route path="/workorders/it/editworkorder/:id" element={<EditWorkOrderIT />} /> */}
-          {/* <Route path="/workorders/it/approver" element={<ITApprover />} /> */}
-          <Route path="/workorders/it/assignment" element={<ITAssignment />} />
+          <Route path="/workorders/it/editworkorder/:id" element={<EditWorkOrderFormIT />} />
           <Route path="/workorders/it/receiver" element={<ITReceiver />} />
+          {/* <Route path="/workorders/it/assignment" element={<ITAssignment />} /> */}
           {/* <Route path="/workorders/it/reports" element={<ITReports />} /> */}
           <Route path="/workorders/it/knowledgebase" element={<ITKnowledgeBase />} />
-          {/* <Route path="/workorders" element={<WorkOrdersDashboard />} />
-          <Route path="/workordersadmin" element={<WorkOrderAdminDashboard />} />
-          <Route path="/workorders/addworkorder" element={<FormWorkOrders />} />
-          <Route path="/workorders/editworkorder/:id" element={<EditWorkOrder />} /> */}
         </Route>
 
         {/* Inventory */}

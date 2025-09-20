@@ -17,7 +17,7 @@ import {
   Wrench, // For header title icon (representing maintenance activity)
   ChevronDown,
 } from "lucide-react";
-import Sidebar from "../../component/Sidebar"; // Assuming Sidebar is in ../../component/Sidebar
+import Sidebar from "../Sidebar"; // Assuming Sidebar is in ../../component/Sidebar
 import { useAuth } from "../../routes/AuthContext"; // Import useAuth for user context
 
 const MaintenanceActivitySelection: React.FC = () => {
@@ -231,7 +231,7 @@ const MaintenanceActivitySelection: React.FC = () => {
               className="w-full bg-white rounded-2xl shadow-xl p-8 border border-blue-100 cursor-pointer flex flex-col items-center text-center transition-all duration-300 hover:scale-105 hover:shadow-2xl"
               whileHover={{ y: -5 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => handleCardClick("/maintenanceactivity/activitytype")}
+              onClick={() => handleCardClick("/maintenanceactivity/activitytypes")}
             >
               <ListChecks size={64} className="text-blue-600 mb-4" />
               <h3 className="text-2xl font-bold text-gray-900 mb-2">Activity Type</h3>
@@ -261,7 +261,7 @@ const MaintenanceActivitySelection: React.FC = () => {
               className="w-full bg-white rounded-2xl shadow-xl p-8 border border-purple-100 cursor-pointer flex flex-col items-center text-center transition-all duration-300 hover:scale-105 hover:shadow-2xl"
               whileHover={{ y: -5 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => handleCardClick("/maintenanceactivity/stoptime")}
+              onClick={() => handleCardClick("/maintenanceactivity/stoptimes")}
             >
               <Clock size={64} className="text-purple-600 mb-4" />
               <h3 className="text-2xl font-bold text-gray-900 mb-2">Stop Time</h3>

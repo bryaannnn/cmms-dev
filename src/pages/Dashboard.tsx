@@ -4,7 +4,7 @@ import { useAuth, PermissionName } from "../routes/AuthContext";
 import logoWida from "../assets/logo-wida.png";
 import { motion, AnimatePresence } from "framer-motion";
 import type { User } from "../routes/AuthContext";
-import  Sidebar  from "../component/Sidebar";
+import Sidebar from "../component/Sidebar";
 
 // Import Lucide Icons for consistency with Maintenance.tsx
 import {
@@ -80,13 +80,9 @@ const StatCard: React.FC<{ title: string; value: string; change: string; icon: R
           <p className="text-sm font-medium text-gray-500 mb-1">{title}</p>
           <p className="text-3xl font-bold text-gray-900">{value}</p>
         </div>
-        <div className="p-2 rounded-full bg-blue-50 text-blue-600 text-2xl opacity-90 transition-all duration-200">
-          {icon}
-        </div>
+        <div className="p-2 rounded-full bg-blue-50 text-blue-600 text-2xl opacity-90 transition-all duration-200">{icon}</div>
       </div>
-      <p className={`mt-3 text-xs font-semibold ${isPositive ? "text-green-600" : "text-red-600"}`}>
-        {change} from last month
-      </p>
+      <p className={`mt-3 text-xs font-semibold ${isPositive ? "text-green-600" : "text-red-600"}`}>{change} from last month</p>
     </motion.div>
   );
 };
@@ -249,7 +245,9 @@ const Dashboard: React.FC = () => {
             <h2 className="text-lg md:text-xl font-bold text-gray-900">Dashboard</h2>
           </div>
 
-          <div className="flex items-center space-x-3 relative"> {/* Added relative for dropdown positioning */}
+          <div className="flex items-center space-x-3 relative">
+            {" "}
+            {/* Added relative for dropdown positioning */}
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -259,7 +257,6 @@ const Dashboard: React.FC = () => {
             >
               {darkMode ? <Sun className="text-yellow-400 text-xl" /> : <Moon className="text-xl" />}
             </motion.button>
-
             {/* Notifications Pop-up */}
             <div className="relative" ref={notificationsRef}>
               <motion.button
@@ -289,30 +286,37 @@ const Dashboard: React.FC = () => {
                       </button>
                     </div>
                     <div className="max-h-64 overflow-y-auto custom-scrollbar">
-                      {insights.slice(0, 3).map((notification) => ( // Using insights as placeholder for notifications
-                        <div key={notification.id} className="flex items-start px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-50 last:border-b-0">
-                          <div className="p-2 mr-3 mt-0.5 rounded-full bg-blue-50 text-blue-600">
-                            {notification.icon}
+                      {insights.slice(0, 3).map(
+                        (
+                          notification // Using insights as placeholder for notifications
+                        ) => (
+                          <div key={notification.id} className="flex items-start px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-50 last:border-b-0">
+                            <div className="p-2 mr-3 mt-0.5 rounded-full bg-blue-50 text-blue-600">{notification.icon}</div>
+                            <div>
+                              <p className="font-medium text-sm text-gray-800">{notification.title}</p>
+                              <p className="text-xs text-gray-600 mt-1">{notification.description}</p>
+                              <p className="text-xs text-gray-500 mt-1">{notification.date}</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-medium text-sm text-gray-800">{notification.title}</p>
-                            <p className="text-xs text-gray-600 mt-1">{notification.description}</p>
-                            <p className="text-xs text-gray-500 mt-1">{notification.date}</p>
-                          </div>
-                        </div>
-                      ))}
-                      {insights.length === 0 && (
-                        <p className="text-gray-500 text-sm px-4 py-3">No new notifications.</p>
+                        )
                       )}
+                      {insights.length === 0 && <p className="text-gray-500 text-sm px-4 py-3">No new notifications.</p>}
                     </div>
                     <div className="px-4 py-2 border-t border-gray-100 text-center">
-                      <button onClick={() => {alert('View All Notifications clicked'); setShowNotificationsPopup(false);}} className="text-blue-600 hover:underline text-sm font-medium">View All</button>
+                      <button
+                        onClick={() => {
+                          alert("View All Notifications clicked");
+                          setShowNotificationsPopup(false);
+                        }}
+                        className="text-blue-600 hover:underline text-sm font-medium"
+                      >
+                        View All
+                      </button>
                     </div>
                   </motion.div>
                 )}
               </AnimatePresence>
             </div>
-
             {/* Profile Menu Pop-up */}
             <div className="relative" ref={profileRef}>
               <motion.button
@@ -340,24 +344,31 @@ const Dashboard: React.FC = () => {
                     className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-40 border border-gray-100"
                   >
                     <div className="px-4 py-2 text-xs text-gray-500 border-b border-gray-100">Signed in as</div>
-                    <div className="px-4 py-2 font-semibold text-gray-800 border-b border-gray-100">
-                      {user?.name || "Guest User"}
-                    </div>
+                    <div className="px-4 py-2 font-semibold text-gray-800 border-b border-gray-100">{user?.name || "Guest User"}</div>
                     <button
-                      onClick={() => {navigate('/profile'); setShowProfileMenu(false);}}
+                      onClick={() => {
+                        navigate("/profile");
+                        setShowProfileMenu(false);
+                      }}
                       className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 w-full text-left"
                     >
                       <UserIcon size={16} className="mr-2" /> My Profile
                     </button>
                     <button
-                      onClick={() => {navigate('/settings'); setShowProfileMenu(false);}}
+                      onClick={() => {
+                        navigate("/settings");
+                        setShowProfileMenu(false);
+                      }}
                       className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 w-full text-left"
                     >
                       <Settings size={16} className="mr-2" /> Settings
                     </button>
                     <hr className="my-1 border-gray-100" />
                     <button
-                      onClick={() => {navigate('/logout'); setShowProfileMenu(false);}}
+                      onClick={() => {
+                        navigate("/logout");
+                        setShowProfileMenu(false);
+                      }}
                       className="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full text-left"
                     >
                       <LogOut size={16} className="mr-2" /> Logout
@@ -405,9 +416,7 @@ const Dashboard: React.FC = () => {
                 <div className="space-y-4">
                   {insights.map((insight) => (
                     <motion.div key={insight.id} whileHover={{ x: 5, backgroundColor: "rgba(239, 246, 255, 0.5)" }} className="flex items-start p-3 hover:bg-blue-50 rounded-xl transition-colors cursor-pointer">
-                      <div className="p-2 mr-3 mt-0.5 rounded-full bg-blue-50 text-blue-600">
-                        {insight.icon}
-                      </div>
+                      <div className="p-2 mr-3 mt-0.5 rounded-full bg-blue-50 text-blue-600">{insight.icon}</div>
                       <div className="flex-1">
                         <h4 className="font-medium text-gray-800">{insight.title}</h4>
                         <p className="text-sm text-gray-600">{insight.description}</p>

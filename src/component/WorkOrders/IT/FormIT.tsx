@@ -5,7 +5,7 @@ import Sidebar from "../../Sidebar";
 import { X, Clock, CheckCircle, ToolCase, ArrowLeft, Save, Trash2, Hourglass, ListPlus, Paperclip, Sun, Moon, Settings, Bell, User as UserIcon, ChevronDown, ChevronRight, ChevronLeft, LogOut, AlertTriangle } from "lucide-react";
 import Select from "react-select";
 import CreatableSelect from "react-select/creatable";
-import { useAuth, User as AuthUser, Department, WorkOrderFormData } from "../../../routes/AuthContext";
+import { useAuth, User as AuthUser, Department, WorkOrderFormData, ServiceCatalogue } from "../../../routes/AuthContext";
 
 interface ModalProps {
   isOpen: boolean;
@@ -19,22 +19,10 @@ interface OptionType {
   label: string;
 }
 
-interface Service4 {
+interface ServiceGroup {
   id: number;
   name: string;
-  group_id: number;
-  owner: {
-    id: number;
-    name: string;
-  };
-  description: string;
-  priority: string;
-  sla: string;
-  impact: string;
-  pic?: {
-    id: number;
-    name: string;
-  };
+  description?: string;
 }
 
 // Perbaiki interface di FormIT.tsx
@@ -76,12 +64,12 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
 };
 
 const AddWorkOrderFormIT: React.FC = () => {
-  const { addWorkOrderIT, user, getUsers, getServices, getDepartment } = useAuth();
+  const { updateWorkOrderIT, user, getUsers, getServices, getDepartment, getServiceGroups } = useAuth();
   const navigate = useNavigate();
 
   const [allUsers, setAllUsers] = useState<AuthUser[]>([]);
   const [departmentList, setDepartmentList] = useState<Department[]>([]);
-  const [serviceList, setServiceList] = useState<Service4[]>([]);
+  const [serviceList, setServiceList] = useState<ServiceCatalogue[]>([]);
   const [assetOptions, setAssetOptions] = useState<OptionType[]>([]);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
@@ -100,23 +88,10 @@ const AddWorkOrderFormIT: React.FC = () => {
   const notificationsRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
-  const [filteredServices, setFilteredServices] = useState<Service4[]>([]);
+  const [filteredServices, setFilteredServices] = useState<ServiceCatalogue[]>([]);
+  const [filteredServiceGroups, setFilteredServiceGroups] = useState<ServiceGroup[]>([]);
+  const [serviceGroupsList, setServiceGroupsList] = useState<ServiceGroup[]>([]);
   const [isServicesLoading, setIsServicesLoading] = useState(false);
-
-  const SERVICE_GROUPS = [
-    { id: 1, name: "Hardware" },
-    { id: 2, name: "Software" },
-    { id: 3, name: "Network" },
-    { id: 4, name: "Infrastructure" },
-    { id: 5, name: "Industrial Support" },
-  ];
-
-  const SERVICE_CATALOGUES = [
-    { id: 1, name: "Server", group_id: 1 },
-    { id: 2, name: "Software", group_id: 2 },
-    { id: 3, name: "Widapro", group_id: 2 },
-    { id: 4, name: "Audit OFF", group_id: 2 },
-  ];
 
   const initialFormData: WorkOrderFormDataLocal = {
     date: new Date().toISOString().split("T")[0],
@@ -141,32 +116,19 @@ const AddWorkOrderFormIT: React.FC = () => {
 
   const isElectronicMethod = formData.reception_method === "Electronic Work Order System";
 
-  const transformServiceData = (services: any[]): Service4[] => {
-    return services.map((service) => ({
-      id: service.id_service || service.id,
-      name: service.service_name || service.name,
-      group_id: service.service_type || service.group_id,
-      owner: {
-        id: service.service_owner?.id || service.owner?.id || 0,
-        name: service.service_owner?.name || service.owner?.name || `User ${service.service_owner}`,
-      },
-      description: service.service_description || service.description || "",
-      priority: service.priority || "",
-      sla: service.sla || "",
-      impact: service.impact || "",
-      pic: service.pic
-        ? {
-            id: service.pic.id || 0,
-            name: service.pic.name || `User ${service.pic}`,
-          }
-        : undefined,
-    }));
-  };
-
   // Di useEffect untuk fetch data
   useEffect(() => {
     const fetchData = async () => {
       try {
+
+        const data = await getServiceGroups(0);
+        const mapped = data.map((g) => ({
+          id: Number(g.id),
+          name: g.group_name ?? "",
+          description: g.group_description ?? undefined,
+        }));
+        setFilteredServiceGroups(mapped);
+
         const departmentsResponse = await getDepartment();
         setDepartmentList(departmentsResponse);
 
@@ -175,7 +137,7 @@ const AddWorkOrderFormIT: React.FC = () => {
 
         if (user && user.id) {
           const servicesData = await getServices(parseInt(user.id));
-          const transformedServices = transformServiceData(servicesData);
+          const transformedServices = servicesData;
           setServiceList(transformedServices); // ✅ Simpan semua services
           console.log("Services loaded:", transformedServices);
         }
@@ -187,7 +149,7 @@ const AddWorkOrderFormIT: React.FC = () => {
     if (user) {
       fetchData();
     }
-  }, [user, getUsers, getServices, getDepartment]);
+  }, [user, getUsers, getServices, getDepartment, getServiceGroups]);
 
   useEffect(() => {
     if (formData.reception_method === "Electronic Work Order System" && user) {
@@ -233,7 +195,7 @@ const AddWorkOrderFormIT: React.FC = () => {
 
   useEffect(() => {
     if (formData.service_type_id && serviceList.length > 0) {
-      const filtered = serviceList.filter((service) => String(service.group_id) === formData.service_type_id);
+      const filtered = serviceList.filter((service) => String(service.id) === formData.service_type_id);
 
       setFilteredServices(filtered);
     } else {
@@ -324,58 +286,37 @@ const AddWorkOrderFormIT: React.FC = () => {
     }));
   }, []);
 
-  // Di FormIT.tsx
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
+    setError(null);
 
-    if (!formData.service_type_id) {
-      setError("Service Type is required");
-      return;
-    }
-    if (!formData.service_id) {
-      setError("Service is required");
-      return;
-    }
-
-    if (!formData.complaint.trim()) {
-      setError("Complaint is required");
-      return;
-    }
+    const dataToSend: WorkOrderFormDataLocal = {
+      ...formData,
+      date: formData.date,
+      reception_method: formData.reception_method,
+      requester_id: formData.requester_id,
+      known_by_id: formData.known_by_id,
+      department_id: formData.department_id,
+      service_type_id: formData.service_type_id,
+      service_id: formData.service_id,
+      asset_no: formData.asset_no,
+      device_info: formData.device_info,
+      complaint: formData.complaint,
+      attachment: formData.attachment,
+    };
 
     try {
-      setIsLoading(true);
-      setError(null);
-
-      // Convert to numbers and validate/ay
-      const serviceTypeId = Number(formData.service_type_id);
-      const serviceId = Number(formData.service_id);
-
-      if (isNaN(serviceTypeId) || isNaN(serviceId)) {
-        setError("Invalid service type or service ID");
-        return;
-      }
-
-      // Create payload with proper number values
-      const payload: WorkOrderFormData = {
-        ...formData,
-        service_type_id: serviceTypeId,
-        service_id: serviceId,
-      };
-
-      await addWorkOrderIT(payload, selectedFile);
-
-      setSuccessMessage({
-        message: "Work Order created successfully!",
-        work_order: { work_order_no: "WO-" + Date.now() },
-      });
-      setShowSuccessModal(true);
-    } catch (error: any) {
-      console.error("Submit error:", error);
-      setError(error.message || "Failed to create work order. Please try again.");
+      await updateWorkOrderIT(dataToSend);
+      setShowSuccessModal(true); // Show success modal
+    } catch (err: any) {
+      setError(err.message || "Gagal menyimpan data history mesin. Silakan coba lagi.");
+      console.error("Submission error:", err);
     } finally {
       setIsLoading(false);
     }
   };
+
 
   const handleServiceGroupChange = (selectedOption: OptionType | null) => {
     setFormData((prev) => ({
@@ -805,13 +746,13 @@ const AddWorkOrderFormIT: React.FC = () => {
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label htmlFor="service_group_id" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="service_type_id" className="block text-sm font-medium text-gray-700 mb-1">
                       Service Type <span className="text-red-500">*</span>
                     </label>
                     <Select
                       id="service_type_id"
                       name="service_type_id"
-                      options={SERVICE_GROUPS.map((group) => ({
+                      options={filteredServiceGroups.map((group) => ({
                         value: String(group.id),
                         label: group.name,
                       }))}
@@ -819,7 +760,7 @@ const AddWorkOrderFormIT: React.FC = () => {
                         formData.service_type_id
                           ? {
                               value: formData.service_type_id,
-                              label: SERVICE_GROUPS.find((group) => String(group.id) === formData.service_type_id)?.name || "",
+                              label: filteredServiceGroups.find((g) => String(g.id) === formData.service_type_id)?.name || "",
                             }
                           : null
                       }
@@ -839,13 +780,13 @@ const AddWorkOrderFormIT: React.FC = () => {
                       name="service_id"
                       options={filteredServices.map((service) => ({
                         value: String(service.id), // penting
-                        label: service.name,
+                        label: service.service_name,
                       }))}
                       value={
                         formData.service_id
                           ? {
                               value: formData.service_id,
-                              label: filteredServices.find((s) => String(s.id) === formData.service_id)?.name || "",
+                              label: filteredServices.find((s) => String(s.id) === formData.service_id)?.service_name || "",
                             }
                           : null
                       }

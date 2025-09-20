@@ -16,7 +16,7 @@ import {
   CheckCircle,
   Users,
   BarChart2,
-  Database, 
+  Database,
   Clipboard,
   Filter,
   Package,

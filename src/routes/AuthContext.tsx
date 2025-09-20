@@ -329,14 +329,24 @@ export interface ServiceCatalogue {
 
 export interface Service4 {
   id: number;
-  name: string;
-  description?: string;
-  group_id: number;
-  owner: SimpleUser;
-  priority?: string;
-  sla?: number;
-  impact?: string;
-  pic?: SimpleUser;
+  service_name: string;
+  service_description: string;
+  service_type: number;
+  priority: SimpleUser;
+  service_owner: number;
+  sla: string;
+  impact: string;
+  pic: number;
+  owner: {
+    id: number;
+    name: string;
+    nik: string;
+    email: string;
+    avatar: string;
+    department: string;
+    position: string | null;
+    department_id: number | null;
+  };
 }
 
 export interface ServiceType3 {
@@ -376,7 +386,7 @@ export interface WorkOrderData {
   known_by: SimpleUser;
   department: Department;
   department_name: string;
-  service_type: SimpleUser;
+  service_type: { id: number; group_name: string; group_description: string };
   service: Service4;
   received_by: SimpleUser;
   assigned_to: SimpleUser | null;
@@ -411,6 +421,27 @@ export interface WorkOrderFormData {
   service?: Service4 | null;
   received_by?: SimpleUser | null;
   assigned_to?: SimpleUser | null;
+  service_catalogue_id?: number;
+}
+
+export interface WorkOrderFormDataLocal {
+  id?: number;
+  date: string;
+  reception_method: string;
+  requester_id: number;
+  known_by_id: number | null;
+  department_id: number;
+  service_type_id: string;
+  service_id: string;
+  asset_no: string;
+  device_info: string;
+  complaint: string;
+  attachment: string | null; // ✅ Hapus undefined, hanya string | null
+  received_by_id: number | null;
+  handling_date: string | null;
+  action_taken: string | null;
+  handling_status: string;
+  remarks: string | null;
 }
 
 // export interface WorkOrder {
@@ -548,7 +579,7 @@ export interface ServiceCatalogue1 {
 
 export interface ServiceGroup {
   id: string | number;
-  group_name: string | null;
+  group_name: string;
   group_description: string | null;
   name?: string;
 }
@@ -726,6 +757,17 @@ export interface MonitoringActivityResponse {
   updated_at?: string;
 }
 
+export interface StopTimes {
+  id: number;
+  name: string;
+  description: string | null;
+}
+
+export interface ActivityType {
+  id: number;
+  name: string;
+}
+
 // monitoring maintenance stop
 
 interface EditingUser extends User {
@@ -786,16 +828,14 @@ interface AuthContextType {
   masterData: AllMasterData | null;
   isMasterDataLoading: boolean;
   getWorkOrdersIT: () => Promise<WorkOrderData[]>;
-  addWorkOrderIT: (data: WorkOrderFormData | FormData, file?: File | null) => Promise<WorkOrderData>;
-  updateWorkOrderIT: (data: WorkOrderFormData) => Promise<WorkOrderData>;
+  addWorkOrderIT: (data: WorkOrderFormDataLocal) => Promise<any>;
+  updateWorkOrderIT: (data: WorkOrderFormDataLocal) => Promise<any>;
   deleteWorkOrder: (id: number) => Promise<any>;
-  assignWorkOrderIT: (id: number, assignedToUserId: number) => Promise<WorkOrderData>;
-  approveWorkOrderIT: (id: number) => Promise<WorkOrderData>;
-  cancelWorkOrder: (id: number) => Promise<WorkOrderData>;
   getWorkOrdersForUser: (userId: string) => Promise<WorkOrderData[]>;
-  getWorkOrderById: (id: number) => Promise<WorkOrderData>;
+  getWorkOrderById: (id: string | number) => Promise<WorkOrderData>;
   departments: Department[];
-  services: Service4[];
+  services: ServiceCatalogue[];
+  serviceGroups: ServiceGroup[];
   changePassword: (oldPassword: string, newPassword: string) => Promise<void>;
   fetchUser: () => Promise<User>;
   fetchedUsers: () => Promise<User[]>;
@@ -819,16 +859,30 @@ interface AuthContextType {
   addServiceCatalogue: (data: { service_name: string; service_description: string; service_type: number; priority: string; service_owner: number; sla: number; impact: string }) => Promise<ServiceCatalogue>;
   updateServiceCatalogue: (id: string | number, data: { service_name: string; service_description: string; service_type: number; priority: string; service_owner: number; sla: number; impact: string }) => Promise<ServiceCatalogue>;
   deleteServiceCatalogue: (id: string | number) => Promise<void>;
-  getServiceGroups: (id: string | number) => Promise<ServiceGroup[]>;
+  getServiceGroups: (id: number) => Promise<ServiceGroup[]>;
   getServiceGroup: (id: string | number) => Promise<ServiceGroup>;
   addServiceGroup: (data: { group_name: string; group_description?: string | null }) => Promise<ServiceGroup>;
   updateServiceGroup: (id: string | number, data: { group_name: string; group_description?: string | null }) => Promise<ServiceGroup>;
   deleteServiceGroup: (id: string | number) => Promise<void>;
   getDepartment: () => Promise<Department[]>;
-  getDepartmentById?: (id: string | number) => Promise<Department | null>;
+  getDepartmentById: (id: string | number) => Promise<Department>;
+  addDepartment: (data: { name: string; head_id: number }) => Promise<Department>;
+  updateDepartment: (id: string | number, data: { name: string; head_id: number }) => Promise<Department>;
+  deleteDepartment: (id: string | number) => Promise<void>;
   getMonitoringSchedules: () => Promise<MonitoringSchedule[]>;
   addMonitoringSchedule: (data: MonitoringScheduleRequest) => Promise<MonitoringScheduleResponse>;
   addMonitoringActivities: (activities: MonitoringActivityPost[]) => Promise<MonitoringActivityResponse[]>;
+  getStopTimes: () => Promise<StopTimes[]>;
+  getStopTimesById: (id: string | number) => Promise<StopTimes>;
+  addStopTimes: (data: { name: string; description: string }) => Promise<StopTimes>;
+  updateStopTimes: (id: string | number, data: { name: string; description: string }) => Promise<StopTimes>;
+  deleteStopTimes: (id: string | number) => Promise<void>;
+  getActivityTypes: () => Promise<ActivityType[]>;
+  getActivityTypesById: (id: string | number) => Promise<ActivityType>;
+  addActivityTypes: (data: { name: string }) => Promise<ActivityType>;
+  updateActivityTypes: (id: string | number, data: { name: string }) => Promise<ActivityType>;
+  deleteActivityTypes: (id: string | number) => Promise<void>;
+  getServicesByOwner: (service_owner: number) => Promise<ServiceCatalogue[]>;
 }
 
 const projectEnvVariables = getProjectEnvVariables();
@@ -1026,7 +1080,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   );
 
   const fetchUser = useCallback(async (): Promise<User> => {
-    const userData = await fetchWithAuth("/user/profile");
+    const userData = await fetchWithAuth("/user/profile?includes_trashed=true");
     const mappedUser = mapApiToUser(userData);
     setUser(mappedUser);
     localStorage.setItem("user", JSON.stringify(mappedUser));
@@ -1055,15 +1109,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const getAllMasterData = useCallback(async (): Promise<AllMasterData> => {
     const [mesins, groups, shifts, units, unitspareparts, itemtroubles, jenisaktivitas, kegiatans, stoptimes] = await Promise.all([
-      fetchWithAuth("/mesin"),
-      fetchWithAuth("/group"),
-      fetchWithAuth("/shift"),
-      fetchWithAuth("/unit"),
-      fetchWithAuth("/unitsp"),
-      fetchWithAuth("/itemtrouble"),
-      fetchWithAuth("/jenisaktifitas"),
-      fetchWithAuth("/kegiatan"),
-      fetchWithAuth("/stoptime"),
+      fetchWithAuth("/mesin?includes_trashed=true"),
+      fetchWithAuth("/group?includes_trashed=true"),
+      fetchWithAuth("/shift?includes_trashed=true"),
+      fetchWithAuth("/unit?includes_trashed=true"),
+      fetchWithAuth("/unitsp?includes_trashed=true"),
+      fetchWithAuth("/itemtrouble?includes_trashed=true"),
+      fetchWithAuth("/jenisaktifitas?includes_trashed=true"),
+      fetchWithAuth("/kegiatan?includes_trashed=true"),
+      fetchWithAuth("/stoptime?includes_trashed=true"),
     ]);
 
     return {
@@ -1081,7 +1135,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const getERPData = useCallback(async (): Promise<ERPRecord[]> => {
     try {
-      const erpRecords = await fetchWithAuth("/erp", {
+      const erpRecords = await fetchWithAuth("/erp?includes_trashed=true", {
         method: "GET",
       });
       return erpRecords;
@@ -1117,7 +1171,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       </soap:Envelope>`;
 
     try {
-      const response = await fetchWithAuth(`/erp-endpoint`, {
+      const response = await fetchWithAuth(`/erp-endpoint?includes_trashed=true`, {
         method: "POST",
         headers: {
           "Content-Type": "text/xml; charset=utf-8",
@@ -1167,7 +1221,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       </soap:Envelope>`;
 
       try {
-        const response = await fetchWithAuth(`/erp-endpoint`, {
+        const response = await fetchWithAuth(`/erp-endpoint?includes_trashed=true`, {
           method: "POST",
           headers: {
             "Content-Type": "text/xml; charset=utf-8",
@@ -1198,7 +1252,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     </soap:Envelope>`;
 
       try {
-        const response = await fetchWithAuth(`/erp-endpoint`, {
+        const response = await fetchWithAuth(`/erp-endpoint?includes_trashed=true`, {
           method: "POST",
           headers: {
             "Content-Type": "text/xml; charset=utf-8",
@@ -1224,7 +1278,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const getAuditTrail = useCallback(async (): Promise<AuditLog[]> => {
     try {
-      const response = await fetchWithAuth("/mhs-history");
+      const response = await fetchWithAuth("/mhs-history?includes_trashed=true");
       // Return the history array from the response
       return response.history || [];
     } catch (error) {
@@ -1272,7 +1326,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [token, initializeAuthState, getAllMasterData, logout]);
 
   const register = async (name: string, email: string, nik: string, password: string, department?: string, position?: string, roleId?: string, customPermissions?: string[]) => {
-    const response = await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/register`, {
+    const response = await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/register?includes_trashed=true`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1339,7 +1393,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const submitMachineHistory = useCallback(
     async (data: MachineHistoryFormData) => {
-      const responseData = await fetchWithAuth("/mhs", {
+      const responseData = await fetchWithAuth("/mhs?includes_trashed=true", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
@@ -1352,7 +1406,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const getMachineHistories = useCallback(
     async (searchQuery: string = ""): Promise<MachineHistoryRecord[]> => {
       try {
-        const response = await fetchWithAuth(searchQuery ? `/mhs?search=${encodeURIComponent(searchQuery)}` : "/mhs");
+        const response = await fetchWithAuth(searchQuery ? `/mhs?search=${encodeURIComponent(searchQuery)}?includes_trashed=true` : "/mhs?includes_trashed=true");
         const masterData = await getAllMasterData();
         const data = response.data || response;
         if (!Array.isArray(data)) {
@@ -1368,7 +1422,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const getMachineHistoryById = useCallback(
     async (id: string): Promise<any> => {
-      const data = await fetchWithAuth(`/mhs/${id}`);
+      const data = await fetchWithAuth(`/mhs/${id}?includes_trashed=true`);
       return data;
     },
     [fetchWithAuth]
@@ -1376,7 +1430,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const updateMachineHistory = useCallback(
     async (id: string, data: MachineHistoryFormData): Promise<any> => {
-      const responseData = await fetchWithAuth(`/mhs/${id}`, {
+      const responseData = await fetchWithAuth(`/mhs/${id}?includes_trashed=true`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
@@ -1388,7 +1442,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const deleteMachineHistory = useCallback(
     async (id: string): Promise<any> => {
-      const responseData = await fetchWithAuth(`/mhs/${id}`, {
+      const responseData = await fetchWithAuth(`/mhs/${id}?includes_trashed=true`, {
         method: "DELETE",
       });
       return responseData;
@@ -1407,75 +1461,93 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     });
   };
 
-  // Located in AuthContext.tsx
-  // Di AuthContext.tsx - perbaiki addWorkOrderIT
   const addWorkOrderIT = useCallback(
-    async (data: WorkOrderFormData | FormData, file?: File | null): Promise<WorkOrderData> => {
-      // Handle jika data sudah berupa FormData (dari caller lain)
-      if (data instanceof FormData) {
-        // Jika sudah FormData, langsung kirim
-        const response = await fetchWithAuth("/ayam", {
-          method: "POST",
-          body: data,
-        });
-        return response.work_order || response;
-      }
-
-      // Handle WorkOrderFormData (dari FormIT.tsx)
-      const formDataToSend = new FormData();
-
-      // Append semua field data dengan konversi number yang benar
-      // Di AuthContext.tsx - dalam addWorkOrderIT
-      Object.entries(data).forEach(([key, value]) => {
-        if (value !== null && value !== undefined) {
-          // Ensure service IDs are properly formatted numbers
-          if (key === "service_type_id" || key === "service_id") {
-            const numValue = Number(value);
-            if (!isNaN(numValue)) {
-              formDataToSend.append(key, numValue.toString());
-            } else {
-              console.error(`Invalid ${key}:`, value);
-            }
-          } else {
-            formDataToSend.append(key, String(value));
-          }
-        }
-      });
-
-      // Append file jika ada
-      if (file) {
-        formDataToSend.append("attachment", file);
-      }
-
-      const response = await fetchWithAuth("/ayam", {
+    async (data: WorkOrderFormDataLocal) => {
+      const responseData = await fetchWithAuth("/ayam?includes_trashed=true", {
         method: "POST",
-        body: formDataToSend,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
       });
-
-      return response.work_order || response;
+      return responseData;
     },
     [fetchWithAuth]
   );
 
+  // Located in AuthContext.tsx
+  // Di AuthContext.tsx - perbaiki addWorkOrderIT
+  // const addWorkOrderIT = useCallback(
+  //   async (data: WorkOrderFormData | FormData, file?: File | null): Promise<WorkOrderData> => {
+  //     // Handle jika data sudah berupa FormData (dari caller lain)
+  //     if (data instanceof FormData) {
+  //       // Jika sudah FormData, langsung kirim
+  //       const response = await fetchWithAuth("/ayam", {
+  //         method: "POST",
+  //         body: data,
+  //       });
+  //       return response.work_order || response;
+  //     }
+
+  //     // Handle WorkOrderFormData (dari FormIT.tsx)
+  //     const formDataToSend = new FormData();
+
+  //     // Append semua field data dengan konversi number yang benar
+  //     // Di AuthContext.tsx - dalam addWorkOrderIT
+  //     Object.entries(data).forEach(([key, value]) => {
+  //       if (value !== null && value !== undefined) {
+  //         // Ensure service IDs are properly formatted numbers
+  //         if (key === "service_type_id" || key === "service_id") {
+  //           const numValue = Number(value);
+  //           if (!isNaN(numValue)) {
+  //             formDataToSend.append(key, numValue.toString());
+  //           } else {
+  //             console.error(`Invalid ${key}:`, value);
+  //           }
+  //         } else {
+  //           formDataToSend.append(key, String(value));
+  //         }
+  //       }
+  //     });
+
+  //     // Append file jika ada
+  //     if (file) {
+  //       formDataToSend.append("attachment", file);
+  //     }
+
+  //     const response = await fetchWithAuth("/ayam", {
+  //       method: "POST",
+  //       body: formDataToSend,
+  //     });
+
+  //     return response.work_order || response;
+  //   },
+  //   [fetchWithAuth]
+  // );
+
   const getWorkOrdersIT = useCallback(async (): Promise<WorkOrderData[]> => {
-    const response = await fetchWithAuth("/ayam");
+    const response = await fetchWithAuth("/ayam?includes_trashed=true");
     return Array.isArray(response) ? response : Array.isArray(response.data) ? response.data : [];
   }, [fetchWithAuth]);
 
   const getWorkOrderById = useCallback(
-    async (id: number): Promise<WorkOrderData> => {
-      const responseData = await fetchWithAuth(`/ayam/${id}`);
-      return responseData.data;
+    async (id: string | number): Promise<WorkOrderData> => {
+      const response = await fetchWithAuth(`/ayam/${id}?includes_trashed=true`, {
+        method: "GET",
+      });
+
+      console.log("API raw response:", response);
+
+      // Pastikan ambil .data kalau struktur JSON nya begitu
+      return response;
     },
     [fetchWithAuth]
   );
 
   const updateWorkOrderIT = useCallback(
-    async (data: WorkOrderFormData): Promise<WorkOrderData> => {
+    async (data: WorkOrderFormDataLocal): Promise<WorkOrderData> => {
       if (!data.id) {
         throw new Error("Work order ID is required for update.");
       }
-      const responseData = await fetchWithAuth(`/ayam/${data.id}`, {
+      const responseData = await fetchWithAuth(`/ayam/${data.id}?includes_trashed=true`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
@@ -1487,42 +1559,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const deleteWorkOrder = useCallback(
     async (id: number): Promise<any> => {
-      const responseData = await fetchWithAuth(`/ayam/${id}`, {
+      const responseData = await fetchWithAuth(`/ayam/${id}?includes_trashed=true`, {
         method: "DELETE",
       });
       return responseData;
     },
     [fetchWithAuth]
-  );
-
-  const approveWorkOrderIT = useCallback(
-    async (id: number): Promise<WorkOrderData> => {
-      const currentOrder = await getWorkOrderById(id);
-      const updatedData: WorkOrderFormData = { ...currentOrder, handling_status: "Progress" };
-      const responseData = await updateWorkOrderIT(updatedData);
-      return responseData;
-    },
-    [getWorkOrderById, updateWorkOrderIT]
-  );
-
-  const assignWorkOrderIT = useCallback(
-    async (id: number, assignedToUserId: number): Promise<WorkOrderData> => {
-      const currentOrder = await getWorkOrderById(id);
-      const updatedData: WorkOrderFormData = { ...currentOrder, assigned_to_id: assignedToUserId, handling_status: "Assignment" };
-      const responseData = await updateWorkOrderIT(updatedData);
-      return responseData;
-    },
-    [getWorkOrderById, updateWorkOrderIT]
-  );
-
-  const cancelWorkOrder = useCallback(
-    async (id: number): Promise<WorkOrderData> => {
-      const currentOrder = await getWorkOrderById(id);
-      const updatedData: WorkOrderFormData = { ...currentOrder, handling_status: "Cancel" };
-      const responseData = await updateWorkOrderIT(updatedData);
-      return responseData;
-    },
-    [getWorkOrderById, updateWorkOrderIT]
   );
 
   const getWorkOrdersForUser = useCallback(
@@ -1535,7 +1577,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const changePassword = useCallback(
     async (oldPassword: string, newPassword: string) => {
-      await fetchWithAuth("/user/password-update", {
+      await fetchWithAuth("/user/password-update?includes_trashed=true", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1550,7 +1592,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const getUsers = useCallback(async (): Promise<User[]> => {
     try {
-      const response = await fetchWithAuth("/users");
+      const response = await fetchWithAuth("/users?includes_trashed=true");
 
       // Handle different response formats
       let usersData;
@@ -1570,12 +1612,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [fetchWithAuth]);
 
   const fetchedUsers = useCallback(async (): Promise<User[]> => {
-    const response = await fetchWithAuth("/user/profile");
+    const response = await fetchWithAuth("/user/profile?includes_trashed=true");
     return response.map((apiUser: any) => mapApiToUser(apiUser));
   }, [fetchWithAuth]);
 
   const getRoles = useCallback(async (): Promise<Role[]> => {
-    const response = await fetchWithAuth("/roles");
+    const response = await fetchWithAuth("/roles?includes_trashed=true");
     return response.map((role: any) => ({
       id: String(role.id),
       name: role.name,
@@ -1587,7 +1629,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const createRole = useCallback(
     async (role: Omit<Role, "id">): Promise<Role> => {
-      const response = await fetchWithAuth("/roles", {
+      const response = await fetchWithAuth("/roles?includes_trashed=true", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1608,7 +1650,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const updateRole = useCallback(
     async (id: string, role: Partial<Role>): Promise<Role> => {
-      const response = await fetchWithAuth(`/roles/${id}`, {
+      const response = await fetchWithAuth(`/roles/${id}?includes_trashed=true`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1629,15 +1671,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const deleteRole = useCallback(
     async (id: string): Promise<void> => {
-      await fetchWithAuth(`/roles/${id}`, { method: "DELETE" });
+      await fetchWithAuth(`/roles/${id}?includes_trashed=true`, { method: "DELETE" });
     },
     [fetchWithAuth]
   );
 
   const updateUserPermissions = useCallback(
     async (userId: string, data: { roleId?: string | null; customPermissions?: string[] }): Promise<User> => {
-      const currentUser = await fetchWithAuth(`/users/${userId}`);
-      const response = await fetchWithAuth(`/users/${userId}`, {
+      const currentUser = await fetchWithAuth(`/users/${userId}?includes_trashed=true`);
+      const response = await fetchWithAuth(`/users/${userId}?includes_trashed=true`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1656,14 +1698,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const deleteUser = useCallback(
     async (id: string): Promise<void> => {
-      await fetchWithAuth(`/users/${id}`, { method: "DELETE" });
+      await fetchWithAuth(`/users/${id}?includes_trashed=true`, { method: "DELETE" });
     },
     [fetchWithAuth]
   );
 
   const getServiceGroups = useCallback(async (): Promise<ServiceGroup[]> => {
     try {
-      const response = await fetchWithAuth("/service-groups");
+      const response = await fetchWithAuth("/service-groups?includes_trashed=true");
       return response.data || [];
     } catch (error) {
       console.error("Failed to fetch service groups:", error);
@@ -1674,7 +1716,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const getServiceGroup = useCallback(
     async (id: string | number): Promise<ServiceGroup> => {
       try {
-        const response = await fetchWithAuth(`/service-groups/${id}`);
+        const response = await fetchWithAuth(`/service-groups/${id}?includes_trashed=true`);
         return response.data;
       } catch (error) {
         console.error(`Failed to fetch service group with id ${id}:`, error);
@@ -1687,7 +1729,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const addServiceGroup = useCallback(
     async (data: { group_name: string; group_description?: string | null }): Promise<ServiceGroup> => {
       try {
-        const response = await fetchWithAuth("/service-groups", {
+        const response = await fetchWithAuth("/service-groups?includes_trashed=true", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -1722,7 +1764,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const updateServiceGroup = useCallback(
     async (id: string | number, data: { group_name: string; group_description?: string | null }): Promise<ServiceGroup> => {
       try {
-        const response = await fetchWithAuth(`/service-groups/${id}`, {
+        const response = await fetchWithAuth(`/service-groups/${id}?includes_trashed=true`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data),
@@ -1746,7 +1788,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const deleteServiceGroup = useCallback(
     async (id: string | number): Promise<void> => {
       try {
-        await fetchWithAuth(`/service-groups/${id}`, {
+        await fetchWithAuth(`/service-groups/${id}?includes_trashed=true`, {
           method: "DELETE",
         });
       } catch (error) {
@@ -1760,7 +1802,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const getServices = useCallback(
     async (id: number): Promise<ServiceCatalogue[]> => {
       try {
-        const responseData = await fetchWithAuth("/service-catalogues");
+        const responseData = await fetchWithAuth("/service-catalogues?includes_trashed=true");
         return responseData.data.map((service: any) => ({
           id: service.id,
           service_name: service.service_name,
@@ -1781,10 +1823,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     [fetchWithAuth]
   );
 
+  const getServicesByOwner = useCallback(
+    async (ownerId: number): Promise<ServiceCatalogue[]> => {
+      try {
+        const response = await fetchWithAuth(`/service-catalogues?owner=${ownerId}&includes_trashed=true`);
+        return response.data || response;
+      } catch (error) {
+        console.error("Failed to fetch services by owner:", error);
+        return [];
+      }
+    },
+    [fetchWithAuth]
+  );
+
   const addServiceCatalogue = useCallback(
     async (data: { service_name: string; service_description: string; service_type: number; priority: string; service_owner: number; sla: number; impact: string }): Promise<ServiceCatalogue> => {
       try {
-        const response = await fetchWithAuth("/service-catalogues", {
+        const response = await fetchWithAuth("/service-catalogues?includes_trashed=true", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data),
@@ -1826,7 +1881,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     ): Promise<ServiceCatalogue> => {
       try {
-        const response = await fetchWithAuth(`/service-catalogues/${id}`, {
+        const response = await fetchWithAuth(`/service-catalogues/${id}?includes_trashed=true`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data),
@@ -1857,7 +1912,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const deleteServiceCatalogue = useCallback(
     async (id: string | number): Promise<void> => {
       try {
-        await fetchWithAuth(`/service-catalogues/${id}`, {
+        await fetchWithAuth(`/service-catalogues/${id}?includes_trashed=true`, {
           method: "DELETE",
         });
       } catch (error) {
@@ -1874,7 +1929,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const getDepartment = useCallback(async (): Promise<Department[]> => {
     try {
-      const response = await fetchWithAuth("/department");
+      const response = await fetchWithAuth("/department?includes_trashed=true");
       return response.data || response;
     } catch (error) {
       console.error("Failed to fetch departments:", error);
@@ -1883,13 +1938,58 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [fetchWithAuth]);
 
   const getDepartmentById = useCallback(
-    async (id: string | number): Promise<Department | null> => {
+    async (id: string | number): Promise<Department> => {
+      const responseData = await fetchWithAuth(`/department/${id}?includes_trashed=true`);
+      return responseData.data;
+    },
+    [fetchWithAuth]
+  );
+
+  const addDepartment = useCallback(
+    async (data: { name: string; head_id: number }) => {
+      const responseData = await fetchWithAuth("/department?includes_trashed=true", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      return responseData;
+    },
+    [fetchWithAuth]
+  );
+
+  const updateDepartment = useCallback(
+    async (id: string | number, data: { name: string; head_id: number }): Promise<Department> => {
       try {
-        const response = await fetchWithAuth(`/department/${id}`);
-        return response.data || response;
+        const response = await fetchWithAuth(`/department/${id}?includes_trashed=true`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+
+        const responseData = response.data || response;
+
+        return {
+          id: responseData.id,
+          name: responseData.name,
+          head_id: responseData.head_id,
+        };
       } catch (error) {
-        console.error(`Failed to fetch department with id ${id}:`, error);
-        return null;
+        console.error(`Failed to update service group with id ${id}:`, error);
+        throw new Error(`Failed to update service group: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const deleteDepartment = useCallback(
+    async (id: string | number): Promise<void> => {
+      try {
+        await fetchWithAuth(`/department/${id}?includes_trashed=true`, {
+          method: "DELETE",
+        });
+      } catch (error) {
+        console.error(`Failed to delete service catalogue with id ${id}:`, error);
+        throw new Error(`Failed to delete service catalogue: ${error instanceof Error ? error.message : String(error)}`);
       }
     },
     [fetchWithAuth]
@@ -1897,7 +1997,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const getMonitoringSchedules = useCallback(async (): Promise<MonitoringSchedule[]> => {
     try {
-      const response = await fetchWithAuth("/monitoring-schedule");
+      const response = await fetchWithAuth("/monitoring-schedule?includes_trashed=true");
 
       // Handle berbagai format response
       if (Array.isArray(response)) {
@@ -1932,7 +2032,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const addMonitoringSchedule = useCallback(
     async (data: MonitoringScheduleRequest): Promise<MonitoringScheduleResponse> => {
       try {
-        const response = await fetchWithAuth("/monitoring-schedule", {
+        const response = await fetchWithAuth("/monitoring-schedule?includes_trashed=true", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -1981,7 +2081,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const addMonitoringActivities = useCallback(
     async (activities: MonitoringActivityPost[]): Promise<MonitoringActivityResponse[]> => {
       try {
-        const response = await fetchWithAuth("/monitoring-activities", {
+        const response = await fetchWithAuth("/monitoring-activities?includes_trashed=true", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -2004,6 +2104,228 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       } catch (error) {
         console.error("Error adding monitoring activities:", error);
         throw new Error(`Failed to add monitoring activities: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const getStopTimes = useCallback(async (): Promise<StopTimes[]> => {
+    try {
+      const response = await fetchWithAuth("/stoptime?includes_trashed=true");
+
+      // The API returns an array directly
+      if (Array.isArray(response)) {
+        return response;
+      }
+
+      // Fallback: if response has data array
+      if (response && Array.isArray(response.data)) {
+        return response.data;
+      }
+
+      console.warn("Unexpected stop times response format:", response);
+      return [];
+    } catch (error) {
+      console.error("Failed to fetch stop times:", error);
+      return [];
+    }
+  }, [fetchWithAuth]);
+
+  const getStopTimesById = useCallback(
+    async (id: string | number): Promise<StopTimes> => {
+      try {
+        const response = await fetchWithAuth(`/stoptime/${id}`);
+
+        // Debug: log response untuk melihat struktur
+        console.log("StopTimes by ID response:", response);
+
+        // Handle berbagai format response
+        if (response && typeof response === "object") {
+          // Jika response memiliki properti data
+          if (response.data) {
+            return response.data;
+          }
+          // Jika response adalah object langsung (tanpa properti data)
+          return response;
+        }
+
+        throw new Error("Invalid response format");
+      } catch (error) {
+        console.error(`Failed to fetch stop time with id ${id}:`, error);
+        throw new Error(`Failed to fetch stop time: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const addStopTimes = useCallback(
+    async (data: { name: string; description: string }): Promise<StopTimes> => {
+      try {
+        const response = await fetchWithAuth("/stoptime?includes_trashed=true", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+
+        // API returns the created object directly
+        return response;
+      } catch (error) {
+        console.error("Error adding stop time:", error);
+        throw new Error(`Failed to add stop time: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const updateStopTimes = useCallback(
+    async (id: string | number, data: { name: string; description: string }): Promise<StopTimes> => {
+      try {
+        const response = await fetchWithAuth(`/stoptime/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+
+        // Debug response
+        console.log("Update stop time response:", response);
+
+        // Handle berbagai format response
+        if (response && typeof response === "object") {
+          if (response.data) {
+            return response.data;
+          }
+          return response;
+        }
+
+        throw new Error("Invalid response format");
+      } catch (error) {
+        console.error(`Failed to update stop time with id ${id}:`, error);
+        throw new Error(`Failed to update stop time: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const deleteStopTimes = useCallback(
+    async (id: string | number): Promise<void> => {
+      try {
+        await fetchWithAuth(`/stoptime/${id}?includes_trashed=true`, {
+          method: "DELETE",
+        });
+      } catch (error) {
+        console.error(`Failed to delete stop time with id ${id}:`, error);
+        throw new Error(`Failed to delete stop time: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const getActivityTypes = useCallback(async (): Promise<ActivityType[]> => {
+    try {
+      const response = await fetchWithAuth("/jenisaktifitas?includes_trashed=true");
+
+      // The API returns an array directly
+      if (Array.isArray(response)) {
+        return response;
+      }
+
+      // Fallback: if response has data array
+      if (response && Array.isArray(response.data)) {
+        return response.data;
+      }
+
+      console.warn("Unexpected jenis aktifitas response format:", response);
+      return [];
+    } catch (error) {
+      console.error("Failed to fetch jenis aktifitas:", error);
+      return [];
+    }
+  }, [fetchWithAuth]);
+
+  const getActivityTypesById = useCallback(
+    async (id: string | number): Promise<ActivityType> => {
+      try {
+        const response = await fetchWithAuth(`/jenisaktifitas/${id}`);
+
+        // Debug: log response untuk melihat struktur
+        console.log("Jenis Aktifitas by ID response:", response);
+
+        // Handle berbagai format response
+        if (response && typeof response === "object") {
+          // Jika response memiliki properti data
+          if (response.data) {
+            return response.data;
+          }
+          // Jika response adalah object langsung (tanpa properti data)
+          return response;
+        }
+
+        throw new Error("Invalid response format");
+      } catch (error) {
+        console.error(`Failed to fetch jenis aktifitas with id ${id}:`, error);
+        throw new Error(`Failed to fetch jenis aktifitas: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const addActivityTypes = useCallback(
+    async (data: { name: string }): Promise<ActivityType> => {
+      try {
+        const response = await fetchWithAuth("/jenisaktifitas?includes_trashed=true", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+
+        // API returns the created object directly
+        return response;
+      } catch (error) {
+        console.error("Error adding jenis aktifitas:", error);
+        throw new Error(`Failed to add jenis aktifitas: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const updateActivityTypes = useCallback(
+    async (id: string | number, data: { name: string }): Promise<ActivityType> => {
+      try {
+        const response = await fetchWithAuth(`/jenisaktifitas/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+
+        // Debug response
+        console.log("Update jenis aktifitas response:", response);
+
+        // Handle berbagai format response
+        if (response && typeof response === "object") {
+          if (response.data) {
+            return response.data;
+          }
+          return response;
+        }
+
+        throw new Error("Invalid response format");
+      } catch (error) {
+        console.error(`Failed to update jenis aktifitas with id ${id}:`, error);
+        throw new Error(`Failed to update jenis aktifitas: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const deleteActivityTypes = useCallback(
+    async (id: string | number): Promise<void> => {
+      try {
+        await fetchWithAuth(`/jenisaktifitas/${id}?includes_trashed=true`, {
+          method: "DELETE",
+        });
+      } catch (error) {
+        console.error(`Failed to delete jenis aktifitas with id ${id}:`, error);
+        throw new Error(`Failed to delete jenis aktifitas: ${error instanceof Error ? error.message : String(error)}`);
       }
     },
     [fetchWithAuth]
@@ -2035,7 +2357,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         getWorkOrderById,
         departments: [],
         services: [],
+        serviceGroups: [],
         getServices,
+        getServicesByOwner,
         addServiceCatalogue,
         updateServiceCatalogue,
         deleteServiceCatalogue,
@@ -2061,16 +2385,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         addAsset,
         editAsset,
         deleteAsset,
-        approveWorkOrderIT,
-        assignWorkOrderIT,
-        cancelWorkOrder,
         getWorkOrdersForUser,
         getAuditTrail,
         getDepartment,
         getDepartmentById,
+        addDepartment,
+        updateDepartment,
+        deleteDepartment,
         getMonitoringSchedules,
         addMonitoringSchedule,
         addMonitoringActivities,
+        getStopTimes,
+        getStopTimesById,
+        addStopTimes,
+        updateStopTimes,
+        deleteStopTimes,
+        getActivityTypes,
+        getActivityTypesById,
+        addActivityTypes,
+        updateActivityTypes,
+        deleteActivityTypes,
       }}
     >
       {children}

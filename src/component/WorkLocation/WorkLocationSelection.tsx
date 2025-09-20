@@ -253,7 +253,7 @@ const WorkLocationSelection: React.FC = () => {
               onClick={() => handleCardClick("/worklocation/department")}
             >
               <Building size={64} className="text-green-600 mb-4" />
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">Department</h3>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">Departments</h3>
               <p className="text-gray-700 mb-4">Organize and manage work orders by specific company departments.</p>
               <span className="text-green-600 font-semibold flex items-center">
                 Go to Department <ChevronRight size={18} className="ml-1" />
