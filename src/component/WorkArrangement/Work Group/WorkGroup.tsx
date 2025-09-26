@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import Sidebar from "../../component/Sidebar";
+import Sidebar from "../../Sidebar";
 import { motion, AnimatePresence } from "framer-motion";
-import { Folder, Plus, Edit, Trash2, X, AlertTriangle, Building, Upload, Filter, ChevronDown, Clipboard, Info, Search, Calendar, Eye, UserIcon, Mail, Users } from "lucide-react";
-import PageHeader from "../../component/PageHeader";
-import { Department, useAuth, User } from "../../routes/AuthContext";
+import { Folder, Plus, Edit, Trash2, X, AlertTriangle, Building, Upload, Filter, ChevronDown, Clipboard, Info, Search, Calendar, Eye, UserIcon, Mail, Users, Activity } from "lucide-react";
+import PageHeader from "../../PageHeader";
+import { ActivityType, Department, StopTimes, useAuth, User, WorkGroup } from "../../../routes/AuthContext";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import { a } from "node_modules/framer-motion/dist/types.d-CtuPurYT";
 
 interface ModalProps {
   isOpen: boolean;
@@ -65,14 +66,13 @@ const StatCard: React.FC<{ title: string; value: string; change: string; icon: R
   );
 };
 
-const DepartmentPage: React.FC = () => {
-  const [department, setDepartment] = useState<Department[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
-  const { getDepartment, getUsers, deleteDepartment } = useAuth();
-  const [filteredRecords, setFilteredRecords] = useState<Department[]>([]);
+const WorkGroupPage: React.FC = () => {
+  const [workGroup, setWorkGroup] = useState<WorkGroup[]>([]);
+  const { getWorkGroup, deleteWorkGroup } = useAuth();
+  const [filteredRecords, setFilteredRecords] = useState<WorkGroup[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [showModal, setShowModal] = useState<boolean>(false);
-  const [editing, setEditing] = useState<Department | null>(null);
+  const [editing, setEditing] = useState<WorkGroup | null>(null);
   const [name, setName] = useState<string>("");
   const [description, setDescription] = useState<string>("");
   const [saving, setSaving] = useState<boolean>(false);
@@ -90,20 +90,19 @@ const DepartmentPage: React.FC = () => {
     return stored ? JSON.parse(stored) : false;
   });
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
-  const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null);
-  const [selectedUsers, setSelectedUsers] = useState<User | null>(null);
-  const [showDepartmentDetails, setShowDepartmentDetails] = useState(false);
+  const [selectedStopTimes, setSelectedStopTimes] = useState<WorkGroup | null>(null);
+  const [showDepartmentDetails, setShowStopTimesDetails] = useState(false);
   const [showUsersDetails, setShowUsersDetails] = useState(false);
   const [recordToDelete, setRecordToDelete] = useState<number | null>(null);
   const navigate = useNavigate();
 
   // Di dalam komponen DepartmentPage, setelah mendapatkan data
   useEffect(() => {
-    if (department.length > 0) {
-      const sortedDepartment = [...department].sort((a, b) => a.id - b.id);
-      setDepartment(sortedDepartment);
+    if (workGroup.length > 0) {
+      const sortedWorkGroup = [...workGroup].sort((a, b) => a.id - b.id);
+      setWorkGroup(sortedWorkGroup);
     }
-  }, [department]);
+  }, [workGroup]);
 
   const searchCategories = useMemo(
     () => [
@@ -113,26 +112,24 @@ const DepartmentPage: React.FC = () => {
     []
   ); // Empty dependency array means it's created once
 
-  const loadDepartments = useCallback(async () => {
+  const loadWorkGroup = useCallback(async () => {
     try {
       setLoading(true);
-      const dataDepartments = await getDepartment();
-      const dataUsers = await getUsers();
-      setDepartment(dataDepartments);
-      setUsers(dataUsers);
+      const dataWorkGroup = await getWorkGroup();
+      setWorkGroup(dataWorkGroup);
     } catch (err) {
-      setError("Failed to load service groups");
-      console.error("Error loading service groups:", err);
+      setError("Failed to load Work Group ");
+      console.error("Error loading Work Group:", err);
     } finally {
       if (mountedRef.current) {
         setLoading(false);
       }
     }
-  }, [getDepartment, getUsers]);
+  }, [getWorkGroup]);
 
   useEffect(() => {
-    loadDepartments();
-  }, [loadDepartments]);
+    loadWorkGroup();
+  }, [loadWorkGroup]);
 
   const toggleSidebar = () => {
     setSidebarOpen((prev: boolean): boolean => !prev);
@@ -161,22 +158,15 @@ const DepartmentPage: React.FC = () => {
     searchInputRef.current?.focus();
   };
 
-  const openHistoryDetails = (d: Department, u: User) => {
-    setSelectedDepartment(d);
-    setShowDepartmentDetails(true);
-    setSelectedUsers(u);
-    setShowUsersDetails(true);
-  };
-
   const handleDelete = async (id: number) => {
     try {
-      await deleteDepartment(id);
-      setDepartment(department.filter((department) => department.id !== id));
+      await deleteWorkGroup(id);
+      setWorkGroup(workGroup.filter((workGroup) => workGroup.id !== id));
       setShowDeleteConfirm(false);
       setRecordToDelete(null);
     } catch (error) {
-      console.error("Failed to delete Department:", error);
-      setError("Failed to delete department. Please try again.");
+      console.error("Failed to delete Work Group:", error);
+      setError("Failed to delete Work Group. Please try again.");
     }
   };
 
@@ -186,15 +176,15 @@ const DepartmentPage: React.FC = () => {
   }, []);
 
   return (
-    <div className={"flex h-screen font-sans antialiased bg-blue-50"}>
+    <div className="flex h-screen font-sans antialiased bg-blue-50 text-gray-900">
       <Sidebar />
 
       <div className="flex-1 flex flex-col ooverflow-hidden">
         <PageHeader
-          mainTitle="Departments"
+          mainTitle="Work Group"
           mainTitleHighlight="Page"
           description="Manage user roles and permissions to control access and functionality within the system."
-          icon={<Building />}
+          icon={<Users />}
           isMobile={isMobile}
           toggleSidebar={toggleSidebar}
         />
@@ -203,20 +193,20 @@ const DepartmentPage: React.FC = () => {
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between space-y-5 md:space-y-0">
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-                Departments <span className="text-blue-600">Management</span>
+                Work Group <span className="text-blue-600">Management</span>
               </h1>
-              <p className="text-gray-600 mt-2 text-sm max-w-xl">Organize and manage work orders by specific company departments.</p>
+              <p className="text-gray-600 mt-2 text-sm max-w-xl">Organize and manage Work Group by specific company .</p>
             </div>
             <div className="flex flex-wrap gap-3 items-center">
               {/* {hasPermission("create_machine_history") && ( */}
               <motion.button
-                onClick={() => navigate("/worklocation/department/adddepartment")}
+                onClick={() => navigate("/workarrangement/workgroup/addworkgroup")}
                 whileHover={{ scale: 1.02, boxShadow: "0 4px 12px rgba(37, 99, 235, 0.3)" }}
                 whileTap={{ scale: 0.98 }}
                 className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md font-semibold text-sm"
               >
                 <Plus className="text-base" />
-                <span>Add Department</span>
+                <span>Add Activity </span>
               </motion.button>
               {/* )} */}
               <motion.button
@@ -244,8 +234,8 @@ const DepartmentPage: React.FC = () => {
           </motion.div>
 
           {/* Stats Cards dengan data lebih detail */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
-            <StatCard title="Total Department" value={department.length.toString()} change={`+${Math.floor((department.length / 10) * 100)}%`} icon={<Building className="w-6 h-6" />} />
+          {/* <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
+            <StatCard title="Total Stop Times" value={department.length.toString()} change={`+${Math.floor((department.length / 10) * 100)}%`} icon={<Building className="w-6 h-6" />} />
             <StatCard
               title="Head Department"
               value={department.filter((d) => d.head_id !== null).length.toString()}
@@ -259,7 +249,7 @@ const DepartmentPage: React.FC = () => {
               icon={<Mail className="w-6 h-6" />}
             />
             <StatCard title="Total Employees" value={users.length.toString()} change={`+${Math.floor((users.length / 50) * 100)}%`} icon={<Users className="w-6 h-6" />} />
-          </div>
+          </div> */}
 
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="bg-white rounded-2xl shadow-md overflow-hidden border border-blue-100">
             <div className="overflow-x-auto custom-scrollbar">
@@ -267,33 +257,28 @@ const DepartmentPage: React.FC = () => {
                 <thead className="bg-blue-50">
                   <tr>
                     <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ID</th>
-                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Department</th>
-                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Head Department</th>
-                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Email Head Department</th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Work Group</th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Description</th>
                     <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-blue-100">
-                  {department.map((d) => (
-                    <motion.tr key={d.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.15 }} whileHover={{ backgroundColor: "rgba(239, 246, 255, 0.5)" }} className="transition-colors duration-150">
+                  {workGroup.map((w) => (
+                    <motion.tr key={w.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.15 }} whileHover={{ backgroundColor: "rgba(239, 246, 255, 0.5)" }} className="transition-colors duration-150">
                       <td className="px-5 py-3 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{d.id}</div>
-                      </td>
-                      <td className="px-5 py-3 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{d.name}</div>
+                        <div className="text-sm font-medium text-gray-900">{w.id}</div>
                       </td>
                       <td className="px-5 py-3 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{d.head?.name || "-"}</div>
+                        <div className="text-sm font-medium text-gray-900">{w.name}</div>
                       </td>
-                      <td className="px-5 py-3">
-                        <div className="text-sm text-gray-600 truncate max-w-xs">{d.head?.email || "-"}</div>
+                      <td className="px-5 py-3 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">{w.description || "-"}</div>
                       </td>
-
                       <td className="px-5 py-3 whitespace-nowrap text-sm font-medium space-x-1.5">
                         <motion.button
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.9 }}
-                          onClick={() => navigate(`/worklocation/department/editdepartment/${d.id}`)}
+                          onClick={() => navigate(`/workarrangement/workgroup/editworkgroup/${w.id}`)}
                           className="text-yellow-600 hover:text-yellow-800 transition-colors duration-200 p-1 rounded-full hover:bg-yellow-50"
                           title="Edit"
                         >
@@ -303,7 +288,7 @@ const DepartmentPage: React.FC = () => {
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.9 }}
                           onClick={() => {
-                            setRecordToDelete(d.id);
+                            setRecordToDelete(w.id);
                             setShowDeleteConfirm(true);
                           }}
                           className="text-red-600 hover:text-red-800 transition-colors duration-200 p-1 rounded-full hover:bg-red-50"
@@ -324,7 +309,7 @@ const DepartmentPage: React.FC = () => {
       <Modal isOpen={showDeleteConfirm} onClose={() => setShowDeleteConfirm(false)} title="Confirm Deletion">
         <div className="space-y-5 text-center py-3">
           <AlertTriangle className="text-red-500 text-5xl mx-auto animate-pulse" />
-          <p className="text-base text-gray-700 font-medium">Are you sure you want to delete this record? This action cannot be undone.</p>
+          <p className="text-base text-gray-700 font-medium">Are you sure you want to delete this Work Arrangement? This action cannot be undone.</p>
           <div className="flex justify-center space-x-3 mt-5">
             <motion.button
               whileHover={{ scale: 1.03 }}
@@ -349,4 +334,4 @@ const DepartmentPage: React.FC = () => {
   );
 };
 
-export default DepartmentPage;
+export default WorkGroupPage;

@@ -2,7 +2,30 @@ import React, { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import Sidebar from "../../Sidebar";
-import { X, Clock, CheckCircle, ToolCase, ArrowLeft, Save, Trash2, Hourglass, ListPlus, Paperclip, Sun, Moon, Settings, Bell, User as UserIcon, ChevronDown, ChevronRight, ChevronLeft, LogOut, AlertTriangle } from "lucide-react";
+import {
+  X,
+  Clock,
+  CheckCircle,
+  ToolCase,
+  ArrowLeft,
+  Save,
+  Trash2,
+  Hourglass,
+  ListPlus,
+  Paperclip,
+  Sun,
+  Moon,
+  Settings,
+  Bell,
+  User as UserIcon,
+  ChevronDown,
+  ChevronRight,
+  ChevronLeft,
+  LogOut,
+  AlertTriangle,
+  Camera,
+  File,
+} from "lucide-react";
 import Select from "react-select";
 import CreatableSelect from "react-select/creatable";
 import { useAuth, User as AuthUser, Department, WorkOrderFormData, ServiceCatalogue } from "../../../routes/AuthContext";
@@ -33,6 +56,8 @@ interface WorkOrderFormDataLocal {
   known_by_id: number | null;
   department_id: number;
   service_type_id: string;
+  service_group_id?: number;
+  service_catalogue_id?: number;
   service_id: string;
   asset_no: string;
   device_info: string;
@@ -64,7 +89,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
 };
 
 const AddWorkOrderFormIT: React.FC = () => {
-  const { updateWorkOrderIT, user, getUsers, getServices, getDepartment, getServiceGroups } = useAuth();
+  const { addWorkOrderIT, user, getUsers, getServices, getDepartment, getServiceGroups } = useAuth();
   const navigate = useNavigate();
 
   const [allUsers, setAllUsers] = useState<AuthUser[]>([]);
@@ -93,6 +118,91 @@ const AddWorkOrderFormIT: React.FC = () => {
   const [serviceGroupsList, setServiceGroupsList] = useState<ServiceGroup[]>([]);
   const [isServicesLoading, setIsServicesLoading] = useState(false);
 
+  const [showAttachmentOptions, setShowAttachmentOptions] = useState(false);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Fungsi untuk menampilkan pilihan attachment
+  const handleAttachmentClick = () => {
+    setShowAttachmentOptions(true);
+  };
+
+  // Fungsi untuk memilih file
+  // Fungsi untuk memilih file (simplified version)
+  const handleSelectFile = () => {
+    const fileInput = document.createElement("input");
+    fileInput.type = "file";
+    fileInput.accept = "image/*, .pdf, .doc, .docx, .xls, .xlsx";
+    fileInput.onchange = (e) => {
+      const target = e.target as HTMLInputElement;
+      if (target.files && target.files.length > 0) {
+        const file = target.files[0];
+        setSelectedFile(file);
+        setFormData((prev) => ({
+          ...prev,
+          attachment: file.name,
+        }));
+        setShowAttachmentOptions(false);
+      }
+    };
+    fileInput.click();
+  };
+
+  // Fungsi untuk membuka kamera
+  const handleOpenCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+      });
+      setCameraStream(stream);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err) {
+      console.error("Error accessing camera:", err);
+      alert("Tidak dapat mengakses kamera. Pastikan izin kamera telah diberikan.");
+    }
+  };
+
+  // Fungsi untuk mengambil foto dari kamera
+  // Ganti bagian handleCapturePhoto dengan ini:
+  const handleCapturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const context = canvas.getContext("2d");
+      if (context) {
+        canvas.width = videoRef.current.videoWidth;
+        canvas.height = videoRef.current.videoHeight;
+        context.drawImage(videoRef.current, 0, 0);
+
+        // Konversi canvas ke data URL dan simpan sebagai string
+        const imageDataURL = canvas.toDataURL("image/jpeg", 0.8);
+
+        // Simpan data URL ke state atau langsung ke formData
+        setFormData((prev) => ({
+          ...prev,
+          attachment: imageDataURL, // atau simpan sebagai base64 string
+        }));
+
+        // Stop kamera
+        if (cameraStream) {
+          cameraStream.getTracks().forEach((track) => track.stop());
+          setCameraStream(null);
+        }
+        setShowAttachmentOptions(false);
+      }
+    }
+  };
+  // Fungsi untuk menutup kamera
+  const handleCloseCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach((track) => track.stop());
+      setCameraStream(null);
+    }
+    setShowAttachmentOptions(false);
+  };
+
   const initialFormData: WorkOrderFormDataLocal = {
     date: new Date().toISOString().split("T")[0],
     reception_method: "Electronic Work Order System",
@@ -120,7 +230,6 @@ const AddWorkOrderFormIT: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-
         const data = await getServiceGroups(0);
         const mapped = data.map((g) => ({
           id: Number(g.id),
@@ -152,9 +261,10 @@ const AddWorkOrderFormIT: React.FC = () => {
   }, [user, getUsers, getServices, getDepartment, getServiceGroups]);
 
   useEffect(() => {
-    if (formData.reception_method === "Electronic Work Order System" && user) {
-      // Get department head from current user's department
-      const headId = user.department?.head_id || null;
+    if (formData.reception_method === "Electronic Work Order System" && user && departmentList.length > 0) {
+      // Cari department user dari departmentList yang sudah di-fetch
+      const userDepartment = departmentList.find((dept) => dept.id === user.department_id);
+      const headId = userDepartment?.head_id || null;
 
       setFormData((prev) => ({
         ...prev,
@@ -163,7 +273,7 @@ const AddWorkOrderFormIT: React.FC = () => {
         known_by_id: headId,
       }));
     }
-  }, [formData.reception_method, user]);
+  }, [formData.reception_method, user, departmentList]); // Tambahkan departmentList ke dependencies
 
   useEffect(() => {
     const handleResize = () => {
@@ -262,18 +372,20 @@ const AddWorkOrderFormIT: React.FC = () => {
     }));
   };
 
-  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      setSelectedFile(e.target.files[0]);
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement> | { target: { files: FileList | null } }) => {
+    const files = "nativeEvent" in e ? e.target.files : e.target.files;
+
+    if (files && files.length > 0) {
+      setSelectedFile(files[0]);
       setFormData((prev) => ({
         ...prev,
-        attachment: e.target.files![0].name, // ✅ Pastikan string, bukan undefined
+        attachment: files[0].name,
       }));
     } else {
       setSelectedFile(null);
       setFormData((prev) => ({
         ...prev,
-        attachment: null, // ✅ Explicitly set to null
+        attachment: null,
       }));
     }
   }, []);
@@ -298,8 +410,8 @@ const AddWorkOrderFormIT: React.FC = () => {
       requester_id: formData.requester_id,
       known_by_id: formData.known_by_id,
       department_id: formData.department_id,
-      service_type_id: formData.service_type_id,
-      service_id: formData.service_id,
+      service_group_id: Number(formData.service_type_id),
+      service_catalogue_id: Number(formData.service_id),
       asset_no: formData.asset_no,
       device_info: formData.device_info,
       complaint: formData.complaint,
@@ -307,7 +419,7 @@ const AddWorkOrderFormIT: React.FC = () => {
     };
 
     try {
-      await updateWorkOrderIT(dataToSend);
+      await addWorkOrderIT(dataToSend);
       setShowSuccessModal(true); // Show success modal
     } catch (err: any) {
       setError(err.message || "Gagal menyimpan data history mesin. Silakan coba lagi.");
@@ -316,7 +428,6 @@ const AddWorkOrderFormIT: React.FC = () => {
       setIsLoading(false);
     }
   };
-
 
   const handleServiceGroupChange = (selectedOption: OptionType | null) => {
     setFormData((prev) => ({
@@ -457,7 +568,7 @@ const AddWorkOrderFormIT: React.FC = () => {
       const userDepartment = departmentList.find((dept) => dept.id === user?.department_id);
 
       if (userDepartment && userDepartment.head_id) {
-        const headUser = allUsers.find((user) => parseInt(user.id) === userDepartment.head_id);
+        const headUser = allUsers.find((u) => parseInt(u.id) === userDepartment.head_id);
         return headUser?.name || "No department head assigned";
       }
       return "No department head assigned";
@@ -467,7 +578,7 @@ const AddWorkOrderFormIT: React.FC = () => {
     const department = departmentList.find((dept) => dept.id === formData.department_id);
 
     if (department && department.head_id) {
-      const headUser = allUsers.find((user) => parseInt(user.id) === department.head_id);
+      const headUser = allUsers.find((u) => parseInt(u.id) === department.head_id);
       return headUser?.name || "No department head assigned";
     }
 
@@ -862,22 +973,80 @@ const AddWorkOrderFormIT: React.FC = () => {
                 <label htmlFor="attachment" className="block text-sm font-medium text-gray-700 mb-1">
                   Attachment (Optional)
                 </label>
-                <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-200 border-dashed rounded-lg cursor-pointer hover:border-blue-400 transition-all duration-200">
+
+                {/* Tombol untuk memilih jenis attachment */}
+                <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-200 border-dashed rounded-lg cursor-pointer hover:border-blue-400 transition-all duration-200" onClick={handleAttachmentClick}>
                   <div className="space-y-1 text-center">
                     <Paperclip className="mx-auto h-12 w-12 text-gray-400" />
-                    <div className="flex text-sm text-gray-600">
-                      <label
-                        htmlFor="file-upload"
-                        className="relative cursor-pointer rounded-md bg-white font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2"
-                      >
-                        <span>Upload a file</span>
-                        <input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleFileChange} />
-                      </label>
-                      <p className="pl-1">or drag and drop</p>
+                    <div className="flex text-sm text-gray-600 justify-center">
+                      <span>Klik untuk memilih attachment</span>
                     </div>
                     <p className="text-xs text-gray-500">PNG, JPG, GIF, PDF up to 10MB</p>
                   </div>
                 </div>
+
+                {/* Modal pilihan attachment */}
+                <AnimatePresence>
+                  {showAttachmentOptions && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+                      <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-auto p-6">
+                        <div className="flex justify-between items-center mb-4">
+                          <h3 className="text-lg font-semibold text-gray-900">Pilih Attachment</h3>
+                          <button onClick={handleCloseCamera} className="text-gray-500 hover:text-gray-700">
+                            <X size={24} />
+                          </button>
+                        </div>
+
+                        {!cameraStream ? (
+                          <div className="grid grid-cols-1 gap-4">
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={handleSelectFile}
+                              className="flex items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-400 transition-colors"
+                            >
+                              <File className="h-8 w-8 text-gray-400 mr-3" />
+                              <div className="text-left">
+                                <div className="font-medium text-gray-900">Pilih File</div>
+                                <div className="text-sm text-gray-500">Dari perangkat Anda</div>
+                              </div>
+                            </motion.button>
+
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={handleOpenCamera}
+                              className="flex items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-400 transition-colors"
+                            >
+                              <Camera className="h-8 w-8 text-gray-400 mr-3" />
+                              <div className="text-left">
+                                <div className="font-medium text-gray-900">Ambil Foto</div>
+                                <div className="text-sm text-gray-500">Gunakan kamera</div>
+                              </div>
+                            </motion.button>
+                          </div>
+                        ) : (
+                          <div className="space-y-4">
+                            <div className="relative bg-black rounded-lg overflow-hidden">
+                              <video ref={videoRef} autoPlay playsInline className="w-full h-64 object-cover" />
+                              <canvas ref={canvasRef} className="hidden" />
+                            </div>
+                            <div className="flex gap-3">
+                              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleCapturePhoto} className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg font-medium">
+                                Ambil Foto
+                              </motion.button>
+                              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleCloseCamera} className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium">
+                                Batal
+                              </motion.button>
+                            </div>
+                          </div>
+                        )}
+                      </motion.div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Tampilkan file yang dipilih */}
                 {selectedFile && (
                   <ul className="mt-3 border border-gray-200 rounded-md divide-y divide-gray-200">
                     <li key={selectedFile.name} className="flex items-center justify-between py-2 pl-3 pr-4 text-sm">

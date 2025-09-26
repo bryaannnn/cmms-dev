@@ -1,25 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useAuth, WorkOrderFormData } from "../../../routes/AuthContext";
+import { useAuth } from "../../../routes/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
 import Sidebar from "../../Sidebar";
-import {
-  BookOpen, // Changed from Wrench to BookOpen for Knowledge Base
-  Search,
-  X,
-  ChevronDown,
-  ChevronRight,
-  LogOut,
-  Sun,
-  Moon,
-  Settings,
-  Bell,
-  User as UserIcon,
-  Info,
-  ChevronLeft,
-} from "lucide-react";
+import { BookOpen, Search, X, ChevronDown, ChevronRight, LogOut, Sun, Moon, Settings, Bell, User as UserIcon, Info, ChevronLeft, FileText, Calendar, UserCheck } from "lucide-react";
 
-// Interface for navigation items
 interface NavItemProps {
   icon: React.ReactNode;
   text: string;
@@ -27,7 +12,25 @@ interface NavItemProps {
   expanded: boolean;
 }
 
-// NavItem component for sidebar navigation
+interface ModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+}
+
+interface KnowledgeArticle {
+  id: number;
+  title: string;
+  content: string;
+  category: string;
+  tags: string[];
+  lastUpdated: string;
+  workOrderNo: string;
+  technician: string;
+  completionDate: string;
+}
+
 const NavItem: React.FC<NavItemProps> = ({ icon, text, to, expanded }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -52,22 +55,13 @@ const NavItem: React.FC<NavItemProps> = ({ icon, text, to, expanded }) => {
   );
 };
 
-// Interface for modal properties
-interface ModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  title: string;
-  children: React.ReactNode;
-}
-
-// Modal component for displaying pop-up content
 const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
   if (!isOpen) return null;
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-      <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-auto p-6 border border-blue-100">
-        <div className="flex justify-between items-center border-b pb-3 mb-4 border-gray-100">
+      <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-auto p-6 border border-blue-100 max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center border-b pb-3 mb-4 border-gray-100 sticky top-0 bg-white">
           <h3 className="text-2xl font-bold text-gray-900">{title}</h3>
           <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl">
             <X size={24} />
@@ -79,22 +73,11 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
   );
 };
 
-// Interface for Knowledge Article
-interface KnowledgeArticle {
-  id: number;
-  title: string;
-  content: string;
-  category: string;
-  tags: string[];
-  lastUpdated: string;
-}
-
-// Main IT Knowledge Base component
 const ITKnowledgeBase: React.FC = () => {
   const [darkMode, setDarkMode] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
   const [showArticleDetailsModal, setShowArticleDetailsModal] = useState(false);
   const [selectedArticle, setSelectedArticle] = useState<KnowledgeArticle | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -102,9 +85,12 @@ const ITKnowledgeBase: React.FC = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [showNotificationsPopup, setShowNotificationsPopup] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const { user, hasPermission } = useAuth(); // Only need user and hasPermission for this page
+  const { user, hasPermission, getWorkOrdersIT } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const notificationsRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -118,61 +104,43 @@ const ITKnowledgeBase: React.FC = () => {
   const isReports = location.pathname === "/workorders/it/reports";
   const isKnowledgeBase = location.pathname === "/workorders/it/knowledgebase";
 
-  // Mock data for Knowledge Base articles (replace with actual API calls)
-  const [knowledgeArticles, setKnowledgeArticles] = useState<KnowledgeArticle[]>([
-    {
-      id: 1,
-      title: "Troubleshooting Common Network Issues",
-      content: "This article covers basic steps to diagnose and resolve common network connectivity problems, including checking cables, router status, and IP configuration. If issues persist, contact IT support.",
-      category: "Network",
-      tags: ["network", "connectivity", "troubleshooting", "internet"],
-      lastUpdated: "2023-03-15",
-    },
-    {
-      id: 2,
-      title: "How to Reset Your Password",
-      content: "Follow these instructions to reset your user account password. Ensure you choose a strong, unique password. If you are locked out, please contact the IT helpdesk for assistance.",
-      category: "Account Management",
-      tags: ["password", "reset", "account", "security"],
-      lastUpdated: "2023-04-01",
-    },
-    {
-      id: 3,
-      title: "Setting Up Your New Workstation",
-      content: "A guide for new employees on setting up their computer, connecting to the network, and installing essential software. Includes tips for optimizing your workspace.",
-      category: "Hardware & Software",
-      tags: ["workstation", "setup", "new employee", "software", "hardware"],
-      lastUpdated: "2023-05-10",
-    },
-    {
-      id: 4,
-      title: "Resolving Printer Malfunctions",
-      content: "Common solutions for printer problems such as paper jams, low ink, and connectivity issues. Includes steps for driver reinstallation and network printer setup.",
-      category: "Hardware & Software",
-      tags: ["printer", "troubleshooting", "hardware", "printing"],
-      lastUpdated: "2023-06-20",
-    },
-    {
-      id: 5,
-      title: "Understanding Phishing Scams",
-      content: "Learn to identify and report phishing attempts to protect your data and the company's security. Never click suspicious links or open attachments from unknown senders.",
-      category: "Security",
-      tags: ["security", "phishing", "scam", "email"],
-      lastUpdated: "2023-07-01",
-    },
-    {
-      id: 6,
-      title: "VPN Connection Guide",
-      content: "Instructions for connecting to the company VPN from remote locations. Ensure your VPN client is up-to-date for optimal performance and security.",
-      category: "Network",
-      tags: ["vpn", "remote access", "network", "security"],
-      lastUpdated: "2023-07-10",
-    },
-  ]);
-  const [loading, setLoading] = useState(false); // No actual loading for mock data
-  const [error, setError] = useState<string | null>(null); // No actual error for mock data
+  const [knowledgeArticles, setKnowledgeArticles] = useState<KnowledgeArticle[]>([]);
 
-  // Effect for handling window resize
+  const loadWorkOrders = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const workOrders = await getWorkOrdersIT();
+
+      const articles: KnowledgeArticle[] = workOrders
+        .filter((order) => order.action_taken && order.handling_status === "Closed")
+        .map((order) => {
+          const complaintWords = order.complaint.split(" ").slice(0, 5).join(" ");
+          const title = `Solution for: ${complaintWords}${complaintWords.length < order.complaint.length ? "..." : ""}`;
+
+          return {
+            id: order.id,
+            title: title,
+            content: order.action_taken || "No action taken details available.",
+            category: order.service?.service_name || "General",
+            tags: [order.service_type?.group_name || "General", order.handling_status || "Completed", ...(order.asset_no ? [`Asset: ${order.asset_no}`] : [])],
+            lastUpdated: order.handling_date || order.updated_at || order.created_at,
+            workOrderNo: order.work_order_no,
+            technician: order.assigned_to?.name || "Unknown Technician",
+            completionDate: order.handling_date || order.updated_at,
+          };
+        });
+
+      setKnowledgeArticles(articles);
+    } catch (err) {
+      setError("Failed to load knowledge base articles");
+      console.error("Error loading work orders:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [getWorkOrdersIT]);
+
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768);
@@ -185,7 +153,6 @@ const ITKnowledgeBase: React.FC = () => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Effect for handling clicks outside notification/profile popups
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
@@ -202,18 +169,24 @@ const ITKnowledgeBase: React.FC = () => {
     };
   }, []);
 
-  // Toggle sidebar visibility
+  useEffect(() => {
+    loadWorkOrders();
+  }, [loadWorkOrders]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+    document.documentElement.classList.toggle("dark", darkMode);
+  }, [searchQuery, categoryFilter, sidebarOpen, darkMode]);
+
   const toggleSidebar = () => {
     setSidebarOpen((prev) => !prev);
   };
 
-  // Open article details modal
   const openArticleDetails = useCallback((article: KnowledgeArticle) => {
     setSelectedArticle(article);
     setShowArticleDetailsModal(true);
   }, []);
 
-  // Filter articles based on search query and category
   const filteredArticles = knowledgeArticles.filter((article) => {
     const matchesSearch =
       article.title.toLowerCase().includes(searchQuery.toLowerCase()) || article.content.toLowerCase().includes(searchQuery.toLowerCase()) || article.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -221,39 +194,31 @@ const ITKnowledgeBase: React.FC = () => {
     return matchesSearch && matchesCategory;
   });
 
-  // Get unique categories for filter dropdown
   const uniqueCategories = Array.from(new Set(knowledgeArticles.map((article) => article.category)));
 
-  // Pagination logic
   const indexOfLastArticle = currentPage * articlesPerPage;
   const indexOfFirstArticle = indexOfLastArticle - articlesPerPage;
   const currentArticles = filteredArticles.slice(indexOfFirstArticle, indexOfLastArticle);
   const totalPages = Math.ceil(filteredArticles.length / articlesPerPage);
 
-  // Change page
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
-  // Effect to reset page and handle dark mode
-  useEffect(() => {
-    setCurrentPage(1);
-    document.documentElement.classList.toggle("dark", darkMode);
-  }, [searchQuery, categoryFilter, sidebarOpen, darkMode]);
-
-  // Role-based access check (KnowledgeBase.tsx should be accessible by all users)
-  // No explicit redirection needed here, but you can add it if you want to restrict it further.
-  // For example, if you want only authenticated users to see it:
-  // useEffect(() => {
-  //   if (!user) {
-  //     navigate("/login");
-  //   }
-  // }, [user, navigate]);
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen font-sans antialiased bg-blue-50 text-gray-900">
       <Sidebar />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header section */}
         <header className="bg-white border-b border-gray-100 p-4 flex items-center justify-between shadow-sm sticky top-0 z-30">
           <div className="flex items-center space-x-4">
             {isMobile && (
@@ -266,7 +231,6 @@ const ITKnowledgeBase: React.FC = () => {
           </div>
 
           <div className="flex items-center space-x-3 relative">
-            {/* Dark mode toggle */}
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -277,7 +241,6 @@ const ITKnowledgeBase: React.FC = () => {
               {darkMode ? <Sun className="text-yellow-400 text-xl" /> : <Moon className="text-xl" />}
             </motion.button>
 
-            {/* Notifications dropdown */}
             <div className="relative" ref={notificationsRef}>
               <motion.button
                 whileHover={{ scale: 1.05 }}
@@ -323,7 +286,6 @@ const ITKnowledgeBase: React.FC = () => {
               </AnimatePresence>
             </div>
 
-            {/* User profile dropdown */}
             <div className="relative" ref={profileRef}>
               <motion.button
                 whileHover={{ backgroundColor: "rgba(239, 246, 255, 0.7)" }}
@@ -332,11 +294,11 @@ const ITKnowledgeBase: React.FC = () => {
                 className="flex items-center space-x-2 cursor-pointer p-2 rounded-lg transition-colors duration-200"
               >
                 <img
-                  src={`https://api.dicebear.com/7.x/initials/svg?seed=${user?.name || "User"}&backgroundColor=0081ff,3d5a80,ffc300,e0b589&backgroundType=gradientLinear&radius=50`}
+                  src={`https://api.dicebear.com/7.x/initials/svg?seed=${user.name || "User"}&backgroundColor=0081ff,3d5a80,ffc300,e0b589&backgroundType=gradientLinear&radius=50`}
                   alt="User Avatar"
                   className="w-8 h-8 rounded-full border border-blue-200 object-cover"
                 />
-                <span className="font-medium text-gray-900 text-sm hidden sm:inline">{user?.name}</span>
+                <span className="font-medium text-gray-900 text-sm hidden sm:inline">{user.name}</span>
                 <ChevronDown className="text-gray-500 text-base" />
               </motion.button>
 
@@ -350,7 +312,7 @@ const ITKnowledgeBase: React.FC = () => {
                     className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-40 border border-gray-100"
                   >
                     <div className="px-4 py-2 text-xs text-gray-500 border-b border-gray-100">Signed in as</div>
-                    <div className="px-4 py-2 font-semibold text-gray-800 border-b border-gray-100">{user?.name || "Guest User"}</div>
+                    <div className="px-4 py-2 font-semibold text-gray-800 border-b border-gray-100">{user.name || "Guest User"}</div>
                     <button
                       onClick={() => {
                         navigate("/profile");
@@ -386,7 +348,6 @@ const ITKnowledgeBase: React.FC = () => {
           </div>
         </header>
 
-        {/* Main content area */}
         <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="isi style mb-6 flex space-x-6 border-b border-gray-200">
             <motion.div
@@ -396,34 +357,20 @@ const ITKnowledgeBase: React.FC = () => {
             >
               Request
             </motion.div>
-            {hasPermission("assign_workorders") && (
-              <motion.div
-                whileTap={{ scale: 0.98 }}
-                onClick={() => navigate("/workorders/it/receiver")}
-                className={`cursor-pointer px-4 py-3 text-sm font-medium ${isReceiver ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
-              >
-                Receiver
-              </motion.div>
-            )}
-            {hasPermission("assign_workorders") && (
-              <motion.div
-                whileTap={{ scale: 0.98 }}
-                onClick={() => navigate("/workorders/it/assignment")}
-                className={`cursor-pointer px-4 py-3 text-sm font-medium ${isAssignment ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
-              >
-                Assignment
-              </motion.div>
-            )}
-            {hasPermission("assign_workorders") && (
-              <motion.div
-                whileTap={{ scale: 0.98 }}
-                onClick={() => navigate("/workorders/it/approver")}
-                className={`cursor-pointer px-4 py-3 text-sm font-medium ${isApprover ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
-              >
-                Approver
-              </motion.div>
-            )}
-
+            <motion.div
+              whileTap={{ scale: 0.98 }}
+              onClick={() => navigate("/workorders/it/receiver")}
+              className={`cursor-pointer px-4 py-3 text-sm font-medium ${isReceiver ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
+            >
+              Receiver
+            </motion.div>
+            <motion.div
+              whileTap={{ scale: 0.98 }}
+              onClick={() => navigate("/workorders/it/assignment")}
+              className={`cursor-pointer px-4 py-3 text-sm font-medium ${isAssignment ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
+            >
+              Assignment
+            </motion.div>
             <motion.div
               whileTap={{ scale: 0.98 }}
               onClick={() => navigate("/workorders/it/reports")}
@@ -431,7 +378,6 @@ const ITKnowledgeBase: React.FC = () => {
             >
               Reports
             </motion.div>
-
             <motion.div
               whileTap={{ scale: 0.98 }}
               onClick={() => navigate("/workorders/it/knowledgebase")}
@@ -440,14 +386,14 @@ const ITKnowledgeBase: React.FC = () => {
               Knowledge Base
             </motion.div>
           </motion.div>
+
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">IT Knowledge Base</h1>
-              <p className="text-gray-600 mt-1">Find solutions and information for common IT issues.</p>
+              <p className="text-gray-600 mt-1">Find solutions and information from completed work orders.</p>
             </div>
           </motion.div>
 
-          {/* Filters and Search */}
           <div className="bg-white rounded-2xl shadow-md p-6 mb-6 border border-blue-100">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
               <div className="relative w-full md:w-2/3">
@@ -474,10 +420,26 @@ const ITKnowledgeBase: React.FC = () => {
             </div>
           </div>
 
-          {/* Knowledge Articles List */}
           <div className="bg-white rounded-2xl shadow-md p-6 border border-blue-100">
-            <h3 className="text-xl font-semibold text-gray-800 mb-4">Articles</h3>
-            {currentArticles.length === 0 ? (
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-semibold text-gray-800">Knowledge Articles</h3>
+              <div className="text-sm text-gray-500">{filteredArticles.length} articles found</div>
+            </div>
+
+            {loading ? (
+              <div className="text-center py-10">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="mt-2 text-gray-600">Loading knowledge base...</p>
+              </div>
+            ) : error ? (
+              <div className="text-center py-10 text-red-500">
+                <Info className="mx-auto h-12 w-12 text-red-400 mb-2" />
+                <p className="text-lg font-medium">{error}</p>
+                <button onClick={loadWorkOrders} className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                  Retry
+                </button>
+              </div>
+            ) : currentArticles.length === 0 ? (
               <div className="text-center py-10 text-gray-500">
                 <Info className="mx-auto h-12 w-12 text-gray-400" />
                 <p className="mt-2 text-lg">No articles found matching your criteria.</p>
@@ -497,8 +459,8 @@ const ITKnowledgeBase: React.FC = () => {
                       onClick={() => openArticleDetails(article)}
                     >
                       <h4 className="text-lg font-semibold text-gray-900 mb-2">{article.title}</h4>
-                      <p className="text-gray-700 text-sm line-clamp-2">{article.content}</p>
-                      <div className="flex flex-wrap gap-2 mt-3">
+                      <p className="text-gray-700 text-sm line-clamp-2 mb-3">{article.content}</p>
+                      <div className="flex flex-wrap gap-2 mb-3">
                         <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">{article.category}</span>
                         {article.tags.map((tag) => (
                           <span key={tag} className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs font-medium rounded-full">
@@ -506,14 +468,28 @@ const ITKnowledgeBase: React.FC = () => {
                           </span>
                         ))}
                       </div>
-                      <p className="text-xs text-gray-500 mt-2">Last updated: {article.lastUpdated}</p>
+                      <div className="flex justify-between items-center text-xs text-gray-500">
+                        <div className="flex items-center space-x-4">
+                          <span className="flex items-center">
+                            <FileText size={12} className="mr-1" />
+                            {article.workOrderNo}
+                          </span>
+                          <span className="flex items-center">
+                            <UserCheck size={12} className="mr-1" />
+                            {article.technician}
+                          </span>
+                        </div>
+                        <span className="flex items-center">
+                          <Calendar size={12} className="mr-1" />
+                          {new Date(article.lastUpdated).toLocaleDateString()}
+                        </span>
+                      </div>
                     </motion.div>
                   ))}
                 </AnimatePresence>
               </div>
             )}
 
-            {/* Pagination */}
             {filteredArticles.length > articlesPerPage && (
               <nav className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 mt-6">
                 <div className="flex-1 flex justify-between sm:hidden">
@@ -522,7 +498,7 @@ const ITKnowledgeBase: React.FC = () => {
                     disabled={currentPage === 1}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                    className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Previous
                   </motion.button>
@@ -531,7 +507,7 @@ const ITKnowledgeBase: React.FC = () => {
                     disabled={currentPage === totalPages}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                    className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Next
                   </motion.button>
@@ -550,7 +526,7 @@ const ITKnowledgeBase: React.FC = () => {
                         disabled={currentPage === 1}
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
-                        className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+                        className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <span className="sr-only">Previous</span>
                         <ChevronLeft className="h-5 w-5" aria-hidden="true" />
@@ -571,7 +547,7 @@ const ITKnowledgeBase: React.FC = () => {
                         disabled={currentPage === totalPages}
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
-                        className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+                        className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <span className="sr-only">Next</span>
                         <ChevronRight className="h-5 w-5" aria-hidden="true" />
@@ -585,21 +561,50 @@ const ITKnowledgeBase: React.FC = () => {
         </main>
       </div>
 
-      {/* Article Details Modal */}
       {selectedArticle && (
         <Modal isOpen={showArticleDetailsModal} onClose={() => setShowArticleDetailsModal(false)} title={selectedArticle.title}>
-          <div className="prose max-w-none text-gray-800">
-            <p className="text-sm text-gray-600 mb-4">
-              Category: <span className="font-medium text-blue-700">{selectedArticle.category}</span> | Last Updated: {selectedArticle.lastUpdated}
-            </p>
-            <p>{selectedArticle.content}</p>
-            <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-gray-200">
-              <span className="font-semibold text-gray-700">Tags:</span>
-              {selectedArticle.tags.map((tag) => (
-                <span key={tag} className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-full">
-                  {tag}
-                </span>
-              ))}
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
+              <div className="flex items-center">
+                <FileText size={16} className="mr-2 text-blue-600" />
+                <span className="font-medium">Work Order:</span>
+                <span className="ml-2">{selectedArticle.workOrderNo}</span>
+              </div>
+              <div className="flex items-center">
+                <UserCheck size={16} className="mr-2 text-green-600" />
+                <span className="font-medium">Technician:</span>
+                <span className="ml-2">{selectedArticle.technician}</span>
+              </div>
+              <div className="flex items-center">
+                <Calendar size={16} className="mr-2 text-purple-600" />
+                <span className="font-medium">Completed:</span>
+                <span className="ml-2">{new Date(selectedArticle.completionDate).toLocaleDateString()}</span>
+              </div>
+              <div className="flex items-center">
+                <BookOpen size={16} className="mr-2 text-orange-600" />
+                <span className="font-medium">Category:</span>
+                <span className="ml-2">{selectedArticle.category}</span>
+              </div>
+            </div>
+
+            <div className="border-t border-gray-200 pt-4">
+              <h4 className="font-semibold text-gray-800 mb-2">Solution Details</h4>
+              <p className="text-gray-700 whitespace-pre-wrap">{selectedArticle.content}</p>
+            </div>
+
+            <div className="border-t border-gray-200 pt-4">
+              <h4 className="font-semibold text-gray-800 mb-2">Tags</h4>
+              <div className="flex flex-wrap gap-2">
+                {selectedArticle.tags.map((tag) => (
+                  <span key={tag} className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-full">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="border-t border-gray-200 pt-4 text-xs text-gray-500">
+              Last updated: {new Date(selectedArticle.lastUpdated).toLocaleDateString()} at {new Date(selectedArticle.lastUpdated).toLocaleTimeString()}
             </div>
           </div>
         </Modal>

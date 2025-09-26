@@ -1,11 +1,11 @@
-import { Building, ArrowLeft, X, Save, Hourglass, CheckCircle, ListCheck } from "lucide-react";
+import { Building, ArrowLeft, X, Save, Hourglass, CheckCircle } from "lucide-react";
 import React, { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import Sidebar from "../../Sidebar";
 import Select from "react-select";
 import PageHeader from "../../PageHeader";
 import { useNavigate, useParams } from "react-router-dom";
-import { useAuth, User, Department, StopTimes, ActivityType } from "../../../routes/AuthContext";
+import { useAuth, User, Department } from "../../../routes/AuthContext";
 
 interface OptionType {
   value: string;
@@ -37,12 +37,12 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
   );
 };
 
-const EditActivityType: React.FC = () => {
+const EditDepartment: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [activityTypes, setActivityTypes] = useState<ActivityType[]>([]);
-  const [activityTypesList, setActivityTypesList] = useState<ActivityType>();
-  const { getActivityTypes, updateActivityTypes, getActivityTypesById } = useAuth();
+  const [users, setUsers] = useState<User[]>([]);
+  const [departmentList, setDepartmentList] = useState<Department>();
+  const { addDepartment, getUsers, updateDepartment, getDepartmentById } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     const stored = localStorage.getItem("sidebarOpen");
     return stored ? JSON.parse(stored) : false;
@@ -55,6 +55,7 @@ const EditActivityType: React.FC = () => {
 
   const [formData, setFormData] = useState({
     name: "",
+    head_id: 0,
   });
 
   const toggleSidebar = () => {
@@ -62,12 +63,13 @@ const EditActivityType: React.FC = () => {
   };
 
   useEffect(() => {
-    if (activityTypesList) {
+    if (departmentList) {
       setFormData({
-        name: activityTypesList.name || "",
+        name: departmentList.name || "",
+        head_id: departmentList.head_id || 0,
       });
     }
-  }, [activityTypesList]);
+  }, [departmentList]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -81,13 +83,14 @@ const EditActivityType: React.FC = () => {
   const fetchData = useCallback(async () => {
     try {
       if (id) {
-        const [activityTypesList] = await Promise.all([getActivityTypesById(id)]);
-        setActivityTypesList(activityTypesList);
+        const [departmentList, users] = await Promise.all([getDepartmentById(id), getUsers()]);
+        setDepartmentList(departmentList);
+        setUsers(users);
       }
     } catch (err: any) {
       setError(err.message || "Failed to load form data");
     }
-  }, [id, getActivityTypesById]);
+  }, [id, getDepartmentById, getUsers]);
 
   useEffect(() => {
     if (id) {
@@ -103,13 +106,14 @@ const EditActivityType: React.FC = () => {
     try {
       const payload = {
         name: formData.name,
+        head_id: formData.head_id,
       };
 
-      await updateActivityTypes(id!, payload);
-      setSuccess("Activity Type update successfully!");
+      await updateDepartment(id!, payload);
+      setSuccess("Service Catalogue created successfully!");
       setShowSuccessModal(true);
     } catch (err: any) {
-      setError(err.message || "Failed to update Activity Type");
+      setError(err.message || "Failed to create Service Catalogue");
     } finally {
       setLoading(false);
     }
@@ -172,7 +176,7 @@ const EditActivityType: React.FC = () => {
 
   const handleCloseSuccessModal = () => {
     setShowSuccessModal(false);
-    navigate("/maintenanceactivity/activitytypes");
+    navigate("/worklocation/department");
   };
 
   return (
@@ -180,21 +184,21 @@ const EditActivityType: React.FC = () => {
       <Sidebar />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <PageHeader mainTitle="Edit Activity Type" mainTitleHighlight="Management" description="blablablabl" icon={<ListCheck />} isMobile={isMobile} toggleSidebar={toggleSidebar} />
+        <PageHeader mainTitle="Edit Department" mainTitleHighlight="Management" description="blablablabl" icon={<Building />} isMobile={isMobile} toggleSidebar={toggleSidebar} />
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50 ">
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Edit Activity Type</h1>
-              <p className="text-gray-600 mt-1">Update Activity Type information</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Edit Department and Head</h1>
+              <p className="text-gray-600 mt-1">Update Department and Head information</p>
             </div>
             <motion.button
-              onClick={() => navigate("/maintenanceactivity/stoptimes")}
+              onClick={() => navigate("/worklocation/department")}
               whileHover={{ scale: 1.05, boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)" }}
               whileTap={{ scale: 0.95 }}
               className="flex items-center space-x-2 bg-white border border-gray-200 text-gray-800 px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md"
             >
-              <ArrowLeft className="text-lg" /> Back to Stop Times Management
+              <ArrowLeft className="text-lg" /> Back to Catalogue
             </motion.button>
           </motion.div>
 
@@ -211,12 +215,12 @@ const EditActivityType: React.FC = () => {
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-                <h2 className="text-lg font-semibold text-gray-800 mb-4">Activity Type Information</h2>
+                <h2 className="text-lg font-semibold text-gray-800 mb-4">Service Information</h2>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                      Name Activity Type <span className="text-red-500">*</span>
+                      Name Department <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -228,13 +232,34 @@ const EditActivityType: React.FC = () => {
                       required
                     />
                   </div>
+
+                  <div>
+                    <label htmlFor="head_id" className="block text-sm font-medium text-gray-700 mb-1">
+                      Head Department <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      name="head_id"
+                      id="head_id"
+                      value={formData.head_id}
+                      onChange={handleChange}
+                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
+                      required
+                    >
+                      <option value="">Select Head Department</option>
+                      {users.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.name || u.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
 
               <div className="flex justify-end gap-4 pt-6 border-t border-gray-100 mt-8">
                 <motion.button
                   type="button"
-                  onClick={() => navigate("/maintenanceactivity/activitytypes")}
+                  onClick={() => navigate("/worklocations")}
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
                   className="px-6 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
@@ -275,7 +300,7 @@ const EditActivityType: React.FC = () => {
             onClick={handleCloseSuccessModal}
             className="mt-6 px-6 py-3 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
           >
-            Back to Activity Types Management
+            Back to Service Catalogue
           </motion.button>
         </div>
       </Modal>
@@ -283,4 +308,4 @@ const EditActivityType: React.FC = () => {
   );
 };
 
-export default EditActivityType;
+export default EditDepartment;

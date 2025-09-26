@@ -2,9 +2,9 @@ import React, { useEffect, useState, useRef, useCallback, useMemo } from "react"
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../../Sidebar";
 import { motion, AnimatePresence } from "framer-motion";
-import { Folder, Plus, Edit, Trash2, X, AlertTriangle, Building, Upload, Filter, ChevronDown, Clipboard, Info, Search, Calendar, Eye, UserIcon, Mail, Users, Clock } from "lucide-react";
+import { Folder, Plus, Edit, Trash2, X, AlertTriangle, Building, Upload, Filter, ChevronDown, Clipboard, Info, Search, Calendar, Eye, UserIcon, Mail, Users, Warehouse } from "lucide-react";
 import PageHeader from "../../PageHeader";
-import { Department, StopTimes, useAuth, User } from "../../../routes/AuthContext";
+import { Department, StopTimes, TroubleItem, useAuth, User, WorkUnit } from "../../../routes/AuthContext";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
@@ -65,13 +65,13 @@ const StatCard: React.FC<{ title: string; value: string; change: string; icon: R
   );
 };
 
-const StopTimesPage: React.FC = () => {
-  const [stoptimes, setStoptimes] = useState<StopTimes[]>([]);
-  const { getStopTimes, deleteStopTimes } = useAuth();
-  const [filteredRecords, setFilteredRecords] = useState<StopTimes[]>([]);
+const WorkUnitPage: React.FC = () => {
+  const [workUnit, setWorkUnit] = useState<WorkUnit[]>([]);
+  const { getWorkUnit, deleteWorkUnit } = useAuth();
+  const [filteredRecords, setFilteredRecords] = useState<WorkUnit[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [showModal, setShowModal] = useState<boolean>(false);
-  const [editing, setEditing] = useState<StopTimes | null>(null);
+  const [editing, setEditing] = useState<WorkUnit | null>(null);
   const [name, setName] = useState<string>("");
   const [description, setDescription] = useState<string>("");
   const [saving, setSaving] = useState<boolean>(false);
@@ -97,11 +97,11 @@ const StopTimesPage: React.FC = () => {
 
   // Di dalam komponen DepartmentPage, setelah mendapatkan data
   useEffect(() => {
-    if (stoptimes.length > 0) {
-      const sortedStopTimes = [...stoptimes].sort((a, b) => a.id - b.id);
-      setStoptimes(sortedStopTimes);
+    if (workUnit.length > 0) {
+      const sortedWorkUnit = [...workUnit].sort((a, b) => a.id - b.id);
+      setWorkUnit(sortedWorkUnit);
     }
-  }, [stoptimes]);
+  }, [workUnit]);
 
   const searchCategories = useMemo(
     () => [
@@ -111,24 +111,24 @@ const StopTimesPage: React.FC = () => {
     []
   ); // Empty dependency array means it's created once
 
-  const loadStopTimes = useCallback(async () => {
+  const loadWorkUnit = useCallback(async () => {
     try {
       setLoading(true);
-      const dataStopTimes = await getStopTimes();
-      setStoptimes(dataStopTimes);
+      const dataWorkUnit = await getWorkUnit();
+      setWorkUnit(dataWorkUnit);
     } catch (err) {
-      setError("Failed to load stop times");
-      console.error("Error loading stop times:", err);
+      setError("Failed to load stop Work Unit");
+      console.error("Error loading Work Unit:", err);
     } finally {
       if (mountedRef.current) {
         setLoading(false);
       }
     }
-  }, [getStopTimes]);
+  }, [getWorkUnit]);
 
   useEffect(() => {
-    loadStopTimes();
-  }, [loadStopTimes]);
+    loadWorkUnit();
+  }, [loadWorkUnit]);
 
   const toggleSidebar = () => {
     setSidebarOpen((prev: boolean): boolean => !prev);
@@ -159,13 +159,13 @@ const StopTimesPage: React.FC = () => {
 
   const handleDelete = async (id: number) => {
     try {
-      await deleteStopTimes(id);
-      setStoptimes(stoptimes.filter((stoptimes) => stoptimes.id !== id));
+      await deleteWorkUnit(id);
+      setWorkUnit(workUnit.filter((workUnit) => workUnit.id !== id));
       setShowDeleteConfirm(false);
       setRecordToDelete(null);
     } catch (error) {
-      console.error("Failed to delete Department:", error);
-      setError("Failed to delete department. Please try again.");
+      console.error("Failed to delete Work Unit:", error);
+      setError("Failed to delete Work Unit. Please try again.");
     }
   };
 
@@ -180,10 +180,10 @@ const StopTimesPage: React.FC = () => {
 
       <div className="flex-1 flex flex-col ooverflow-hidden">
         <PageHeader
-          mainTitle="Stop Times"
+          mainTitle="Work Unit"
           mainTitleHighlight="Page"
           description="Manage user roles and permissions to control access and functionality within the system."
-          icon={<Clock />}
+          icon={<Warehouse />}
           isMobile={isMobile}
           toggleSidebar={toggleSidebar}
         />
@@ -192,20 +192,20 @@ const StopTimesPage: React.FC = () => {
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between space-y-5 md:space-y-0">
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-                Stop Times <span className="text-blue-600">Management</span>
+                Work Unit <span className="text-blue-600">Management</span>
               </h1>
-              <p className="text-gray-600 mt-2 text-sm max-w-xl">Organize and manage work orders by specific company departments.</p>
+              <p className="text-gray-600 mt-2 text-sm max-w-xl">Organize and manage trouble item by specific company.</p>
             </div>
             <div className="flex flex-wrap gap-3 items-center">
               {/* {hasPermission("create_machine_history") && ( */}
               <motion.button
-                onClick={() => navigate("/maintenanceactivity/stoptimes/addstoptime")}
+                onClick={() => navigate("/worklocation/workunit/addworkunit")}
                 whileHover={{ scale: 1.02, boxShadow: "0 4px 12px rgba(37, 99, 235, 0.3)" }}
                 whileTap={{ scale: 0.98 }}
                 className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md font-semibold text-sm"
               >
                 <Plus className="text-base" />
-                <span>Add Stop Time</span>
+                <span>Add Work Unit</span>
               </motion.button>
               {/* )} */}
               <motion.button
@@ -256,28 +256,32 @@ const StopTimesPage: React.FC = () => {
                 <thead className="bg-blue-50">
                   <tr>
                     <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ID</th>
-                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Stop Times</th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Work Unit</th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Production?</th>
                     <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Description</th>
                     <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-blue-100">
-                  {stoptimes.map((s) => (
-                    <motion.tr key={s.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.15 }} whileHover={{ backgroundColor: "rgba(239, 246, 255, 0.5)" }} className="transition-colors duration-150">
+                  {workUnit.map((t) => (
+                    <motion.tr key={t.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.15 }} whileHover={{ backgroundColor: "rgba(239, 246, 255, 0.5)" }} className="transition-colors duration-150">
                       <td className="px-5 py-3 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{s.id}</div>
+                        <div className="text-sm font-medium text-gray-900">{t.id}</div>
                       </td>
                       <td className="px-5 py-3 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{s.name}</div>
+                        <div className="text-sm font-medium text-gray-900">{t.name}</div>
                       </td>
                       <td className="px-5 py-3 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{s.description || "-"}</div>
+                        <div className="text-sm font-medium text-gray-900">{t.is_production || "-"}</div>
+                      </td>
+                      <td className="px-5 py-3 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">{t.description || "-"}</div>
                       </td>
                       <td className="px-5 py-3 whitespace-nowrap text-sm font-medium space-x-1.5">
                         <motion.button
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.9 }}
-                          onClick={() => navigate(`/maintenanceactivity/stoptimes/editstoptime/${s.id}`)}
+                          onClick={() => navigate(`/worklocation/workunit/editworkunit/${t.id}`)}
                           className="text-yellow-600 hover:text-yellow-800 transition-colors duration-200 p-1 rounded-full hover:bg-yellow-50"
                           title="Edit"
                         >
@@ -287,7 +291,7 @@ const StopTimesPage: React.FC = () => {
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.9 }}
                           onClick={() => {
-                            setRecordToDelete(s.id);
+                            setRecordToDelete(t.id);
                             setShowDeleteConfirm(true);
                           }}
                           className="text-red-600 hover:text-red-800 transition-colors duration-200 p-1 rounded-full hover:bg-red-50"
@@ -333,4 +337,4 @@ const StopTimesPage: React.FC = () => {
   );
 };
 
-export default StopTimesPage;
+export default WorkUnitPage;

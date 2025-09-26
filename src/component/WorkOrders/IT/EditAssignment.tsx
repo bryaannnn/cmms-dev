@@ -4,8 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Sidebar from "../../Sidebar";
 import { X, Clock, CheckCircle, ToolCase, ArrowLeft, Save, Trash2, Hourglass, ListPlus, Paperclip, Sun, Moon, Settings, Bell, User as UserIcon, ChevronDown, ChevronRight, ChevronLeft, LogOut, AlertTriangle } from "lucide-react";
 import Select from "react-select";
-import CreatableSelect from "react-select/creatable";
-import { useAuth, User as AuthUser, Department, WorkOrderFormData, ServiceCatalogue } from "../../../routes/AuthContext";
+import { useAuth, User as AuthUser, Department, WorkOrderFormDataLocal, ServiceCatalogue } from "../../../routes/AuthContext";
 
 interface ModalProps {
   isOpen: boolean;
@@ -23,28 +22,6 @@ interface ServiceGroup {
   id: number;
   name: string;
   description?: string;
-}
-
-interface WorkOrderFormDataLocal {
-  id?: number;
-  date: string;
-  reception_method: string;
-  requester_id: number;
-  known_by_id: number | null;
-  department_id: number;
-  service_type_id?: string;
-  service_group_id?: number;
-  service_catalogue_id?: number;
-  service_id?: string;
-  asset_no: string;
-  device_info: string;
-  complaint: string;
-  attachment: string | null;
-  received_by_id?: number | null;
-  handling_date?: string | null;
-  action_taken?: string | null;
-  handling_status?: string;
-  remarks?: string | null;
 }
 
 const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
@@ -65,7 +42,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
   );
 };
 
-const EditWorkOrderFormIT: React.FC = () => {
+const EditAssignment: React.FC = () => {
   const { updateWorkOrderIT, user, getUsers, getServices, getDepartment, getServiceGroups, getWorkOrderById } = useAuth();
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -73,7 +50,6 @@ const EditWorkOrderFormIT: React.FC = () => {
   const [allUsers, setAllUsers] = useState<AuthUser[]>([]);
   const [departmentList, setDepartmentList] = useState<Department[]>([]);
   const [serviceList, setServiceList] = useState<ServiceCatalogue[]>([]);
-  const [assetOptions, setAssetOptions] = useState<OptionType[]>([]);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
     const stored = localStorage.getItem("sidebarOpen");
@@ -87,15 +63,30 @@ const EditWorkOrderFormIT: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<{ message: string; work_order?: any } | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const notificationsRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
   const [filteredServices, setFilteredServices] = useState<ServiceCatalogue[]>([]);
-  const [filteredServiceGroups, setFilteredServiceGroups] = useState<ServiceGroup[]>([]);
   const [serviceGroupsList, setServiceGroupsList] = useState<ServiceGroup[]>([]);
-  const [isServicesLoading, setIsServicesLoading] = useState(false);
+
+  const [showAssignedToField, setShowAssignedToField] = useState(false);
+  //   const [assignableUsers, setAssignableUsers] = useState<AuthUser[]>([]);
+
+  //   useEffect(() => {
+  //     const fetchAssignableUsers = async () => {
+  //       try {
+  //         const allUsers = await getUsers();
+  //         // Filter user berdasarkan role atau department (sesuaikan dengan kebutuhan)
+  //         const itUsers = allUsers.filter((user) => user.department?.name?.includes("IT") || user.roles?.includes("IT Staff") || user.customPermissions?.includes("assign_workorders"));
+  //         setAssignableUsers(itUsers);
+  //       } catch (error) {
+  //         console.error("Failed to fetch assignable users:", error);
+  //       }
+  //     };
+
+  //     fetchAssignableUsers();
+  //   }, [getUsers]);
 
   const initialFormData: WorkOrderFormDataLocal = {
     date: new Date().toISOString().split("T")[0],
@@ -114,14 +105,16 @@ const EditWorkOrderFormIT: React.FC = () => {
     action_taken: null,
     handling_status: "New",
     remarks: null,
+    assigned_to_id: null, // Tambahkan field ini
   };
 
   const [formData, setFormData] = useState<WorkOrderFormDataLocal>(initialFormData);
 
-  const isElectronicMethod = formData.reception_method === "Electronic Work Order System";
+  useEffect(() => {
+    const shouldShowAssignedTo = formData.handling_status !== "New";
+    setShowAssignedToField(shouldShowAssignedTo);
+  }, [formData.handling_status]);
 
-  // Fetch existing work order data
-  // Fetch existing work order data
   useEffect(() => {
     const fetchWorkOrderData = async () => {
       if (!id) return;
@@ -130,9 +123,6 @@ const EditWorkOrderFormIT: React.FC = () => {
         setIsDataLoading(true);
         const workOrderData = await getWorkOrderById(parseInt(id));
 
-        console.log("Work Order Data:", workOrderData); // Debug log
-
-        // Format data untuk form - PERBAIKAN DI SINI
         setFormData({
           id: workOrderData.id,
           date: workOrderData.date.split("T")[0],
@@ -140,8 +130,8 @@ const EditWorkOrderFormIT: React.FC = () => {
           requester_id: workOrderData.requester_id,
           known_by_id: workOrderData.known_by_id,
           department_id: workOrderData.department_id,
-          service_type_id: String(workOrderData.service_group_id || ""), // PERBAIKAN
-          service_id: String(workOrderData.service_catalogue_id || ""), // PERBAIKAN
+          service_type_id: String(workOrderData.service_group_id || ""),
+          service_id: String(workOrderData.service_catalogue_id || ""),
           asset_no: workOrderData.asset_no,
           device_info: workOrderData.device_info,
           complaint: workOrderData.complaint,
@@ -151,6 +141,7 @@ const EditWorkOrderFormIT: React.FC = () => {
           action_taken: workOrderData.action_taken,
           handling_status: workOrderData.handling_status,
           remarks: workOrderData.remarks,
+          assigned_to_id: workOrderData.assigned_to_id,
         });
       } catch (err: any) {
         console.error("Failed to fetch work order data:", err);
@@ -163,7 +154,6 @@ const EditWorkOrderFormIT: React.FC = () => {
     fetchWorkOrderData();
   }, [id, getWorkOrderById]);
 
-  // Fetch master data
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -173,7 +163,6 @@ const EditWorkOrderFormIT: React.FC = () => {
           name: g.group_name ?? "",
           description: g.group_description ?? undefined,
         }));
-        setFilteredServiceGroups(mapped);
         setServiceGroupsList(mapped);
 
         const departmentsResponse = await getDepartment();
@@ -184,9 +173,7 @@ const EditWorkOrderFormIT: React.FC = () => {
 
         if (user && user.id) {
           const servicesData = await getServices(parseInt(user.id));
-          const transformedServices = servicesData;
-          setServiceList(transformedServices);
-          console.log("Services loaded:", transformedServices);
+          setServiceList(servicesData);
         }
       } catch (err) {
         console.error("Failed to fetch master data:", err);
@@ -197,19 +184,6 @@ const EditWorkOrderFormIT: React.FC = () => {
       fetchData();
     }
   }, [user, getUsers, getServices, getDepartment, getServiceGroups]);
-
-  useEffect(() => {
-    if (formData.reception_method === "Electronic Work Order System" && user) {
-      const headId = user.department?.head_id || null;
-
-      setFormData((prev) => ({
-        ...prev,
-        requester_id: parseInt(user.id),
-        department_id: user.department_id || 0,
-        known_by_id: headId,
-      }));
-    }
-  }, [formData.reception_method, user]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -258,16 +232,21 @@ const EditWorkOrderFormIT: React.FC = () => {
     setSidebarOpen((prev) => !prev);
   };
 
-  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement> | OptionType | null, name?: keyof WorkOrderFormData) => {
-    let fieldName: keyof WorkOrderFormData;
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement> | OptionType | null, name?: keyof WorkOrderFormDataLocal) => {
+    let fieldName: keyof WorkOrderFormDataLocal;
     let value: string | number | null;
 
     if (e && "target" in e) {
-      fieldName = e.target.name as keyof WorkOrderFormData;
+      fieldName = e.target.name as keyof WorkOrderFormDataLocal;
       value = e.target.value;
     } else if (e && typeof e === "object" && "value" in e && name) {
       fieldName = name;
-      value = e.value;
+      // Konversi ke number untuk ID fields
+      if (name === "assigned_to_id" || name === "requester_id" || name === "known_by_id") {
+        value = e.value ? parseInt(e.value) : null;
+      } else {
+        value = e.value;
+      }
     } else if (e === null && name) {
       fieldName = name;
       value = null;
@@ -281,74 +260,54 @@ const EditWorkOrderFormIT: React.FC = () => {
     }));
   }, []);
 
-  const handleReceptionMethodChange = (selectedOption: OptionType | null) => {
-    const method = selectedOption?.value || "";
-
-    setFormData((prev) => {
-      const newData = { ...prev, reception_method: method };
-
-      if (method === "Electronic Work Order System" && user) {
-        return {
-          ...newData,
-          requester_id: parseInt(user.id),
-          department_id: user.department?.id || 0,
-          known_by_id: user.department?.head_id || null,
-        };
-      }
-      return newData;
-    });
-  };
-
-  const handleAssetNoChange = (newValue: OptionType | null) => {
-    setFormData((prev) => ({
-      ...prev,
-      asset_no: newValue ? newValue.value : "",
-    }));
-  };
-
-  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      setSelectedFile(e.target.files[0]);
-      setFormData((prev) => ({
-        ...prev,
-        attachment: e.target.files![0].name,
-      }));
-    } else {
-      setSelectedFile(null);
-      setFormData((prev) => ({
-        ...prev,
-        attachment: null,
-      }));
-    }
-  }, []);
-
-  const handleRemoveFile = useCallback(() => {
-    setSelectedFile(null);
-    setFormData((prev) => ({
-      ...prev,
-      attachment: null,
-    }));
-  }, []);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
 
-    // PERBAIKAN: Mapping field untuk backend
+    const statusesRequiringAssignment = ["In Progress", "Escalated", "Vendor Handled", "Resolved"];
+    if (formData.handling_status && statusesRequiringAssignment.includes(formData.handling_status) && !formData.assigned_to_id) {
+      setError("Assigned To is required for this status");
+      setIsLoading(false);
+      return;
+    }
+
+    // Validasi untuk status Escalated/Vendor Handled
+    if ((formData.handling_status === "Escalated" || formData.handling_status === "Vendor Handled") && !formData.assigned_to_id) {
+      setError("Assigned To is required for Escalated or Vendor Handled status");
+      setIsLoading(false);
+      return;
+    }
+
+    // Validasi lainnya tetap sama...
+    if (!formData.handling_status) {
+      setError("Handling status is required");
+      setIsLoading(false);
+      return;
+    }
+
+    if (!formData.handling_date) {
+      setError("Handling date is required");
+      setIsLoading(false);
+      return;
+    }
+
+    if (!formData.action_taken || formData.action_taken.length < 5) {
+      setError("Action taken must be at least 5 characters");
+      setIsLoading(false);
+      return;
+    }
+
     const dataToSend: WorkOrderFormDataLocal = {
+      ...formData,
       id: formData.id,
-      date: formData.date,
-      reception_method: formData.reception_method,
-      requester_id: formData.requester_id,
-      known_by_id: formData.known_by_id,
-      department_id: formData.department_id,
-      service_group_id: Number(formData.service_type_id), // PERBAIKAN
-      service_catalogue_id: Number(formData.service_id), // PERBAIKAN
-      asset_no: formData.asset_no,
-      device_info: formData.device_info,
-      complaint: formData.complaint,
-      attachment: formData.attachment,
+      received_by_id: user?.id ? parseInt(user.id) : null,
+      handling_date: formData.handling_date,
+      action_taken: formData.action_taken,
+      handling_status: formData.handling_status,
+      remarks: formData.remarks,
+      // Tambahkan assigned_to_id jika ada
+      assigned_to_id: formData.assigned_to_id ? parseInt(formData.assigned_to_id as unknown as string) : null,
     };
 
     try {
@@ -366,24 +325,9 @@ const EditWorkOrderFormIT: React.FC = () => {
     }
   };
 
-  const handleServiceGroupChange = (selectedOption: OptionType | null) => {
-    setFormData((prev) => ({
-      ...prev,
-      service_type_id: selectedOption ? selectedOption.value : "",
-      service_id: "",
-    }));
-  };
-
-  const handleServiceCatalogueChange = (selectedOption: OptionType | null) => {
-    setFormData((prev) => ({
-      ...prev,
-      service_id: selectedOption ? selectedOption.value : "",
-    }));
-  };
-
   const handleCloseSuccessModal = useCallback(() => {
     setShowSuccessModal(false);
-    navigate("/workorders/it");
+    navigate("/workorders/it/assignment");
   }, [navigate]);
 
   const customSelectStyles = {
@@ -441,83 +385,35 @@ const EditWorkOrderFormIT: React.FC = () => {
     }),
   };
 
-  const insights = [
-    {
-      id: 1,
-      title: "Maintenance Efficiency Improved",
-      description: "Preventive maintenance completion rate increased by 15% this month",
-      icon: <CheckCircle className="text-green-500" />,
-      date: "Today, 09:30 AM",
-    },
-    {
-      id: 2,
-      title: "3 Assets Requiring Attention",
-      description: "Critical assets showing signs of wear need inspection",
-      icon: <AlertTriangle className="text-yellow-500" />,
-      date: "Yesterday, 02:15 PM",
-    },
-    {
-      id: 3,
-      title: "Monthly Maintenance Completed",
-      description: "All scheduled maintenance tasks completed on time",
-      icon: <CheckCircle className="text-blue-500" />,
-      date: "Jul 28, 2023",
-    },
-  ];
-
-  const handleRequesterChange = useCallback(
-    (selectedOption: OptionType | null) => {
-      if (!selectedOption) return;
-
-      const selectedUserId = parseInt(selectedOption.value);
-      const selectedUser = allUsers.find((user) => parseInt(user.id) === selectedUserId);
-
-      if (selectedUser) {
-        const userDepartment = departmentList.find((dept) => dept.id === selectedUser.department_id);
-
-        setFormData((prev) => ({
-          ...prev,
-          requester_id: selectedUserId,
-          department_id: selectedUser.department_id || 0,
-          known_by_id: userDepartment?.head_id || null,
-        }));
-      }
-    },
-    [allUsers, departmentList]
-  );
+  const getRequesterName = () => {
+    const requester = allUsers.find((u) => parseInt(u.id) === formData.requester_id);
+    return requester?.name || "Unknown";
+  };
 
   const getRequesterDepartment = () => {
-    if (isElectronicMethod) {
-      const userDepartment = departmentList.find((dept) => dept.id === user?.department_id);
-      return userDepartment?.name || "No department assigned";
-    }
-
     const department = departmentList.find((dept) => dept.id === formData.department_id);
     return department?.name || "No department assigned";
   };
 
   const getRequesterDepartmentHead = () => {
-    if (isElectronicMethod) {
-      const userDepartment = departmentList.find((dept) => dept.id === user?.department_id);
-
-      if (userDepartment && userDepartment.head_id) {
-        const headUser = allUsers.find((user) => parseInt(user.id) === userDepartment.head_id);
-        return headUser?.name || "No department head assigned";
-      }
-      return "No department head assigned";
-    }
-
     const department = departmentList.find((dept) => dept.id === formData.department_id);
-
     if (department && department.head_id) {
       const headUser = allUsers.find((user) => parseInt(user.id) === department.head_id);
       return headUser?.name || "No department head assigned";
     }
-
     return "No department head assigned";
   };
 
-  // Get current attachment filename from URL
+  const getServiceTypeName = () => {
+    const serviceType = serviceGroupsList.find((g) => String(g.id) === formData.service_type_id);
+    return serviceType?.name || "Unknown";
+  };
+
+  const getServiceName = () => {
+    const service = serviceList.find((s) => String(s.id) === formData.service_id);
+    return service?.service_name || "Unknown";
+  };
+
   const getAttachmentFilename = () => {
     if (!formData.attachment) return null;
 
@@ -526,7 +422,13 @@ const EditWorkOrderFormIT: React.FC = () => {
       const pathname = url.pathname;
       return pathname.substring(pathname.lastIndexOf("/") + 1);
     } catch (e) {
-      return formData.attachment; // Return as is if it's not a valid URL
+      return formData.attachment;
+    }
+  };
+
+  const handleViewAttachment = () => {
+    if (formData.attachment) {
+      window.open(formData.attachment, "_blank");
     }
   };
 
@@ -558,11 +460,11 @@ const EditWorkOrderFormIT: React.FC = () => {
                 <ChevronRight className="text-xl" />
               </motion.button>
             )}
-            <motion.button onClick={() => navigate("/workorders/it")} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="flex items-center text-blue-600 hover:text-blue-800 transition-colors duration-200">
+            <motion.button onClick={() => navigate("/workorders/it/assignment")} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="flex items-center text-blue-600 hover:text-blue-800 transition-colors duration-200">
               <ChevronLeft className="text-xl" />
-              <span className="font-semibold text-sm hidden md:inline">Back to Work Orders</span>
+              <span className="font-semibold text-sm hidden md:inline">Back to Receiver</span>
             </motion.button>
-            <h2 className="text-lg md:text-xl font-bold text-gray-900 ml-4">Edit Work Order</h2>
+            <h2 className="text-lg md:text-xl font-bold text-gray-900 ml-4">Update Work Order</h2>
           </div>
 
           <div className="flex items-center space-x-3 relative">
@@ -604,17 +506,16 @@ const EditWorkOrderFormIT: React.FC = () => {
                       </button>
                     </div>
                     <div className="max-h-64 overflow-y-auto custom-scrollbar">
-                      {insights.slice(0, 3).map((notification) => (
-                        <div key={notification.id} className="flex items-start px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-50 last:border-b-0">
-                          <div className="p-2 mr-3 mt-0.5 rounded-full bg-blue-50 text-blue-600">{notification.icon}</div>
-                          <div>
-                            <p className="font-medium text-sm text-gray-800">{notification.title}</p>
-                            <p className="text-xs text-gray-600 mt-1">{notification.description}</p>
-                            <p className="text-xs text-gray-500 mt-1">{notification.date}</p>
-                          </div>
+                      <div className="flex items-start px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-50">
+                        <div className="p-2 mr-3 mt-0.5 rounded-full bg-blue-50 text-blue-600">
+                          <CheckCircle className="text-blue-500" />
                         </div>
-                      ))}
-                      {insights.length === 0 && <p className="text-gray-500 text-sm px-4 py-3">No new notifications.</p>}
+                        <div>
+                          <p className="font-medium text-sm text-gray-800">Work Order Updated</p>
+                          <p className="text-xs text-gray-600 mt-1">You have successfully updated a work order</p>
+                          <p className="text-xs text-gray-500 mt-1">Just now</p>
+                        </div>
+                      </div>
                     </div>
                     <div className="px-4 py-2 border-t border-gray-100 text-center">
                       <button
@@ -696,16 +597,16 @@ const EditWorkOrderFormIT: React.FC = () => {
         <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Edit Work Order</h1>
-              <p className="text-gray-600 mt-1">Perbarui detail work order yang sudah ada</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Update Work Order</h1>
+              <p className="text-gray-600 mt-1">Perbarui status dan penanganan work order</p>
             </div>
             <motion.button
-              onClick={() => navigate("/workorders/it")}
+              onClick={() => navigate("/workorders/it/assignment")}
               whileHover={{ scale: 1.05, boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)" }}
               whileTap={{ scale: 0.95 }}
               className="flex items-center space-x-2 bg-white border border-gray-200 text-gray-800 px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md"
             >
-              <ChevronLeft className="text-lg" /> Back to Work Orders
+              <ChevronLeft className="text-lg" /> Back to Receiver
             </motion.button>
           </motion.div>
 
@@ -727,255 +628,212 @@ const EditWorkOrderFormIT: React.FC = () => {
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">
-                      Date <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="date"
-                      id="date"
-                      name="date"
-                      value={formData.date}
-                      onChange={handleChange}
-                      required
-                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
-                    />
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                    <div className="flex items-center p-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-700">
+                      <span>{formData.date}</span>
+                    </div>
                   </div>
                   <div>
-                    <label htmlFor="reception_method" className="block text-sm font-medium text-gray-700 mb-1">
-                      Reception Method <span className="text-red-500">*</span>
-                    </label>
-                    <Select
-                      id="reception_method"
-                      name="reception_method"
-                      options={[
-                        { value: "Electronic Work Order System", label: "Electronic Work Order System" },
-                        { value: "Direct Information", label: "Direct Information" },
-                        { value: "Phone", label: "Phone" },
-                        { value: "Whatsapp", label: "Whatsapp" },
-                        { value: "Email", label: "Email" },
-                      ]}
-                      value={{ value: formData.reception_method, label: formData.reception_method }}
-                      onChange={handleReceptionMethodChange}
-                      placeholder="Select Reception Method"
-                      styles={customSelectStyles}
-                      required
-                    />
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Reception Method</label>
+                    <div className="flex items-center p-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-700">
+                      <span>{formData.reception_method}</span>
+                    </div>
                   </div>
                   <div>
-                    <label htmlFor="requester_id" className="block text-sm font-medium text-gray-700 mb-1">
-                      Requester <span className="text-red-500">*</span>
-                    </label>
-                    {isElectronicMethod ? (
-                      <div className="flex items-center p-2.5 border border-gray-300 rounded-lg bg-blue-50 text-gray-700">
-                        <span>{user?.name || "Current User"}</span>
-                      </div>
-                    ) : (
-                      <Select
-                        id="requester_id"
-                        name="requester_id"
-                        options={allUsers.map((u) => ({
-                          value: String(u.id),
-                          label: u.name,
-                        }))}
-                        value={
-                          allUsers.find((u) => parseInt(u.id) === formData.requester_id)
-                            ? {
-                                value: String(formData.requester_id),
-                                label: allUsers.find((u) => parseInt(u.id) === formData.requester_id)?.name || "",
-                              }
-                            : null
-                        }
-                        onChange={handleRequesterChange}
-                        placeholder="Select Requester"
-                        styles={customSelectStyles}
-                        required
-                      />
-                    )}
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Requester</label>
+                    <div className="flex items-center p-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-700">
+                      <span>{getRequesterName()}</span>
+                    </div>
                   </div>
                   <div>
-                    <label htmlFor="department_id" className="block text-sm font-medium text-gray-700 mb-1">
-                      Department <span className="text-red-500">*</span>
-                    </label>
-                    <div className="flex items-center p-2.5 border border-gray-300 rounded-lg bg-blue-50 text-gray-700">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                    <div className="flex items-center p-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-700">
                       <span>{getRequesterDepartment()}</span>
                     </div>
                   </div>
 
                   <div>
-                    <label htmlFor="known_by_id" className="block text-sm font-medium text-gray-700 mb-1">
-                      Known By (Head)
-                    </label>
-                    <div className="flex items-center p-2.5 border border-gray-300 rounded-lg bg-blue-50 text-gray-700">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Known By (Head)</label>
+                    <div className="flex items-center p-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-700">
                       <span>{getRequesterDepartmentHead()}</span>
                     </div>
                   </div>
                 </div>
               </div>
-
               <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
                 <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                   <ToolCase className="mr-2 text-green-500" /> Service Details
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label htmlFor="service_type_id" className="block text-sm font-medium text-gray-700 mb-1">
-                      Service Type <span className="text-red-500">*</span>
-                    </label>
-                    <Select
-                      id="service_type_id"
-                      name="service_type_id"
-                      options={serviceGroupsList.map((group) => ({
-                        value: String(group.id),
-                        label: group.name,
-                      }))}
-                      value={
-                        formData.service_type_id
-                          ? {
-                              value: formData.service_type_id,
-                              label: serviceGroupsList.find((g) => String(g.id) === formData.service_type_id)?.name || "",
-                            }
-                          : null
-                      }
-                      onChange={handleServiceGroupChange}
-                      placeholder="Select Service Type"
-                      styles={customSelectStyles}
-                      required
-                    />
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Service Type</label>
+                    <div className="flex items-center p-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-700">
+                      <span>{getServiceTypeName()}</span>
+                    </div>
                   </div>
 
                   <div>
-                    <label htmlFor="service_id" className="block text-sm font-medium text-gray-700 mb-1">
-                      Service <span className="text-red-500">*</span>
-                    </label>
-                    <Select
-                      id="service_id"
-                      name="service_id"
-                      options={filteredServices.map((service) => ({
-                        value: String(service.id),
-                        label: service.service_name,
-                      }))}
-                      value={
-                        formData.service_id
-                          ? {
-                              value: formData.service_id,
-                              label: filteredServices.find((s) => String(s.id) === formData.service_id)?.service_name || "",
-                            }
-                          : null
-                      }
-                      onChange={handleServiceCatalogueChange}
-                      placeholder="Select Service"
-                      styles={customSelectStyles}
-                    />
-
-                    {filteredServices.length === 0 && formData.service_type_id && <p className="text-sm text-yellow-500 mt-1">No services available for selected type</p>}
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Service</label>
+                    <div className="flex items-center p-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-700">
+                      <span>{getServiceName()}</span>
+                    </div>
                   </div>
                   <div>
-                    <label htmlFor="asset_no" className="block text-sm font-medium text-gray-700 mb-1">
-                      No. Asset <span className="text-red-500">*</span>
-                    </label>
-                    <CreatableSelect<OptionType>
-                      name="asset_no"
-                      id="asset_no"
-                      options={assetOptions}
-                      value={formData.asset_no ? { value: formData.asset_no, label: formData.asset_no } : null}
-                      onChange={handleAssetNoChange}
-                      onCreateOption={(inputValue) => {
-                        const newOption: OptionType = { value: inputValue, label: inputValue };
-                        setAssetOptions((prev) => [...prev, newOption]);
-                        handleAssetNoChange(newOption);
-                      }}
-                      placeholder="Type or select Asset No."
-                      styles={customSelectStyles}
-                      required
-                    />
+                    <label className="block text-sm font-medium text-gray-700 mb-1">No. Asset</label>
+                    <div className="flex items-center p-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-700">
+                      <span>{formData.asset_no}</span>
+                    </div>
                   </div>
                 </div>
               </div>
-
               <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
                 <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                   <ListPlus className="mr-2 text-purple-500" /> Device & Complaint Details
                 </h2>
                 <div className="grid grid-cols-1 gap-6">
                   <div>
-                    <label htmlFor="device_info" className="block text-sm font-medium text-gray-700 mb-1">
-                      Device Information <span className="text-red-500">*</span>
-                    </label>
-                    <textarea
-                      id="device_info"
-                      name="device_info"
-                      value={formData.device_info}
-                      onChange={handleChange}
-                      required
-                      rows={3}
-                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
-                      placeholder="Provide details about the device (e.g., model, serial number)."
-                    ></textarea>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Device Information</label>
+                    <div className="p-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-700">
+                      <span>{formData.device_info}</span>
+                    </div>
                   </div>
                   <div>
-                    <label htmlFor="complaint" className="block text-sm font-medium text-gray-700 mb-1">
-                      Complaint <span className="text-red-500">*</span>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Complaint</label>
+                    <div className="p-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-700">
+                      <span>{formData.complaint}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {formData.attachment && (
+                <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+                  <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                    <Paperclip className="mr-2 text-gray-500" /> Attachment
+                  </h2>
+                  <div className="flex items-center justify-between p-2.5 border border-gray-300 rounded-lg bg-gray-50">
+                    <span className="text-gray-700">{getAttachmentFilename()}</span>
+                    <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleViewAttachment} className="ml-4 px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors">
+                      View
+                    </motion.button>
+                  </div>
+                </div>
+              )}
+              <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+                <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                  <CheckCircle className="mr-2 text-blue-500" /> Handling Information
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label htmlFor="received_by_id" className="block text-sm font-medium text-gray-700 mb-1">
+                      Received By
                     </label>
-                    <textarea
-                      id="complaint"
-                      name="complaint"
-                      value={formData.complaint}
+                    <div className="flex items-center p-2.5 border border-gray-300 rounded-lg bg-blue-50 text-gray-700">
+                      <span>{user?.name || "Current User"}</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label htmlFor="handling_date" className="block text-sm font-medium text-gray-700 mb-1">
+                      Handling Date <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      id="handling_date"
+                      name="handling_date"
+                      value={formData.handling_date || ""}
                       onChange={handleChange}
                       required
+                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="handling_status" className="block text-sm font-medium text-gray-700 mb-1">
+                      Ticket Status <span className="text-red-500">*</span>
+                    </label>
+                    <Select
+                      id="handling_status"
+                      name="handling_status"
+                      options={[
+                        { value: "New", label: "New" },
+                        { value: "In Progress", label: "In Progress" },
+                        { value: "Escalated", label: "Escalated" },
+                        { value: "Vendor Handled", label: "Vendor Handled" },
+                        { value: "Resolved", label: "Resolved" },
+                      ]}
+                      value={formData.handling_status ? { value: formData.handling_status, label: formData.handling_status } : null}
+                      onChange={(selectedOption) => handleChange(selectedOption, "handling_status")}
+                      placeholder="Select Handling Status"
+                      styles={customSelectStyles}
+                      required
+                    />
+                  </div>
+
+                  {showAssignedToField && (
+                    <div>
+                      <label htmlFor="assigned_to_id" className="block text-sm font-medium text-gray-700 mb-1">
+                        Assigned To <span className="text-red-500">*</span>
+                      </label>
+                      <Select
+                        id="assigned_to_id"
+                        name="assigned_to_id"
+                        options={allUsers.map((u) => ({
+                          value: String(u.id),
+                          label: u.name,
+                        }))}
+                        value={
+                          formData.assigned_to_id
+                            ? {
+                                value: String(formData.assigned_to_id),
+                                label: allUsers.find((u) => parseInt(u.id) === formData.assigned_to_id)?.name || "Unknown",
+                              }
+                            : null
+                        }
+                        onChange={(selectedOption) => handleChange(selectedOption, "assigned_to_id")}
+                        placeholder="Select Assignee"
+                        styles={customSelectStyles}
+                        required={showAssignedToField}
+                      />
+                    </div>
+                  )}
+
+                  <div className="md:col-span-2">
+                    <label htmlFor="action_taken" className="block text-sm font-medium text-gray-700 mb-1">
+                      Action Taken <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      id="action_taken"
+                      name="action_taken"
+                      value={formData.action_taken || ""}
+                      onChange={handleChange}
+                      required
+                      minLength={5}
+                      rows={4}
+                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
+                      placeholder="Describe the action taken to resolve the issue."
+                    ></textarea>
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label htmlFor="remarks" className="block text-sm font-medium text-gray-700 mb-1">
+                      Remarks
+                    </label>
+                    <textarea
+                      id="remarks"
+                      name="remarks"
+                      value={formData.remarks || ""}
+                      onChange={handleChange}
                       rows={3}
                       className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
-                      placeholder="Describe the complaint in detail."
+                      placeholder="Add any additional remarks or notes."
                     ></textarea>
                   </div>
                 </div>
               </div>
-
-              <div className="mt-6 pt-6 border-t border-gray-100">
-                <label htmlFor="attachment" className="block text-sm font-medium text-gray-700 mb-1">
-                  Attachment (Optional)
-                </label>
-                <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-200 border-dashed rounded-lg cursor-pointer hover:border-blue-400 transition-all duration-200">
-                  <div className="space-y-1 text-center">
-                    <Paperclip className="mx-auto h-12 w-12 text-gray-400" />
-                    <div className="flex text-sm text-gray-600">
-                      <label
-                        htmlFor="file-upload"
-                        className="relative cursor-pointer rounded-md bg-white font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2"
-                      >
-                        <span>Upload a file</span>
-                        <input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleFileChange} />
-                      </label>
-                      <p className="pl-1">or drag and drop</p>
-                    </div>
-                    <p className="text-xs text-gray-500">PNG, JPG, GIF, PDF up to 10MB</p>
-                  </div>
-                </div>
-                {selectedFile && (
-                  <ul className="mt-3 border border-gray-200 rounded-md divide-y divide-gray-200">
-                    <li key={selectedFile.name} className="flex items-center justify-between py-2 pl-3 pr-4 text-sm">
-                      <div className="flex w-0 flex-1 items-center">
-                        <Paperclip className="h-5 w-5 flex-shrink-0 text-gray-400" aria-hidden="true" />
-                        <span className="ml-2 w-0 flex-1 truncate">{selectedFile.name}</span>
-                      </div>
-                      <div className="ml-4 flex-shrink-0">
-                        <motion.button type="button" onClick={handleRemoveFile} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="font-medium text-red-600 hover:text-red-900 transition-colors duration-200">
-                          Remove
-                        </motion.button>
-                      </div>
-                    </li>
-                  </ul>
-                )}
-                {formData.attachment && !selectedFile && (
-                  <div className="mt-3">
-                    <p className="text-sm text-gray-600">Current attachment: {getAttachmentFilename()}</p>
-                  </div>
-                )}
-              </div>
-
               <div className="flex flex-col sm:flex-row justify-end gap-4 pt-6 border-t border-gray-100 mt-8">
                 <motion.button
                   type="button"
-                  onClick={() => navigate("/workorders/it")}
+                  onClick={() => navigate("/workorders/it/assignment")}
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
                   className="px-6 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 flex items-center justify-center"
@@ -1025,4 +883,4 @@ const EditWorkOrderFormIT: React.FC = () => {
   );
 };
 
-export default EditWorkOrderFormIT;
+export default EditAssignment;

@@ -62,11 +62,26 @@ const ITRequest2: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const { user: currentUser, getWorkOrdersIT, deleteWorkOrder, hasPermission } = useAuth();
+  // State baru untuk konfirmasi Complete dan Cancel
+  const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [recordToComplete, setRecordToComplete] = useState<number | null>(null);
+  const [recordToCancel, setRecordToCancel] = useState<number | null>(null);
+
+  const { user: currentUser, getWorkOrdersIT, deleteWorkOrder, hasPermission, fetchWithAuth } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const notificationsRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
+
+  const isWorkOrdersIT = location.pathname === "/workorders/it";
+  const isWorkOrdersTD = location.pathname === "/workorders/td";
+  const isRequest = location.pathname === "/workorders/it";
+  const isApprover = location.pathname === "/workorders/it/approver";
+  const isAssignment = location.pathname === "/workorders/it/assignment";
+  const isReceiver = location.pathname === "/workorders/it/receiver";
+  const isReports = location.pathname === "/workorders/it/reports";
+  const isKnowledgeBase = location.pathname === "/workorders/it/knowledgebase";
 
   useEffect(() => {
     const handleResize = () => {
@@ -184,16 +199,70 @@ const ITRequest2: React.FC = () => {
     [deleteWorkOrder, loadWorkOrders]
   );
 
+  const handleCancelClick = useCallback((id: number) => {
+    setRecordToCancel(id);
+    setShowCancelConfirm(true);
+  }, []);
+
+  // Fungsi untuk menampilkan konfirmasi Complete
+  const handleCompleteClick = useCallback((id: number) => {
+    setRecordToComplete(id);
+    setShowCompleteConfirm(true);
+  }, []);
+
+  // Tambahkan fungsi ini setelah handleCompleteWorkOrder
+  const handleCancelWorkOrder = useCallback(
+    async (id: number) => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Update status work order menjadi "Cancel"
+        await fetchWithAuth(`/ayam/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            handling_status: "Cancel",
+          }),
+        });
+
+        await loadWorkOrders();
+        setShowWorkOrderDetailsModal(false);
+        setSelectedWorkOrder(null);
+        setShowCancelConfirm(false);
+        setRecordToCancel(null);
+        setSuccessMessage("Work order cancelled successfully.");
+        setTimeout(() => setSuccessMessage(null), 2500);
+      } catch (err) {
+        setError("Failed to cancel work order.");
+        console.error("Error cancelling work order:", err);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [fetchWithAuth, loadWorkOrders]
+  );
+
   const handleCompleteWorkOrder = useCallback(
     async (id: number) => {
       try {
         setLoading(true);
         setError(null);
-        // This would typically call an update function from AuthContext
-        // For now, we'll just reload the data
+
+        // Update status work order menjadi "Closed"
+        await fetchWithAuth(`/ayam/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            handling_status: "Closed",
+          }),
+        });
+
         await loadWorkOrders();
         setShowWorkOrderDetailsModal(false);
         setSelectedWorkOrder(null);
+        setShowCompleteConfirm(false);
+        setRecordToComplete(null);
         setSuccessMessage("Work order completed successfully.");
         setTimeout(() => setSuccessMessage(null), 2500);
       } catch (err) {
@@ -203,7 +272,7 @@ const ITRequest2: React.FC = () => {
         setLoading(false);
       }
     },
-    [loadWorkOrders]
+    [fetchWithAuth, loadWorkOrders]
   );
 
   const toggleSidebar = () => {
@@ -224,34 +293,36 @@ const ITRequest2: React.FC = () => {
 
   const sortWorkOrders = (orders: WorkOrderData[]) => {
     return [...orders].sort((a, b) => {
-      const prioA = statusPriority[a.handling_status] ?? 99;
-      const prioB = statusPriority[b.handling_status] ?? 99;
-
-      if (prioA !== prioB) {
-        return prioA - prioB;
-      }
-
-      // jika status sama, urutkan tanggal terbaru ke atas
+      // Utamakan tanggal terbaru di atas
       const dateA = new Date(a.date || "").getTime();
       const dateB = new Date(b.date || "").getTime();
-      return dateB - dateA;
+
+      if (dateA !== dateB) {
+        return dateB - dateA; // Terbaru di atas
+      }
+
+      // Jika tanggal sama, urutkan berdasarkan status
+      const prioA = statusPriority[a.handling_status] ?? 99;
+      const prioB = statusPriority[b.handling_status] ?? 99;
+      return prioA - prioB;
     });
   };
 
-  const filteredWorkOrders = sortWorkOrders(
-    workOrders.filter((order: WorkOrderData) => {
+  const filteredWorkOrders = workOrders
+    .filter((order) => {
       const matchesSearch =
-        (order.service_type.group_name.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
-        String(order.id).includes(searchQuery) ||
-        (order.assigned_to?.name?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
-        (order.device_info || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (order.complaint || "").toLowerCase().includes(searchQuery.toLowerCase());
-
+        order.requester?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        order.work_order_no?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        order.complaint?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        String(order.id).includes(searchQuery);
       const matchesStatus = statusFilter === "all" || order.handling_status === statusFilter;
 
       return matchesSearch && matchesStatus;
     })
-  );
+    .sort((a, b) => {
+      // Urutkan berdasarkan created_at terbaru di atas (descending)
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
 
   const indexOfLastOrder = currentPage * ordersPerPage;
   const indexOfFirstOrder = indexOfLastOrder - ordersPerPage;
@@ -528,38 +599,35 @@ const ITRequest2: React.FC = () => {
             <motion.div
               whileTap={{ scale: 0.98 }}
               onClick={() => navigate("/workorders/it")}
-              className={`cursor-pointer px-4 py-3 text-sm font-medium ${location.pathname === "/workorders/it" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
+              className={`cursor-pointer px-4 py-3 text-sm font-medium ${isRequest ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
             >
               Request
             </motion.div>
             <motion.div
               whileTap={{ scale: 0.98 }}
               onClick={() => navigate("/workorders/it/receiver")}
-              className={`cursor-pointer px-4 py-3 text-sm font-medium ${location.pathname === "/workorders/it/receiver" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
+              className={`cursor-pointer px-4 py-3 text-sm font-medium ${isReceiver ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
             >
               Receiver
             </motion.div>
             <motion.div
               whileTap={{ scale: 0.98 }}
               onClick={() => navigate("/workorders/it/assignment")}
-              className={`cursor-pointer px-4 py-3 text-sm font-medium ${location.pathname === "/workorders/it/assignment" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
+              className={`cursor-pointer px-4 py-3 text-sm font-medium ${isAssignment ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
             >
               Assignment
             </motion.div>
             <motion.div
               whileTap={{ scale: 0.98 }}
               onClick={() => navigate("/workorders/it/reports")}
-              className={`cursor-pointer px-4 py-3 text-sm font-medium ${location.pathname === "/workorders/it/reports" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
+              className={`cursor-pointer px-4 py-3 text-sm font-medium ${isReports ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
             >
               Reports
             </motion.div>
-
             <motion.div
               whileTap={{ scale: 0.98 }}
               onClick={() => navigate("/workorders/it/knowledgebase")}
-              className={`cursor-pointer px-4 py-3 text-sm font-medium ${
-                location.pathname === "/workorders/it/knowledgebase" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"
-              } transition-colors duration-200`}
+              className={`cursor-pointer px-4 py-3 text-sm font-medium ${isKnowledgeBase ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-700 hover:text-gray-900"} transition-colors duration-200`}
             >
               Knowledge Base
             </motion.div>
@@ -622,7 +690,7 @@ const ITRequest2: React.FC = () => {
             >
               <div className="flex items-center justify-between z-10 relative">
                 <div>
-                  <p className="text-sm font-medium text-gray-500 mb-1">Pending IT</p>
+                  <p className="text-sm font-medium text-gray-500 mb-1"> </p>
                   <p className="text-3xl font-bold text-gray-900">{filteredWorkOrders.filter((wo) => wo.handling_status === "New").length}</p>
                 </div>
                 <div className="p-2 rounded-full bg-blue-50 text-blue-600 text-2xl opacity-90 transition-all duration-200">
@@ -742,8 +810,13 @@ const ITRequest2: React.FC = () => {
                         whileHover={{ backgroundColor: "rgba(239, 246, 255, 1)" }}
                         className="transition-colors duration-150"
                       >
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{order.work_order_no}</td>
-
+                        <td
+                          className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 cursor-pointer hover:text-blue-600 hover:underline transition-colors duration-200"
+                          onClick={() => openWorkOrderDetails(order.id)}
+                          title="Click to view details"
+                        >
+                          {order.work_order_no || "-"}
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{new Date(order.date).toLocaleDateString()}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">{order.device_info}</div>
@@ -770,7 +843,7 @@ const ITRequest2: React.FC = () => {
                             <Eye className="text-lg" />
                           </motion.button>
 
-                          {/* Edit and Delete buttons only for 'New' status */}
+                          {/* Untuk status "New" - Tampilkan Edit dan Cancel */}
                           {order.handling_status === "New" && (
                             <>
                               <motion.button
@@ -785,37 +858,28 @@ const ITRequest2: React.FC = () => {
                               <motion.button
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
-                                onClick={() => handleDeleteClick(order.id)}
-                                className="text-red-600 hover:text-red-800 transition-colors duration-200 flex items-center space-x-1"
-                                title="Delete Work Order"
-                              >
-                                <Trash2 className="text-lg" />
-                              </motion.button>
-                            </>
-                          )}
-
-                          {/* Close/Cancel buttons for 'Resolved' status */}
-                          {order.handling_status === "Resolved" && (
-                            <>
-                              <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={() => handleCompleteWorkOrder(order.id)}
-                                className="text-green-600 hover:text-green-800 transition-colors duration-200 flex items-center space-x-1"
-                                title="Mark as Closed"
-                              >
-                                <CheckCircle className="text-lg" />
-                              </motion.button>
-                              <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={() => handleCompleteWorkOrder(order.id)}
+                                onClick={() => handleCancelClick(order.id)}
                                 className="text-red-600 hover:text-red-800 transition-colors duration-200 flex items-center space-x-1"
                                 title="Cancel Work Order"
                               >
                                 <X className="text-lg" />
                               </motion.button>
                             </>
+                          )}
+
+                          {/* Untuk status "Resolved" - Tampilkan Complete saja */}
+                          {order.handling_status === "Resolved" && (
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={(e) => {
+                                handleCompleteClick(order.id); // Pastikan ini memanggil konfirmasi
+                              }}
+                              className="text-green-600 hover:text-green-800 transition-colors duration-200 flex items-center space-x-1"
+                              title="Mark as Closed"
+                            >
+                              <CheckCircle className="text-lg" />
+                            </motion.button>
                           )}
                         </td>
                       </motion.tr>
@@ -944,6 +1008,70 @@ const ITRequest2: React.FC = () => {
           {successMessage}
         </motion.div>
       )}
+
+      {/* Modal Konfirmasi Complete */}
+      <AnimatePresence>
+        {showCompleteConfirm && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-auto p-6 border border-blue-100">
+              <div className="space-y-5 text-center py-3">
+                <CheckCircle className="text-green-500 text-5xl mx-auto" />
+                <p className="text-base text-gray-700 font-medium">Are you sure you want to mark this work order as completed? This action will close the ticket.</p>
+                <div className="flex justify-center space-x-3 mt-5">
+                  <motion.button
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => setShowCompleteConfirm(false)}
+                    className="px-5 py-2.5 border border-gray-300 rounded-md hover:bg-gray-100 text-gray-700 transition-colors duration-200 font-semibold text-sm"
+                  >
+                    Cancel
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => recordToComplete !== null && handleCompleteWorkOrder(recordToComplete)}
+                    className="px-5 py-2.5 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200 font-semibold text-sm"
+                  >
+                    Yes, Complete
+                  </motion.button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Konfirmasi Cancel */}
+      <AnimatePresence>
+        {showCancelConfirm && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-auto p-6 border border-blue-100">
+              <div className="space-y-5 text-center py-3">
+                <AlertTriangle className="text-orange-500 text-5xl mx-auto" />
+                <p className="text-base text-gray-700 font-medium">Are you sure you want to cancel this work order? This action cannot be undone.</p>
+                <div className="flex justify-center space-x-3 mt-5">
+                  <motion.button
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => setShowCancelConfirm(false)}
+                    className="px-5 py-2.5 border border-gray-300 rounded-md hover:bg-gray-100 text-gray-700 transition-colors duration-200 font-semibold text-sm"
+                  >
+                    No, Keep It
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => recordToCancel !== null && handleCancelWorkOrder(recordToCancel)}
+                    className="px-5 py-2.5 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200 font-semibold text-sm"
+                  >
+                    Yes, Cancel
+                  </motion.button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {error && (
         <motion.div initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 50 }} className="fixed bottom-6 right-6 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg">

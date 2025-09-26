@@ -14,7 +14,7 @@ import {
   Settings,
   LogOut,
   Map, // For header title icon (representing location)
-  ChevronDown
+  ChevronDown,
 } from "lucide-react";
 import Sidebar from "../Sidebar"; // Assuming Sidebar is in ../../component/Sidebar
 import { useAuth } from "../../routes/AuthContext"; // Import useAuth for user context
@@ -219,12 +219,7 @@ const WorkLocationSelection: React.FC = () => {
 
         {/* Main content area */}
         <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            className="mb-6 text-center"
-          >
+          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-6 text-center">
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Select Work Location Type</h1>
             <p className="text-gray-600 mt-2">Choose the type of work location you wish to manage.</p>
           </motion.div>
@@ -265,13 +260,13 @@ const WorkLocationSelection: React.FC = () => {
               className="w-full md:w-1/3 bg-white rounded-2xl shadow-xl p-8 border border-purple-100 cursor-pointer flex flex-col items-center text-center transition-all duration-300 hover:scale-105 hover:shadow-2xl"
               whileHover={{ y: -5 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => handleCardClick("/worklocation/unitlocation")}
+              onClick={() => handleCardClick("/worklocation/workunit")}
             >
               <Warehouse size={64} className="text-purple-600 mb-4" />
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">Unit Location</h3>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">Work Unit</h3>
               <p className="text-gray-700 mb-4">Define and track the precise physical locations of individual units.</p>
               <span className="text-purple-600 font-semibold flex items-center">
-                Go to Unit Location <ChevronRight size={18} className="ml-1" />
+                Go to Work Unit <ChevronRight size={18} className="ml-1" />
               </span>
             </motion.div>
           </div>

@@ -1,4 +1,4 @@
-import { Building, ArrowLeft, X, Save, Hourglass, CheckCircle } from "lucide-react";
+import { Building, ArrowLeft, X, Save, Hourglass, CheckCircle, Clock } from "lucide-react";
 import React, { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import Sidebar from "../../Sidebar";
@@ -183,7 +183,7 @@ const EditStopTimes: React.FC = () => {
       <Sidebar />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <PageHeader mainTitle="Edit Stop Times" mainTitleHighlight="Management" description="blablablabl" icon={<Building />} isMobile={isMobile} toggleSidebar={toggleSidebar} />
+        <PageHeader mainTitle="Edit Stop Times" mainTitleHighlight="Management" description="blablablabl" icon={<Clock />} isMobile={isMobile} toggleSidebar={toggleSidebar} />
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50 ">
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">

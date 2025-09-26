@@ -185,292 +185,100 @@ interface WorkOrderDetailsProps {
   isNested?: boolean;
 }
 
-const WorkOrderDetails: React.FC<WorkOrderDetailsProps> = ({ workOrder, onClose, isNested = false }) => {
-  if (!workOrder) return null;
+const WorkOrderDetails: React.FC<{ order: WorkOrderData; onClose: () => void }> = ({ order, onClose }) => {
+  const displayValue = (value: any): string => {
+    if (value === null || value === undefined) return "-";
+    if (typeof value === "object" && value !== null) {
+      return value.name || value.title || value.id || "-";
+    }
+    if (typeof value === "string") {
+      return value.trim() !== "" ? value.trim() : "-";
+    }
+    if (typeof value === "number") {
+      return value.toString();
+    }
+    return String(value);
+  };
 
-  return (
-    <div className="space-y-6">
-      <section>
-        <h4 className="text-lg font-bold text-gray-800 mb-3 border-b pb-2">General Information</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <div>
-            <p className="text-gray-500">Work Order No</p>
-            <p className="font-semibold">{workOrder.work_order_no || workOrder.id}</p>
-          </div>
-          <div>
-            <p className="text-gray-500">Date</p>
-            <p className="font-semibold">{new Date(workOrder.date).toLocaleDateString()}</p>
-          </div>
-          <div>
-            <p className="text-gray-500">Reception Method</p>
-            <p className="font-semibold">{workOrder.reception_method}</p>
-          </div>
-          <div>
-            <p className="text-gray-500">Requester</p>
-            <p className="font-semibold">{workOrder.requester.name}</p>
-          </div>
-          <div>
-            <p className="text-gray-500">Department</p>
-            <p className="font-semibold">{workOrder.department_name}</p>
-          </div>
-          <div>
-            <p className="text-gray-500">Known By</p>
-            <p className="font-semibold">{workOrder.known_by.name}</p>
-          </div>
-        </div>
-      </section>
+  const formatDate = (dateString?: string | null) => {
+    if (!dateString) return "-";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("id-ID", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
 
-      <section>
-        <h4 className="text-lg font-bold text-gray-800 mb-3 border-b pb-2">Service Details</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <div>
-            <p className="text-gray-500">Service Type</p>
-            <p className="font-semibold">{workOrder.service_type.group_name}</p>
-          </div>
-          <div>
-            <p className="text-gray-500">Service</p>
-            <p className="font-semibold">{workOrder.service.owner.name}</p>
-          </div>
-          <div>
-            <p className="text-gray-500">No Asset</p>
-            <p className="font-semibold">{workOrder.asset_no}</p>
-          </div>
-          <div>
-            <p className="text-gray-500">Device Information</p>
-            <p className="font-semibold">{workOrder.device_info}</p>
-          </div>
-          <div className="md:col-span-2">
-            <p className="text-gray-500">Complaint</p>
-            <p className="font-semibold break-words whitespace-pre-wrap">{workOrder.complaint}</p>
-          </div>
-        </div>
-      </section>
-
-      <section>
-        <h4 className="text-lg font-bold text-gray-800 mb-3 border-b pb-2">Handling Information</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <div>
-            <p className="text-gray-500">Ticket Status</p>
-            <p className="font-semibold">{workOrder.handling_status}</p>
-          </div>
-          <div>
-            <p className="text-gray-500">Assigned To</p>
-            <p className="font-semibold">{workOrder.assigned_to?.name}</p>
-          </div>
-          <div>
-            <p className="text-gray-500">Handling Date</p>
-            <p className="font-semibold">{workOrder.handling_date ? new Date(workOrder.handling_date).toLocaleString() : "N/A"}</p>
-          </div>
-          <div className="md:col-span-2">
-            <p className="text-gray-500">Action Taken</p>
-            <p className="font-semibold break-words whitespace-pre-wrap">{workOrder.action_taken || "N/A"}</p>
-          </div>
-          <div className="md:col-span-2">
-            <p className="text-gray-500">Remarks</p>
-            <p className="font-semibold break-words whitespace-pre-wrap">{workOrder.remarks || "N/A"}</p>
-          </div>
-        </div>
-      </section>
-
-      {!isNested && (
-        <div className="flex justify-end pt-4">
-          <motion.button
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            onClick={onClose}
-            className="inline-flex items-center px-5 py-2.5 border border-gray-200 text-base font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
-          >
-            Close
-          </motion.button>
-        </div>
-      )}
+  const DetailItem: React.FC<{ label: string; value: string }> = ({ label, value }) => (
+    <div className="flex flex-col">
+      <h4 className="text-sm font-medium text-gray-500 mb-1">{label}</h4>
+      <p className="w-full bg-blue-50 border border-blue-100 rounded-lg p-3 text-gray-800 text-base font-medium min-h-[44px] flex items-center">{value}</p>
     </div>
   );
-};
 
-interface EditAssignmentFormProps {
-  workOrder: any;
-  onSave: (order: any) => void;
-  onCancel: () => void;
-  isSaving: boolean;
-  technicians: any[];
-}
-
-const EditAssignmentForm: React.FC<EditAssignmentFormProps> = ({ workOrder, onSave, onCancel, isSaving, technicians }) => {
-  const [formData, setFormData] = useState({
-    handling_date: workOrder.handling_date?.substring(0, 16) || "",
-    action_taken: workOrder.action_taken || "",
-    handling_status: workOrder.handling_status || "",
-    remarks: workOrder.remarks || "",
-    assigned_to_id: workOrder.assigned_to_id || "",
-  });
-
-  const [formError, setFormError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setFormData({
-      handling_date: workOrder.handling_date?.substring(0, 16) || "",
-      action_taken: workOrder.action_taken || "",
-      handling_status: workOrder.handling_status || "",
-      remarks: workOrder.remarks || "",
-      assigned_to_id: workOrder.assigned_to_id || "",
-    });
-  }, [workOrder]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.handling_date || !formData.action_taken || !formData.handling_status) {
-      setFormError("Handling Date, Action Taken, and Ticket Status must be filled out.");
-      return;
-    }
-    setFormError(null);
-    onSave({ ...workOrder, ...formData });
-  };
-
-  const isResolved = workOrder.handling_status === "Resolved" || workOrder.handling_status === "Done" || workOrder.handling_status === "Cancel";
+  const SectionTitle: React.FC<{ title: string }> = ({ title }) => <h3 className="text-lg font-bold text-gray-800 mb-4 pb-2 border-b border-blue-200 mt-6 first:mt-0">{title}</h3>;
 
   return (
     <div className="space-y-6">
-      <WorkOrderDetails workOrder={workOrder} isNested={true} />
+      <SectionTitle title="General Information" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <DetailItem label="Work Order No" value={displayValue(order.work_order_no || order.id)} />
+        <DetailItem label="Date" value={formatDate(order.date)} />
+        <DetailItem label="Reception Method" value={displayValue(order.reception_method)} />
+        <DetailItem label="Requester" value={displayValue(order.requester?.name)} />
+        <DetailItem label="Department" value={displayValue(order.department_name || order.department?.name)} />
+        <DetailItem label="Known By" value={displayValue(order.known_by?.name)} />
+      </div>
 
-      <h4 className="text-lg font-bold text-gray-800 mb-2 border-b pb-2">Edit Assignment</h4>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {formError && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-            <span className="block sm:inline">{formError}</span>
+      <SectionTitle title="Service Details" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <DetailItem label="Service Type" value={displayValue(order.service_type?.group_name)} />
+        <DetailItem label="Service" value={displayValue(order.service?.owner?.name || order.service?.service_name)} />
+        <DetailItem label="No Asset" value={displayValue(order.asset_no)} />
+      </div>
+
+      <SectionTitle title="Device & Complaint" />
+      <div className="grid grid-cols-1 gap-4">
+        <DetailItem label="Device Information" value={displayValue(order.device_info)} />
+        <DetailItem label="Complaint" value={displayValue(order.complaint)} />
+      </div>
+
+      <SectionTitle title="Handling Information" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <DetailItem label="Ticket Status" value={displayValue(order.handling_status)} />
+        <DetailItem label="Assigned To" value={displayValue(order.assigned_to?.name)} />
+        <DetailItem label="Handling Date" value={formatDate(order.handling_date || "-")} />
+        <DetailItem label="Action Taken" value={displayValue(order.action_taken)} />
+        <DetailItem label="Remarks" value={displayValue(order.remarks)} />
+      </div>
+
+      {order.attachment && (
+        <>
+          <SectionTitle title="Attachment" />
+          <div className="grid grid-cols-1 gap-4">
+            <div className="flex items-center space-x-3">
+              <a href={order.attachment} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                View Attachment
+              </a>
+            </div>
           </div>
-        )}
-        <div>
-          <label htmlFor="handling_status" className="block text-sm font-medium text-gray-700">
-            Ticket Status *
-          </label>
-          <select
-            id="handling_status"
-            name="handling_status"
-            value={formData.handling_status}
-            onChange={handleChange}
-            required
-            disabled={isResolved || isSaving}
-            className="mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 disabled:opacity-50"
-          >
-            <option value="">Select Status</option>
-            {workOrder.handling_status === "New" && (
-              <>
-                <option value="In Progress">In Progress</option>
-                <option value="Assigned">Assigned</option>
-              </>
-            )}
-            {(workOrder.handling_status === "New" || workOrder.handling_status === "In Progress") && (
-              <>
-                <option value="Escalated">Escalated</option>
-                <option value="Vendor Handled">Vendor Handled</option>
-                <option value="Resolved">Resolved</option>
-              </>
-            )}
-            {workOrder.handling_status === "Assigned" && (
-              <>
-                <option value="In Progress">In Progress</option>
-                <option value="Escalated">Escalated</option>
-                <option value="Vendor Handled">Vendor Handled</option>
-                <option value="Resolved">Resolved</option>
-              </>
-            )}
-          </select>
-        </div>
-        // Add this condition to show the technician selection for specific statuses
-        {(formData.handling_status === "Assigned" || formData.handling_status === "Escalated" || formData.handling_status === "Vendor Handled") && (
-          <div>
-            <label htmlFor="assigned_to_id" className="block text-sm font-medium text-gray-700">
-              Assign To Technician
-            </label>
-            <select
-              id="assigned_to_id"
-              name="assigned_to_id"
-              value={formData.assigned_to_id}
-              onChange={handleChange}
-              disabled={isSaving}
-              className="mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 disabled:opacity-50"
-            >
-              <option value="">Select Technician</option>
-              {technicians.map((tech) => (
-                <option key={tech.id} value={tech.id}>
-                  {tech.name} - {tech.department?.name || tech.department_name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-        <div>
-          <label htmlFor="handling_date" className="block text-sm font-medium text-gray-700">
-            Handling Date *
-          </label>
-          <input
-            type="datetime-local"
-            id="handling_date"
-            name="handling_date"
-            value={formData.handling_date}
-            onChange={handleChange}
-            required
-            disabled={isSaving}
-            className="mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 disabled:opacity-50"
-          />
-        </div>
-        <div>
-          <label htmlFor="action_taken" className="block text-sm font-medium text-gray-700">
-            Action Taken *
-          </label>
-          <textarea
-            id="action_taken"
-            name="action_taken"
-            value={formData.action_taken}
-            onChange={handleChange}
-            rows={3}
-            required
-            disabled={isSaving}
-            className="mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 disabled:opacity-50"
-          ></textarea>
-        </div>
-        <div>
-          <label htmlFor="remarks" className="block text-sm font-medium text-gray-700">
-            Remarks
-          </label>
-          <textarea
-            id="remarks"
-            name="remarks"
-            value={formData.remarks}
-            onChange={handleChange}
-            rows={3}
-            disabled={isSaving}
-            className="mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 bg-white focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 disabled:opacity-50"
-          ></textarea>
-        </div>
-        <div className="flex justify-end space-x-3 mt-6">
-          <motion.button
-            type="button"
-            onClick={onCancel}
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            disabled={isSaving}
-            className="inline-flex items-center px-5 py-2.5 border border-gray-200 text-base font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 disabled:opacity-50"
-          >
-            Cancel
-          </motion.button>
-          <motion.button
-            type="submit"
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            disabled={isSaving || isResolved}
-            className="inline-flex items-center px-5 py-2.5 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 disabled:opacity-50"
-          >
-            {isSaving ? "Saving..." : "Save Changes"}
-          </motion.button>
-        </div>
-      </form>
+        </>
+      )}
+
+      <div className="flex justify-end pt-6 border-t border-gray-100 mt-8">
+        <motion.button
+          type="button"
+          onClick={onClose}
+          whileHover={{ scale: 1.03, boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)" }}
+          whileTap={{ scale: 0.97 }}
+          className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 font-semibold"
+        >
+          Close
+        </motion.button>
+      </div>
     </div>
   );
 };
@@ -612,9 +420,9 @@ const ITReceiver: React.FC = () => {
       case "Resolved":
         return "bg-orange-500 text-white";
       case "Cancel":
-        return "bg-gray-500 text-white";
-      case "Closed":
         return "bg-red-500 text-white";
+      case "Closed":
+        return "bg-gray-900 text-white";
       default:
         return "bg-gray-500 text-white";
     }
@@ -659,6 +467,7 @@ const ITReceiver: React.FC = () => {
     setSidebarOpen((prev) => !prev);
   };
 
+  // Ganti dengan kode ini:
   const filteredWorkOrders = workOrders
     .filter((order) => {
       const matchesSearch =
@@ -671,28 +480,8 @@ const ITReceiver: React.FC = () => {
       return matchesSearch && matchesStatus;
     })
     .sort((a, b) => {
-      const statusOrder = ["New", "Assigned", "In Progress", "Escalated", "Vendor Handled", "Resolved", "Done", "Cancel"];
-      const statusA = a.handling_status;
-      const statusB = b.handling_status;
-
-      const indexA = statusOrder.indexOf(statusA);
-      const indexB = statusOrder.indexOf(statusB);
-
-      if (indexA === -1 && indexB === -1) {
-        return new Date(b.date).getTime() - new Date(a.date).getTime();
-      }
-      if (indexA === -1) {
-        return 1;
-      }
-      if (indexB === -1) {
-        return -1;
-      }
-
-      if (indexA === indexB) {
-        return new Date(b.date).getTime() - new Date(a.date).getTime();
-      }
-
-      return indexA - indexB;
+      // Urutkan berdasarkan created_at terbaru di atas (descending)
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
 
   const indexOfLastOrder = currentPage * ordersPerPage;
@@ -1033,7 +822,7 @@ const ITReceiver: React.FC = () => {
                 <tbody className="bg-white divide-y divide-gray-100">
                   {currentOrders.length > 0 ? (
                     currentOrders.map((order) => {
-                      const isResolved = order.handling_status === "Resolved" || order.handling_status === "Done" || order.handling_status === "Cancel";
+                      const isResolved = order.handling_status === "Resolved" || order.handling_status === "Done" || order.handling_status === "Cancel" || order.handling_status === "Closed";
                       const canEdit = !isResolved && hasPermission("edit_workorders");
                       const isNew = order.handling_status === "New";
                       const isInProgressOrSimilar = ["In Progress", "Escalated", "Vendor Handled"].includes(order.handling_status);
@@ -1047,17 +836,21 @@ const ITReceiver: React.FC = () => {
                           whileHover={{ backgroundColor: "rgba(239, 246, 255, 1)" }}
                           className="transition-colors duration-150"
                         >
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{order.work_order_no || order.id}</td>
+                          <td
+                            className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 cursor-pointer hover:text-blue-600 hover:underline transition-colors duration-200"
+                            onClick={() => openWorkOrderDetails(order.id)}
+                            title="Click to view details"
+                          >
+                            {order.work_order_no || "-"}
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{order.requester.name}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{new Date(order.date).toLocaleDateString()}</td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full ${getStatusColor(order.handling_status)} shadow-sm`}>{order.handling_status}</span>
                           </td>
-                          {/* Updated Assigned To column */}
+                          {/* Perbaikan Kolom Assigned To */}
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {isInProgressOrSimilar ? (
-                              "N/A"
-                            ) : isNew ? (
+                            {isNew ? (
                               <motion.button
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
@@ -1070,7 +863,7 @@ const ITReceiver: React.FC = () => {
                               order.assigned_to?.name || "N/A"
                             )}
                           </td>
-                          {/* Updated Actions column */}
+                          {/* Perbaikan Kolom Actions */}
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium flex items-center space-x-2">
                             <motion.button
                               whileHover={{ scale: 1.05 }}
@@ -1082,11 +875,11 @@ const ITReceiver: React.FC = () => {
                               <Eye className="text-lg" />
                             </motion.button>
 
-                            {canEdit && !isNew && (
+                            {canEdit && (order.handling_status !== "In Progress" || !order.assigned_to?.name || order.assigned_to?.name === "N/A") && (
                               <motion.button
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
-                                onClick={() => openEditWorkOrder(order.id)}
+                                onClick={() => navigate(`/workorders/it/receiver/editreceiver/${order.id}`)}
                                 className="text-gray-600 hover:text-gray-800 transition-colors duration-200 flex items-center space-x-1"
                                 title="Edit Assignment"
                               >
@@ -1154,16 +947,35 @@ const ITReceiver: React.FC = () => {
       </div>
 
       {selectedWorkOrder && (
-        <Modal
-          isOpen={showWorkOrderDetailsModal}
-          onClose={() => {
-            setShowWorkOrderDetailsModal(false);
-            setSelectedWorkOrder(null);
-          }}
-          title="Work Order Details"
-        >
-          <WorkOrderDetails workOrder={selectedWorkOrder} onClose={() => setShowWorkOrderDetailsModal(false)} />
-        </Modal>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 overflow-y-auto">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl mx-auto p-6 border border-blue-100">
+              <div className="flex justify-between items-center border-b pb-3 mb-4 border-gray-100">
+                <h3 className="text-2xl font-bold text-gray-900">Work Order Details #{selectedWorkOrder.work_order_no || selectedWorkOrder.id}</h3>
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => {
+                    setShowWorkOrderDetailsModal(false);
+                    setSelectedWorkOrder(null);
+                  }}
+                  className="text-gray-500 hover:text-gray-700 text-2xl"
+                >
+                  <X size={24} />
+                </motion.button>
+              </div>
+              <div className="overflow-y-auto max-h-[70vh]">
+                <WorkOrderDetails
+                  order={selectedWorkOrder}
+                  onClose={() => {
+                    setShowWorkOrderDetailsModal(false);
+                    setSelectedWorkOrder(null);
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </motion.div>
       )}
 
       {selectedWorkOrder && (
@@ -1177,19 +989,6 @@ const ITReceiver: React.FC = () => {
           workOrder={selectedWorkOrder}
           technicians={technicians}
         />
-      )}
-
-      {selectedWorkOrder && (
-        <Modal
-          isOpen={showEditAssignmentModal}
-          onClose={() => {
-            setShowEditAssignmentModal(false);
-            setSelectedWorkOrder(null);
-          }}
-          title="Edit Assignment"
-        >
-          <EditAssignmentForm workOrder={selectedWorkOrder} onSave={handleSaveAssignment} onCancel={() => setShowEditAssignmentModal(false)} isSaving={isSaving} technicians={technicians} />
-        </Modal>
       )}
     </div>
   );

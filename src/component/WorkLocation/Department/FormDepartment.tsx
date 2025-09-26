@@ -1,11 +1,11 @@
 import { Building, ArrowLeft, X, Save, Hourglass, CheckCircle } from "lucide-react";
 import React, { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
-import Sidebar from "../Sidebar";
+import Sidebar from "../../Sidebar";
 import Select from "react-select";
-import PageHeader from "../PageHeader";
-import { useNavigate, useParams } from "react-router-dom";
-import { useAuth, User, Department } from "../../routes/AuthContext";
+import PageHeader from "../../PageHeader";
+import { useNavigate } from "react-router-dom";
+import { useAuth, User, Department } from "../../../routes/AuthContext";
 
 interface OptionType {
   value: string;
@@ -37,12 +37,11 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
   );
 };
 
-const EditDepartment: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+const FormDepartment: React.FC = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [users, setUsers] = useState<User[]>([]);
-  const [departmentList, setDepartmentList] = useState<Department>();
-  const { addDepartment, getUsers, updateDepartment, getDepartmentById } = useAuth();
+  const [departmentList, setDepartmentList] = useState<Department[]>([]);
+  const { addDepartment, getUsers } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     const stored = localStorage.getItem("sidebarOpen");
     return stored ? JSON.parse(stored) : false;
@@ -62,41 +61,28 @@ const EditDepartment: React.FC = () => {
     setSidebarOpen((prev: boolean): boolean => !prev);
   };
 
-  useEffect(() => {
-    if (departmentList) {
-      setFormData({
-        name: departmentList.name || "",
-        head_id: departmentList.head_id || 0,
-      });
-    }
-  }, [departmentList]);
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
-
-        setFormData((prev) => ({
-        ...prev,
-        [name]: name === "sla" ? Number(value) : value,
-        }));
-    };
+    setFormData((prev) => ({
+      ...prev,
+      [name]: name === "sla" ? Number(value) : value,
+    }));
+  };
 
   const fetchData = useCallback(async () => {
     try {
-      if (id) {
-        const [departmentList, users] = await Promise.all([getDepartmentById(id), getUsers()]);
-        setDepartmentList(departmentList);
-        setUsers(users);
-      }
+      const [users] = await Promise.all([getUsers()]);
+
+      setUsers(users);
     } catch (err: any) {
       setError(err.message || "Failed to load form data");
     }
-  }, [id, getDepartmentById, getUsers]);
+  }, [getUsers]);
 
   useEffect(() => {
-    if (id) {
-      fetchData();
-    }
-  }, [id, fetchData]);
+    fetchData();
+  }, [fetchData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,7 +95,7 @@ const EditDepartment: React.FC = () => {
         head_id: formData.head_id,
       };
 
-      await updateDepartment(id!, payload);
+      await addDepartment(payload);
       setSuccess("Service Catalogue created successfully!");
       setShowSuccessModal(true);
     } catch (err: any) {
@@ -174,6 +160,28 @@ const EditDepartment: React.FC = () => {
     }),
   };
 
+  const handleRequesterChange = useCallback(
+    (selectedOption: OptionType | null) => {
+      if (!selectedOption) return;
+
+      const selectedUserId = parseInt(selectedOption.value);
+      const selectedUser = users.find((user) => parseInt(user.id) === selectedUserId);
+
+      if (selectedUser) {
+        // Gunakan departmentList yang sudah diambil dari API
+        const userDepartment = departmentList.find((dept) => dept.id === selectedUser.department_id);
+
+        setFormData((prev) => ({
+          ...prev,
+          id: selectedUserId,
+          department_id: selectedUser.department_id || 0,
+          known_by_id: userDepartment?.head_id || null,
+        }));
+      }
+    },
+    [users, departmentList]
+  );
+
   const handleCloseSuccessModal = () => {
     setShowSuccessModal(false);
     navigate("/worklocation/department");
@@ -184,13 +192,13 @@ const EditDepartment: React.FC = () => {
       <Sidebar />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <PageHeader mainTitle="Edit Department" mainTitleHighlight="Management" description="blablablabl" icon={<Building />} isMobile={isMobile} toggleSidebar={toggleSidebar} />
+        <PageHeader mainTitle="Add Department" mainTitleHighlight="Management" description="blablablabl" icon={<Building />} isMobile={isMobile} toggleSidebar={toggleSidebar} />
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50 ">
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Edit Department and Head</h1>
-              <p className="text-gray-600 mt-1">Update Department and Head information</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Create New Department and Head</h1>
+              <p className="text-gray-600 mt-1">Add a new Department and Head information</p>
             </div>
             <motion.button
               onClick={() => navigate("/worklocation/department")}
@@ -308,4 +316,4 @@ const EditDepartment: React.FC = () => {
   );
 };
 
-export default EditDepartment;
+export default FormDepartment;

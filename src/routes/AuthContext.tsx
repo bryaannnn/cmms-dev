@@ -163,6 +163,7 @@ export interface User {
 export interface Mesin {
   id: string;
   name: string;
+  interval: string;
 }
 
 export interface Shift {
@@ -183,6 +184,8 @@ export interface StopTime {
 export interface Unit {
   id: string;
   name: string;
+  is_production: string;
+  description: string;
 }
 
 export interface ItemTrouble {
@@ -431,17 +434,20 @@ export interface WorkOrderFormDataLocal {
   requester_id: number;
   known_by_id: number | null;
   department_id: number;
-  service_type_id: string;
-  service_id: string;
+  service_type_id?: string;
+  service_id?: string;
+  service_group_id?: number;
+  service_catalogue_id?: number;
   asset_no: string;
   device_info: string;
   complaint: string;
   attachment: string | null; // ✅ Hapus undefined, hanya string | null
-  received_by_id: number | null;
-  handling_date: string | null;
-  action_taken: string | null;
-  handling_status: string;
-  remarks: string | null;
+  received_by_id?: number | null;
+  handling_date?: string | null;
+  action_taken?: string | null;
+  handling_status?: string;
+  remarks?: string | null;
+  assigned_to_id?: number | null;
 }
 
 // export interface WorkOrder {
@@ -647,12 +653,17 @@ export interface AuditLog {
 type TypeInterval = "weekly" | "monthly" | "3 months" | "6 months" | "1 year";
 
 export interface MonitoringActivity {
-  id: number;
+  id_monitoring_activity?: number;
   id_monitoring_schedule: number;
-  monitoring_date: string;
-  monitoring_result: string;
-  tms_ms_result: string;
-  info_result: string;
+  id_item_mesin: number;
+  tgl_monitoring: string;
+  hasil_monitoring: string;
+  hasil_keterangan: string;
+  created_at?: string;
+  updated_at?: string;
+  // Optional: jika ingin include relasi
+  monitoring_schedule?: MonitoringSchedule;
+  item_mesin?: ItemMesin;
 }
 
 export interface MonitoringSchedule {
@@ -740,10 +751,8 @@ export interface MonitoringScheduleResponse {
 // Interface untuk POST /monitoring-activities
 export interface MonitoringActivityPost {
   id_monitoring_schedule: number;
-  id_item_mesin: number;
+  id: number;
   tgl_monitoring: string;
-  hasil_monitoring: string;
-  hasil_keterangan: string;
 }
 
 export interface MonitoringActivityResponse {
@@ -766,6 +775,152 @@ export interface StopTimes {
 export interface ActivityType {
   id: number;
   name: string;
+}
+
+export interface Activity {
+  id: number;
+  name: string;
+  description: string;
+}
+
+export interface TroubleItem {
+  id: number;
+  name: string;
+  description: string;
+}
+
+export interface WorkUnit {
+  id: number;
+  name: string;
+  is_production: string;
+  description: string;
+}
+
+export interface WorkGroup {
+  id: number;
+  name: string;
+  description: string;
+}
+
+export interface WorkShift {
+  id: number;
+  name: string;
+  description: string;
+}
+
+// Tambahkan interface ini di bagian Monitoring Maintenance section
+export interface MonitoringActivityDetail {
+  id_monitoring_activity: number;
+  id_monitoring_schedule: number;
+  id_item_mesin: number;
+  tgl_monitoring: string;
+  hasil_monitoring: string;
+  hasil_ms_tms: string;
+  hasil_keterangan: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MonitoringScheduleDetail {
+  id_monitoring_schedule: number;
+  tahun: string;
+  bulan: string;
+  tgl_start: string;
+  tgl_end: string;
+  unit: string;
+  id_mesins: number;
+  id_interval: number;
+  created_at: string;
+  updated_at: string;
+  data_mesin: any | null;
+  monitoring_interval: {
+    id_interval: number;
+    type_interval: string;
+    created_at: string;
+    updated_at: string;
+  };
+  monitoring_activities: MonitoringActivityDetail[];
+}
+
+export interface MonitoringScheduleByIdResponse {
+  success?: boolean;
+  message?: string;
+  data?: MonitoringScheduleDetail;
+}
+
+export interface Units {
+  id: number;
+  name: string;
+  created_at: string | null;
+  updated_at: string | null;
+  deleted_at: string | null;
+  mesin: Machine[];
+}
+
+// Tambahkan di AuthContext.tsx
+export interface MesinDetailResponse {
+  success: boolean;
+  message: string;
+  data: MesinDetail;
+}
+
+export interface Machine {
+  id: number;
+  name: string;
+  unit_id: number;
+  created_at: string | null;
+  updated_at: string | null;
+  deleted_at: string | null;
+  item_mesin?: ItemMesin[];
+}
+
+// Pastikan interface UnitWithMachines sesuai
+export interface UnitWithMachines {
+  id: number;
+  name: string;
+  created_at: string | null;
+  updated_at: string | null;
+  deleted_at: string | null;
+  mesin: MesinDetail[];
+}
+
+export interface MesinDetail {
+  id: number;
+  name: string;
+  unit_id: number;
+  created_at: string | null;
+  updated_at: string | null;
+  deleted_at: string | null;
+  item_mesin: ItemMesin[];
+}
+
+export interface MonitoringInterval {
+  id_interval: number;
+  type_interval: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ItemMesin {
+  id: number;
+  mesin_id: number;
+  item_mesin: string;
+  satuan: string;
+  standard_min: string;
+  standard_max: string;
+  standard_visual: string;
+  created_at: string;
+  updated_at: string;
+  interval_id: number;
+}
+
+export interface AllMasterMonitoring {
+  unit: Units[];
+  mesin: Machine[];
+  // Pastikan properti ini ada dan sesuai
+  unitsWithMachines?: UnitWithMachines[];
+  mesinDetails?: MesinDetail[];
+  intervals?: MonitoringInterval[]; // Tambahkan ini
 }
 
 // monitoring maintenance stop
@@ -846,7 +1001,7 @@ interface AuthContextType {
   createRole: (role: Omit<Role, "id">) => Promise<Role>;
   updateRole: (id: string, role: Partial<Role>) => Promise<Role>;
   deleteRole: (id: string) => Promise<void>;
-  updateUserPermissions: (userId: string, data: { roleId?: string | null; customPermissions?: string[] }) => Promise<User>;
+  updateUserPermissions: (id: string, data: { roleId?: string | null; customPermissions?: string[] }) => Promise<User>;
   deleteUser: (id: string) => Promise<void>;
   isAuthLoading: boolean;
   getERPData: () => Promise<ERPRecord[]>;
@@ -856,6 +1011,7 @@ interface AuthContextType {
   getAuditTrail: () => Promise<AuditLog[]>;
   // getService: (id: number) => Promise<Service>;S
   getServices: (id: number) => Promise<ServiceCatalogue[]>;
+  getServicesByOwner: (service_owner: number) => Promise<ServiceCatalogue[]>;
   addServiceCatalogue: (data: { service_name: string; service_description: string; service_type: number; priority: string; service_owner: number; sla: number; impact: string }) => Promise<ServiceCatalogue>;
   updateServiceCatalogue: (id: string | number, data: { service_name: string; service_description: string; service_type: number; priority: string; service_owner: number; sla: number; impact: string }) => Promise<ServiceCatalogue>;
   deleteServiceCatalogue: (id: string | number) => Promise<void>;
@@ -882,7 +1038,37 @@ interface AuthContextType {
   addActivityTypes: (data: { name: string }) => Promise<ActivityType>;
   updateActivityTypes: (id: string | number, data: { name: string }) => Promise<ActivityType>;
   deleteActivityTypes: (id: string | number) => Promise<void>;
-  getServicesByOwner: (service_owner: number) => Promise<ServiceCatalogue[]>;
+  getActivity: () => Promise<Activity[]>;
+  getActivityById: (id: string | number) => Promise<Activity>;
+  addActivity: (data: { name: string; description: string }) => Promise<Activity>;
+  updateActivity: (id: string | number, data: { name: string; description: string }) => Promise<Activity>;
+  deleteActivity: (id: string | number) => Promise<void>;
+  getTroubleItem: () => Promise<TroubleItem[]>;
+  getTroubleItemById: (id: string | number) => Promise<TroubleItem>;
+  addTroubleItem: (data: { name: string; description: string }) => Promise<TroubleItem>;
+  updateTroubleItem: (id: string | number, data: { name: string; description: string }) => Promise<TroubleItem>;
+  deleteTroubleItem: (id: string | number) => Promise<void>;
+  getWorkUnit: () => Promise<WorkUnit[]>;
+  getWorkUnitById: (id: string | number) => Promise<WorkUnit>;
+  addWorkUnit: (data: { name: string; is_production: string; description: string }) => Promise<WorkUnit>;
+  updateWorkUnit: (id: string | number, data: { name: string; is_production: string; description: string }) => Promise<WorkUnit>;
+  deleteWorkUnit: (id: string | number) => Promise<void>;
+  getWorkGroup: () => Promise<WorkGroup[]>;
+  getWorkGroupById: (id: string | number) => Promise<WorkGroup>;
+  addWorkGroup: (data: { name: string; description: string }) => Promise<WorkGroup>;
+  updateWorkGroup: (id: string | number, data: { name: string; description: string }) => Promise<WorkGroup>;
+  deleteWorkGroup: (id: string | number) => Promise<void>;
+  getWorkShift: () => Promise<WorkShift[]>;
+  getWorkShiftById: (id: string | number) => Promise<WorkShift>;
+  addWorkShift: (data: { name: string; description: string }) => Promise<WorkShift>;
+  updateWorkShift: (id: string | number, data: { name: string; description: string }) => Promise<WorkShift>;
+  deleteWorkShift: (id: string | number) => Promise<void>;
+  getAllMasterMonitoring: () => Promise<AllMasterMonitoring>;
+  getUnit: (id: string | number) => Promise<UnitWithMachines>;
+  getMesin: (id: string | number) => Promise<MesinDetail>;
+  getUnitsWithMachines: () => Promise<UnitWithMachines[]>;
+  getMesinDetail: (id: string | number) => Promise<MesinDetail>;
+  getMonitoringScheduleById: (id: string | number) => Promise<MonitoringScheduleDetail>;
 }
 
 const projectEnvVariables = getProjectEnvVariables();
@@ -1995,120 +2181,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     [fetchWithAuth]
   );
 
-  const getMonitoringSchedules = useCallback(async (): Promise<MonitoringSchedule[]> => {
-    try {
-      const response = await fetchWithAuth("/monitoring-schedule?includes_trashed=true");
-
-      // Handle berbagai format response
-      if (Array.isArray(response)) {
-        return response;
-      }
-
-      if (response && response.success !== undefined) {
-        if (response.success && Array.isArray(response.data)) {
-          return response.data;
-        }
-        if (response.success && Array.isArray(response.result)) {
-          return response.result;
-        }
-      }
-
-      if (response && Array.isArray(response.data)) {
-        return response.data;
-      }
-
-      if (response && Array.isArray(response.result)) {
-        return response.result;
-      }
-
-      console.warn("Unexpected monitoring schedule response format:", response);
-      return [];
-    } catch (error) {
-      console.error("Error fetching monitoring schedule:", error);
-      throw new Error(`Failed to fetch monitoring schedule: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }, [fetchWithAuth]);
-
-  const addMonitoringSchedule = useCallback(
-    async (data: MonitoringScheduleRequest): Promise<MonitoringScheduleResponse> => {
-      try {
-        const response = await fetchWithAuth("/monitoring-schedule?includes_trashed=true", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(data),
-        });
-
-        if (!response) {
-          throw new Error("No response from server");
-        }
-
-        // Handle success false response
-        if (response.success === false) {
-          throw new Error(response.message || "Failed to create monitoring schedule");
-        }
-
-        // Extract data based on common response patterns
-        const responseData = response.data || response.result || response;
-
-        if (!responseData) {
-          throw new Error("Invalid response format");
-        }
-
-        return responseData;
-      } catch (error) {
-        console.error("Error adding monitoring schedule:", error);
-
-        if (error instanceof Error) {
-          if (error.message.includes("401")) {
-            throw new Error("Unauthorized - Please login again");
-          }
-          if (error.message.includes("404")) {
-            throw new Error("Endpoint not found");
-          }
-          if (error.message.includes("500")) {
-            throw new Error("Server error - Please try again later");
-          }
-        }
-
-        throw new Error(`Failed to add monitoring schedule: ${error instanceof Error ? error.message : String(error)}`);
-      }
-    },
-    [fetchWithAuth]
-  );
-
-  const addMonitoringActivities = useCallback(
-    async (activities: MonitoringActivityPost[]): Promise<MonitoringActivityResponse[]> => {
-      try {
-        const response = await fetchWithAuth("/monitoring-activities?includes_trashed=true", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(activities),
-        });
-
-        // Handle response format
-        if (Array.isArray(response)) {
-          return response;
-        }
-
-        if (response && Array.isArray(response.data)) {
-          return response.data;
-        }
-
-        // Jika response tidak sesuai format yang diharapkan
-        console.warn("Unexpected response format from monitoring-activities POST:", response);
-        return [];
-      } catch (error) {
-        console.error("Error adding monitoring activities:", error);
-        throw new Error(`Failed to add monitoring activities: ${error instanceof Error ? error.message : String(error)}`);
-      }
-    },
-    [fetchWithAuth]
-  );
-
   const getStopTimes = useCallback(async (): Promise<StopTimes[]> => {
     try {
       const response = await fetchWithAuth("/stoptime?includes_trashed=true");
@@ -2331,6 +2403,895 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     [fetchWithAuth]
   );
 
+  const getActivity = useCallback(async (): Promise<Activity[]> => {
+    try {
+      const response = await fetchWithAuth("/kegiatan?includes_trashed=true");
+
+      // The API returns an array directly
+      if (Array.isArray(response)) {
+        return response;
+      }
+
+      // Fallback: if response has data array
+      if (response && Array.isArray(response.data)) {
+        return response.data;
+      }
+
+      console.warn("Unexpected activity response format:", response);
+      return [];
+    } catch (error) {
+      console.error("Failed to fetch activity:", error);
+      return [];
+    }
+  }, [fetchWithAuth]);
+
+  const getActivityById = useCallback(
+    async (id: string | number): Promise<Activity> => {
+      try {
+        const response = await fetchWithAuth(`/kegiatan/${id}?includes_trashed=true`);
+
+        // Debug: log response untuk melihat struktur
+        console.log("Activity by ID response:", response);
+
+        // Handle berbagai format response
+        if (response && typeof response === "object") {
+          // Jika response memiliki properti data
+          if (response.data) {
+            return response.data;
+          }
+          // Jika response adalah object langsung (tanpa properti data)
+          return response;
+        }
+
+        throw new Error("Invalid response format");
+      } catch (error) {
+        console.error(`Failed to fetch activity with id ${id}:`, error);
+        throw new Error(`Failed to fetch activity: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const addActivity = useCallback(
+    async (data: { name: string; description: string }): Promise<Activity> => {
+      try {
+        const response = await fetchWithAuth("/kegiatan?includes_trashed=true", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+
+        // API returns the created object directly
+        return response;
+      } catch (error) {
+        console.error("Error adding activity:", error);
+        throw new Error(`Failed to add activity: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const updateActivity = useCallback(
+    async (id: string | number, data: { name: string; description: string }): Promise<Activity> => {
+      try {
+        const response = await fetchWithAuth(`/kegiatan/${id}?includes_trashed=true`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+
+        // Debug response
+        console.log("Update activity response:", response);
+
+        // Handle berbagai format response
+        if (response && typeof response === "object") {
+          if (response.data) {
+            return response.data;
+          }
+          return response;
+        }
+
+        throw new Error("Invalid response format");
+      } catch (error) {
+        console.error(`Failed to update activity with id ${id}:`, error);
+        throw new Error(`Failed to update activity: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const deleteActivity = useCallback(
+    async (id: string | number): Promise<void> => {
+      try {
+        await fetchWithAuth(`/kegiatan/${id}?includes_trashed=true`, {
+          method: "DELETE",
+        });
+      } catch (error) {
+        console.error(`Failed to delete activity with id ${id}:`, error);
+        throw new Error(`Failed to delete activity: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const getTroubleItem = useCallback(async (): Promise<TroubleItem[]> => {
+    try {
+      const response = await fetchWithAuth("/itemtrouble?includes_trashed=true");
+
+      // The API returns an array directly
+      if (Array.isArray(response)) {
+        return response;
+      }
+
+      // Fallback: if response has data array
+      if (response && Array.isArray(response.data)) {
+        return response.data;
+      }
+
+      console.warn("Unexpected trouble item response format:", response);
+      return [];
+    } catch (error) {
+      console.error("Failed to fetch trouble item:", error);
+      return [];
+    }
+  }, [fetchWithAuth]);
+
+  const getTroubleItemById = useCallback(
+    async (id: string | number): Promise<TroubleItem> => {
+      try {
+        const response = await fetchWithAuth(`/itemtrouble/${id}?includes_trashed=true`);
+
+        // Debug: log response untuk melihat struktur
+        console.log("Trouble Item by ID response:", response);
+
+        // Handle berbagai format response
+        if (response && typeof response === "object") {
+          // Jika response memiliki properti data
+          if (response.data) {
+            return response.data;
+          }
+          // Jika response adalah object langsung (tanpa properti data)
+          return response;
+        }
+
+        throw new Error("Invalid response format");
+      } catch (error) {
+        console.error(`Failed to fetch trouble item with id ${id}:`, error);
+        throw new Error(`Failed to fetch trouble item: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const addTroubleItem = useCallback(
+    async (data: { name: string; description: string }): Promise<TroubleItem> => {
+      try {
+        const response = await fetchWithAuth("/itemtrouble?includes_trashed=true", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+
+        // API returns the created object directly
+        return response;
+      } catch (error) {
+        console.error("Error adding trouble item:", error);
+        throw new Error(`Failed to add trouble item: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const updateTroubleItem = useCallback(
+    async (id: string | number, data: { name: string; description: string }): Promise<TroubleItem> => {
+      try {
+        const response = await fetchWithAuth(`/itemtrouble/${id}?includes_trashed=true`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+
+        // Debug response
+        console.log("Update trouble item response:", response);
+
+        // Handle berbagai format response
+        if (response && typeof response === "object") {
+          if (response.data) {
+            return response.data;
+          }
+          return response;
+        }
+
+        throw new Error("Invalid response format");
+      } catch (error) {
+        console.error(`Failed to update trouble item with id ${id}:`, error);
+        throw new Error(`Failed to update trouble item: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const deleteTroubleItem = useCallback(
+    async (id: string | number): Promise<void> => {
+      try {
+        await fetchWithAuth(`/itemtrouble/${id}?includes_trashed=true`, {
+          method: "DELETE",
+        });
+      } catch (error) {
+        console.error(`Failed to delete trouble item with id ${id}:`, error);
+        throw new Error(`Failed to delete trouble item: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const getWorkUnit = useCallback(async (): Promise<WorkUnit[]> => {
+    try {
+      const response = await fetchWithAuth("/unit?includes_trashed=true");
+
+      // The API returns an array directly
+      if (Array.isArray(response)) {
+        return response;
+      }
+
+      // Fallback: if response has data array
+      if (response && Array.isArray(response.data)) {
+        return response.data;
+      }
+
+      console.warn("Unexpected Work Unit response format:", response);
+      return [];
+    } catch (error) {
+      console.error("Failed to fetch Work Unit:", error);
+      return [];
+    }
+  }, [fetchWithAuth]);
+
+  const getWorkUnitById = useCallback(
+    async (id: string | number): Promise<WorkUnit> => {
+      try {
+        const response = await fetchWithAuth(`/unit/${id}?includes_trashed=true`);
+
+        // Debug: log response untuk melihat struktur
+        console.log("Work Unit by ID response:", response);
+
+        // Handle berbagai format response
+        if (response && typeof response === "object") {
+          // Jika response memiliki properti data
+          if (response.data) {
+            return response.data;
+          }
+          // Jika response adalah object langsung (tanpa properti data)
+          return response;
+        }
+
+        throw new Error("Invalid response format");
+      } catch (error) {
+        console.error(`Failed to fetch work unit with id ${id}:`, error);
+        throw new Error(`Failed to fetch work unit: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const addWorkUnit = useCallback(
+    async (data: { name: string; is_production: string; description: string }): Promise<WorkUnit> => {
+      try {
+        const response = await fetchWithAuth("/unit?includes_trashed=true", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+
+        // API returns the created object directly
+        return response;
+      } catch (error) {
+        console.error("Error adding work unit:", error);
+        throw new Error(`Failed to add work unit: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const updateWorkUnit = useCallback(
+    async (id: string | number, data: { name: string; is_production: string; description: string }): Promise<WorkUnit> => {
+      try {
+        const response = await fetchWithAuth(`/unit/${id}?includes_trashed=true`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+
+        // Debug response
+        console.log("Update work unit response:", response);
+
+        // Handle berbagai format response
+        if (response && typeof response === "object") {
+          if (response.data) {
+            return response.data;
+          }
+          return response;
+        }
+
+        throw new Error("Invalid response format");
+      } catch (error) {
+        console.error(`Failed to update work unit with id ${id}:`, error);
+        throw new Error(`Failed to update work unit: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const deleteWorkUnit = useCallback(
+    async (id: string | number): Promise<void> => {
+      try {
+        await fetchWithAuth(`/unit/${id}?includes_trashed=true`, {
+          method: "DELETE",
+        });
+      } catch (error) {
+        console.error(`Failed to delete work unit with id ${id}:`, error);
+        throw new Error(`Failed to delete work unit: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const getWorkGroup = useCallback(async (): Promise<WorkGroup[]> => {
+    try {
+      const response = await fetchWithAuth("/group?includes_trashed=true");
+
+      // The API returns an array directly
+      if (Array.isArray(response)) {
+        return response;
+      }
+
+      // Fallback: if response has data array
+      if (response && Array.isArray(response.data)) {
+        return response.data;
+      }
+
+      console.warn("Unexpected Work Group response format:", response);
+      return [];
+    } catch (error) {
+      console.error("Failed to fetch Work Group:", error);
+      return [];
+    }
+  }, [fetchWithAuth]);
+
+  const getWorkGroupById = useCallback(
+    async (id: string | number): Promise<WorkGroup> => {
+      try {
+        const response = await fetchWithAuth(`/group/${id}?includes_trashed=true`);
+
+        // Debug: log response untuk melihat struktur
+        console.log("Work Group by ID response:", response);
+
+        // Handle berbagai format response
+        if (response && typeof response === "object") {
+          // Jika response memiliki properti data
+          if (response.data) {
+            return response.data;
+          }
+          // Jika response adalah object langsung (tanpa properti data)
+          return response;
+        }
+
+        throw new Error("Invalid response format");
+      } catch (error) {
+        console.error(`Failed to fetch work group with id ${id}:`, error);
+        throw new Error(`Failed to fetch work group: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const addWorkGroup = useCallback(
+    async (data: { name: string; description: string }): Promise<WorkGroup> => {
+      try {
+        const response = await fetchWithAuth("/group?includes_trashed=true", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+
+        // API returns the created object directly
+        return response;
+      } catch (error) {
+        console.error("Error adding work group:", error);
+        throw new Error(`Failed to add work group: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const updateWorkGroup = useCallback(
+    async (id: string | number, data: { name: string; description: string }): Promise<WorkGroup> => {
+      try {
+        const response = await fetchWithAuth(`/group/${id}?includes_trashed=true`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+
+        // Debug response
+        console.log("Update work group response:", response);
+
+        // Handle berbagai format response
+        if (response && typeof response === "object") {
+          if (response.data) {
+            return response.data;
+          }
+          return response;
+        }
+
+        throw new Error("Invalid response format");
+      } catch (error) {
+        console.error(`Failed to update work group with id ${id}:`, error);
+        throw new Error(`Failed to update work group: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const deleteWorkGroup = useCallback(
+    async (id: string | number): Promise<void> => {
+      try {
+        await fetchWithAuth(`/group/${id}?includes_trashed=true`, {
+          method: "DELETE",
+        });
+      } catch (error) {
+        console.error(`Failed to delete work group with id ${id}:`, error);
+        throw new Error(`Failed to delete work group: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const getWorkShift = useCallback(async (): Promise<WorkShift[]> => {
+    try {
+      const response = await fetchWithAuth("/shift?includes_trashed=true");
+
+      // The API returns an array directly
+      if (Array.isArray(response)) {
+        return response;
+      }
+
+      // Fallback: if response has data array
+      if (response && Array.isArray(response.data)) {
+        return response.data;
+      }
+
+      console.warn("Unexpected Work Shift response format:", response);
+      return [];
+    } catch (error) {
+      console.error("Failed to fetch Work Shift:", error);
+      return [];
+    }
+  }, [fetchWithAuth]);
+
+  const getWorkShiftById = useCallback(
+    async (id: string | number): Promise<WorkShift> => {
+      try {
+        const response = await fetchWithAuth(`/shift/${id}?includes_trashed=true`);
+
+        // Debug: log response untuk melihat struktur
+        console.log("Work Shift by ID response:", response);
+
+        // Handle berbagai format response
+        if (response && typeof response === "object") {
+          // Jika response memiliki properti data
+          if (response.data) {
+            return response.data;
+          }
+          // Jika response adalah object langsung (tanpa properti data)
+          return response;
+        }
+
+        throw new Error("Invalid response format");
+      } catch (error) {
+        console.error(`Failed to fetch work shift with id ${id}:`, error);
+        throw new Error(`Failed to fetch work shift: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const addWorkShift = useCallback(
+    async (data: { name: string; description: string }): Promise<WorkShift> => {
+      try {
+        const response = await fetchWithAuth("/shift?includes_trashed=true", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+
+        // API returns the created object directly
+        return response;
+      } catch (error) {
+        console.error("Error adding work shift:", error);
+        throw new Error(`Failed to add work shift: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const updateWorkShift = useCallback(
+    async (id: string | number, data: { name: string; description: string }): Promise<WorkShift> => {
+      try {
+        const response = await fetchWithAuth(`/shift/${id}?includes_trashed=true`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+
+        // Debug response
+        console.log("Update work shift response:", response);
+
+        // Handle berbagai format response
+        if (response && typeof response === "object") {
+          if (response.data) {
+            return response.data;
+          }
+          return response;
+        }
+
+        throw new Error("Invalid response format");
+      } catch (error) {
+        console.error(`Failed to update work shift with id ${id}:`, error);
+        throw new Error(`Failed to update work shift: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const deleteWorkShift = useCallback(
+    async (id: string | number): Promise<void> => {
+      try {
+        await fetchWithAuth(`/shift/${id}?includes_trashed=true`, {
+          method: "DELETE",
+        });
+      } catch (error) {
+        console.error(`Failed to delete work shift with id ${id}:`, error);
+        throw new Error(`Failed to delete work shift: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  // Tambahkan fungsi-fungsi ini di dalam AuthProvider, setelah fungsi getAllMasterMonitoring
+
+  const getUnit = useCallback(
+    async (id: string | number): Promise<UnitWithMachines> => {
+      try {
+        const response = await fetchWithAuth(`/unit/${id}?includes_trashed=true`);
+
+        // Debug response
+        console.log("Unit by ID response:", response);
+
+        // Handle berbagai format response
+        if (response && typeof response === "object") {
+          if (response.success !== undefined && response.data) {
+            return response.data;
+          }
+          // Jika response langsung berisi data unit
+          return response;
+        }
+
+        throw new Error("Invalid response format");
+      } catch (error) {
+        console.error(`Failed to fetch unit with id ${id}:`, error);
+        throw new Error(`Failed to fetch unit: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const getMesin = useCallback(
+    async (id: string | number): Promise<MesinDetail> => {
+      try {
+        const response = await fetchWithAuth(`/mesin/${id}?includes_trashed=true`);
+
+        // Debug response
+        console.log("Mesin by ID response:", response);
+
+        // Handle berbagai format response
+        if (response && typeof response === "object") {
+          if (response.success !== undefined && response.data) {
+            return response.data;
+          }
+          // Jika response langsung berisi data mesin
+          return response;
+        }
+
+        throw new Error("Invalid response format");
+      } catch (error) {
+        console.error(`Failed to fetch mesin with id ${id}:`, error);
+        throw new Error(`Failed to fetch mesin: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const getUnitsWithMachines = useCallback(async (): Promise<UnitWithMachines[]> => {
+    try {
+      // Ambil semua unit
+      const unitsResponse = await fetchWithAuth("/unit?includes_trashed=true");
+
+      let units: any[] = [];
+      if (Array.isArray(unitsResponse)) {
+        units = unitsResponse;
+      } else if (unitsResponse && Array.isArray(unitsResponse.data)) {
+        units = unitsResponse.data;
+      }
+
+      // Untuk setiap unit, ambil detail lengkap dengan mesin
+      const unitsWithMachines = await Promise.all(
+        units.map(async (unit) => {
+          try {
+            // Gunakan endpoint yang memberikan detail unit dengan mesin
+            const unitDetail = await fetchWithAuth(`/unit/${unit.id}?includes_trashed=true`);
+
+            // Handle berbagai format response
+            let unitData = unitDetail;
+            if (unitDetail && unitDetail.success !== undefined && unitDetail.data) {
+              unitData = unitDetail.data;
+            }
+
+            return {
+              id: unitData.id,
+              name: unitData.name,
+              created_at: unitData.created_at,
+              updated_at: unitData.updated_at,
+              deleted_at: unitData.deleted_at,
+              mesin: unitData.mesin || [], // Pastikan mesin ada, default ke array kosong
+            };
+          } catch (error) {
+            console.error(`Failed to get detail for unit ${unit.id}:`, error);
+            return {
+              id: unit.id,
+              name: unit.name,
+              created_at: unit.created_at,
+              updated_at: unit.updated_at,
+              deleted_at: unit.deleted_at,
+              mesin: [], // Default ke array kosong jika gagal
+            };
+          }
+        })
+      );
+
+      return unitsWithMachines;
+    } catch (error) {
+      console.error("Failed to fetch units with machines:", error);
+      return [];
+    }
+  }, [fetchWithAuth]);
+
+  const getAllMasterMonitoring = useCallback(async (): Promise<AllMasterMonitoring> => {
+    try {
+      // Ambil data intervals terlebih dahulu
+      const intervalsResponse = await fetchWithAuth("/interval?includes_trashed=true");
+
+      let intervals: MonitoringInterval[] = [];
+      if (Array.isArray(intervalsResponse)) {
+        intervals = intervalsResponse;
+      } else if (intervalsResponse && Array.isArray(intervalsResponse.data)) {
+        intervals = intervalsResponse.data;
+      }
+
+      // Ambil data units dengan mesin secara langsung
+      const unitsWithMachines = await getUnitsWithMachines();
+
+      // Ambil data mesin terpisah jika diperlukan
+      const mesinResponse = await fetchWithAuth("/mesin?includes_trashed=true");
+
+      let mesin = [];
+      if (Array.isArray(mesinResponse)) {
+        mesin = mesinResponse;
+      } else if (mesinResponse && Array.isArray(mesinResponse.data)) {
+        mesin = mesinResponse.data;
+      }
+
+      return {
+        unit: unitsWithMachines,
+        mesin: mesin,
+        unitsWithMachines: unitsWithMachines,
+        intervals: intervals, // Sertakan intervals
+      };
+    } catch (error) {
+      console.error("Error fetching master monitoring data:", error);
+      return {
+        unit: [],
+        mesin: [],
+        unitsWithMachines: [],
+        intervals: [], // Default array kosong
+      };
+    }
+  }, [fetchWithAuth, getUnitsWithMachines]);
+
+  const getMonitoringSchedules = useCallback(async (): Promise<MonitoringSchedule[]> => {
+    try {
+      const response = await fetchWithAuth("/monitoring-schedules?includes_trashed=true");
+
+      // Handle berbagai format response
+      if (Array.isArray(response)) {
+        return response;
+      }
+
+      if (response && response.success !== undefined) {
+        if (response.success && Array.isArray(response.data)) {
+          return response.data;
+        }
+        if (response.success && Array.isArray(response.result)) {
+          return response.result;
+        }
+      }
+
+      if (response && Array.isArray(response.data)) {
+        return response.data;
+      }
+
+      if (response && Array.isArray(response.result)) {
+        return response.result;
+      }
+
+      console.warn("Unexpected monitoring schedule response format:", response);
+      return [];
+    } catch (error) {
+      console.error("Error fetching monitoring schedule:", error);
+      throw new Error(`Failed to fetch monitoring schedule: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }, [fetchWithAuth]);
+
+  const getMonitoringScheduleById = useCallback(
+  async (id: string | number): Promise<MonitoringScheduleDetail> => {
+    try {
+      const response = await fetchWithAuth(`/monitoring-schedules/${id}?includes_trashed=true`);
+
+      // Debug response
+      console.log("Monitoring schedule by ID response:", response);
+
+      // Handle berbagai format response
+      if (response && response.success !== undefined) {
+        if (response.success && response.data) {
+          return response.data;
+        }
+        if (!response.success) {
+          throw new Error(response.message || "Failed to fetch monitoring schedule");
+        }
+      }
+
+      // Jika response langsung berisi data
+      if (response && response.id_monitoring_schedule) {
+        return response;
+      }
+
+      // Jika response adalah array (seharusnya tidak)
+      if (Array.isArray(response) && response.length > 0) {
+        return response[0];
+      }
+
+      throw new Error("Invalid response format");
+    } catch (error) {
+      console.error(`Failed to fetch monitoring schedule with id ${id}:`, error);
+      
+      if (error instanceof Error) {
+        if (error.message.includes("404")) {
+          throw new Error(`Monitoring schedule with id ${id} not found`);
+        }
+        if (error.message.includes("401")) {
+          throw new Error("Unauthorized - Please login again");
+        }
+      }
+      
+      throw new Error(`Failed to fetch monitoring schedule: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  },
+  [fetchWithAuth]
+);
+
+  const addMonitoringSchedule = useCallback(
+    async (data: MonitoringScheduleRequest): Promise<MonitoringScheduleResponse> => {
+      try {
+        const response = await fetchWithAuth("/monitoring-schedules?includes_trashed=true", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(data),
+        });
+
+        if (!response) {
+          throw new Error("No response from server");
+        }
+
+        // Handle success false response
+        if (response.success === false) {
+          throw new Error(response.message || "Failed to create monitoring schedule");
+        }
+
+        // Extract data based on common response patterns
+        const responseData = response.data || response.result || response;
+
+        if (!responseData) {
+          throw new Error("Invalid response format");
+        }
+
+        return responseData;
+      } catch (error) {
+        console.error("Error adding monitoring schedule:", error);
+
+        if (error instanceof Error) {
+          if (error.message.includes("401")) {
+            throw new Error("Unauthorized - Please login again");
+          }
+          if (error.message.includes("404")) {
+            throw new Error("Endpoint not found");
+          }
+          if (error.message.includes("500")) {
+            throw new Error("Server error - Please try again later");
+          }
+        }
+
+        throw new Error(`Failed to add monitoring schedule: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const addMonitoringActivities = useCallback(
+    async (activities: MonitoringActivityPost[]): Promise<MonitoringActivityResponse[]> => {
+      try {
+        const response = await fetchWithAuth("/monitoring-activities?includes_trashed=true", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(activities),
+        });
+
+        // Handle response format
+        if (Array.isArray(response)) {
+          return response;
+        }
+
+        if (response && Array.isArray(response.data)) {
+          return response.data;
+        }
+
+        // Jika response tidak sesuai format yang diharapkan
+        console.warn("Unexpected response format from monitoring-activities POST:", response);
+        return [];
+      } catch (error) {
+        console.error("Error adding monitoring activities:", error);
+        throw new Error(`Failed to add monitoring activities: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const getMesinDetail = useCallback(
+    async (id: string | number): Promise<MesinDetail> => {
+      try {
+        const response = await fetchWithAuth(`/mesin/${id}?includes_trashed=true`);
+
+        // Debug response
+        console.log("Mesin detail response:", response);
+
+        // Handle response format
+        if (response && response.success !== undefined) {
+          return response.data;
+        }
+
+        // Jika response langsung berisi data mesin
+        return response;
+      } catch (error) {
+        console.error(`Failed to fetch mesin detail with id ${id}:`, error);
+        throw new Error(`Failed to fetch mesin detail: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
   return (
     <AuthContext.Provider
       value={{
@@ -2405,6 +3366,37 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         addActivityTypes,
         updateActivityTypes,
         deleteActivityTypes,
+        getActivity,
+        getActivityById,
+        addActivity,
+        updateActivity,
+        deleteActivity,
+        getTroubleItem,
+        getTroubleItemById,
+        addTroubleItem,
+        updateTroubleItem,
+        deleteTroubleItem,
+        getWorkUnit,
+        getWorkUnitById,
+        addWorkUnit,
+        updateWorkUnit,
+        deleteWorkUnit,
+        getWorkGroup,
+        getWorkGroupById,
+        addWorkGroup,
+        updateWorkGroup,
+        deleteWorkGroup,
+        getWorkShift,
+        getWorkShiftById,
+        addWorkShift,
+        updateWorkShift,
+        deleteWorkShift,
+        getUnit,
+        getMesin,
+        getUnitsWithMachines,
+        getAllMasterMonitoring,
+        getMesinDetail,
+        getMonitoringScheduleById,
       }}
     >
       {children}

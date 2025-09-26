@@ -36,7 +36,7 @@ interface NavItemProps {
   expanded: boolean;
 }
 
-const NavItem: React.FC<NavItemProps> = ({ icon, text, to, expanded }) => {
+const NavItem: React.FC<NavItemProps> = React.memo(({ icon, text, to, expanded }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const active = location.pathname === to;
@@ -58,7 +58,7 @@ const NavItem: React.FC<NavItemProps> = ({ icon, text, to, expanded }) => {
       )}
     </motion.button>
   );
-};
+});
 
 const Sidebar: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
@@ -186,4 +186,4 @@ const Sidebar: React.FC = () => {
   );
 };
 
-export default Sidebar;
+export default React.memo(Sidebar);

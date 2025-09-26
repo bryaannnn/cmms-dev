@@ -222,7 +222,7 @@ const LoginForm: React.FC = () => {
             </div>
           </div>
 
-          <div className="absolute bottom-1/4 right-1/4 bg-white opacity-80 rounded-2xl p-6 shadow-xl transform scale-95 hover:scale-100 transition-transform duration-300 ease-in-out">
+          <div className="absolute bottom-1/4 right-1 /4 bg-white opacity-80 rounded-2xl p-6 shadow-xl transform scale-95 hover:scale-100 transition-transform duration-300 ease-in-out">
             <svg className="w-16 h-16 text-gray-800" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path d="M12 2C9.243 2 7 4.243 7 7v4H6c-1.103 0-2 .897-2 2v7c0 1.103.897 2 2 2h12c1.103 0 2-.897 2-2v-7c0-1.103-.897-2-2-2h-1V7c0-2.757-2.243-5-5-5zm0 2c1.654 0 3 1.346 3 3v4h-6V7c0-1.654 1.346-3 3-3zM6 13h12v7H6v-7z" />
             </svg>

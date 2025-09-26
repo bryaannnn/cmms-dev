@@ -1,11 +1,11 @@
-import { Building, ArrowLeft, X, Save, Hourglass, CheckCircle } from "lucide-react";
+import { Building, ArrowLeft, X, Save, Hourglass, CheckCircle, Clock, AlertTriangle } from "lucide-react";
 import React, { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
-import Sidebar from "../Sidebar";
+import Sidebar from "../../Sidebar";
 import Select from "react-select";
-import PageHeader from "../PageHeader";
+import PageHeader from "../../PageHeader";
 import { useNavigate } from "react-router-dom";
-import { useAuth, User, Department } from "../../routes/AuthContext";
+import { useAuth, User, Department, StopTimes, TroubleItem } from "../../../routes/AuthContext";
 
 interface OptionType {
   value: string;
@@ -37,11 +37,11 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
   );
 };
 
-const FormDepartment: React.FC = () => {
+const FormTroubleItem: React.FC = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [users, setUsers] = useState<User[]>([]);
-  const [departmentList, setDepartmentList] = useState<Department[]>([]);
-  const { addDepartment, getUsers } = useAuth();
+  const [troubleItem, setTroubleItem] = useState<TroubleItem[]>([]);
+  const [troubleItemList, setTroubleItemList] = useState<TroubleItem[]>([]);
+  const { addTroubleItem, getTroubleItem } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     const stored = localStorage.getItem("sidebarOpen");
     return stored ? JSON.parse(stored) : false;
@@ -54,7 +54,7 @@ const FormDepartment: React.FC = () => {
 
   const [formData, setFormData] = useState({
     name: "",
-    head_id: 0,
+    description: "",
   });
 
   const toggleSidebar = () => {
@@ -72,13 +72,13 @@ const FormDepartment: React.FC = () => {
 
   const fetchData = useCallback(async () => {
     try {
-      const [users] = await Promise.all([getUsers()]);
+      const [troubleItem] = await Promise.all([getTroubleItem()]);
 
-      setUsers(users);
+      setTroubleItem(troubleItem);
     } catch (err: any) {
       setError(err.message || "Failed to load form data");
     }
-  }, [getUsers]);
+  }, [getTroubleItem]);
 
   useEffect(() => {
     fetchData();
@@ -92,14 +92,14 @@ const FormDepartment: React.FC = () => {
     try {
       const payload = {
         name: formData.name,
-        head_id: formData.head_id,
+        description: formData.description,
       };
 
-      await addDepartment(payload);
-      setSuccess("Service Catalogue created successfully!");
+      await addTroubleItem(payload);
+      setSuccess("Trouble Item created successfully!");
       setShowSuccessModal(true);
     } catch (err: any) {
-      setError(err.message || "Failed to create Service Catalogue");
+      setError(err.message || "Failed to create Trouble Item");
     } finally {
       setLoading(false);
     }
@@ -160,31 +160,9 @@ const FormDepartment: React.FC = () => {
     }),
   };
 
-  const handleRequesterChange = useCallback(
-    (selectedOption: OptionType | null) => {
-      if (!selectedOption) return;
-
-      const selectedUserId = parseInt(selectedOption.value);
-      const selectedUser = users.find((user) => parseInt(user.id) === selectedUserId);
-
-      if (selectedUser) {
-        // Gunakan departmentList yang sudah diambil dari API
-        const userDepartment = departmentList.find((dept) => dept.id === selectedUser.department_id);
-
-        setFormData((prev) => ({
-          ...prev,
-          id: selectedUserId,
-          department_id: selectedUser.department_id || 0,
-          known_by_id: userDepartment?.head_id || null,
-        }));
-      }
-    },
-    [users, departmentList]
-  );
-
   const handleCloseSuccessModal = () => {
     setShowSuccessModal(false);
-    navigate("/worklocation/department");
+    navigate("/maintenanceactivity/troubleitem");
   };
 
   return (
@@ -192,21 +170,21 @@ const FormDepartment: React.FC = () => {
       <Sidebar />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <PageHeader mainTitle="Add Department" mainTitleHighlight="Management" description="blablablabl" icon={<Building />} isMobile={isMobile} toggleSidebar={toggleSidebar} />
+        <PageHeader mainTitle="Create Trouble Item" mainTitleHighlight="Management" description="blablablabl" icon={<AlertTriangle />} isMobile={isMobile} toggleSidebar={toggleSidebar} />
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50 ">
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Create New Department and Head</h1>
-              <p className="text-gray-600 mt-1">Add a new Department and Head information</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Create New Trouble Item</h1>
+              <p className="text-gray-600 mt-1">Add a new Trouble Item information</p>
             </div>
             <motion.button
-              onClick={() => navigate("/worklocation/department")}
+              onClick={() => navigate("/maintenanceactivity/troubleitem")}
               whileHover={{ scale: 1.05, boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)" }}
               whileTap={{ scale: 0.95 }}
               className="flex items-center space-x-2 bg-white border border-gray-200 text-gray-800 px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md"
             >
-              <ArrowLeft className="text-lg" /> Back to Catalogue
+              <ArrowLeft className="text-lg" /> Back to Trouble Item Management
             </motion.button>
           </motion.div>
 
@@ -223,12 +201,12 @@ const FormDepartment: React.FC = () => {
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-                <h2 className="text-lg font-semibold text-gray-800 mb-4">Service Information</h2>
+                <h2 className="text-lg font-semibold text-gray-800 mb-4">Trouble Item Information</h2>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                      Name Department <span className="text-red-500">*</span>
+                      Trouble Item Name <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -242,24 +220,18 @@ const FormDepartment: React.FC = () => {
                   </div>
 
                   <div>
-                    <label htmlFor="head_id" className="block text-sm font-medium text-gray-700 mb-1">
-                      Head Department <span className="text-red-500">*</span>
+                    <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+                      Description <span className="text-red-500">*</span>
                     </label>
-                    <select
-                      name="head_id"
-                      id="head_id"
-                      value={formData.head_id}
+                    <input
+                      type="text"
+                      name="description"
+                      id="description"
+                      value={formData.description}
                       onChange={handleChange}
                       className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
                       required
-                    >
-                      <option value="">Select Head Department</option>
-                      {users.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.name || u.name}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </div>
                 </div>
               </div>
@@ -267,7 +239,7 @@ const FormDepartment: React.FC = () => {
               <div className="flex justify-end gap-4 pt-6 border-t border-gray-100 mt-8">
                 <motion.button
                   type="button"
-                  onClick={() => navigate("/worklocations")}
+                  onClick={() => navigate("/maintenanceactivity/troubleitem")}
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
                   className="px-6 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
@@ -288,7 +260,7 @@ const FormDepartment: React.FC = () => {
                     </>
                   ) : (
                     <>
-                      <Save className="mr-2 h-5 w-5" /> Save Service
+                      <Save className="mr-2 h-5 w-5" /> Save Trouble Item
                     </>
                   )}
                 </motion.button>
@@ -308,7 +280,7 @@ const FormDepartment: React.FC = () => {
             onClick={handleCloseSuccessModal}
             className="mt-6 px-6 py-3 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
           >
-            Back to Service Catalogue
+            Back to Trouble Item Management
           </motion.button>
         </div>
       </Modal>
@@ -316,4 +288,4 @@ const FormDepartment: React.FC = () => {
   );
 };
 
-export default FormDepartment;
+export default FormTroubleItem;

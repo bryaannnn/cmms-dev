@@ -1,11 +1,17 @@
-import { Building, ArrowLeft, X, Save, Hourglass, CheckCircle, ListCheck } from "lucide-react";
+import { Building, ArrowLeft, X, Save, Hourglass, CheckCircle, Clock, Activity } from "lucide-react";
 import React, { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import Sidebar from "../../Sidebar";
 import Select from "react-select";
 import PageHeader from "../../PageHeader";
-import { useNavigate, useParams } from "react-router-dom";
-import { useAuth, User, Department, StopTimes, ActivityType } from "../../../routes/AuthContext";
+import { useNavigate } from "react-router-dom";
+import { useAuth, User, Department, StopTimes, WorkShift } from "../../../routes/AuthContext";
+
+export interface Activity {
+  id: number;
+  name: string;
+  description: string;
+}
 
 interface OptionType {
   value: string;
@@ -37,12 +43,11 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
   );
 };
 
-const EditActivityType: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+const FormWorkShift: React.FC = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [activityTypes, setActivityTypes] = useState<ActivityType[]>([]);
-  const [activityTypesList, setActivityTypesList] = useState<ActivityType>();
-  const { getActivityTypes, updateActivityTypes, getActivityTypesById } = useAuth();
+  const [workShift, setWorkShift] = useState<WorkShift[]>([]);
+  const [workShiftList, setWorkShiftList] = useState<WorkShift[]>([]);
+  const { addWorkShift, getWorkShift } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     const stored = localStorage.getItem("sidebarOpen");
     return stored ? JSON.parse(stored) : false;
@@ -55,19 +60,12 @@ const EditActivityType: React.FC = () => {
 
   const [formData, setFormData] = useState({
     name: "",
+    description: "",
   });
 
   const toggleSidebar = () => {
     setSidebarOpen((prev: boolean): boolean => !prev);
   };
-
-  useEffect(() => {
-    if (activityTypesList) {
-      setFormData({
-        name: activityTypesList.name || "",
-      });
-    }
-  }, [activityTypesList]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -80,20 +78,17 @@ const EditActivityType: React.FC = () => {
 
   const fetchData = useCallback(async () => {
     try {
-      if (id) {
-        const [activityTypesList] = await Promise.all([getActivityTypesById(id)]);
-        setActivityTypesList(activityTypesList);
-      }
+      const [workShift] = await Promise.all([getWorkShift()]);
+
+      setWorkShift(workShift);
     } catch (err: any) {
       setError(err.message || "Failed to load form data");
     }
-  }, [id, getActivityTypesById]);
+  }, [getWorkShift]);
 
   useEffect(() => {
-    if (id) {
-      fetchData();
-    }
-  }, [id, fetchData]);
+    fetchData();
+  }, [fetchData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,13 +98,14 @@ const EditActivityType: React.FC = () => {
     try {
       const payload = {
         name: formData.name,
+        description: formData.description,
       };
 
-      await updateActivityTypes(id!, payload);
-      setSuccess("Activity Type update successfully!");
+      await addWorkShift(payload);
+      setSuccess("Work Shift created successfully!");
       setShowSuccessModal(true);
     } catch (err: any) {
-      setError(err.message || "Failed to update Activity Type");
+      setError(err.message || "Failed to create Work Shift");
     } finally {
       setLoading(false);
     }
@@ -172,7 +168,7 @@ const EditActivityType: React.FC = () => {
 
   const handleCloseSuccessModal = () => {
     setShowSuccessModal(false);
-    navigate("/maintenanceactivity/activitytypes");
+    navigate("/workarrangement/workshift");
   };
 
   return (
@@ -180,21 +176,21 @@ const EditActivityType: React.FC = () => {
       <Sidebar />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <PageHeader mainTitle="Edit Activity Type" mainTitleHighlight="Management" description="blablablabl" icon={<ListCheck />} isMobile={isMobile} toggleSidebar={toggleSidebar} />
+        <PageHeader mainTitle="Create Work Shift" mainTitleHighlight="Management" description="blablablabl" icon={<Clock />} isMobile={isMobile} toggleSidebar={toggleSidebar} />
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50 ">
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Edit Activity Type</h1>
-              <p className="text-gray-600 mt-1">Update Activity Type information</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Create New Work Shift</h1>
+              <p className="text-gray-600 mt-1">Add a new Work Shift information</p>
             </div>
             <motion.button
-              onClick={() => navigate("/maintenanceactivity/stoptimes")}
+              onClick={() => navigate("/workarrangement/workshift")}
               whileHover={{ scale: 1.05, boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)" }}
               whileTap={{ scale: 0.95 }}
               className="flex items-center space-x-2 bg-white border border-gray-200 text-gray-800 px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md"
             >
-              <ArrowLeft className="text-lg" /> Back to Stop Times Management
+              <ArrowLeft className="text-lg" /> Back to Work Shift Management
             </motion.button>
           </motion.div>
 
@@ -211,12 +207,12 @@ const EditActivityType: React.FC = () => {
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-                <h2 className="text-lg font-semibold text-gray-800 mb-4">Activity Type Information</h2>
+                <h2 className="text-lg font-semibold text-gray-800 mb-4">Work Shift Information</h2>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                      Name Activity Type <span className="text-red-500">*</span>
+                      Work Shift Name <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -228,13 +224,28 @@ const EditActivityType: React.FC = () => {
                       required
                     />
                   </div>
+
+                  <div>
+                    <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+                      Description <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="description"
+                      id="description"
+                      value={formData.description}
+                      onChange={handleChange}
+                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
+                      required
+                    />
+                  </div>
                 </div>
               </div>
 
               <div className="flex justify-end gap-4 pt-6 border-t border-gray-100 mt-8">
                 <motion.button
                   type="button"
-                  onClick={() => navigate("/maintenanceactivity/activitytypes")}
+                  onClick={() => navigate("/workarrangement/workshift")}
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
                   className="px-6 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
@@ -255,7 +266,7 @@ const EditActivityType: React.FC = () => {
                     </>
                   ) : (
                     <>
-                      <Save className="mr-2 h-5 w-5" /> Save Service
+                      <Save className="mr-2 h-5 w-5" /> Save Work Shift
                     </>
                   )}
                 </motion.button>
@@ -275,7 +286,7 @@ const EditActivityType: React.FC = () => {
             onClick={handleCloseSuccessModal}
             className="mt-6 px-6 py-3 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
           >
-            Back to Activity Types Management
+            Back to Work Shift Management
           </motion.button>
         </div>
       </Modal>
@@ -283,4 +294,4 @@ const EditActivityType: React.FC = () => {
   );
 };
 
-export default EditActivityType;
+export default FormWorkShift;
