@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useAuth, WorkOrderData } from "../../../routes/AuthContext";
+import { useAuth, WorkOrderData, Vendor } from "../../../routes/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
+import DOMPurify from "dompurify";
 import {
   Plus,
   Upload,
@@ -185,104 +186,6 @@ interface WorkOrderDetailsProps {
   isNested?: boolean;
 }
 
-const WorkOrderDetails: React.FC<{ order: WorkOrderData; onClose: () => void }> = ({ order, onClose }) => {
-  const displayValue = (value: any): string => {
-    if (value === null || value === undefined) return "-";
-    if (typeof value === "object" && value !== null) {
-      return value.name || value.title || value.id || "-";
-    }
-    if (typeof value === "string") {
-      return value.trim() !== "" ? value.trim() : "-";
-    }
-    if (typeof value === "number") {
-      return value.toString();
-    }
-    return String(value);
-  };
-
-  const formatDate = (dateString?: string | null) => {
-    if (!dateString) return "-";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("id-ID", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  const DetailItem: React.FC<{ label: string; value: string }> = ({ label, value }) => (
-    <div className="flex flex-col">
-      <h4 className="text-sm font-medium text-gray-500 mb-1">{label}</h4>
-      <p className="w-full bg-blue-50 border border-blue-100 rounded-lg p-3 text-gray-800 text-base font-medium min-h-[44px] flex items-center">{value}</p>
-    </div>
-  );
-
-  const SectionTitle: React.FC<{ title: string }> = ({ title }) => <h3 className="text-lg font-bold text-gray-800 mb-4 pb-2 border-b border-blue-200 mt-6 first:mt-0">{title}</h3>;
-
-  return (
-    <div className="space-y-6">
-      <SectionTitle title="General Information" />
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <DetailItem label="Work Order No" value={displayValue(order.work_order_no || order.id)} />
-        <DetailItem label="Date" value={formatDate(order.date)} />
-        <DetailItem label="Reception Method" value={displayValue(order.reception_method)} />
-        <DetailItem label="Requester" value={displayValue(order.requester?.name)} />
-        <DetailItem label="Department" value={displayValue(order.department_name || order.department?.name)} />
-        <DetailItem label="Known By" value={displayValue(order.known_by?.name)} />
-      </div>
-
-      <SectionTitle title="Service Details" />
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <DetailItem label="Service Type" value={displayValue(order.service_type?.group_name)} />
-        <DetailItem label="Service" value={displayValue(order.service?.owner?.name || order.service?.service_name)} />
-        <DetailItem label="No Asset" value={displayValue(order.asset_no)} />
-      </div>
-
-      <SectionTitle title="Device & Complaint" />
-      <div className="grid grid-cols-1 gap-4">
-        <DetailItem label="Device Information" value={displayValue(order.device_info)} />
-        <DetailItem label="Complaint" value={displayValue(order.complaint)} />
-      </div>
-
-      <SectionTitle title="Handling Information" />
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <DetailItem label="Ticket Status" value={displayValue(order.handling_status)} />
-        <DetailItem label="Assigned To" value={displayValue(order.assigned_to?.name)} />
-        <DetailItem label="Handling Date" value={formatDate(order.handling_date || "-")} />
-        <DetailItem label="Action Taken" value={displayValue(order.action_taken)} />
-        <DetailItem label="Remarks" value={displayValue(order.remarks)} />
-      </div>
-
-      {order.attachment && (
-        <>
-          <SectionTitle title="Attachment" />
-          <div className="grid grid-cols-1 gap-4">
-            <div className="flex items-center space-x-3">
-              <a href={order.attachment} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                View Attachment
-              </a>
-            </div>
-          </div>
-        </>
-      )}
-
-      <div className="flex justify-end pt-6 border-t border-gray-100 mt-8">
-        <motion.button
-          type="button"
-          onClick={onClose}
-          whileHover={{ scale: 1.03, boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)" }}
-          whileTap={{ scale: 0.97 }}
-          className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 font-semibold"
-        >
-          Close
-        </motion.button>
-      </div>
-    </div>
-  );
-};
-
 const ITReceiver: React.FC = () => {
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
@@ -310,7 +213,7 @@ const ITReceiver: React.FC = () => {
   const location = useLocation();
   const notificationsRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
-  const { user, getWorkOrdersIT, updateWorkOrderIT, getUsers, hasPermission } = useAuth();
+  const { user, getWorkOrdersIT, updateWorkOrderIT, getUsers, hasPermission, getVendor } = useAuth();
 
   const isAssignment = location.pathname === "/workorders/it/assignment";
   const isReports = location.pathname === "/workorders/it/reports";
@@ -513,6 +416,154 @@ const ITReceiver: React.FC = () => {
     },
     [updateWorkOrder]
   );
+
+  // Fungsi untuk mendapatkan nama assigned to (user atau vendor)
+  const getAssignedToName = (order: WorkOrderData): string => {
+    // Jika ada vendor, tampilkan nama vendor
+    if (order.vendor) {
+      return `${order.vendor.name}`;
+    }
+
+    // Jika tidak ada vendor, tampilkan assigned_to user atau "Unassigned"
+    return order.assigned_to?.name || "Unassigned";
+  };
+
+  // Fungsi untuk mendapatkan tipe assignment
+  const getAssignmentType = (order: WorkOrderData): string => {
+    if (order.vendor) return "vendor";
+    if (order.assigned_to) return "user";
+    return "unassigned";
+  };
+
+  const WorkOrderDetails: React.FC<{ order: WorkOrderData; onClose: () => void }> = ({ order, onClose }) => {
+    const displayValue = (value: any): string => {
+      if (value === null || value === undefined) return "-";
+      if (typeof value === "object" && value !== null) {
+        return value.name || value.title || value.id || "-";
+      }
+      if (typeof value === "string") {
+        return value.trim() !== "" ? value.trim() : "-";
+      }
+      if (typeof value === "number") {
+        return value.toString();
+      }
+      return String(value);
+    };
+
+    const formatDate = (dateString?: string | null) => {
+      if (!dateString) return "-";
+      const date = new Date(dateString);
+      return date.toLocaleDateString("id-ID", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    };
+
+    // Fungsi untuk menampilkan HTML yang aman
+    const displayHTML = (htmlString: string) => {
+      if (!htmlString) return "-";
+
+      // Bersihkan HTML dari potensi XSS
+      const cleanHTML = DOMPurify.sanitize(htmlString);
+
+      return <div className="w-full bg-blue-50 border border-blue-100 rounded-lg p-3 text-gray-800 text-base font-medium min-h-[44px] flex items-center" dangerouslySetInnerHTML={{ __html: cleanHTML }} />;
+    };
+
+    const DetailItemHTML: React.FC<{ label: string; htmlContent: string }> = ({ label, htmlContent }) => (
+      <div className="flex flex-col">
+        <h4 className="text-sm font-medium text-gray-500 mb-1">{label}</h4>
+        {displayHTML(htmlContent)}
+      </div>
+    );
+
+    const DetailItem: React.FC<{ label: string; value: string }> = ({ label, value }) => (
+      <div className="flex flex-col">
+        <h4 className="text-sm font-medium text-gray-500 mb-1">{label}</h4>
+        <p className="w-full bg-blue-50 border border-blue-100 rounded-lg p-3 text-gray-800 text-base font-medium min-h-[44px] flex items-center">{value}</p>
+      </div>
+    );
+
+    const SectionTitle: React.FC<{ title: string }> = ({ title }) => <h3 className="text-lg font-bold text-gray-800 mb-4 pb-2 border-b border-blue-200 mt-6 first:mt-0">{title}</h3>;
+
+    return (
+      <div className="space-y-6">
+        <SectionTitle title="General Information" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <DetailItem label="Work Order No" value={displayValue(order.work_order_no || order.id)} />
+          <DetailItem label="Date" value={formatDate(order.date)} />
+          <DetailItem label="Reception Method" value={displayValue(order.reception_method)} />
+          <DetailItem label="Requester" value={displayValue(order.requester?.name)} />
+          <DetailItem label="Department" value={displayValue(order.department_name || order.department?.name)} />
+          <DetailItem label="Known By" value={displayValue(order.known_by?.name)} />
+        </div>
+
+        <SectionTitle title="Service Details" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <DetailItem label="Service Type" value={displayValue(order.service_type?.group_name)} />
+          <DetailItem label="Service" value={displayValue(order.service?.owner?.name || order.service?.service_name)} />
+          <DetailItem label="No Asset" value={displayValue(order.asset_no)} />
+        </div>
+
+        <SectionTitle title="Device & Complaint" />
+        <div className="grid grid-cols-1 gap-4">
+          <DetailItem label="Device Information" value={displayValue(order.device_info)} />
+          <DetailItemHTML label="Complaint" htmlContent={order.complaint || ""} />
+        </div>
+
+        <SectionTitle title="Handling Information" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <DetailItem label="Ticket Status" value={displayValue(order.handling_status)} />
+          <DetailItem label="Assigned To" value={displayValue(order.assigned_to?.name)} />
+          <DetailItem label="Handling Date" value={formatDate(order.handling_date || "-")} />
+          <DetailItem label="Action Taken" value={displayValue(order.action_taken)} />
+          <DetailItem label="Remarks" value={displayValue(order.remarks)} />
+        </div>
+
+        {/* Vendor Details Section */}
+        <SectionTitle title="Vendor Details" />
+        {order.vendor ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <DetailItem label="Vendor Name" value={displayValue(order.vendor.name)} />
+            <DetailItem label="Address" value={displayValue(order.vendor.address)} />
+            <DetailItem label="Contact Person" value={displayValue(order.vendor.contact_person)} />
+            <DetailItem label="Email" value={displayValue(order.vendor.email)} />
+            <DetailItem label="No Telp" value={displayValue(order.vendor.telp)} />
+            <DetailItem label="No HP" value={displayValue(order.vendor.HP)} />
+          </div>
+        ) : (
+          <div className="text-center py-4 text-gray-500">No vendor assigned to this work order.</div>
+        )}
+
+        {order.attachment && (
+          <>
+            <SectionTitle title="Attachment" />
+            <div className="grid grid-cols-1 gap-4">
+              <div className="flex items-center space-x-3">
+                <a href={order.attachment} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                  View Attachment
+                </a>
+              </div>
+            </div>
+          </>
+        )}
+
+        <div className="flex justify-end pt-6 border-t border-gray-100 mt-8">
+          <motion.button
+            type="button"
+            onClick={onClose}
+            whileHover={{ scale: 1.03, boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)" }}
+            whileTap={{ scale: 0.97 }}
+            className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 font-semibold"
+          >
+            Close
+          </motion.button>
+        </div>
+      </div>
+    );
+  };
 
   useEffect(() => {
     setCurrentPage(1);
@@ -827,6 +878,9 @@ const ITReceiver: React.FC = () => {
                       const isNew = order.handling_status === "New";
                       const isInProgressOrSimilar = ["In Progress", "Escalated", "Vendor Handled"].includes(order.handling_status);
 
+                      const assignedToName = getAssignedToName(order);
+                      const assignmentType = getAssignmentType(order);
+
                       return (
                         <motion.tr
                           key={order.id}
@@ -860,7 +914,10 @@ const ITReceiver: React.FC = () => {
                                 Click to Assign
                               </motion.button>
                             ) : (
-                              order.assigned_to?.name || "N/A"
+                              <div className="flex items-center">
+                                <span className={`text-sm font-medium ${assignmentType === "vendor" ? "text-purple-600" : assignmentType === "user" ? "text-blue-600" : "text-gray-500"}`}>{assignedToName}</span>
+                                {assignmentType === "vendor" && <span className="ml-2 px-1.5 py-0.5 text-xs bg-purple-100 text-purple-800 rounded-full">Vendor</span>}
+                              </div>
                             )}
                           </td>
                           {/* Perbaikan Kolom Actions */}

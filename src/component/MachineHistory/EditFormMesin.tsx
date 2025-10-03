@@ -81,13 +81,14 @@ const FormEditMesin: React.FC = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (isMasterDataLoading || !masterData) {
-        setLocalLoading(true);
-        return;
-      }
-
       try {
         setLocalLoading(true);
+
+        // Wait for master data to be available
+        if (isMasterDataLoading || !masterData) {
+          return;
+        }
+
         if (id) {
           const responseData: any = await getMachineHistoryById(id);
           const apiDataRaw = responseData.data;
@@ -131,6 +132,7 @@ const FormEditMesin: React.FC = () => {
         setLocalLoading(false);
       }
     };
+
     fetchData();
   }, [id, masterData, isMasterDataLoading, getMachineHistoryById]);
 
@@ -317,6 +319,17 @@ const FormEditMesin: React.FC = () => {
     );
   }
 
+  if (!masterData && !isMasterDataLoading) {
+    return (
+      <div className="flex h-screen font-sans antialiased bg-blue-50 text-gray-900 justify-center items-center">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-6 py-4 rounded-lg flex items-center shadow-lg" role="alert">
+          <X className="mr-3 text-2xl" />
+          <span className="font-semibold text-lg">Error: Master data failed to load. Please refresh the page.</span>
+        </div>
+      </div>
+    );
+  }
+
   if (error && !formData.date) {
     return (
       <div className="flex h-screen font-sans antialiased bg-blue-50 text-gray-900 justify-center items-center">
@@ -400,8 +413,8 @@ const FormEditMesin: React.FC = () => {
                     <Select
                       name="shift"
                       id="shift"
-                      options={masterData?.shifts.map((shift) => ({ value: shift.id, label: shift.name })) || []}
-                      value={masterData?.shifts.map((shift) => ({ value: shift.id, label: shift.name })).find((option) => String(option.value) === String(formData.shift)) || null}
+                      options={masterData?.shifts?.data?.map((shift) => ({ value: shift.id, label: shift.name })) || []}
+                      value={masterData?.shifts?.data?.map((shift) => ({ value: shift.id, label: shift.name })).find((option) => String(option.value) === String(formData.shift)) || null}
                       onChange={(selectedOption) => handleChange(selectedOption, "shift")}
                       placeholder="Select Shift"
                       styles={customSelectStyles}
@@ -415,8 +428,8 @@ const FormEditMesin: React.FC = () => {
                     <Select
                       name="group"
                       id="group"
-                      options={masterData?.groups.map((group) => ({ value: group.id, label: group.name })) || []}
-                      value={masterData?.groups.map((group) => ({ value: group.id, label: group.name })).find((option) => String(option.value) === String(formData.group)) || null}
+                      options={masterData?.groups?.data?.map((group) => ({ value: group.id, label: group.name })) || []}
+                      value={masterData?.groups?.data?.map((group) => ({ value: group.id, label: group.name })).find((option) => String(option.value) === String(formData.group)) || null}
                       onChange={(selectedOption) => handleChange(selectedOption, "group")}
                       placeholder="Select Group"
                       styles={customSelectStyles}
@@ -505,8 +518,8 @@ const FormEditMesin: React.FC = () => {
                     <Select
                       name="stopTime"
                       id="stopTime"
-                      options={masterData?.stoptimes.map((stopTime) => ({ value: stopTime.id, label: stopTime.name })) || []}
-                      value={masterData?.stoptimes.map((stopTime) => ({ value: stopTime.id, label: stopTime.name })).find((option) => String(option.value) === String(formData.stopTime)) || null}
+                      options={masterData?.stoptimes?.data?.map((stopTime) => ({ value: stopTime.id, label: stopTime.name })) || []}
+                      value={masterData?.stoptimes?.data?.map((stopTime) => ({ value: stopTime.id, label: stopTime.name })).find((option) => String(option.value) === String(formData.stopTime)) || null}
                       onChange={(selectedOption) => handleChange(selectedOption, "stopTime")}
                       placeholder="Select Stop Type"
                       styles={customSelectStyles}
@@ -529,8 +542,8 @@ const FormEditMesin: React.FC = () => {
                     <Select
                       name="mesin"
                       id="mesin"
-                      options={masterData?.mesin.map((mesin) => ({ value: mesin.id, label: mesin.name })) || []}
-                      value={masterData?.mesin.map((mesin) => ({ value: mesin.id, label: mesin.name })).find((option) => String(option.value) === String(formData.mesin)) || null}
+                      options={masterData?.mesin?.data?.map((mesin) => ({ value: mesin.id, label: mesin.name })) || []}
+                      value={masterData?.mesin?.data?.map((mesin) => ({ value: mesin.id, label: mesin.name })).find((option) => String(option.value) === String(formData.mesin)) || null}
                       onChange={(selectedOption) => handleChange(selectedOption, "mesin")}
                       placeholder="Select Machine"
                       styles={customSelectStyles}
@@ -559,8 +572,8 @@ const FormEditMesin: React.FC = () => {
                     <Select
                       name="unit"
                       id="unit"
-                      options={masterData?.units.map((unit) => ({ value: unit.id, label: unit.name })) || []}
-                      value={masterData?.units.map((unit) => ({ value: unit.id, label: unit.name })).find((option) => String(option.value) === String(formData.unit)) || null}
+                      options={masterData?.units?.data?.map((unit) => ({ value: unit.id, label: unit.name })) || []}
+                      value={masterData?.units?.data?.map((unit) => ({ value: unit.id, label: unit.name })).find((option) => String(option.value) === String(formData.unit)) || null}
                       onChange={(selectedOption) => handleChange(selectedOption, "unit")}
                       placeholder="Select Unit"
                       styles={customSelectStyles}
@@ -574,8 +587,8 @@ const FormEditMesin: React.FC = () => {
                     <Select
                       name="itemTrouble"
                       id="itemTrouble"
-                      options={masterData?.itemtroubles.map((item) => ({ value: item.id, label: item.name })) || []}
-                      value={masterData?.itemtroubles.map((item) => ({ value: item.id, label: item.name })).find((option) => String(option.value) === String(formData.itemTrouble)) || null}
+                      options={masterData?.itemtroubles?.data?.map((item) => ({ value: item.id, label: item.name })) || []}
+                      value={masterData?.itemtroubles?.data?.map((item) => ({ value: item.id, label: item.name })).find((option) => String(option.value) === String(formData.itemTrouble)) || null}
                       onChange={(selectedOption) => handleChange(selectedOption, "itemTrouble")}
                       placeholder="Select Item Trouble"
                       styles={customSelectStyles}
@@ -643,8 +656,8 @@ const FormEditMesin: React.FC = () => {
                     <Select
                       name="jenisAktivitas"
                       id="jenisAktivitas"
-                      options={masterData?.jenisaktivitas.map((jenis) => ({ value: jenis.id, label: jenis.name })) || []}
-                      value={masterData?.jenisaktivitas.map((jenis) => ({ value: jenis.id, label: jenis.name })).find((option) => String(option.value) === String(formData.jenisAktivitas)) || null}
+                      options={masterData?.jenisaktivitas?.data?.map((jenis) => ({ value: jenis.id, label: jenis.name })) || []}
+                      value={masterData?.jenisaktivitas?.data?.map((jenis) => ({ value: jenis.id, label: jenis.name })).find((option) => String(option.value) === String(formData.jenisAktivitas)) || null}
                       onChange={(selectedOption) => handleChange(selectedOption, "jenisAktivitas")}
                       placeholder="Select Type of Activity"
                       styles={customSelectStyles}
@@ -658,8 +671,8 @@ const FormEditMesin: React.FC = () => {
                     <Select
                       name="kegiatan"
                       id="kegiatan"
-                      options={masterData?.kegiatans.map((kegiatan) => ({ value: kegiatan.id, label: kegiatan.name })) || []}
-                      value={masterData?.kegiatans.map((kegiatan) => ({ value: kegiatan.id, label: kegiatan.name })).find((option) => String(option.value) === String(formData.kegiatan)) || null}
+                      options={masterData?.kegiatans?.data?.map((kegiatan) => ({ value: kegiatan.id, label: kegiatan.name })) || []}
+                      value={masterData?.kegiatans?.data?.map((kegiatan) => ({ value: kegiatan.id, label: kegiatan.name })).find((option) => String(option.value) === String(formData.kegiatan)) || null}
                       onChange={(selectedOption) => handleChange(selectedOption, "kegiatan")}
                       placeholder="Select Activity"
                       styles={customSelectStyles}
@@ -729,8 +742,8 @@ const FormEditMesin: React.FC = () => {
                     <Select
                       name="unitSparePart"
                       id="unitSparePart"
-                      options={masterData?.unitspareparts.map((unit) => ({ value: unit.id, label: unit.name })) || []}
-                      value={masterData?.unitspareparts.map((unit) => ({ value: unit.id, label: unit.name })).find((option) => String(option.value) === String(formData.unitSparePart)) || null}
+                      options={masterData?.unitspareparts?.data?.map((unit) => ({ value: unit.id, label: unit.name })) || []}
+                      value={masterData?.unitspareparts?.data?.map((unit) => ({ value: unit.id, label: unit.name })).find((option) => String(option.value) === String(formData.unitSparePart)) || null}
                       onChange={(selectedOption) => handleChange(selectedOption, "unitSparePart")}
                       placeholder="Select Unit"
                       styles={customSelectStyles}

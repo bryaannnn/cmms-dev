@@ -301,64 +301,67 @@ const FormMonitoringMaintenance: React.FC = () => {
   const namaBulan = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
   // Submit handler
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setLoading(true);
-  setError(null);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
 
-  try {
-    // Validation
-    if (!formData.startDate || !formData.endDate) {
-      throw new Error("Tanggal mulai dan selesai harus diisi");
-    }
+    try {
+      // Validation
+      if (!formData.startDate || !formData.endDate) {
+        throw new Error("Tanggal mulai dan selesai harus diisi");
+      }
 
-    if (formData.units.length === 0 || formData.units.some((unit) => !unit.id)) {
-      throw new Error("Pilih setidaknya satu unit");
-    }
+      if (formData.units.length === 0 || formData.units.some((unit) => !unit.id)) {
+        throw new Error("Pilih setidaknya satu unit");
+      }
 
-    // FIX: Format tanggal tanpa timezone conversion
-    const formatDateWithoutTimezone = (date: Date) => {
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    };
+      // FIX: Format tanggal tanpa timezone conversion
+      const formatDateWithoutTimezone = (date: Date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+      };
 
-    const monitoringSchedules = [];
-    const monitoringActivities = [];
+      const monitoringSchedules = [];
+      const monitoringActivities = [];
 
-    // Create monitoring schedules and activities
-    for (const unit of formData.units) {
-      for (const machine of unit.machines) {
-        if (machine.id && machine.items.length > 0) {
-          const scheduleData = {
-            tahun: formData.startDate.getFullYear(),
-            bulan: namaBulan[formData.startDate.getMonth()],
-            tgl_start: formatDateWithoutTimezone(formData.startDate), // FIX: Gunakan fungsi baru
-            tgl_end: formatDateWithoutTimezone(formData.endDate),     // FIX: Gunakan fungsi baru
-            unit: unit.name,
-            id_mesins: machine.id,
-            id_interval: machine.intervalId || 1,
-          };
+      // Create monitoring schedules and activities
+      for (const unit of formData.units) {
+        for (const machine of unit.machines) {
+          if (machine.id && machine.items.length > 0) {
+            const itemMesinIds = machine.items.map((item) => item.id);
 
-          const scheduleResponse = await addMonitoringSchedule(scheduleData);
-          monitoringSchedules.push(scheduleResponse);
+            const scheduleData = {
+              tahun: formData.startDate.getFullYear(),
+              bulan: namaBulan[formData.startDate.getMonth()],
+              tgl_start: formatDateWithoutTimezone(formData.startDate),
+              tgl_end: formatDateWithoutTimezone(formData.endDate),
+              unit: unit.name,
+              id_mesins: machine.id,
+              id_interval: machine.intervalId || 1,
+              item_mesin_ids: itemMesinIds, // PERBAIKAN: Kirim array ID item mesin
+            };
+
+            const scheduleResponse = await addMonitoringSchedule(scheduleData);
+            monitoringSchedules.push(scheduleResponse);
+          }
         }
       }
-    }
 
-    if (monitoringSchedules.length === 0) {
-      throw new Error("Tidak ada data monitoring yang valid untuk disimpan");
-    }
+      if (monitoringSchedules.length === 0) {
+        throw new Error("Tidak ada data monitoring yang valid untuk disimpan");
+      }
 
-    setSuccess("Data monitoring berhasil disimpan!");
-    setShowSuccessModal(true);
-  } catch (err: any) {
-    setError(err.message || "Gagal menyimpan data monitoring");
-  } finally {
-    setLoading(false);
-  }
-};
+      setSuccess("Data monitoring berhasil disimpan!");
+      setShowSuccessModal(true);
+    } catch (err: any) {
+      setError(err.message || "Gagal menyimpan data monitoring");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleCloseSuccessModal = useCallback(() => {
     setShowSuccessModal(false);
@@ -426,7 +429,7 @@ const handleSubmit = async (e: React.FormEvent) => {
       case 1:
         return (
           <motion.div key="step1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">Tanggal Monitoring</h2>
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">Monitoring Schedule</h2>
             <div className="flex flex-col md:flex-row md:items-center gap-6 md:gap-8">
               <div className="flex-1">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
@@ -489,7 +492,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                 className="flex items-center justify-center w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:bg-gray-100"
                 type="button"
               >
-                <Plus size={20} className="mr-2" /> Tambah Unit
+                <Plus size={20} className="mr-2" /> Add Unit
               </motion.button>
             </div>
           </motion.div>
@@ -498,7 +501,7 @@ const handleSubmit = async (e: React.FormEvent) => {
       case 3:
         return (
           <motion.div key="step3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">Mesin & Interval</h2>
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">Machine & Interval</h2>
             <div className="space-y-6">
               {formData.units.map(
                 (unit, unitIndex) =>
@@ -511,7 +514,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                             {/* Pilihan Mesin */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Mesin</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Machine</label>
                                 <Select
                                   options={
                                     masterData?.unitsWithMachines
@@ -524,7 +527,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                                   value={machine.id ? { value: machine.id, label: machine.name } : null}
                                   onChange={(option) => handleMachineSelect(unitIndex, machineIndex, option)}
                                   isClearable
-                                  placeholder="Pilih Mesin"
+                                  placeholder="Select Machine"
                                   styles={customSelectStyles}
                                 />
                               </div>
@@ -549,7 +552,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                                   }
                                   onChange={(option) => handleIntervalSelect(unitIndex, machineIndex, option)}
                                   isClearable
-                                  placeholder={machine.id ? "Pilih Interval" : "Pilih mesin terlebih dahulu"}
+                                  placeholder={machine.id ? "Select Interval" : "Please Select Machine"}
                                   isDisabled={!machine.id || machine.items.length === 0}
                                   styles={customSelectStyles}
                                 />
@@ -585,7 +588,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                         onClick={() => handleAddMachine(unitIndex)}
                         className="mt-4 flex items-center justify-center w-full px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:bg-gray-100"
                       >
-                        <Plus size={20} className="mr-2" /> Tambah Mesin
+                        <Plus size={20} className="mr-2" /> Add Machine
                       </motion.button>
                     </div>
                   )
@@ -650,17 +653,17 @@ const handleSubmit = async (e: React.FormEvent) => {
           <div className="flex items-center space-x-4">
             <motion.button onClick={() => navigate("/monitoringmaintenance")} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="flex items-center text-blue-600 hover:text-blue-800">
               <ArrowLeft className="text-xl" />
-              <span className="font-semibold text-sm hidden md:inline">Kembali ke Riwayat Monitoring</span>
+              <span className="font-semibold text-sm hidden md:inline">Back To Monitoring Maintenance</span>
             </motion.button>
-            <h2 className="text-lg md:text-xl font-bold text-gray-900 ml-4">Tambah Data Monitoring</h2>
+            <h2 className="text-lg md:text-xl font-bold text-gray-900 ml-4">Create Monitoring Maintenance</h2>
           </div>
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Tambah Data Monitoring Baru</h1>
-              <p className="text-gray-600 mt-1">Lengkapi detail untuk memulai</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Create Monitoring Maintenance</h1>
+              <p className="text-gray-600 mt-1">All create detail for monitoring maintenance</p>
             </div>
             <motion.button
               onClick={() => navigate("/monitoringmaintenance")}
@@ -668,7 +671,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               whileTap={{ scale: 0.95 }}
               className="flex items-center space-x-2 bg-white border border-gray-200 text-gray-800 px-5 py-2.5 rounded-lg shadow-md"
             >
-              <ArrowLeft className="text-lg" /> Kembali ke Riwayat
+              <ArrowLeft className="text-lg" /> Back To Monitoring Maintenance
             </motion.button>
           </motion.div>
 
@@ -695,7 +698,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                   whileTap={{ scale: 0.95 }}
                   className="px-6 py-3 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 flex items-center"
                 >
-                  <ChevronLeft className="mr-2 h-5 w-5" /> Kembali
+                  <ChevronLeft className="mr-2 h-5 w-5" /> Back
                 </motion.button>
               )}
 
@@ -730,7 +733,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                     </>
                   ) : (
                     <>
-                      <Save className="mr-2 h-5 w-5" /> Simpan Data
+                      <Save className="mr-2 h-5 w-5" /> Save Monitoring
                     </>
                   )}
                 </motion.button>
@@ -743,14 +746,14 @@ const handleSubmit = async (e: React.FormEvent) => {
       <Modal isOpen={showSuccessModal} onClose={handleCloseSuccessModal} title="Success!">
         <div className="flex flex-col items-center justify-center py-4">
           <CheckCircle className="text-green-500 text-6xl mb-4" />
-          <p className="text-lg font-medium text-gray-800 text-center">Data monitoring berhasil disimpan!</p>
+          <p className="text-lg font-medium text-gray-800 text-center">Data monitoring schedule berhasil disimpan!</p>
           <motion.button
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
             onClick={handleCloseSuccessModal}
             className="mt-6 px-6 py-3 border border-transparent rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-blue-500"
           >
-            Go to Monitoring History
+            Go to Monitoring Mainteannce
           </motion.button>
         </div>
       </Modal>

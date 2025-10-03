@@ -193,15 +193,16 @@ const FormMesin: React.FC = () => {
     const fetchAllMasterData = async () => {
       try {
         const data: AllMasterData = await getAllMasterData();
-        setMesinList(data.mesin || []);
-        setShiftList(data.shifts || []);
-        setGroupList(data.groups || []);
-        setStopTimeList(data.stoptimes || []);
-        setUnitList(data.units || []);
-        setItemTroubleList(data.itemtroubles || []);
-        setJenisAktivitasList(data.jenisaktivitas || []);
-        setKegiatanList(data.kegiatans || []);
-        setUnitSparePartList(data.unitspareparts || []);
+        // Access the .data property from each response
+        setMesinList(data.mesin?.data || []);
+        setShiftList(data.shifts?.data || []);
+        setGroupList(data.groups?.data || []);
+        setStopTimeList(data.stoptimes?.data || []);
+        setUnitList(data.units?.data || []);
+        setItemTroubleList(data.itemtroubles?.data || []);
+        setJenisAktivitasList(data.jenisaktivitas?.data || []);
+        setKegiatanList(data.kegiatans?.data || []);
+        setUnitSparePartList(data.unitspareparts?.data || []);
       } catch (error: any) {
         console.error("Gagal mengambil semua data master:", error);
         setError(error.message || "Gagal memuat daftar data master.");
@@ -338,7 +339,7 @@ const FormMesin: React.FC = () => {
                     <Select
                       name="shift"
                       id="shift"
-                      options={shiftList.map((shift) => ({ value: shift.id, label: shift.name }))}
+                      options={(shiftList || []).map((shift) => ({ value: shift.id, label: shift.name }))}
                       value={shiftList.map((shift) => ({ value: shift.id, label: shift.name })).find((option) => option.value === formData.shift)}
                       onChange={(selectedOption) => handleChange(selectedOption, "shift")}
                       placeholder="Select Shift"
@@ -353,7 +354,7 @@ const FormMesin: React.FC = () => {
                     <Select
                       name="group"
                       id="group"
-                      options={groupList.map((group) => ({ value: group.id, label: group.name }))}
+                      options={(groupList || []).map((group) => ({ value: group.id, label: group.name }))}
                       value={groupList.map((group) => ({ value: group.id, label: group.name })).find((option) => option.value === formData.group)}
                       onChange={(selectedOption) => handleChange(selectedOption, "group")}
                       placeholder="Select Group"
@@ -443,7 +444,7 @@ const FormMesin: React.FC = () => {
                     <Select
                       name="stopTime"
                       id="stopTime"
-                      options={stopTimeList.map((stopTime) => ({ value: stopTime.id, label: stopTime.name }))}
+                      options={(stopTimeList || []).map((stopTime) => ({ value: stopTime.id, label: stopTime.name }))}
                       value={stopTimeList.find((option) => option.id === formData.stopTime) ? { value: formData.stopTime, label: stopTimeList.find((option) => option.id === formData.stopTime)?.name || "" } : null}
                       onChange={(selectedOption) => handleChange(selectedOption, "stopTime")}
                       placeholder="Select Stop Type"
@@ -467,7 +468,7 @@ const FormMesin: React.FC = () => {
                     <Select
                       name="mesin"
                       id="mesin"
-                      options={mesinList.map((mesin) => ({ value: mesin.id, label: mesin.name }))}
+                      options={(mesinList || []).map((mesin) => ({ value: mesin.id, label: mesin.name }))}
                       value={mesinList.find((option) => option.id === formData.mesin) ? { value: formData.mesin, label: mesinList.find((option) => option.id === formData.mesin)?.name || "" } : null}
                       onChange={(selectedOption) => handleChange(selectedOption, "mesin")}
                       placeholder="Select Machine"
@@ -497,7 +498,7 @@ const FormMesin: React.FC = () => {
                     <Select
                       name="unit"
                       id="unit"
-                      options={unitList.map((unit) => ({ value: unit.id, label: unit.name }))}
+                      options={(unitList || []).map((unit) => ({ value: unit.id, label: unit.name }))}
                       value={unitList.find((option) => option.id === formData.unit) ? { value: formData.unit, label: unitList.find((option) => option.id === formData.unit)?.name || "" } : null}
                       onChange={(selectedOption) => handleChange(selectedOption, "unit")}
                       placeholder="Select Unit"
@@ -512,7 +513,7 @@ const FormMesin: React.FC = () => {
                     <Select
                       name="itemTrouble"
                       id="itemTrouble"
-                      options={itemTroubleList.map((item) => ({ value: item.id, label: item.name }))}
+                      options={(itemTroubleList || []).map((item) => ({ value: item.id, label: item.name }))}
                       value={itemTroubleList.find((option) => option.id === formData.itemTrouble) ? { value: formData.itemTrouble, label: itemTroubleList.find((option) => option.id === formData.itemTrouble)?.name || "" } : null}
                       onChange={(selectedOption) => handleChange(selectedOption, "itemTrouble")}
                       placeholder="Select Item Trouble"
@@ -581,7 +582,7 @@ const FormMesin: React.FC = () => {
                     <Select
                       name="jenisAktivitas"
                       id="jenisAktivitas"
-                      options={jenisAktivitasList.map((jenis) => ({ value: jenis.id, label: jenis.name }))}
+                      options={(jenisAktivitasList || []).map((jenis) => ({ value: jenis.id, label: jenis.name }))}
                       value={
                         jenisAktivitasList.find((option) => option.id === formData.jenisAktivitas) ? { value: formData.jenisAktivitas, label: jenisAktivitasList.find((option) => option.id === formData.jenisAktivitas)?.name || "" } : null
                       }
@@ -598,7 +599,7 @@ const FormMesin: React.FC = () => {
                     <Select
                       name="kegiatan"
                       id="kegiatan"
-                      options={kegiatanList.map((kegiatan) => ({ value: kegiatan.id, label: kegiatan.name }))}
+                      options={(kegiatanList || []).map((kegiatan) => ({ value: kegiatan.id, label: kegiatan.name }))}
                       value={kegiatanList.find((option) => option.id === formData.kegiatan) ? { value: formData.kegiatan, label: kegiatanList.find((option) => option.id === formData.kegiatan)?.name || "" } : null}
                       onChange={(selectedOption) => handleChange(selectedOption, "kegiatan")}
                       placeholder="Select Activity"
@@ -669,7 +670,7 @@ const FormMesin: React.FC = () => {
                     <Select
                       name="unitSparePart"
                       id="unitSparePart"
-                      options={unitSparePartList.map((unit) => ({ value: unit.id, label: unit.name }))}
+                      options={(unitSparePartList || []).map((unit) => ({ value: unit.id, label: unit.name }))}
                       value={unitSparePartList.find((option) => option.id === formData.unitSparePart) ? { value: formData.unitSparePart, label: unitSparePartList.find((option) => option.id === formData.unitSparePart)?.name || "" } : null}
                       onChange={(selectedOption) => handleChange(selectedOption, "unitSparePart")}
                       placeholder="Select Unit"

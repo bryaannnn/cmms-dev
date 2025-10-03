@@ -236,15 +236,51 @@ export interface ERPRecord {
 }
 
 export interface AllMasterData {
-  mesin: Mesin[];
-  shifts: Shift[];
-  groups: Group[];
-  stoptimes: StopTime[];
-  units: Unit[];
-  itemtroubles: ItemTrouble[];
-  jenisaktivitas: JenisAktivitas[];
-  kegiatans: Kegiatan[];
-  unitspareparts: UnitSparePart[];
+  mesin: {
+    success: boolean;
+    message: string;
+    data: Mesin[];
+  };
+  shifts: {
+    success: boolean;
+    message: string;
+    data: Shift[];
+  };
+  groups: {
+    success: boolean;
+    message: string;
+    data: Group[];
+  };
+  stoptimes: {
+    success: boolean;
+    message: string;
+    data: StopTime[];
+  };
+  units: {
+    success: boolean;
+    message: string;
+    data: Unit[];
+  };
+  itemtroubles: {
+    success: boolean;
+    message: string;
+    data: ItemTrouble[];
+  };
+  jenisaktivitas: {
+    success: boolean;
+    message: string;
+    data: JenisAktivitas[];
+  };
+  kegiatans: {
+    success: boolean;
+    message: string;
+    data: Kegiatan[];
+  };
+  unitspareparts: {
+    success: boolean;
+    message: string;
+    data: UnitSparePart[];
+  };
 }
 
 export interface MachineHistoryFormData {
@@ -393,6 +429,8 @@ export interface WorkOrderData {
   service: Service4;
   received_by: SimpleUser;
   assigned_to: SimpleUser | null;
+  vendor_id?: number;
+  vendor: Vendor | null;
 }
 
 export interface WorkOrderFormData {
@@ -448,6 +486,7 @@ export interface WorkOrderFormDataLocal {
   handling_status?: string;
   remarks?: string | null;
   assigned_to_id?: number | null;
+  vendor_id?: number | null;
 }
 
 // export interface WorkOrder {
@@ -658,24 +697,10 @@ export interface MonitoringActivity {
   id_item_mesin: number;
   tgl_monitoring: string;
   hasil_monitoring: string;
+  hasil_ms_tms: string;
   hasil_keterangan: string;
   created_at?: string;
   updated_at?: string;
-  // Optional: jika ingin include relasi
-  monitoring_schedule?: MonitoringSchedule;
-  item_mesin?: ItemMesin;
-}
-
-export interface MonitoringSchedule {
-  id: number;
-  year: string;
-  month: string;
-  date_start: string;
-  date_end: string;
-  unit: string;
-  id_machine_data: number;
-  id_machine_item: number;
-  id_interval: number;
 }
 
 export interface MonitoringInterval {
@@ -707,14 +732,23 @@ export interface MonitoringSchedule {
   id_interval: number;
   created_at: string;
   updated_at: string;
-  data_mesin: any | null;
+  data_mesin: {
+    id: number;
+    name: string;
+    unit_id: string;
+    created_at?: string | null;
+    updated_at?: string | null;
+    deleted_at?: string | null;
+  };
   monitoring_interval: {
     id_interval: number;
     type_interval: string;
     created_at: string;
     updated_at: string;
   };
-  monitoring_activities: any[];
+  monitoring_activities: MonitoringActivity[];
+  item_mesins: ItemMesin[];
+  schedule_approvals: ScheduleApproval[];
 }
 
 // Tambahkan di bagian interface yang sesuai
@@ -726,6 +760,7 @@ export interface MonitoringScheduleRequest {
   unit: string;
   id_mesins: number;
   id_interval: number;
+  item_mesin_ids: number[];
 }
 
 export interface MonitoringScheduleResponse {
@@ -751,8 +786,11 @@ export interface MonitoringScheduleResponse {
 // Interface untuk POST /monitoring-activities
 export interface MonitoringActivityPost {
   id_monitoring_schedule: number;
-  id: number;
+  id_item_mesin: number;
   tgl_monitoring: string;
+  hasil_monitoring: string;
+  hasil_keterangan: string;
+  hasil_ms_tms: string;
 }
 
 export interface MonitoringActivityResponse {
@@ -912,6 +950,10 @@ export interface ItemMesin {
   created_at: string;
   updated_at: string;
   interval_id: number;
+  pivot?: {
+    monitoring_schedule_id: number;
+    item_mesin_id: number;
+  };
 }
 
 export interface AllMasterMonitoring {
@@ -923,6 +965,74 @@ export interface AllMasterMonitoring {
   intervals?: MonitoringInterval[]; // Tambahkan ini
 }
 
+export interface Vendor {
+  id: number;
+  name: string;
+  address: string;
+  contact_person: string;
+  email: string;
+  telp: string;
+  HP: string;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+// Tambahkan di bagian interface yang sesuai (setelah interface Vendor)
+export interface ApprovalTemplate {
+  id: number;
+  name: string;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+  approvers?: Approver[];
+}
+
+export interface Approver {
+  id: number;
+  template_id: number;
+  approval_template_id: number;
+  approver_user_id: number;
+  step: number;
+  created_at?: string;
+  updated_at?: string;
+  user?: User;
+  approver: {
+    id: number;
+    name: string;
+    nik: string;
+    email: string;
+    avatar: string;
+    department: string;
+    position: string;
+    department_id: number;
+    email_verified_at: string | null;
+  };
+}
+
+export interface ApprovalResponse {
+  success: boolean;
+  message: string;
+  data?: any;
+}
+
+export interface ScheduleApproval {
+  id: number;
+  schedule_id: number;
+  approver_id: number;
+  approval_step: number;
+  status: "pending" | "approved" | "rejected" | "feedback_given";
+  comments: string | null;
+  approved_at: string;
+  created_at: string;
+  updated_at: string;
+  approver?: {
+    id: number;
+    name: string;
+    position: string;
+    department: string;
+  };
+}
+
 // monitoring maintenance stop
 
 interface EditingUser extends User {
@@ -930,11 +1040,11 @@ interface EditingUser extends User {
 }
 
 function mapApiToMachineHistoryRecord(apiData: any, masterData: AllMasterData | null): MachineHistoryRecord {
-  const stopTimeName = apiData.stoptime?.name || masterData?.stoptimes?.find((st) => String(st.id) === String(apiData.stoptime_id))?.name || "-";
-  const itemTroubleName = apiData.itemtrouble?.name || masterData?.itemtroubles?.find((it) => String(it.id) === String(apiData.itemtrouble_id))?.name || "-";
-  const jenisAktivitasName = apiData.jenisaktifitas?.name || masterData?.jenisaktivitas?.find((ja) => String(ja.id) === String(apiData.jenisaktifitas_id))?.name || "-";
-  const kegiatanName = apiData.kegiatan?.name || masterData?.kegiatans?.find((keg) => String(keg.id) === String(apiData.kegiatan_id))?.name || "-";
-  const unitSparePartName = apiData.unitsp?.name || masterData?.unitspareparts?.find((usp) => String(usp.id) === String(apiData.unitsp_id))?.name || "-";
+  const stopTimeName = apiData.stoptime?.name || masterData?.stoptimes?.data.find((st) => String(st.id) === String(apiData.stoptime_id))?.name || "-";
+  const itemTroubleName = apiData.itemtrouble?.name || masterData?.itemtroubles?.data.find((it) => String(it.id) === String(apiData.itemtrouble_id))?.name || "-";
+  const jenisAktivitasName = apiData.jenisaktifitas?.name || masterData?.jenisaktivitas?.data.find((ja) => String(ja.id) === String(apiData.jenisaktifitas_id))?.name || "-";
+  const kegiatanName = apiData.kegiatan?.name || masterData?.kegiatans?.data.find((keg) => String(keg.id) === String(apiData.kegiatan_id))?.name || "-";
+  const unitSparePartName = apiData.unitsp?.name || masterData?.unitspareparts?.data.find((usp) => String(usp.id) === String(apiData.unitsp_id))?.name || "-";
 
   return {
     id: String(apiData.id),
@@ -1026,6 +1136,7 @@ interface AuthContextType {
   updateDepartment: (id: string | number, data: { name: string; head_id: number }) => Promise<Department>;
   deleteDepartment: (id: string | number) => Promise<void>;
   getMonitoringSchedules: () => Promise<MonitoringSchedule[]>;
+  getMonitoringScheduleById: (id: string | number) => Promise<MonitoringSchedule>;
   addMonitoringSchedule: (data: MonitoringScheduleRequest) => Promise<MonitoringScheduleResponse>;
   addMonitoringActivities: (activities: MonitoringActivityPost[]) => Promise<MonitoringActivityResponse[]>;
   getStopTimes: () => Promise<StopTimes[]>;
@@ -1068,7 +1179,29 @@ interface AuthContextType {
   getMesin: (id: string | number) => Promise<MesinDetail>;
   getUnitsWithMachines: () => Promise<UnitWithMachines[]>;
   getMesinDetail: (id: string | number) => Promise<MesinDetail>;
-  getMonitoringScheduleById: (id: string | number) => Promise<MonitoringScheduleDetail>;
+  getVendor: () => Promise<Vendor[]>;
+  getVendorById: (id: string | number) => Promise<Vendor>;
+  addVendor: (data: { name: string; address: string; contact_person: string; email: string; telp: string; HP: string }) => Promise<Vendor>;
+  updateVendor: (id: string | number, data: { name: string; address: string; contact_person: string; email: string; telp: string; HP: string }) => Promise<Vendor>;
+  deleteVendor: (id: string | number) => Promise<void>;
+  // Approval Template Functions
+  getApprovalTemplates: () => Promise<ApprovalTemplate[]>;
+  getApprovalTemplateById: (id: string | number) => Promise<ApprovalTemplate>;
+  createApprovalTemplate: (data: { name: string; is_active?: boolean }) => Promise<ApprovalTemplate>;
+  updateApprovalTemplate: (id: string | number, data: { name?: string; is_active?: boolean }) => Promise<ApprovalTemplate>;
+  deleteApprovalTemplate: (id: string | number) => Promise<void>;
+
+  // Approver Management Functions
+  addApproverToTemplate: (templateId: string | number, data: { approver_user_id: number; step: number }) => Promise<Approver>;
+  updateApprover: (templateId: string | number, approverId: string | number, data: { approver_user_id?: number; step?: number }) => Promise<Approver>;
+  deleteApprover: (templateId: string | number, approverId: string | number) => Promise<void>;
+  getTemplateApprovers: (templateId: string | number) => Promise<Approver[]>;
+
+  // Template Activation
+  setApprovalTemplateActive: (templateId: string | number) => Promise<ApprovalTemplate>;
+
+  // Schedule Approval
+  approveSchedule: (scheduleId: string | number, comments: string) => Promise<ApprovalResponse>;
 }
 
 const projectEnvVariables = getProjectEnvVariables();
@@ -1796,6 +1929,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       return [];
     }
   }, [fetchWithAuth]);
+
+  // Tambahkan di AuthContext.tsx
+  const getUserById = useCallback(
+    async (userId: string | number): Promise<User> => {
+      const response = await fetchWithAuth(`/users/${userId}?includes_trashed=true`);
+      return mapApiToUser(response);
+    },
+    [fetchWithAuth]
+  );
 
   const fetchedUsers = useCallback(async (): Promise<User[]> => {
     const response = await fetchWithAuth("/user/profile?includes_trashed=true");
@@ -3143,56 +3285,56 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [fetchWithAuth]);
 
   const getMonitoringScheduleById = useCallback(
-  async (id: string | number): Promise<MonitoringScheduleDetail> => {
-    try {
-      const response = await fetchWithAuth(`/monitoring-schedules/${id}?includes_trashed=true`);
+    async (id: string | number): Promise<MonitoringSchedule> => {
+      try {
+        const response = await fetchWithAuth(`/monitoring-schedules/${id}?includes_trashed=true`);
 
-      // Debug response
-      console.log("Monitoring schedule by ID response:", response);
+        // Debug response
+        console.log("Monitoring schedule by ID response:", response);
 
-      // Handle berbagai format response
-      if (response && response.success !== undefined) {
-        if (response.success && response.data) {
-          return response.data;
+        // Handle berbagai format response
+        if (response && response.success !== undefined) {
+          if (response.success && response.data) {
+            return response.data;
+          }
+          if (!response.success) {
+            throw new Error(response.message || "Failed to fetch monitoring schedule");
+          }
         }
-        if (!response.success) {
-          throw new Error(response.message || "Failed to fetch monitoring schedule");
-        }
-      }
 
-      // Jika response langsung berisi data
-      if (response && response.id_monitoring_schedule) {
-        return response;
-      }
-
-      // Jika response adalah array (seharusnya tidak)
-      if (Array.isArray(response) && response.length > 0) {
-        return response[0];
-      }
-
-      throw new Error("Invalid response format");
-    } catch (error) {
-      console.error(`Failed to fetch monitoring schedule with id ${id}:`, error);
-      
-      if (error instanceof Error) {
-        if (error.message.includes("404")) {
-          throw new Error(`Monitoring schedule with id ${id} not found`);
+        // Jika response langsung berisi data
+        if (response && response.id_monitoring_schedule) {
+          return response;
         }
-        if (error.message.includes("401")) {
-          throw new Error("Unauthorized - Please login again");
+
+        // Jika response adalah array (seharusnya tidak)
+        if (Array.isArray(response) && response.length > 0) {
+          return response[0];
         }
+
+        throw new Error("Invalid response format");
+      } catch (error) {
+        console.error(`Failed to fetch monitoring schedule with id ${id}:`, error);
+
+        if (error instanceof Error) {
+          if (error.message.includes("404")) {
+            throw new Error(`Monitoring schedule with id ${id} not found`);
+          }
+          if (error.message.includes("401")) {
+            throw new Error("Unauthorized - Please login again");
+          }
+        }
+
+        throw new Error(`Failed to fetch monitoring schedule: ${error instanceof Error ? error.message : String(error)}`);
       }
-      
-      throw new Error(`Failed to fetch monitoring schedule: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  },
-  [fetchWithAuth]
-);
+    },
+    [fetchWithAuth]
+  );
 
   const addMonitoringSchedule = useCallback(
     async (data: MonitoringScheduleRequest): Promise<MonitoringScheduleResponse> => {
       try {
-        const response = await fetchWithAuth("/monitoring-schedules?includes_trashed=true", {
+        const response = await fetchWithAuth("/monitoring-schedules", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -3241,7 +3383,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const addMonitoringActivities = useCallback(
     async (activities: MonitoringActivityPost[]): Promise<MonitoringActivityResponse[]> => {
       try {
-        const response = await fetchWithAuth("/monitoring-activities?includes_trashed=true", {
+        const response = await fetchWithAuth("/monitoring-activities", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -3291,6 +3433,211 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     },
     [fetchWithAuth]
   );
+  const getVendor = useCallback(async (): Promise<Vendor[]> => {
+    try {
+      const response = await fetchWithAuth("/vendor?includes_trashed=true");
+      return response.data || response;
+    } catch (error) {
+      console.error("Failed to fetch vendor:", error);
+      return [];
+    }
+  }, [fetchWithAuth]);
+
+  const getVendorById = useCallback(
+    async (id: string | number): Promise<Vendor> => {
+      const responseData = await fetchWithAuth(`/vendor/${id}?includes_trashed=true`);
+      return responseData.data;
+    },
+    [fetchWithAuth]
+  );
+
+  const addVendor = useCallback(
+    async (data: { name: string; address: string; contact_person: string; email: string; telp: string; HP: string }) => {
+      const responseData = await fetchWithAuth("/vendor?includes_trashed=true", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      return responseData;
+    },
+    [fetchWithAuth]
+  );
+
+  const updateVendor = useCallback(
+    async (id: string | number, data: { name: string; address: string; contact_person: string; email: string; telp: string; HP: string }): Promise<Vendor> => {
+      try {
+        const response = await fetchWithAuth(`/vendor/${id}?includes_trashed=true`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+
+        const responseData = response.data || response;
+
+        return {
+          id: responseData.id,
+          name: responseData.name,
+          address: responseData.address,
+          contact_person: responseData.contact_person,
+          email: responseData.email,
+          telp: responseData.telp,
+          HP: responseData.HP,
+        };
+      } catch (error) {
+        console.error(`Failed to update vendor with id ${id}:`, error);
+        throw new Error(`Failed to update vendor: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const deleteVendor = useCallback(
+    async (id: string | number): Promise<void> => {
+      try {
+        await fetchWithAuth(`/vendor/${id}?includes_trashed=true`, {
+          method: "DELETE",
+        });
+      } catch (error) {
+        console.error(`Failed to delete vendor with id ${id}:`, error);
+        throw new Error(`Failed to delete vendor: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  // Approval Template Functions - menggunakan approval-templates
+  const getApprovalTemplates = useCallback(async (): Promise<ApprovalTemplate[]> => {
+    try {
+      const response = await fetchWithAuth("/approval-templates?includes_trashed=true");
+      return response.data || response;
+    } catch (error) {
+      console.error("Failed to fetch approval templates:", error);
+      return [];
+    }
+  }, [fetchWithAuth]);
+
+  const getApprovalTemplateById = useCallback(
+    async (id: string | number): Promise<ApprovalTemplate> => {
+      const response = await fetchWithAuth(`/approval-templates/${id}?includes_trashed=true`);
+      return response;
+    },
+    [fetchWithAuth]
+  );
+
+  const createApprovalTemplate = useCallback(
+    async (data: { name: string; is_active?: boolean }): Promise<ApprovalTemplate> => {
+      const response = await fetchWithAuth("/approval-templates?includes_trashed=true", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      return response.data || response;
+    },
+    [fetchWithAuth]
+  );
+
+  const updateApprovalTemplate = useCallback(
+    async (id: string | number, data: { name?: string; is_active?: boolean }): Promise<ApprovalTemplate> => {
+      const response = await fetchWithAuth(`/approval-templates/${id}?includes_trashed=true`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      return response.data || response;
+    },
+    [fetchWithAuth]
+  );
+
+  const deleteApprovalTemplate = useCallback(
+    async (id: string | number): Promise<void> => {
+      await fetchWithAuth(`/approval-templates/${id}?includes_trashed=true`, {
+        method: "DELETE",
+      });
+    },
+    [fetchWithAuth]
+  );
+
+  // Approver Management Functions
+  const addApproverToTemplate = useCallback(
+    async (templateId: string | number, data: { approver_user_id: number; step: number }): Promise<Approver> => {
+      // POST approval-templates/{template}/approvers
+      const response = await fetchWithAuth(`/approval-templates/${templateId}/approvers?includes_trashed=true`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      return response.data || response;
+    },
+    [fetchWithAuth]
+  );
+
+  const updateApprover = useCallback(
+    async (templateId: string | number, approverId: string | number, data: { approver_user_id?: number; step?: number }): Promise<Approver> => {
+      // PUT template-approvers/{id}
+      const response = await fetchWithAuth(`/template-approvers/${approverId}?includes_trashed=true`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      return response.data || response;
+    },
+    [fetchWithAuth]
+  );
+
+  const deleteApprover = useCallback(
+    async (templateId: string | number, approverId: string | number): Promise<void> => {
+      // DELETE template-approvers/{id}
+      await fetchWithAuth(`/template-approvers/${approverId}?includes_trashed=true`, {
+        method: "DELETE",
+      });
+    },
+    [fetchWithAuth]
+  );
+
+  const getTemplateApprovers = useCallback(
+    async (templateId: string | number): Promise<Approver[]> => {
+      // Tidak ada route GET untuk approvers, ambil dari template detail
+      const template = await fetchWithAuth(`/approval-templates/${templateId}?includes_trashed=true`);
+      return template.approvers || [];
+    },
+    [fetchWithAuth]
+  );
+
+  // Template Activation
+  const setApprovalTemplateActive = useCallback(
+    async (templateId: string | number): Promise<ApprovalTemplate> => {
+      // PUT approval-templates/{template}/set-active
+      const response = await fetchWithAuth(`/approval-templates/${templateId}/set-active?includes_trashed=true`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+      });
+      return response.data || response;
+    },
+    [fetchWithAuth]
+  );
+
+  // Di AuthContext.tsx - pastikan approveSchedule mengembalikan response yang konsisten
+const approveSchedule = useCallback(
+  async (scheduleId: string | number, comments: string): Promise<ApprovalResponse> => {
+    const response = await fetchWithAuth(`/schedules/${scheduleId}/approve?includes_trashed=true`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ comments }),
+    });
+    
+    // Pastikan response memiliki properti success
+    if (response && response.message) {
+      return {
+        success: true,
+        message: response.message,
+        data: response.data || response
+      };
+    }
+    
+    return response;
+  },
+  [fetchWithAuth]
+);
 
   return (
     <AuthContext.Provider
@@ -3397,6 +3744,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         getAllMasterMonitoring,
         getMesinDetail,
         getMonitoringScheduleById,
+        getVendor,
+        getVendorById,
+        addVendor,
+        updateVendor,
+        deleteVendor,
+        getApprovalTemplates,
+        getApprovalTemplateById,
+        createApprovalTemplate,
+        updateApprovalTemplate,
+        deleteApprovalTemplate,
+        addApproverToTemplate,
+        updateApprover,
+        deleteApprover,
+        getTemplateApprovers,
+        setApprovalTemplateActive,
+        approveSchedule,
       }}
     >
       {children}

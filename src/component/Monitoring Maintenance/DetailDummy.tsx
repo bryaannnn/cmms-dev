@@ -196,7 +196,7 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment, machineId, currentUs
   );
 };
 
-const DetailMonitoringMaintenance: React.FC = () => {
+const DetailDummy: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const singleMachine: MachineDetail | null = (location.state as { machine: MachineDetail })?.machine || DUMMY_MACHINE_DETAIL;
@@ -851,11 +851,11 @@ const DetailMonitoringMaintenance: React.FC = () => {
                 )}
               </div>
             </motion.div>
-          </div>
+          </div>  
         </main>
       </div>
     </div>
   );
 };
 
-export default DetailMonitoringMaintenance;
+export default DetailDummy;

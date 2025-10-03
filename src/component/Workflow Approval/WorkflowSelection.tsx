@@ -227,21 +227,6 @@ const WorkflowSelection: React.FC = () => {
           </motion.div>
 
           <div className="flex flex-col md:flex-row justify-center items-center gap-6 max-w-5xl mx-auto py-8">
-            {/* Work Area Card */}
-            <motion.div
-              className="w-full md:w-1/3 bg-white rounded-2xl shadow-xl p-8 border border-blue-100 cursor-pointer flex flex-col items-center text-center transition-all duration-300 hover:scale-105 hover:shadow-2xl"
-              whileHover={{ y: -5 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => handleCardClick("/workflowapproval/workorderapproval")}
-            >
-              <Clipboard size={64} className="text-blue-600 mb-4" />
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">Work Order Approval</h3>
-              <p className="text-gray-700 mb-4">Manage and define specific work areas within your facilities.</p>
-              <span className="text-blue-600 font-semibold flex items-center">
-                Go to Work Order Approval <ChevronRight size={18} className="ml-1" />
-              </span>
-            </motion.div>
-
             {/* Department Card */}
             <motion.div
               className="w-full md:w-1/3 bg-white rounded-2xl shadow-xl p-8 border border-green-100 cursor-pointer flex flex-col items-center text-center transition-all duration-300 hover:scale-105 hover:shadow-2xl"
@@ -258,7 +243,7 @@ const WorkflowSelection: React.FC = () => {
             </motion.div>
 
             {/* Unit Location Card */}
-            <motion.div
+            {/* <motion.div
               className="w-full md:w-1/3 bg-white rounded-2xl shadow-xl p-8 border border-purple-100 cursor-pointer flex flex-col items-center text-center transition-all duration-300 hover:scale-105 hover:shadow-2xl"
               whileHover={{ y: -5 }}
               whileTap={{ scale: 0.98 }}
@@ -270,7 +255,7 @@ const WorkflowSelection: React.FC = () => {
               <span className="text-purple-600 font-semibold flex items-center">
                 Go to Unit Location <ChevronRight size={18} className="ml-1" />
               </span>
-            </motion.div>
+            </motion.div> */}
           </div>
         </main>
       </div>

@@ -30,15 +30,11 @@ import {
   ThumbsUp,
   ThumbsDown,
   ChevronLeft,
+  Activity,
+  Minus,
 } from "lucide-react";
 import Sidebar from "../Sidebar";
-
-// Types and Interfaces
-const APPROVAL_ROLES = ["Employee", "Unit Head Engineering", "Unit Head Production Process", "Section Head Engineering", "Section Head Production Process"] as const;
-
-type ApprovalRole = (typeof APPROVAL_ROLES)[number];
-
-type ApprovalStatusType = "Draft" | `Pending ${ApprovalRole}` | "Approved" | "Rejected";
+import PageHeader from "../../component/PageHeader";
 
 export interface MaintenanceTaskRecord {
   id: string;
@@ -54,13 +50,9 @@ export interface MaintenanceTaskRecord {
   monitoringResult: string;
   msStatus: "OK" | "NG" | "N/A";
   notes: string;
-  approvalStatus: ApprovalStatusType;
-  currentApproverIndex: number;
-  rejectionReason?: string;
-  feedbackNotes?: string;
+  // HAPUS SEMUA STATUS APPROVAL
   perbaikanPerawatan: string;
   description: string;
-  status: "Scheduled" | "Completed" | "Overdue" | "Emergency" | "Pending Review" | "Reviewed" | "Approved" | "Missed";
   pic: string;
   shift: string;
   group: string;
@@ -82,6 +74,7 @@ export interface MaintenanceTaskRecord {
   idPart: string;
   jumlah: number;
   unitSparePart: string;
+  scheduleId?: number;
 }
 
 export interface RoutineSchedule {
@@ -116,18 +109,6 @@ interface DetailItemProps {
 
 interface SectionTitleProps {
   title: string;
-}
-
-interface ApprovalFlowProps {
-  record: MaintenanceTaskRecord;
-  onUpdateApproval: (id: string, newStatus: ApprovalStatusType, newApproverIndex: number, feedback?: string) => void;
-  currentUserRole: string;
-}
-
-interface DetailViewProps {
-  record: MaintenanceTaskRecord;
-  onUpdateApproval: (id: string, newStatus: ApprovalStatusType, newApproverIndex: number, feedback?: string) => void;
-  currentUserRole: string;
 }
 
 interface TrendAnalysisProps {
@@ -228,58 +209,10 @@ interface MonitoringActivity {
   updated_at?: string;
 }
 
-// Utility Functions
-const getApprovalStatusColor = (status: string): string => {
-  switch (status) {
-    case "Draft":
-      return "bg-gray-200 text-gray-800";
-    case "Pending Employee":
-      return "bg-gray-200 text-gray-800";
-    case "Pending Unit Head Engineering":
-    case "Pending Unit Head Production Process":
-    case "Pending Section Head Engineering":
-    case "Pending Section Head Production Process":
-      return "bg-yellow-200 text-yellow-800";
-    case "Approved":
-      return "bg-green-200 text-green-800";
-    case "Rejected":
-      return "bg-red-200 text-red-800";
-    default:
-      return "bg-gray-200 text-gray-800";
-  }
-};
-
-const getDisplayStatus = (status: ApprovalStatusType | MaintenanceTaskRecord["status"]): string => {
-  switch (status) {
-    case "Approved":
-      return "Completed";
-    case "Pending Employee":
-    case "Pending Unit Head Engineering":
-    case "Pending Unit Head Production Process":
-    case "Pending Section Head Engineering":
-    case "Pending Section Head Production Process":
-      return "In Progress";
-    case "Draft":
-    case "Scheduled":
-      return "Not Processed";
-    case "Rejected":
-      return "Rejected";
-    case "Missed":
-      return "Missed";
-    case "Emergency":
-      return "Emergency";
-    case "Completed":
-      return "Completed";
-    case "Overdue":
-      return "Overdue";
-    case "Pending Review":
-      return "In Progress";
-    case "Reviewed":
-      return "In Progress";
-    default:
-      return "N/A";
-  }
-};
+interface DetailViewProps {
+  record: MaintenanceTaskRecord;
+  onUpdateRecord: (updatedRecord: MaintenanceTaskRecord) => void; // HAPUS parameter id
+}
 
 const getWeekOfMonth = (date: Date): number => {
   const startDay = date.getDate();
@@ -352,118 +285,7 @@ const DetailItem: React.FC<DetailItemProps> = ({ label, value, className = "", v
 
 const SectionTitle: React.FC<SectionTitleProps> = ({ title }) => <h3 className="text-lg font-bold text-gray-800 mb-4 pb-2 border-b border-blue-200 mt-6 first:mt-0">{title}</h3>;
 
-const ApprovalFlow: React.FC<ApprovalFlowProps> = ({ record, onUpdateApproval, currentUserRole }) => {
-  const [feedback, setFeedback] = useState<string>("");
-  const [showFeedbackInput, setShowFeedbackInput] = useState<boolean>(false);
-
-  const currentApprovalStatus = record.approvalStatus;
-  const currentApproverRole = APPROVAL_ROLES[record.currentApproverIndex];
-
-  const canApprove = currentApprovalStatus.startsWith("Pending") && currentUserRole === currentApproverRole && currentApprovalStatus !== "Approved" && currentApprovalStatus !== "Rejected";
-
-  const handleApprove = (): void => {
-    let newStatus: ApprovalStatusType;
-    let newIndex = record.currentApproverIndex + 1;
-
-    if (newIndex >= APPROVAL_ROLES.length) {
-      newStatus = "Approved";
-      newIndex = APPROVAL_ROLES.length;
-    } else {
-      newStatus = `Pending ${APPROVAL_ROLES[newIndex]}` as ApprovalStatusType;
-    }
-    onUpdateApproval(record.id, newStatus, newIndex);
-    setShowFeedbackInput(false);
-    setFeedback("");
-  };
-
-  const handleReject = (): void => {
-    onUpdateApproval(record.id, "Rejected", record.currentApproverIndex, feedback);
-    setShowFeedbackInput(false);
-    setFeedback("");
-  };
-
-  const handleFeedback = (): void => {
-    setShowFeedbackInput(true);
-  };
-
-  const submitFeedback = (): void => {
-    onUpdateApproval(record.id, record.approvalStatus, record.currentApproverIndex, feedback);
-    setShowFeedbackInput(false);
-    setFeedback("");
-  };
-
-  return (
-    <div className="space-y-4 p-4 border border-blue-100 bg-blue-50 rounded-lg">
-      <h3 className="text-lg font-semibold text-gray-800">Approval Flow</h3>
-      <div className="flex items-center space-x-2 text-sm">
-        <span className="font-medium text-gray-700">Current Status:</span>
-        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getApprovalStatusColor(currentApprovalStatus)}`}>{getDisplayStatus(currentApprovalStatus)}</span>
-      </div>
-
-      <div className="flex flex-col space-y-2">
-        {APPROVAL_ROLES.map((role, index) => (
-          <div key={role} className="flex items-center text-sm">
-            <motion.div
-              className={`w-6 h-6 rounded-full flex items-center justify-center mr-3 transition-colors duration-200
-                ${
-                  index < record.currentApproverIndex || record.approvalStatus === "Approved"
-                    ? "bg-green-500 text-white"
-                    : record.approvalStatus === "Rejected" && index === record.currentApproverIndex
-                    ? "bg-red-500 text-white"
-                    : index === record.currentApproverIndex && currentApprovalStatus.startsWith("Pending")
-                    ? "bg-yellow-400 text-gray-800 animate-pulse"
-                    : "bg-gray-200 text-gray-600"
-                }`}
-              initial={{ scale: 0.8 }}
-              animate={{ scale: 1 }}
-              transition={{ type: "spring", stiffness: 500, damping: 30 }}
-            >
-              {index < record.currentApproverIndex || record.approvalStatus === "Approved" ? <CheckCircle size={14} /> : record.approvalStatus === "Rejected" && index === record.currentApproverIndex ? <X size={14} /> : <Info size={14} />}
-            </motion.div>
-            <span className={`font-medium ${index === record.currentApproverIndex ? "text-blue-700" : "text-gray-700"}`}>{role}</span>
-            {record.rejectionReason && index === record.currentApproverIndex && record.approvalStatus === "Rejected" && <span className="ml-2 text-red-600 text-xs italic">Reason: {record.rejectionReason}</span>}
-            {record.feedbackNotes && index === record.currentApproverIndex && record.approvalStatus.includes("Feedback") && <span className="ml-2 text-blue-600 text-xs italic">Feedback: {record.feedbackNotes}</span>}
-          </div>
-        ))}
-      </div>
-
-      {canApprove && (
-        <div className="flex space-x-3 mt-4">
-          <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={handleApprove} className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center text-sm font-semibold">
-            <ThumbsUp size={16} className="mr-2" /> Approve
-          </motion.button>
-          <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={handleReject} className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 flex items-center text-sm font-semibold">
-            <ThumbsDown size={16} className="mr-2" /> Reject
-          </motion.button>
-          <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={handleFeedback} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center text-sm font-semibold">
-            <MessageSquare size={16} className="mr-2" /> Feedback
-          </motion.button>
-        </div>
-      )}
-
-      {showFeedbackInput && (
-        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.2 }} className="mt-4">
-          <label htmlFor="feedback-input" className="block text-sm font-medium text-gray-700 mb-2">
-            Provide Feedback:
-          </label>
-          <textarea
-            id="feedback-input"
-            rows={3}
-            value={feedback}
-            onChange={(e) => setFeedback(e.target.value)}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-            placeholder="Enter feedback or rejection reason here..."
-          ></textarea>
-          <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={submitFeedback} className="mt-3 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm font-semibold">
-            Send Feedback
-          </motion.button>
-        </motion.div>
-      )}
-    </div>
-  );
-};
-
-const DetailView: React.FC<DetailViewProps> = ({ record, onUpdateApproval, currentUserRole }) => {
+const DetailView: React.FC<DetailViewProps> = ({ record, onUpdateRecord }) => {
   return (
     <div className="space-y-6">
       <SectionTitle title="Monitoring Details" />
@@ -488,8 +310,6 @@ const DetailView: React.FC<DetailViewProps> = ({ record, onUpdateApproval, curre
       <div className="grid grid-cols-1">
         <DetailItem label="Notes" value={displayValue(record.notes)} />
       </div>
-
-      <ApprovalFlow record={record} onUpdateApproval={onUpdateApproval} currentUserRole={currentUserRole} />
     </div>
   );
 };
@@ -498,216 +318,694 @@ const TrendAnalysis: React.FC<TrendAnalysisProps> = ({ records }) => {
   const [selectedMachine, setSelectedMachine] = useState<string>("");
   const [selectedItem, setSelectedItem] = useState<string>("");
 
-  const machines = useMemo(() => ["", ...new Set(records.map((r) => r.mesin))], [records]);
+  const machines = useMemo(() => {
+    if (!records || records.length === 0) return [""];
+
+    const uniqueMachines = [...new Set(records.filter((r) => r.mesin && r.mesin !== "N/A" && r.mesin.trim() !== "").map((r) => r.mesin))].sort();
+
+    return ["", ...uniqueMachines];
+  }, [records]);
+
   const items = useMemo(() => {
-    if (!selectedMachine) return [""];
-    return ["", ...new Set(records.filter((r) => r.mesin === selectedMachine).map((r) => r.item))];
+    if (!selectedMachine || selectedMachine === "") return [""];
+
+    const machineItems = records.filter((r) => r.mesin === selectedMachine && r.item && r.item !== "N/A" && r.item.trim() !== "").map((r) => r.item);
+
+    const uniqueItems = [...new Set(machineItems)].sort();
+    return ["", ...uniqueItems];
   }, [records, selectedMachine]);
 
   const trendData = useMemo(() => {
-    if (!selectedMachine || !selectedItem) return [];
+    if (!selectedMachine || !selectedItem || selectedMachine === "" || selectedItem === "") {
+      return [];
+    }
+
     return records
-      .filter((r) => r.mesin === selectedMachine && r.item === selectedItem && !isNaN(parseFloat(r.monitoringResult)))
+      .filter((r) => r.mesin === selectedMachine && r.item === selectedItem && r.monitoringResult && r.monitoringResult !== "N/A" && !isNaN(parseFloat(r.monitoringResult)))
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
       .map((r) => ({
-        date: new Date(r.date).toLocaleDateString("en-US"),
+        date: new Date(r.date),
+        dateString: new Date(r.date).toLocaleDateString("en-US"),
         result: parseFloat(r.monitoringResult),
         msStatus: r.msStatus,
         notes: r.notes,
+        machine: r.mesin,
+        item: r.item,
+        standardMin: r.standardMin,
+        standardMax: r.standardMax,
       }));
   }, [records, selectedMachine, selectedItem]);
 
-  return (
-    <div className="space-y-6 bg-white rounded-2xl shadow-md p-6 border border-gray-100">
-      <h3 className="text-xl font-bold text-gray-800">Trend Analysis</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label htmlFor="machine-select" className="block text-sm font-medium text-gray-700">
-            Select Machine
-          </label>
-          <select
-            id="machine-select"
-            value={selectedMachine}
-            onChange={(e) => {
-              setSelectedMachine(e.target.value);
-              setSelectedItem("");
-            }}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-2.5"
-          >
-            {machines.map((m) => (
-              <option key={m} value={m}>
-                {m || "Select Machine"}
-              </option>
-            ))}
-          </select>
+  // Statistical Analysis
+  const analysis = useMemo(() => {
+    if (trendData.length === 0) return null;
+
+    const results = trendData.map((d) => d.result);
+    const mean = results.reduce((a, b) => a + b, 0) / results.length;
+    const sorted = [...results].sort((a, b) => a - b);
+    const median = sorted.length % 2 === 0 ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2 : sorted[Math.floor(sorted.length / 2)];
+
+    const variance = results.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / results.length;
+    const stdDev = Math.sqrt(variance);
+    const min = Math.min(...results);
+    const max = Math.max(...results);
+    const range = max - min;
+
+    // Trend analysis
+    const dates = trendData.map((d) => d.date.getTime());
+    const resultsNum = trendData.map((d) => d.result);
+
+    const n = dates.length;
+    const sumX = dates.reduce((a, b) => a + b, 0);
+    const sumY = resultsNum.reduce((a, b) => a + b, 0);
+    const sumXY = dates.reduce((acc, x, i) => acc + x * resultsNum[i], 0);
+    const sumX2 = dates.reduce((acc, x) => acc + x * x, 0);
+
+    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+    const intercept = (sumY - slope * sumX) / n;
+
+    const trendDirection = slope > 0 ? "increasing" : slope < 0 ? "decreasing" : "stable";
+    const trendStrength = Math.abs(slope) / (stdDev || 1);
+
+    const outliers = trendData.filter((d) => Math.abs(d.result - mean) > 2 * stdDev);
+
+    const firstRecord = trendData[0];
+    const withinStandard =
+      firstRecord.standardMin !== null && firstRecord.standardMax !== null ? (trendData.filter((d) => d.result >= (firstRecord.standardMin || 0) && d.result <= (firstRecord.standardMax || Infinity)).length / trendData.length) * 100 : null;
+
+    return {
+      mean,
+      median,
+      stdDev,
+      min,
+      max,
+      range,
+      count: results.length,
+      trendDirection,
+      trendStrength: trendStrength * 1000,
+      slope,
+      outliers,
+      withinStandard,
+      coefficientOfVariation: (stdDev / mean) * 100,
+    };
+  }, [trendData]);
+
+  // Stat Cards Data
+  const statCardsData = useMemo(() => {
+    const totalRecords = records.length;
+    const machinesWithData = new Set(records.map((r) => r.mesin)).size;
+    const okStatusCount = records.filter((r) => r.msStatus === "OK").length;
+    const okPercentage = totalRecords > 0 ? (okStatusCount / totalRecords) * 100 : 0;
+
+    return [
+      {
+        title: "Total Monitoring Events",
+        value: totalRecords.toLocaleString("id-ID"),
+        icon: <Clipboard />,
+      },
+      {
+        title: "Machines Monitored",
+        value: machinesWithData.toLocaleString("id-ID"),
+        icon: <Monitor />,
+      },
+      {
+        title: "Success Rate",
+        value: `${okPercentage.toFixed(1)}%`,
+        icon: <CheckCircle />,
+      },
+    ];
+  }, [records]);
+
+  // Most Monitored Machines
+  const mostMonitoredMachines = useMemo(() => {
+    const machineCounts: { [key: string]: number } = {};
+    records.forEach((record) => {
+      if (record.mesin) {
+        machineCounts[record.mesin] = (machineCounts[record.mesin] || 0) + 1;
+      }
+    });
+
+    return Object.entries(machineCounts)
+      .sort(([, countA], [, countB]) => countB - countA)
+      .slice(0, 5)
+      .map(([name, count]) => ({ name, count }));
+  }, [records]);
+
+  // Monitoring Trend Data
+  const monitoringTrendData = useMemo(() => {
+    const monthlyCounts: { [key: string]: number } = {};
+
+    records.forEach((record) => {
+      if (record.date) {
+        const date = new Date(record.date);
+        const year = date.getFullYear();
+        const month = (date.getMonth() + 1).toString().padStart(2, "0");
+        const key = `${year}-${month}`;
+        monthlyCounts[key] = (monthlyCounts[key] || 0) + 1;
+      }
+    });
+
+    return Object.entries(monthlyCounts)
+      .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
+      .map(([dateKey, count]) => {
+        const [year, month] = dateKey.split("-");
+        const monthName = new Date(Number(year), Number(month) - 1, 1).toLocaleString("en-US", { month: "short" });
+        return {
+          name: `${monthName} ${year}`,
+          "Monitoring Events": count,
+        };
+      });
+  }, [records]);
+
+  // Status Distribution Data
+  const statusDistributionData = useMemo(() => {
+    const statusCounts: { [key: string]: number } = {
+      OK: 0,
+      NG: 0,
+      "N/A": 0,
+    };
+
+    records.forEach((record) => {
+      const status = record.msStatus || "N/A";
+      statusCounts[status] = (statusCounts[status] || 0) + 1;
+    });
+
+    return [
+      { name: "OK", value: statusCounts.OK },
+      { name: "NG", value: statusCounts.NG },
+      { name: "N/A", value: statusCounts["N/A"] },
+    ].filter((item) => item.value > 0);
+  }, [records]);
+
+  const PIE_COLORS = ["#10B981", "#EF4444", "#6B7280"];
+
+  if (!selectedMachine || !selectedItem) {
+    return (
+      <div className="space-y-8">
+        {/* Header */}
+        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-8">
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
+            Monitoring <span className="text-blue-600">Trend Analysis</span>
+          </h1>
+          <p className="text-gray-600 mt-2 text-sm max-w-xl">Gain insights into machine monitoring trends, performance, and status distribution.</p>
+        </motion.div>
+
+        {/* Stat Cards */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          {statCardsData.map((stat, index) => (
+            <motion.div
+              key={stat.title}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: index * 0.1, ease: "easeOut" }}
+              whileHover={{ y: -5, boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)", scale: 1.01 }}
+              className="bg-white rounded-2xl shadow-md p-6 border border-blue-50 cursor-pointer overflow-hidden transform transition-transform duration-200"
+            >
+              <div className="flex items-center justify-between z-10 relative">
+                <div>
+                  <p className="text-sm font-medium text-gray-500 mb-1">{stat.title}</p>
+                  <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
+                </div>
+                <div className="p-2 rounded-full bg-blue-50 text-blue-600 text-2xl opacity-90 transition-all duration-200">{stat.icon}</div>
+              </div>
+            </motion.div>
+          ))}
         </div>
-        <div>
-          <label htmlFor="item-select" className="block text-sm font-medium text-gray-700">
-            Select Item
-          </label>
-          <select
-            id="item-select"
-            value={selectedItem}
-            onChange={(e) => setSelectedItem(e.target.value)}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-2.5"
-            disabled={!selectedMachine}
-          >
-            {items.map((i) => (
-              <option key={i} value={i}>
-                {i || "Select Item"}
-              </option>
-            ))}
-          </select>
+
+        {/* Charts Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          {/* Most Monitored Machines */}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.2 }} className="bg-white rounded-2xl shadow-md p-6 border border-blue-50">
+            <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
+              <BarChart2 className="mr-2 text-blue-600" /> Most Monitored Machines
+            </h3>
+            <div className="space-y-3">
+              {mostMonitoredMachines.map((machine, index) => (
+                <div key={machine.name} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center">
+                    <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                      <span className="text-blue-600 font-bold text-sm">{index + 1}</span>
+                    </div>
+                    <span className="font-medium text-gray-800">{machine.name}</span>
+                  </div>
+                  <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-semibold">{machine.count} events</span>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+
+          {/* Status Distribution */}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.3 }} className="bg-white rounded-2xl shadow-md p-6 border border-blue-50 flex flex-col items-center justify-center">
+            <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
+              <CheckCircle className="mr-2 text-blue-600" /> Status Distribution
+            </h3>
+            {statusDistributionData.length > 0 ? (
+              <div className="w-full h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={statusDistributionData} cx="50%" cy="50%" labelLine={false} outerRadius={80} fill="#8884d8" dataKey="value" nameKey="name" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                      {statusDistributionData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "#fff",
+                        border: "1px solid #e0e7ff",
+                        borderRadius: "8px",
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                        padding: "10px",
+                      }}
+                      formatter={(value: number) => [`${value} events`, "Count"]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <p className="text-center text-gray-500 mt-4 text-sm">No data for status distribution.</p>
+            )}
+          </motion.div>
+        </div>
+
+        {/* Monitoring Trend */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.4 }} className="bg-white rounded-2xl shadow-md p-6 border border-blue-50">
+          <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
+            <TrendingUp className="mr-2 text-blue-600" /> Monitoring Trend Over Time
+          </h3>
+          {monitoringTrendData.length > 0 ? (
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={monitoringTrendData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e0e7ff" />
+                  <XAxis dataKey="name" tickLine={false} axisLine={false} style={{ fontSize: "12px", fill: "#6B7280" }} />
+                  <YAxis allowDecimals={false} tickLine={false} axisLine={false} style={{ fontSize: "12px", fill: "#6B7280" }} />
+                  <Tooltip
+                    cursor={{ fill: "rgba(239, 246, 255, 0.7)" }}
+                    contentStyle={{
+                      backgroundColor: "#fff",
+                      border: "1px solid #e0e7ff",
+                      borderRadius: "8px",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                      padding: "10px",
+                    }}
+                  />
+                  <Line type="monotone" dataKey="Monitoring Events" stroke="#3B82F6" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <p className="text-center text-gray-500 mt-4 text-sm">No data for monitoring trend.</p>
+          )}
+        </motion.div>
+
+        {/* Machine Selection for Detailed Analysis */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.5 }} className="bg-white rounded-2xl shadow-md p-8 border border-blue-50">
+          <div className="text-center">
+            <TrendingUp className="mx-auto text-gray-300 mb-4" size={64} />
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">Detailed Trend Analysis</h3>
+            <p className="text-gray-600 mb-8 max-w-md mx-auto">Select a machine and monitoring item to visualize trends and analyze performance patterns over time.</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
+            <div className="space-y-3">
+              <label className="block text-sm font-semibold text-gray-900">Select Machine</label>
+              <select
+                value={selectedMachine}
+                onChange={(e) => {
+                  setSelectedMachine(e.target.value);
+                  setSelectedItem("");
+                }}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-gray-900"
+              >
+                <option value="">Choose machine...</option>
+                {machines.slice(1).map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-3">
+              <label className="block text-sm font-semibold text-gray-900">Select Item</label>
+              <select
+                value={selectedItem}
+                onChange={(e) => setSelectedItem(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-gray-900 disabled:opacity-50"
+                disabled={!selectedMachine}
+              >
+                <option value="">{selectedMachine ? "Choose item..." : "Select machine first"}</option>
+                {items.slice(1).map((i) => (
+                  <option key={i} value={i}>
+                    {i}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // Tampilan detail analysis (existing functionality)
+  if (trendData.length === 0) {
+    return (
+      <div className="space-y-6 bg-white rounded-2xl shadow-sm p-8 border border-gray-100">
+        <h3 className="text-2xl font-bold text-gray-900 mb-2">Trend Analysis</h3>
+        <div className="text-center py-12">
+          <Info className="mx-auto text-gray-300 mb-4" size={48} />
+          <p className="text-gray-600 text-lg mb-2">No numeric data available for analysis</p>
+          <p className="text-gray-400 text-sm">The selected item doesn't have numeric monitoring results for trend analysis.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!analysis) {
+    return (
+      <div className="space-y-6 bg-white rounded-2xl shadow-sm p-8 border border-gray-100">
+        <h3 className="text-2xl font-bold text-gray-900 mb-2">Trend Analysis</h3>
+        <div className="text-center py-12">
+          <Info className="mx-auto text-gray-300 mb-4" size={48} />
+          <p className="text-gray-600 text-lg mb-2">Unable to analyze data</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8">
+      {/* Header Section */}
+      <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">Trend Analysis</h3>
+            <p className="text-gray-600">
+              {selectedMachine} • {selectedItem}
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3">
+            <select
+              value={selectedMachine}
+              onChange={(e) => {
+                setSelectedMachine(e.target.value);
+                setSelectedItem("");
+              }}
+              className="px-4 py-2 rounded-lg border border-gray-200 bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-gray-900"
+            >
+              {machines.slice(1).map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+
+            <select value={selectedItem} onChange={(e) => setSelectedItem(e.target.value)} className="px-4 py-2 rounded-lg border border-gray-200 bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-gray-900">
+              {items.slice(1).map((i) => (
+                <option key={i} value={i}>
+                  {i}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
-      {trendData.length > 0 && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }} className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
-          <h4 className="text-lg font-semibold text-gray-800 mb-4">
-            Historical Data for {selectedItem} on {selectedMachine}
-          </h4>
-          <div className="overflow-x-auto custom-scrollbar">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Result</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">MS Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {trendData.map((data, index) => (
-                  <tr key={index}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{data.date}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{data.result}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${data.msStatus === "OK" ? "bg-green-100 text-green-800" : data.msStatus === "NG" ? "bg-red-100 text-red-800" : "bg-gray-100 text-gray-800"}`}>
-                        {data.msStatus}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{data.notes || "-"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {/* Key Metrics */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-medium text-gray-600">Data Points</span>
+            <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
+              <Clipboard className="w-4 h-4 text-blue-600" />
+            </div>
           </div>
-        </motion.div>
+          <p className="text-2xl font-bold text-gray-900">{analysis.count}</p>
+        </div>
+
+        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-medium text-gray-600">Average</span>
+            <div className="w-8 h-8 bg-green-50 rounded-lg flex items-center justify-center">
+              <TrendingUp className="w-4 h-4 text-green-600" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold text-gray-900">{analysis.mean.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+        </div>
+
+        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-medium text-gray-600">Std Deviation</span>
+            <div className="w-8 h-8 bg-purple-50 rounded-lg flex items-center justify-center">
+              <Activity className="w-4 h-4 text-purple-600" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold text-gray-900">{analysis.stdDev.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+        </div>
+
+        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-medium text-gray-600">Range</span>
+            <div className="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center">
+              <Minus className="w-4 h-4 text-orange-600" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold text-gray-900">{analysis.range.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+        </div>
+      </div>
+
+      {/* Trend Indicators */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Trend Direction */}
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-semibold text-gray-900">Trend Direction</span>
+            <div className={`p-2 rounded-lg ${analysis.trendDirection === "increasing" ? "bg-red-50" : analysis.trendDirection === "decreasing" ? "bg-green-50" : "bg-gray-50"}`}>
+              <TrendingUp className={`w-5 h-5 ${analysis.trendDirection === "increasing" ? "text-red-600" : analysis.trendDirection === "decreasing" ? "text-green-600" : "text-gray-600"}`} />
+            </div>
+          </div>
+          <p className={`text-3xl font-bold mb-2 ${analysis.trendDirection === "increasing" ? "text-red-600" : analysis.trendDirection === "decreasing" ? "text-green-600" : "text-gray-600"}`}>{analysis.trendDirection.toUpperCase()}</p>
+          <p className="text-sm text-gray-600">Slope: {analysis.slope.toExponential(2)}</p>
+        </div>
+
+        {/* Compliance */}
+        {analysis.withinStandard !== null && (
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-sm font-semibold text-gray-900">Within Standard</span>
+              <div className={`p-2 rounded-lg ${analysis.withinStandard >= 90 ? "bg-green-50" : analysis.withinStandard >= 80 ? "bg-yellow-50" : "bg-red-50"}`}>
+                <CheckCircle className={`w-5 h-5 ${analysis.withinStandard >= 90 ? "text-green-600" : analysis.withinStandard >= 80 ? "text-yellow-600" : "text-red-600"}`} />
+              </div>
+            </div>
+            <p className={`text-3xl font-bold mb-2 ${analysis.withinStandard >= 90 ? "text-green-600" : analysis.withinStandard >= 80 ? "text-yellow-600" : "text-red-600"}`}>{analysis.withinStandard.toFixed(1)}%</p>
+            <p className="text-sm text-gray-600">
+              Range: {trendData[0]?.standardMin || 0} - {trendData[0]?.standardMax || 0}
+            </p>
+          </div>
+        )}
+
+        {/* Variability */}
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-semibold text-gray-900">Variability (CV)</span>
+            <div className={`p-2 rounded-lg ${analysis.coefficientOfVariation < 10 ? "bg-green-50" : analysis.coefficientOfVariation < 20 ? "bg-yellow-50" : "bg-red-50"}`}>
+              <Activity className={`w-5 h-5 ${analysis.coefficientOfVariation < 10 ? "text-green-600" : analysis.coefficientOfVariation < 20 ? "text-yellow-600" : "text-red-600"}`} />
+            </div>
+          </div>
+          <p className={`text-3xl font-bold mb-2 ${analysis.coefficientOfVariation < 10 ? "text-green-600" : analysis.coefficientOfVariation < 20 ? "text-yellow-600" : "text-red-600"}`}>{analysis.coefficientOfVariation.toFixed(1)}%</p>
+          <p className="text-sm text-gray-600">Lower values indicate more consistency</p>
+        </div>
+      </div>
+
+      {/* Statistical Summary */}
+      <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+        <h4 className="text-lg font-semibold text-gray-900 mb-6">Statistical Summary</h4>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="text-center">
+            <p className="text-sm text-gray-600 mb-2">Minimum</p>
+            <p className="text-xl font-bold text-gray-900">{analysis.min.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+          </div>
+          <div className="text-center">
+            <p className="text-sm text-gray-600 mb-2">Maximum</p>
+            <p className="text-xl font-bold text-gray-900">{analysis.max.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+          </div>
+          <div className="text-center">
+            <p className="text-sm text-gray-600 mb-2">Median</p>
+            <p className="text-xl font-bold text-gray-900">{analysis.median.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+          </div>
+          <div className="text-center">
+            <p className="text-sm text-gray-600 mb-2">Variance</p>
+            <p className="text-xl font-bold text-gray-900">{(analysis.stdDev * analysis.stdDev).toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Outliers Alert */}
+      {analysis.outliers.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-6">
+          <div className="flex items-start space-x-3">
+            <AlertTriangle className="text-amber-500 mt-0.5 flex-shrink-0" size={20} />
+            <div>
+              <h4 className="font-semibold text-amber-800 mb-2">Outliers Detected</h4>
+              <p className="text-amber-700 text-sm mb-3">{analysis.outliers.length} data point(s) are more than 2 standard deviations from the mean</p>
+              <div className="space-y-2">
+                {analysis.outliers.slice(0, 3).map((outlier, index) => (
+                  <div key={index} className="text-xs text-amber-600 bg-amber-100 rounded-lg px-3 py-2">
+                    <span className="font-medium">{outlier.dateString}:</span> {outlier.result.toLocaleString()}
+                    {outlier.notes && outlier.notes !== "N/A" && ` (${outlier.notes})`}
+                  </div>
+                ))}
+                {analysis.outliers.length > 3 && <p className="text-xs text-amber-600">+{analysis.outliers.length - 3} more outliers</p>}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
-      {selectedMachine && selectedItem && trendData.length === 0 && <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100 text-center text-gray-500">No numeric data available for this item.</div>}
+
+      {/* Chart Section */}
+      <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+        <h4 className="text-lg font-semibold text-gray-900 mb-6">Trend Visualization</h4>
+        <div className="h-80 relative">
+          <canvas
+            ref={(canvas) => {
+              if (canvas && trendData.length > 0) {
+                const ctx = canvas.getContext("2d");
+                if (ctx) {
+                  // Clear canvas
+                  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                  // Chart drawing logic
+                  const padding = 50;
+                  const width = canvas.width - padding * 2;
+                  const height = canvas.height - padding * 2;
+
+                  const values = trendData.map((d) => d.result);
+                  const minVal = Math.min(...values);
+                  const maxVal = Math.max(...values);
+                  const range = maxVal - minVal || 1;
+
+                  // Draw trend line
+                  ctx.beginPath();
+                  ctx.strokeStyle = "#3B82F6";
+                  ctx.lineWidth = 3;
+                  ctx.lineJoin = "round";
+
+                  trendData.forEach((point, index) => {
+                    const x = padding + (index / (trendData.length - 1 || 1)) * width;
+                    const y = padding + height - ((point.result - minVal) / range) * height;
+
+                    if (index === 0) {
+                      ctx.moveTo(x, y);
+                    } else {
+                      ctx.lineTo(x, y);
+                    }
+                  });
+
+                  ctx.stroke();
+
+                  // Draw points
+                  ctx.fillStyle = "#3B82F6";
+                  trendData.forEach((point, index) => {
+                    const x = padding + (index / (trendData.length - 1 || 1)) * width;
+                    const y = padding + height - ((point.result - minVal) / range) * height;
+
+                    ctx.beginPath();
+                    ctx.arc(x, y, 4, 0, 2 * Math.PI);
+                    ctx.fill();
+                  });
+
+                  // Draw standards if available
+                  const firstData = trendData[0];
+                  if (firstData?.standardMin !== null) {
+                    ctx.beginPath();
+                    ctx.strokeStyle = "#10B981";
+                    ctx.setLineDash([5, 5]);
+                    ctx.lineWidth = 1;
+                    const yMin = padding + height - (((firstData.standardMin || 0) - minVal) / range) * height;
+                    ctx.moveTo(padding, yMin);
+                    ctx.lineTo(padding + width, yMin);
+                    ctx.stroke();
+                  }
+
+                  if (firstData?.standardMax !== null) {
+                    ctx.beginPath();
+                    ctx.strokeStyle = "#EF4444";
+                    ctx.setLineDash([5, 5]);
+                    ctx.lineWidth = 1;
+                    const yMax = padding + height - (((firstData.standardMax || 0) - minVal) / range) * height;
+                    ctx.moveTo(padding, yMax);
+                    ctx.lineTo(padding + width, yMax);
+                    ctx.stroke();
+                  }
+                  ctx.setLineDash([]);
+                }
+              }
+            }}
+            className="w-full h-full border border-gray-200 rounded-lg"
+          />
+        </div>
+        <div className="flex justify-center space-x-6 mt-4 text-sm text-gray-600">
+          <div className="flex items-center">
+            <div className="w-4 h-1 bg-blue-500 rounded mr-2"></div>
+            Actual Values
+          </div>
+          {trendData[0]?.standardMin !== null && (
+            <div className="flex items-center">
+              <div className="w-4 h-1 bg-green-500 rounded mr-2" style={{ borderBottom: "1px dashed" }}></div>
+              Min Standard
+            </div>
+          )}
+          {trendData[0]?.standardMax !== null && (
+            <div className="flex items-center">
+              <div className="w-4 h-1 bg-red-500 rounded mr-2" style={{ borderBottom: "1px dashed" }}></div>
+              Max Standard
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Data Table */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100">
+          <h4 className="text-lg font-semibold text-gray-900">Raw Data ({trendData.length} records)</h4>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Result</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deviation</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {trendData.map((data, index) => (
+                <tr key={index} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{data.dateString}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">{data.result.toLocaleString()}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        data.msStatus === "OK" ? "bg-green-100 text-green-800" : data.msStatus === "NG" ? "bg-red-100 text-red-800" : "bg-gray-100 text-gray-800"
+                      }`}
+                    >
+                      {data.msStatus || "N/A"}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-500 max-w-xs">{data.notes || "-"}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{(data.result - analysis.mean).toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
-};
-
-const generateTasksFromSchedules = (schedules: RoutineSchedule[], startDate: Date, endDate: Date): MaintenanceTaskRecord[] => {
-  const generatedTasks: MaintenanceTaskRecord[] = [];
-  const oneDay = 24 * 60 * 60 * 1000;
-
-  schedules.forEach((schedule) => {
-    let currentProcessDate = new Date(startDate.getTime());
-
-    while (currentProcessDate.getTime() <= endDate.getTime()) {
-      let shouldAddTask = false;
-      let taskDate: Date | null = null;
-
-      if (schedule.interval === "weekly" && schedule.dayOfWeek !== undefined) {
-        if (currentProcessDate.getDay() === schedule.dayOfWeek) {
-          taskDate = new Date(currentProcessDate.getTime());
-          shouldAddTask = true;
-        }
-      } else if (schedule.interval === "monthly" && schedule.dayOfMonth !== undefined) {
-        if (currentProcessDate.getDate() === schedule.dayOfMonth) {
-          taskDate = new Date(currentProcessDate.getTime());
-          shouldAddTask = true;
-        }
-      } else if (schedule.interval === "quarterly" && schedule.monthOfYear !== undefined && schedule.dayOfMonth !== undefined) {
-        if (currentProcessDate.getDate() === schedule.dayOfMonth && (currentProcessDate.getMonth() - schedule.monthOfYear) % 3 === 0) {
-          taskDate = new Date(currentProcessDate.getTime());
-          shouldAddTask = true;
-        }
-      } else if (schedule.interval === "semi-annual" && schedule.monthOfYear !== undefined && schedule.dayOfMonth !== undefined) {
-        if (currentProcessDate.getDate() === schedule.dayOfMonth && (currentProcessDate.getMonth() - schedule.monthOfYear) % 6 === 0) {
-          taskDate = new Date(currentProcessDate.getTime());
-          shouldAddTask = true;
-        }
-      } else if (schedule.interval === "yearly" && schedule.monthOfYear !== undefined && schedule.dayOfMonth !== undefined) {
-        if (currentProcessDate.getDate() === schedule.dayOfMonth && currentProcessDate.getMonth() === schedule.monthOfYear) {
-          taskDate = new Date(currentProcessDate.getTime());
-          shouldAddTask = true;
-        }
-      } else if (schedule.interval === "daily") {
-        taskDate = new Date(currentProcessDate.getTime());
-        shouldAddTask = true;
-      }
-
-      if (shouldAddTask && taskDate) {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const taskDayOnly = new Date(taskDate.getFullYear(), taskDate.getMonth(), taskDate.getDate());
-
-        let status: "Scheduled" | "Completed" | "Overdue" | "Emergency" | "Missed" = "Scheduled";
-        if (taskDayOnly.getTime() < today.getTime()) {
-          status = "Missed";
-        }
-
-        generatedTasks.push({
-          id: `routine-${schedule.id}-${taskDate.getTime()}`,
-          mesin: schedule.mesin,
-          date: taskDate.toISOString().split("T")[0],
-          perbaikanPerawatan: "Preventive",
-          description: `Scheduled routine inspection for ${schedule.mesin} - ${schedule.item}`,
-          status: status,
-          pic: "N/A",
-          shift: "N/A",
-          group: "N/A",
-          stopJam: 0,
-          stopMenit: 0,
-          startJam: 0,
-          startMenit: 0,
-          stopTime: "N/A",
-          unit: schedule.unitWilayah,
-          runningHour: 0,
-          itemTrouble: "N/A",
-          jenisGangguan: "N/A",
-          bentukTindakan: "N/A",
-          rootCause: "N/A",
-          jenisAktivitas: "Maintenance",
-          kegiatan: "Routine inspection",
-          kodePart: "N/A",
-          sparePart: "N/A",
-          idPart: "N/A",
-          jumlah: 0,
-          unitSparePart: "N/A",
-          interval:
-            schedule.interval === "weekly"
-              ? "Weekly"
-              : schedule.interval === "monthly"
-              ? "Monthly"
-              : schedule.interval === "quarterly"
-              ? "3 Months"
-              : schedule.interval === "semi-annual"
-              ? "6 Months"
-              : schedule.interval === "yearly"
-              ? "1 Year"
-              : "Daily",
-          unitWilayah: schedule.unitWilayah,
-          item: schedule.item,
-          unitOfMeasure: schedule.unitOfMeasure,
-          standardMin: schedule.standardMin,
-          standardMax: schedule.standardMax,
-          standartVisual: schedule.standartVisual,
-          monitoringResult: "N/A",
-          msStatus: "N/A",
-          approvalStatus: "Pending Employee",
-          currentApproverIndex: 0,
-          notes: "N/A",
-        });
-      }
-
-      currentProcessDate.setTime(currentProcessDate.getTime() + oneDay);
-    }
-  });
-  return generatedTasks;
 };
 
 export const MaintenanceRecordsContext = React.createContext<
@@ -919,28 +1217,49 @@ const DailyScheduleListModal: React.FC<DailyScheduleListModalProps> = ({ isOpen,
     onSelectSchedule(record);
   };
 
+  // Group schedules by machine untuk tampilan yang lebih rapi
+  const schedulesByMachine = schedules.reduce((acc, schedule) => {
+    if (!acc[schedule.mesin]) {
+      acc[schedule.mesin] = [];
+    }
+    acc[schedule.mesin].push(schedule);
+    return acc;
+  }, {} as Record<string, MaintenanceTaskRecord[]>);
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={`Daily Schedule for ${new Date(titleDate).toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}`} className="max-w-md">
-      <div className="space-y-3">
+    <Modal isOpen={isOpen} onClose={onClose} title={`Schedules for ${new Date(titleDate).toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}`} className="max-w-2xl">
+      <div className="space-y-4">
         {schedules.length === 0 ? (
-          <p className="text-gray-600">No schedules for this date.</p>
+          <p className="text-gray-600 text-center py-4">No schedules for this date.</p>
         ) : (
-          schedules.map((schedule, index) => (
-            <motion.button
-              key={schedule.id}
-              whileHover={{ scale: 1.02, backgroundColor: "rgba(239, 246, 255, 0.7)" }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => handleSelectAndClose(schedule)}
-              className="w-full text-left p-4 border border-gray-200 rounded-lg shadow-sm bg-white hover:bg-blue-50 transition-colors duration-150 flex flex-col items-start"
-            >
-              <p className="font-semibold text-gray-800 text-base">
-                Schedule {index + 1}: {schedule.mesin} - {schedule.item}
-              </p>
-              <p className="text-sm text-gray-600">
-                Interval: {schedule.interval} | Unit: {schedule.unitWilayah}
-              </p>
-              <p className={`mt-2 px-3 py-1 rounded-full text-sm font-semibold ${getApprovalStatusColor(schedule.approvalStatus)}`}>{getDisplayStatus(schedule.approvalStatus)}</p>
-            </motion.button>
+          Object.entries(schedulesByMachine).map(([machineName, machineSchedules]) => (
+            <div key={machineName} className="border border-gray-200 rounded-lg overflow-hidden">
+              <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                <h4 className="font-semibold text-gray-800">{machineName}</h4>
+                <p className="text-sm text-gray-600">{machineSchedules.length} item(s)</p>
+              </div>
+              <div className="divide-y divide-gray-100">
+                {machineSchedules.map((schedule, index) => (
+                  <motion.button
+                    key={schedule.id}
+                    whileHover={{ scale: 1.02, backgroundColor: "rgba(239, 246, 255, 0.7)" }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => handleSelectAndClose(schedule)}
+                    className="w-full text-left p-4 hover:bg-blue-50 transition-colors duration-150 flex flex-col items-start"
+                  >
+                    <p className="font-medium text-gray-800 text-base">{schedule.item}</p>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Interval: {schedule.interval}</span>
+                      <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">Unit: {schedule.unitWilayah}</span>
+                      <span className={`text-xs px-2 py-1 rounded ${schedule.msStatus === "OK" ? "bg-green-100 text-green-800" : schedule.msStatus === "NG" ? "bg-red-100 text-red-800" : "bg-gray-100 text-gray-800"}`}>
+                        Status: {schedule.msStatus}
+                      </span>
+                    </div>
+                    {schedule.monitoringResult && schedule.monitoringResult !== "N/A" && <p className="text-sm text-gray-600 mt-1">Result: {schedule.monitoringResult}</p>}
+                  </motion.button>
+                ))}
+              </div>
+            </div>
           ))
         )}
       </div>
@@ -1057,7 +1376,6 @@ const MonitoringMaintenance: React.FC = () => {
     });
   }, [schedules, masterMonitoringData]);
 
-  // Ganti fungsi convertApiDataToRecords yang ada dengan ini:
   const convertApiDataToRecords = useCallback((schedulesData: MonitoringSchedule[], activitiesData: MonitoringActivity[], masterData: UnitWithMachines[]): MaintenanceTaskRecord[] => {
     const records: MaintenanceTaskRecord[] = [];
 
@@ -1071,31 +1389,39 @@ const MonitoringMaintenance: React.FC = () => {
 
       const scheduleActivities = activitiesData.filter((activity) => activity.id_monitoring_schedule === schedule.id_monitoring_schedule);
 
+      const baseRecordId = `schedule-${schedule.id_monitoring_schedule}`;
+
+      // PERBAIKAN: Gunakan item_mesins dari schedule jika ada, jika tidak gunakan dari machine
+      const itemsToMonitor = schedule.item_mesins && schedule.item_mesins.length > 0 ? schedule.item_mesins : machine?.item_mesin || [];
+
+      // Jika ada aktivitas monitoring, buat record untuk setiap aktivitas
       if (scheduleActivities.length > 0) {
         scheduleActivities.forEach((activity) => {
-          const itemMesin = machine?.item_mesin?.find((item) => item.id === activity.id_item_mesin) || machine?.item_mesin?.[0];
+          // Cari item mesin yang sesuai dengan aktivitas
+          const itemMesin = itemsToMonitor.find((item) => item.id === activity.id_item_mesin);
+
+          // Jika itemMesin tidak ditemukan, skip record ini
+          if (!itemMesin) {
+            console.warn(`Item mesin not found for activity ${activity.id_monitoring_activity}, item_mesin_id: ${activity.id_item_mesin}`);
+            return;
+          }
 
           records.push({
-            id: `activity-${activity.id_monitoring_activity}`,
+            id: `${baseRecordId}-activity-${activity.id_monitoring_activity}`,
             mesin: machineName,
             date: activity.tgl_monitoring,
             interval: intervalDisplay,
             unitWilayah: schedule.unit,
-            item: itemMesin?.item_mesin || "",
-            unitOfMeasure: itemMesin?.satuan || "N/A",
-            standardMin: itemMesin?.standard_min ? parseFloat(itemMesin.standard_min) : null,
-            standardMax: itemMesin?.standard_max ? parseFloat(itemMesin.standard_max) : null,
-            standartVisual: itemMesin?.standard_visual || "N/A",
+            item: itemMesin.item_mesin || "Unknown Item",
+            unitOfMeasure: itemMesin.satuan || "N/A",
+            standardMin: itemMesin.standard_min ? parseFloat(itemMesin.standard_min) : null,
+            standardMax: itemMesin.standard_max ? parseFloat(itemMesin.standard_max) : null,
+            standartVisual: itemMesin.standard_visual || "N/A",
             monitoringResult: activity.hasil_monitoring || "N/A",
             msStatus: activity.hasil_keterangan === "OK" ? "OK" : activity.hasil_keterangan === "NG" ? "NG" : "N/A",
             notes: activity.hasil_keterangan || "N/A",
-            approvalStatus: "Approved",
-            currentApproverIndex: APPROVAL_ROLES.length,
-            rejectionReason: undefined,
-            feedbackNotes: undefined,
             perbaikanPerawatan: "Preventive",
             description: `Monitoring activity for ${machineName}`,
-            status: "Completed",
             pic: "System",
             shift: "N/A",
             group: "N/A",
@@ -1117,62 +1443,57 @@ const MonitoringMaintenance: React.FC = () => {
             idPart: "N/A",
             jumlah: 0,
             unitSparePart: "N/A",
+            scheduleId: schedule.id_monitoring_schedule,
           });
         });
       } else {
-        const itemMesin = machine?.item_mesin?.[0];
-        const today = new Date();
-        const scheduleDate = new Date(schedule.tgl_start);
-        const status = scheduleDate < today ? "Missed" : "Scheduled";
-
-        records.push({
-          id: `schedule-${schedule.id_monitoring_schedule}`,
-          mesin: machineName,
-          date: schedule.tgl_start,
-          interval: intervalDisplay,
-          unitWilayah: schedule.unit,
-          item: itemMesin?.item_mesin || "",
-          unitOfMeasure: itemMesin?.satuan || "N/A",
-          standardMin: itemMesin?.standard_min ? parseFloat(itemMesin.standard_min) : null,
-          standardMax: itemMesin?.standard_max ? parseFloat(itemMesin.standard_max) : null,
-          standartVisual: itemMesin?.standard_visual || "N/A",
-          monitoringResult: "N/A",
-          msStatus: "N/A",
-          notes: "Scheduled monitoring",
-          approvalStatus: "Pending Employee",
-          currentApproverIndex: 0,
-          rejectionReason: undefined,
-          feedbackNotes: undefined,
-          perbaikanPerawatan: "Preventive",
-          description: `Scheduled monitoring for ${machineName}`,
-          status: status,
-          pic: "N/A",
-          shift: "N/A",
-          group: "N/A",
-          stopJam: 0,
-          stopMenit: 0,
-          startJam: 0,
-          startMenit: 0,
-          stopTime: "N/A",
-          unit: schedule.unit,
-          runningHour: 0,
-          itemTrouble: "N/A",
-          jenisGangguan: "N/A",
-          bentukTindakan: "N/A",
-          rootCause: "N/A",
-          jenisAktivitas: "Monitoring",
-          kegiatan: "Routine inspection",
-          kodePart: "N/A",
-          sparePart: "N/A",
-          idPart: "N/A",
-          jumlah: 0,
-          unitSparePart: "N/A",
+        // Untuk schedule tanpa aktivitas, buat record scheduled
+        itemsToMonitor.forEach((itemMesin) => {
+          records.push({
+            id: `${baseRecordId}-scheduled-${itemMesin.id}`,
+            mesin: machineName,
+            date: schedule.tgl_start,
+            interval: intervalDisplay,
+            unitWilayah: schedule.unit,
+            item: itemMesin.item_mesin || "Unknown Item",
+            unitOfMeasure: itemMesin.satuan || "N/A",
+            standardMin: itemMesin.standard_min ? parseFloat(itemMesin.standard_min) : null,
+            standardMax: itemMesin.standard_max ? parseFloat(itemMesin.standard_max) : null,
+            standartVisual: itemMesin.standard_visual || "N/A",
+            monitoringResult: "N/A",
+            msStatus: "N/A",
+            notes: "Scheduled monitoring - Not yet performed",
+            perbaikanPerawatan: "Preventive",
+            description: `Scheduled monitoring for ${machineName}`,
+            pic: "N/A",
+            shift: "N/A",
+            group: "N/A",
+            stopJam: 0,
+            stopMenit: 0,
+            startJam: 0,
+            startMenit: 0,
+            stopTime: "N/A",
+            unit: schedule.unit,
+            runningHour: 0,
+            itemTrouble: "N/A",
+            jenisGangguan: "N/A",
+            bentukTindakan: "N/A",
+            rootCause: "N/A",
+            jenisAktivitas: "Monitoring",
+            kegiatan: "Routine inspection",
+            kodePart: "N/A",
+            sparePart: "N/A",
+            idPart: "N/A",
+            jumlah: 0,
+            unitSparePart: "N/A",
+            scheduleId: schedule.id_monitoring_schedule,
+          });
         });
       }
     });
 
     return records;
-  }, []); // Empty dependency array karena tidak bergantung pada state/props
+  }, []);
 
   const [records, setRecords] = useState<MaintenanceTaskRecord[]>([]);
 
@@ -1370,39 +1691,6 @@ const MonitoringMaintenance: React.FC = () => {
     setRecords((prevRecords) => prevRecords.map((record) => (record.id === updatedRecord.id ? updatedRecord : record)));
   }, []);
 
-  const handleUpdateApprovalStatus = useCallback(
-    (id: string, newStatus: ApprovalStatusType, newApproverIndex: number, feedback?: string): void => {
-      setRecords((prevRecords) =>
-        prevRecords.map((record) => {
-          if (record.id === id) {
-            return {
-              ...record,
-              approvalStatus: newStatus,
-              currentApproverIndex: newApproverIndex,
-              feedbackNotes: feedback || record.feedbackNotes,
-              rejectionReason: newStatus === "Rejected" ? feedback : record.rejectionReason,
-            };
-          }
-          return record;
-        })
-      );
-      if (selectedRecord && selectedRecord.id === id) {
-        setSelectedRecord((prev) =>
-          prev
-            ? {
-                ...prev,
-                approvalStatus: newStatus,
-                currentApproverIndex: newApproverIndex,
-                feedbackNotes: feedback || prev.feedbackNotes,
-                rejectionReason: newStatus === "Rejected" ? feedback : prev.rejectionReason,
-              }
-            : null
-        );
-      }
-    },
-    [selectedRecord]
-  );
-
   const handleClearFilter = (): void => {
     setFilterStartDate(null);
     setFilterEndDate(null);
@@ -1444,7 +1732,44 @@ const MonitoringMaintenance: React.FC = () => {
   };
 
   const handleNavigateToEditForm = (record: MaintenanceTaskRecord): void => {
-    navigate(`/monitoringmaintenance/detailmonitoringmaintenance`);
+    console.log("Navigating with record:", record);
+
+    let scheduleId;
+
+    // Prioritaskan menggunakan scheduleId jika ada
+    if (record.scheduleId) {
+      scheduleId = record.scheduleId;
+    }
+    // Fallback ke parsing ID jika scheduleId tidak ada
+    else if (record.id.startsWith("schedule-")) {
+      // Extract ID dari format "schedule-{id}-..."
+      const idParts = record.id.split("-");
+      if (idParts.length >= 2) {
+        scheduleId = idParts[1]; // Ambil bagian setelah "schedule-"
+      }
+    }
+    // Untuk activity, coba ambil dari ID
+    else if (record.id.startsWith("activity-")) {
+      const idParts = record.id.split("-");
+      if (idParts.length >= 2) {
+        // Cari bagian yang berisi angka (ID schedule)
+        for (let part of idParts) {
+          if (/^\d+$/.test(part)) {
+            scheduleId = part;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!scheduleId) {
+      console.error("Could not extract schedule ID from record:", record);
+      alert("Error: Could not determine schedule ID");
+      return;
+    }
+
+    console.log("Navigating to schedule ID:", scheduleId);
+    navigate(`/monitoringmaintenance/detailmonitoringmaintenance/${scheduleId}`);
     setShowDailyScheduleModal(false);
   };
 
@@ -1470,7 +1795,10 @@ const MonitoringMaintenance: React.FC = () => {
       }
 
       const dateString = `${year}-${String(month + 1).padStart(2, "0")}-${String(dayCounter).padStart(2, "0")}`;
+
+      // Filter records untuk hari ini - HANYA YANG TANGGALNYA SAMA DENGAN dateString
       const dayRecords = filteredRecords.filter((record) => record.date === dateString);
+
       const isToday = today.toDateString() === date.toDateString();
 
       let cellClasses = "p-3 md:p-4 text-center border border-gray-100 rounded-md flex flex-col justify-between relative min-h-[80px] md:min-h-[100px]";
@@ -1480,6 +1808,7 @@ const MonitoringMaintenance: React.FC = () => {
         cellClasses += " bg-white";
       }
 
+      // Group records by machine untuk menghindari duplikasi
       const uniqueMachinesOnDay = Array.from(new Set(dayRecords.map((r) => r.mesin)));
 
       weekDays.push(
@@ -1492,10 +1821,11 @@ const MonitoringMaintenance: React.FC = () => {
                 whileTap={{ scale: 0.95 }}
                 className="w-full text-center text-xs px-2 py-1 rounded-md overflow-hidden truncate bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors"
                 onClick={() => handleOpenDailyScheduleModal(dayRecords, dateString)}
-                title={uniqueMachinesOnDay.join(", ")}
+                title={`${uniqueMachinesOnDay.join(", ")} - ${dayRecords.length} items`}
               >
-                {uniqueMachinesOnDay[0]} {uniqueMachinesOnDay.length > 1 ? `+${uniqueMachinesOnDay.length - 1} others` : ""}
-                {dayRecords.length > 0 && <span className="ml-1">({dayRecords.length} schedules)</span>}
+                <div className="font-semibold">{uniqueMachinesOnDay[0]}</div>
+                {uniqueMachinesOnDay.length > 1 && <div className="text-xs opacity-75">+{uniqueMachinesOnDay.length - 1} more</div>}
+                <div className="text-xs opacity-75 mt-1">{dayRecords.length} item(s)</div>
               </motion.button>
             )}
           </div>
@@ -1524,26 +1854,19 @@ const MonitoringMaintenance: React.FC = () => {
   };
 
   const notifications = useMemo(() => {
-    const pendingApprovalTasks = records.filter((task) => task.approvalStatus.startsWith("Pending") && task.currentApproverIndex > 0 && APPROVAL_ROLES[task.currentApproverIndex] === dummyUser.role);
-    const overdueMonitoring = records.filter((task) => task.status === "Missed");
+    const pendingApprovalTasks = records.filter((task) => task);
+
+    // HAPUS OVERDUE MONITORING KARENA TIDAK ADA STATUS LAGI
+    // const overdueMonitoring = records.filter((task) => task.status === "Missed");
 
     const newNotifications: Array<{ id: string; icon: React.ReactNode; title: string; description: string; date: string }> = [];
+
     pendingApprovalTasks.forEach((task) => {
       newNotifications.push({
         id: `approval-${task.id}`,
         icon: <Bell className="text-orange-500" />,
         title: `Approval Needed: ${task.mesin} - ${task.item}`,
-        description: `Record for ${task.mesin} - ${task.item} is awaiting your approval (${task.approvalStatus}).`,
-        date: new Date(task.date).toLocaleDateString("en-US"),
-      });
-    });
-
-    overdueMonitoring.forEach((task) => {
-      newNotifications.push({
-        id: `overdue-${task.id}`,
-        icon: <AlertTriangle className="text-red-500" />,
-        title: `Overdue Monitoring: ${task.mesin}`,
-        description: `Monitoring for ${task.item} on ${task.mesin} scheduled for ${new Date(task.date).toLocaleDateString("en-US")} is overdue.`,
+        description: `Record for ${task.mesin} - ${task.item} is awaiting your approval ().`,
         date: new Date(task.date).toLocaleDateString("en-US"),
       });
     });
@@ -1562,118 +1885,14 @@ const MonitoringMaintenance: React.FC = () => {
         <Sidebar />
 
         <div className="flex-1 flex flex-col overflow-hidden">
-          <header className="bg-white border-b border-gray-100 p-4 flex items-center justify-between shadow-sm sticky top-0 z-30">
-            <div className="flex items-center space-x-4">
-              {isMobile && (
-                <motion.button onClick={toggleSidebar} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
-                  <ChevronRight className="text-xl" />
-                </motion.button>
-              )}
-              <Monitor className="text-xl text-blue-600" />
-              <h2 className="text-lg md:text-xl font-bold text-gray-900">Maintenance Monitoring</h2>
-            </div>
-
-            <div className="flex items-center space-x-3 relative">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setDarkMode(!darkMode)}
-                className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200"
-                aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
-              >
-                {darkMode ? <Sun className="text-yellow-400 text-xl" /> : <Moon className="text-xl" />}
-              </motion.button>
-
-              <div className="relative" ref={notificationsRef}>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setShowNotificationsPopup(!showNotificationsPopup)}
-                  className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200 relative"
-                  aria-label="Notifications"
-                >
-                  <Bell className="text-xl" />
-                  {notifications.length > 0 && <span className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full animate-pulse border border-white"></span>}
-                </motion.button>
-
-                <AnimatePresence>
-                  {showNotificationsPopup && (
-                    <motion.div
-                      ref={notificationsRef}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 20 }}
-                      transition={{ duration: 0.2 }}
-                      className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl overflow-hidden z-50 border border-gray-100"
-                    >
-                      <div className="p-4 border-b border-gray-100">
-                        <h3 className="text-lg font-semibold text-gray-800">Notifications</h3>
-                      </div>
-                      <div className="max-h-80 overflow-y-auto custom-scrollbar">
-                        {notifications.length > 0 ? (
-                          notifications.map((notif) => (
-                            <div key={notif.id} className="flex items-start p-4 border-b border-gray-50 last:border-b-0 hover:bg-blue-50 transition-colors cursor-pointer">
-                              {notif.icon && <div className="flex-shrink-0 mr-3">{notif.icon}</div>}
-                              <div>
-                                <p className="text-sm font-semibold text-gray-800">{notif.title}</p>
-                                <p className="text-xs text-gray-600 mt-1">{notif.description}</p>
-                                <p className="text-xs text-gray-400 mt-1">{notif.date}</p>
-                              </div>
-                            </div>
-                          ))
-                        ) : (
-                          <p className="p-4 text-center text-gray-500 text-sm">No new notifications.</p>
-                        )}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              <div className="relative" ref={profileRef}>
-                <motion.button
-                  whileHover={{ backgroundColor: "rgba(239, 246, 255, 0.7)" }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setShowProfileMenu(!showProfileMenu)}
-                  className="flex items-center space-x-2 cursor-pointer p-2 rounded-lg transition-colors duration-200"
-                >
-                  <img
-                    src={`https://api.dicebear.com/7.x/initials/svg?seed=${dummyUser.name || "User"}&backgroundColor=0081ff,3d5a80,ffc300,e0b589&backgroundType=gradientLinear&radius=50`}
-                    alt="User Avatar"
-                    className="w-8 h-8 rounded-full border border-blue-200 object-cover"
-                  />
-                  <span className="font-medium text-gray-900 text-sm hidden sm:inline">{dummyUser.name}</span>
-                  <ChevronDown className="text-gray-500 text-base" />
-                </motion.button>
-
-                <AnimatePresence>
-                  {showProfileMenu && (
-                    <motion.div
-                      ref={profileRef}
-                      initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                      transition={{ duration: 0.2 }}
-                      className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-40 border border-gray-100"
-                    >
-                      <div className="px-4 py-2 text-xs text-gray-500 border-b border-gray-100">Logged in as</div>
-                      <div className="px-4 py-2 font-semibold text-gray-800 border-b border-gray-100">{dummyUser.name || "Guest User"}</div>
-                      <button onClick={() => setShowProfileMenu(false)} className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 w-full text-left">
-                        <UserIcon size={16} className="mr-2" /> My Profile
-                      </button>
-                      <button onClick={() => setShowProfileMenu(false)} className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 w-full text-left">
-                        <Settings size={16} className="mr-2" /> Settings
-                      </button>
-                      <hr className="my-1 border-gray-100" />
-                      <motion.button onClick={() => setShowProfileMenu(false)} className="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full text-left">
-                        <LogOut size={16} className="mr-2" /> Logout
-                      </motion.button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </div>
-          </header>
+          <PageHeader
+            mainTitle="Moninoring Maintenance"
+            mainTitleHighlight="Management"
+            description="Manage user roles and permissions to control access and functionality within the system."
+            icon={<Monitor />}
+            isMobile={isMobile}
+            toggleSidebar={toggleSidebar}
+          />
 
           <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
             <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-6 flex items-center justify-between">
@@ -1723,7 +1942,7 @@ const MonitoringMaintenance: React.FC = () => {
                 <div className="animate-spin rounded-full h-14 w-14 border-t-4 border-b-4 border-blue-500 mx-auto mb-5"></div>
                 <p className="text-gray-600 text-base font-medium">Loading maintenance data...</p>
               </div>
-            ) : records.length === 0 && viewMode !== "trend" ? (
+            ) : records.length === 0 ? (
               <div className="bg-white rounded-2xl shadow-md p-8 text-center border border-blue-100">
                 <Info className="text-blue-500 text-4xl mx-auto mb-4" />
                 <p className="text-gray-700 text-base font-medium">No monitoring data available.</p>
@@ -1731,6 +1950,7 @@ const MonitoringMaintenance: React.FC = () => {
             ) : (
               <AnimatePresence mode="wait">
                 <motion.div key={viewMode} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
+                  {/* Filter Section - Tampilkan selalu ketika ada data */}
                   <div className="mb-8 bg-white rounded-2xl shadow-md p-5 border border-blue-100">
                     <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-4 md:space-y-0 relative">
                       <div className="flex-1 relative">
@@ -1838,8 +2058,10 @@ const MonitoringMaintenance: React.FC = () => {
                     </AnimatePresence>
                   </div>
 
+                  {/* View Modes */}
                   {viewMode === "calendar" && (
                     <div className="bg-white rounded-2xl shadow-md p-6 border border-blue-100">
+                      {/* Calendar content */}
                       <div className="flex justify-between items-center mb-4">
                         <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={goToPreviousMonth} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
                           <ChevronLeft size={20} />
@@ -1872,6 +2094,7 @@ const MonitoringMaintenance: React.FC = () => {
                   )}
                   {viewMode === "table" && (
                     <div className="bg-white rounded-2xl shadow-md p-6 border border-blue-100">
+                      {/* Table content */}
                       <div className="overflow-x-auto bg-white rounded-lg shadow-md mt-6 animate-fade-in">
                         <table className="min-w-full divide-y divide-gray-200">
                           <thead className="bg-gray-50">
@@ -1883,7 +2106,6 @@ const MonitoringMaintenance: React.FC = () => {
                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monitoring Result</th>
                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">MS Status</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Approval</th>
                               <th className="relative px-6 py-3">
                                 <span className="sr-only">Actions</span>
                               </th>
@@ -1908,9 +2130,6 @@ const MonitoringMaintenance: React.FC = () => {
                                       {record.msStatus}
                                     </span>
                                   </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${getApprovalStatusColor(record.approvalStatus)}`}>{getDisplayStatus(record.approvalStatus)}</span>
-                                  </td>
                                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                     <motion.button
                                       whileHover={{ scale: 1.1 }}
@@ -1926,7 +2145,7 @@ const MonitoringMaintenance: React.FC = () => {
                               ))
                             ) : (
                               <tr>
-                                <td colSpan={9} className="px-6 py-4 text-center text-sm text-gray-500">
+                                <td colSpan={8} className="px-6 py-4 text-center text-sm text-gray-500">
                                   No monitoring data found.
                                 </td>
                               </tr>
@@ -1946,18 +2165,19 @@ const MonitoringMaintenance: React.FC = () => {
         <Modal isOpen={showDetailsModal} onClose={() => setShowDetailsModal(false)} title="Monitoring Details">
           {selectedRecord && (
             <>
-              <DetailView record={selectedRecord} onUpdateApproval={handleUpdateApprovalStatus} currentUserRole={dummyUser.role} />
+              {/* PERBAIKI DI SINI - HAPUS onUpdateRecord KARENA TIDAK DIPERLUKAN LAGI */}
+              <DetailView record={selectedRecord} onUpdateRecord={handleUpdateRecord} />
 
               <div className="mt-6 pt-4 border-t border-gray-200 flex justify-center">
-                <motion.a
-                  href="/detailmonitoring"
+                <motion.button
+                  onClick={() => handleNavigateToEditForm(selectedRecord)}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   className="px-5 py-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 font-semibold text-sm flex items-center"
                 >
                   <Eye className="w-4 h-4 mr-2" />
                   View Full Details
-                </motion.a>
+                </motion.button>
               </div>
             </>
           )}

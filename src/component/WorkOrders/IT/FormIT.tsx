@@ -1,6 +1,9 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import ReactQuill from "react-quill";
+import "react-quill/dist/quill.snow.css";
+import RichTextEditor from "../../RichTextEditor";
 import Sidebar from "../../Sidebar";
 import {
   X,
@@ -118,10 +121,18 @@ const AddWorkOrderFormIT: React.FC = () => {
   const [serviceGroupsList, setServiceGroupsList] = useState<ServiceGroup[]>([]);
   const [isServicesLoading, setIsServicesLoading] = useState(false);
 
+  const [complaintText, setComplaintText] = useState("");
+
   const [showAttachmentOptions, setShowAttachmentOptions] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const quillModules = {
+    toolbar: [[{ header: [1, 2, 3, false] }], ["bold", "italic", "underline", "strike"], [{ list: "ordered" }, { list: "bullet" }], [{ indent: "-1" }, { indent: "+1" }], [{ align: [] }], ["link"], ["clean"]],
+  };
+
+  const quillFormats = ["header", "bold", "italic", "underline", "strike", "list", "bullet", "indent", "align", "link"];
 
   // Fungsi untuk menampilkan pilihan attachment
   const handleAttachmentClick = () => {
@@ -414,7 +425,7 @@ const AddWorkOrderFormIT: React.FC = () => {
       service_catalogue_id: Number(formData.service_id),
       asset_no: formData.asset_no,
       device_info: formData.device_info,
-      complaint: formData.complaint,
+      complaint: complaintText,
       attachment: formData.attachment,
     };
 
@@ -955,16 +966,16 @@ const AddWorkOrderFormIT: React.FC = () => {
                     <label htmlFor="complaint" className="block text-sm font-medium text-gray-700 mb-1">
                       Complaint <span className="text-red-500">*</span>
                     </label>
-                    <textarea
-                      id="complaint"
-                      name="complaint"
-                      value={formData.complaint}
-                      onChange={handleChange}
-                      required
-                      rows={3}
-                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
-                      placeholder="Describe the complaint in detail."
-                    ></textarea>
+                    <RichTextEditor
+                      value={complaintText}
+                      onChange={(value) => {
+                        setComplaintText(value);
+                        setFormData((prev) => ({
+                          ...prev,
+                          complaint: value,
+                        }));
+                      }}
+                    />
                   </div>
                 </div>
               </div>

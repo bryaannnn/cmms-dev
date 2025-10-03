@@ -43,10 +43,8 @@ import ServiceSelection from "./component/Service/ServiceSelection";
 import MaintenanceActivitySelection from "./component/Maintenance Activity/MaintenanceActivitySelection";
 import MachineHistoryReports from "./component/MachineHistory/MaintenanceReports";
 import AuditTrail from "./component/Audit Trail/AuditTrail";
-import DetailMonitoringMaintenance from "./component/Monitoring Maintenance/DetailMonitoringMaintenanceD";
 import WorkflowSelection from "./component/Workflow Approval/WorkflowSelection";
 import WorkflowApprovalMonitoring from "./component/Workflow Approval/WorkflowApprovalMonitoring";
-import WorkOrderApproval from "./component/Workflow Approval/WorkOrderApproval";
 import AddWorkOrderFormITDummy from "./component/WorkOrders/DUMMY/FormITDummy";
 import RequestD from "./component/WorkOrders/DUMMY/RequestD";
 import ITReceiverD from "./component/WorkOrders/DUMMY/ReceiverD";
@@ -91,6 +89,14 @@ import FormMonitoringMaintenance from "./component/Monitoring Maintenance/FormMo
 import FormMonitoringMaintenanceD from "./component/Monitoring Maintenance/FormDummy";
 import ITReports from "./component/WorkOrders/IT/Reports";
 import MonitoringMaintenance from "./component/Monitoring Maintenance/MonitoringMaintenance";
+import VendorPage from "./component/Vendor/Vendor";
+import FormVendor from "./component/Vendor/FormVendor";
+import EditVendor from "./component/Vendor/EditVendor";
+import DetailMonitoringMaintenance from "./component/Monitoring Maintenance/DetailMonitoring";
+
+import DashboardDummy from "./pages/DashboardDummy";
+import DetailDummy from "./component/Monitoring Maintenance/DetailDummy";
+import WorkflowConfigureMonitoring from "./component/Workflow Approval/WorkflowConfigureMonitoring";
 
 function App() {
   return (
@@ -103,18 +109,15 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/unauthorized" element={<UnauthorizedPage />} />
-        <Route path="/dashboard" element={<Dashboard />} />
 
         <Route path="/maintenanceactivity/activitytypes/addactivitytype" element={<FormActivityType />} />
 
-        <Route path="/monitoringmaintenance/detailmonitoringmaintenance" element={<DetailMonitoringMaintenance />} />
-        <Route path="/monitoringmaintenance/formmonitoringmaintenance" element={<FormMonitoringMaintenance />} />
-        <Route path="/monitoringmaintenance" element={<MonitoringMaintenance />} />
+        <Route path="/monitoringmaintenance/detailmonitoringmaintenanceD" element={<DetailDummy />} />
 
         {/* Protected Routes */}
         {/* Dashboard */}
         <Route element={<ProtectedRoute />}>
-          <Route index element={<Dashboard />} /> {/* Renders Dashboard for "/" */}
+          <Route index element={<Dashboard />} /> {/* Ren ders Dashboard for "/" */}
           <Route path="/dashboard" element={<Dashboard />} />
         </Route>
 
@@ -124,6 +127,8 @@ function App() {
 
         <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}>
           <Route path="/workflowapproval" element={<WorkflowSelection />} />
+          <Route path="/workflowapproval/monitoringapproval" element={<WorkflowApprovalMonitoring />} />
+          <Route path="/workflowapproval/monitoringapproval/configureapproval/:id" element={<WorkflowConfigureMonitoring />} />
         </Route>
 
         <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}>
@@ -163,6 +168,12 @@ function App() {
         </Route>
 
         <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}>
+          <Route path="/vendors" element={<VendorPage />} />
+          <Route path="/vendors/addvendor" element={<FormVendor />} />
+          <Route path="/vendors/editvendor/:id" element={<EditVendor />} />
+        </Route>
+
+        <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}>
           <Route path="/services" element={<ServiceSelection />} />
           <Route path="/services/servicegroups" element={<ServiceGroup />} />
           <Route path="/services/servicegroups/addservicegroup" element={<FormServiceGroup />} />
@@ -198,7 +209,7 @@ function App() {
 
         <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}>
           <Route path="/monitoringmaintenance" element={<MonitoringMaintenance />} />
-          <Route path="/monitoringmaintenance/detailmonitoringmaintenance" element={<DetailMonitoringMaintenance />} />
+          <Route path="/monitoringmaintenance/detailmonitoringmaintenance/:id" element={<DetailMonitoringMaintenance />} />
           <Route path="/monitoringmaintenance/formmonitoringmaintenance" element={<FormMonitoringMaintenance />} />
           <Route path="/monitoringmaintenance" element={<MonitoringMaintenance />} />
         </Route>

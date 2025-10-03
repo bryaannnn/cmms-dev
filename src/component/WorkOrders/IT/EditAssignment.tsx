@@ -4,7 +4,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import Sidebar from "../../Sidebar";
 import { X, Clock, CheckCircle, ToolCase, ArrowLeft, Save, Trash2, Hourglass, ListPlus, Paperclip, Sun, Moon, Settings, Bell, User as UserIcon, ChevronDown, ChevronRight, ChevronLeft, LogOut, AlertTriangle } from "lucide-react";
 import Select from "react-select";
-import { useAuth, User as AuthUser, Department, WorkOrderFormDataLocal, ServiceCatalogue } from "../../../routes/AuthContext";
+import { useAuth, User as AuthUser, Department, WorkOrderFormDataLocal, ServiceCatalogue, Vendor } from "../../../routes/AuthContext";
+import RichTextEditor from "../../RichTextEditor";
 
 interface ModalProps {
   isOpen: boolean;
@@ -43,7 +44,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
 };
 
 const EditAssignment: React.FC = () => {
-  const { updateWorkOrderIT, user, getUsers, getServices, getDepartment, getServiceGroups, getWorkOrderById } = useAuth();
+  const { updateWorkOrderIT, user, getUsers, getServices, getDepartment, getServiceGroups, getWorkOrderById, getVendor } = useAuth();
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
 
@@ -64,6 +65,8 @@ const EditAssignment: React.FC = () => {
   const [successMessage, setSuccessMessage] = useState<{ message: string; work_order?: any } | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
+  const [remarksText, setRemarksText] = useState("");
+
   const notificationsRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
@@ -71,6 +74,11 @@ const EditAssignment: React.FC = () => {
   const [serviceGroupsList, setServiceGroupsList] = useState<ServiceGroup[]>([]);
 
   const [showAssignedToField, setShowAssignedToField] = useState(false);
+
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [showVendorForm, setShowVendorForm] = useState(false);
+  const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
+  const [showVendorSelect, setShowVendorSelect] = useState(false);
   //   const [assignableUsers, setAssignableUsers] = useState<AuthUser[]>([]);
 
   //   useEffect(() => {
@@ -105,14 +113,28 @@ const EditAssignment: React.FC = () => {
     action_taken: null,
     handling_status: "New",
     remarks: null,
-    assigned_to_id: null, // Tambahkan field ini
+    assigned_to_id: null,
+    vendor_id: null,
   };
 
   const [formData, setFormData] = useState<WorkOrderFormDataLocal>(initialFormData);
 
   useEffect(() => {
     const shouldShowAssignedTo = formData.handling_status !== "New";
+    const shouldShowVendorForm = formData.handling_status === "Vendor Handled";
+
     setShowAssignedToField(shouldShowAssignedTo);
+    setShowVendorForm(shouldShowVendorForm);
+
+    // Reset vendor_id jika status berubah dari Vendor Handled
+    if (!shouldShowVendorForm && formData.vendor_id) {
+      setFormData((prev) => ({
+        ...prev,
+        vendor_id: null,
+      }));
+      setSelectedVendor(null);
+      setShowVendorSelect(false);
+    }
   }, [formData.handling_status]);
 
   useEffect(() => {
@@ -142,7 +164,16 @@ const EditAssignment: React.FC = () => {
           handling_status: workOrderData.handling_status,
           remarks: workOrderData.remarks,
           assigned_to_id: workOrderData.assigned_to_id,
+          vendor_id: workOrderData.vendor_id || null, // Tambahkan ini
         });
+
+        // Jika ada vendor_id, set selected vendor
+        if (workOrderData.vendor_id && vendors.length > 0) {
+          const vendor = vendors.find((v) => v.id === workOrderData.vendor_id);
+          if (vendor) {
+            setSelectedVendor(vendor);
+          }
+        }
       } catch (err: any) {
         console.error("Failed to fetch work order data:", err);
         setError(err.message || "Gagal memuat data work order. Silakan coba lagi.");
@@ -151,12 +182,19 @@ const EditAssignment: React.FC = () => {
       }
     };
 
-    fetchWorkOrderData();
-  }, [id, getWorkOrderById]);
+    if (vendors.length > 0) {
+      fetchWorkOrderData();
+    }
+  }, [id, getWorkOrderById, vendors]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
+        // Fetch vendors terlebih dahulu
+        const vendorsData = await getVendor();
+        setVendors(vendorsData);
+
+        // Kemudian fetch data lainnya
         const data = await getServiceGroups(0);
         const mapped = data.map((g) => ({
           id: Number(g.id),
@@ -183,7 +221,7 @@ const EditAssignment: React.FC = () => {
     if (user) {
       fetchData();
     }
-  }, [user, getUsers, getServices, getDepartment, getServiceGroups]);
+  }, [user, getUsers, getServices, getDepartment, getServiceGroups, getVendor]); // Tambahkan getVendor
 
   useEffect(() => {
     const handleResize = () => {
@@ -260,6 +298,15 @@ const EditAssignment: React.FC = () => {
     }));
   }, []);
 
+  const handleVendorSelect = (vendor: Vendor) => {
+    setSelectedVendor(vendor);
+    setFormData((prev) => ({
+      ...prev,
+      vendor_id: vendor.id,
+    }));
+    setShowVendorSelect(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -272,9 +319,9 @@ const EditAssignment: React.FC = () => {
       return;
     }
 
-    // Validasi untuk status Escalated/Vendor Handled
-    if ((formData.handling_status === "Escalated" || formData.handling_status === "Vendor Handled") && !formData.assigned_to_id) {
-      setError("Assigned To is required for Escalated or Vendor Handled status");
+    // Validasi untuk status Vendor Handled
+    if (formData.handling_status === "Vendor Handled" && !formData.vendor_id) {
+      setError("Vendor selection is required for Vendor Handled status");
       setIsLoading(false);
       return;
     }
@@ -305,9 +352,9 @@ const EditAssignment: React.FC = () => {
       handling_date: formData.handling_date,
       action_taken: formData.action_taken,
       handling_status: formData.handling_status,
-      remarks: formData.remarks,
-      // Tambahkan assigned_to_id jika ada
+      remarks: remarksText,
       assigned_to_id: formData.assigned_to_id ? parseInt(formData.assigned_to_id as unknown as string) : null,
+      vendor_id: formData.vendor_id, // Tambahkan vendor_id
     };
 
     try {
@@ -462,7 +509,7 @@ const EditAssignment: React.FC = () => {
             )}
             <motion.button onClick={() => navigate("/workorders/it/assignment")} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="flex items-center text-blue-600 hover:text-blue-800 transition-colors duration-200">
               <ChevronLeft className="text-xl" />
-              <span className="font-semibold text-sm hidden md:inline">Back to Receiver</span>
+              <span className="font-semibold text-sm hidden md:inline">Back to Assignment</span>
             </motion.button>
             <h2 className="text-lg md:text-xl font-bold text-gray-900 ml-4">Update Work Order</h2>
           </div>
@@ -606,7 +653,7 @@ const EditAssignment: React.FC = () => {
               whileTap={{ scale: 0.95 }}
               className="flex items-center space-x-2 bg-white border border-gray-200 text-gray-800 px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md"
             >
-              <ChevronLeft className="text-lg" /> Back to Receiver
+              <ChevronLeft className="text-lg" /> Back to Assignment
             </motion.button>
           </motion.div>
 
@@ -797,6 +844,107 @@ const EditAssignment: React.FC = () => {
                     </div>
                   )}
 
+                  {showVendorForm && (
+                    <div className="md:col-span-2 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                      <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                        <ToolCase className="mr-2 text-gray-600" /> Vendor Information
+                      </h3>
+
+                      {!selectedVendor ? (
+                        // Pilihan vendor dari daftar existing
+                        <div className="space-y-4">
+                          <div className="flex justify-between items-center">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Select Vendor <span className="text-red-500">*</span>
+                            </label>
+                            <motion.button
+                              type="button"
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={() => setShowVendorSelect(!showVendorSelect)}
+                              className="px-3 py-1 bg-gray-600 text-white text-sm rounded-md hover:bg-gray-700 transition-colors"
+                            >
+                              {showVendorSelect ? "Hide Vendors" : "Select Vendor"}
+                            </motion.button>
+                          </div>
+
+                          {showVendorSelect && (
+                            <div className="border border-gray-200 rounded-lg bg-white max-h-60 overflow-y-auto">
+                              {vendors.length > 0 ? (
+                                vendors.map((vendor) => (
+                                  <motion.div key={vendor.id} whileHover={{ backgroundColor: "rgba(0, 0, 0, 0.05)" }} className="p-3 border-b border-gray-100 cursor-pointer transition-colors" onClick={() => handleVendorSelect(vendor)}>
+                                    <div className="font-medium text-gray-900">{vendor.name}</div>
+                                    <div className="text-sm text-gray-600">
+                                      {vendor.contact_person} • {vendor.email}
+                                    </div>
+                                    <div className="text-xs text-gray-500">{vendor.address}</div>
+                                  </motion.div>
+                                ))
+                              ) : (
+                                <div className="p-4 text-center text-gray-600">
+                                  <AlertTriangle className="mx-auto h-6 w-6 mb-2" />
+                                  No vendors available
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        // Tampilkan vendor yang dipilih
+                        <div className="space-y-4">
+                          <div className="flex justify-between items-center">
+                            <h4 className="font-semibold text-gray-800">Selected Vendor</h4>
+                            <motion.button
+                              type="button"
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={() => {
+                                setSelectedVendor(null);
+                                setFormData((prev) => ({ ...prev, vendor_id: null }));
+                                setShowVendorSelect(false);
+                              }}
+                              className="px-2 py-1 bg-red-100 text-red-700 text-sm rounded-md hover:bg-red-200 transition-colors"
+                            >
+                              Change Vendor
+                            </motion.button>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Vendor Name</label>
+                              <div className="p-2.5 border border-gray-300 rounded-lg bg-white text-gray-900">{selectedVendor.name}</div>
+                            </div>
+
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Contact Person</label>
+                              <div className="p-2.5 border border-gray-300 rounded-lg bg-white text-gray-900">{selectedVendor.contact_person}</div>
+                            </div>
+
+                            <div className="md:col-span-2">
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                              <div className="p-2.5 border border-gray-300 rounded-lg bg-white text-gray-900">{selectedVendor.address || "-"}</div>
+                            </div>
+
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                              <div className="p-2.5 border border-gray-300 rounded-lg bg-white text-gray-900">{selectedVendor.email}</div>
+                            </div>
+
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                              <div className="p-2.5 border border-gray-300 rounded-lg bg-white text-gray-900">{selectedVendor.telp || "-"}</div>
+                            </div>
+
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Mobile</label>
+                              <div className="p-2.5 border border-gray-300 rounded-lg bg-white text-gray-900">{selectedVendor.HP || "-"}</div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="md:col-span-2">
                     <label htmlFor="action_taken" className="block text-sm font-medium text-gray-700 mb-1">
                       Action Taken <span className="text-red-500">*</span>
@@ -814,19 +962,20 @@ const EditAssignment: React.FC = () => {
                     ></textarea>
                   </div>
 
-                  <div className="md:col-span-2">
+                  <div>
                     <label htmlFor="remarks" className="block text-sm font-medium text-gray-700 mb-1">
-                      Remarks
+                      Remarks <span className="text-red-500">*</span>
                     </label>
-                    <textarea
-                      id="remarks"
-                      name="remarks"
-                      value={formData.remarks || ""}
-                      onChange={handleChange}
-                      rows={3}
-                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
-                      placeholder="Add any additional remarks or notes."
-                    ></textarea>
+                    <RichTextEditor
+                      value={remarksText}
+                      onChange={(value) => {
+                        setRemarksText(value);
+                        setFormData((prev) => ({
+                          ...prev,
+                          complaint: value,
+                        }));
+                      }}
+                    />
                   </div>
                 </div>
               </div>

@@ -25,3 +25,20 @@
   color: #374151;
   font-weight: 500;
 }
+
+.rich-text-editor [contenteditable="true"]:focus {
+  outline: none;
+}
+
+.rich-text-editor ul,
+.rich-text-editor ol {
+  margin-left: 1.5rem;
+}
+
+.rich-text-editor ul {
+  list-style-type: disc;
+}
+
+.rich-text-editor ol {
+  list-style-type: decimal;
+}

@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import Sidebar from "../../Sidebar";
-import { useAuth, WorkOrderData } from "../../../routes/AuthContext";
+import DOMPurify from "dompurify";
+import { useAuth, WorkOrderData, Vendor } from "../../../routes/AuthContext";
 import {
   Plus,
   Upload,
@@ -50,6 +51,7 @@ const ITRequest2: React.FC = () => {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [showWorkOrderDetailsModal, setShowWorkOrderDetailsModal] = useState(false);
   const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrderData | null>(null);
+  const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [recordToDelete, setRecordToDelete] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -58,6 +60,7 @@ const ITRequest2: React.FC = () => {
   const [showNotificationsPopup, setShowNotificationsPopup] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [workOrders, setWorkOrders] = useState<WorkOrderData[]>([]);
+  const [vendor, setVendor] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -68,7 +71,7 @@ const ITRequest2: React.FC = () => {
   const [recordToComplete, setRecordToComplete] = useState<number | null>(null);
   const [recordToCancel, setRecordToCancel] = useState<number | null>(null);
 
-  const { user: currentUser, getWorkOrdersIT, deleteWorkOrder, hasPermission, fetchWithAuth } = useAuth();
+  const { user: currentUser, getWorkOrdersIT, deleteWorkOrder, hasPermission, fetchWithAuth, getVendor } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const notificationsRef = useRef<HTMLDivElement>(null);
@@ -308,6 +311,24 @@ const ITRequest2: React.FC = () => {
     });
   };
 
+  // Fungsi untuk mendapatkan nama assigned to (user atau vendor)
+  const getAssignedToName = (order: WorkOrderData): string => {
+    // Jika ada vendor, tampilkan nama vendor
+    if (order.vendor) {
+      return `${order.vendor.name}`;
+    }
+
+    // Jika tidak ada vendor, tampilkan assigned_to user atau "Unassigned"
+    return order.assigned_to?.name || "Unassigned";
+  };
+
+  // Fungsi untuk mendapatkan tipe assignment
+  const getAssignmentType = (order: WorkOrderData): string => {
+    if (order.vendor) return "vendor";
+    if (order.assigned_to) return "user";
+    return "unassigned";
+  };
+
   const filteredWorkOrders = workOrders
     .filter((order) => {
       const matchesSearch =
@@ -358,6 +379,23 @@ const ITRequest2: React.FC = () => {
       });
     };
 
+    // Fungsi untuk menampilkan HTML yang aman
+    const displayHTML = (htmlString: string) => {
+      if (!htmlString) return "-";
+
+      // Bersihkan HTML dari potensi XSS
+      const cleanHTML = DOMPurify.sanitize(htmlString);
+
+      return <div className="w-full bg-blue-50 border border-blue-100 rounded-lg p-3 text-gray-800 text-base font-medium min-h-[44px] flex items-center" dangerouslySetInnerHTML={{ __html: cleanHTML }} />;
+    };
+
+    const DetailItemHTML: React.FC<{ label: string; htmlContent: string }> = ({ label, htmlContent }) => (
+      <div className="flex flex-col">
+        <h4 className="text-sm font-medium text-gray-500 mb-1">{label}</h4>
+        {displayHTML(htmlContent)}
+      </div>
+    );
+
     const DetailItem: React.FC<{ label: string; value: string }> = ({ label, value }) => (
       <div className="flex flex-col">
         <h4 className="text-sm font-medium text-gray-500 mb-1">{label}</h4>
@@ -389,7 +427,7 @@ const ITRequest2: React.FC = () => {
         <SectionTitle title="Device & Complaint" />
         <div className="grid grid-cols-1 gap-4">
           <DetailItem label="Device Information" value={displayValue(order.device_info)} />
-          <DetailItem label="Complaint" value={displayValue(order.complaint)} />
+          <DetailItemHTML label="Complaint" htmlContent={order.complaint || ""} />
         </div>
 
         <SectionTitle title="Handling Information" />
@@ -399,6 +437,21 @@ const ITRequest2: React.FC = () => {
           <DetailItem label="Handling Date" value={formatDate(order.handling_date || "-")} />
           <DetailItem label="Action Taken" value={displayValue(order.action_taken)} />
         </div>
+
+        {/* Vendor Details Section */}
+        <SectionTitle title="Vendor Details" />
+        {order.vendor ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <DetailItem label="Vendor Name" value={displayValue(order.vendor.name)} />
+            <DetailItem label="Address" value={displayValue(order.vendor.address)} />
+            <DetailItem label="Contact Person" value={displayValue(order.vendor.contact_person)} />
+            <DetailItem label="Email" value={displayValue(order.vendor.email)} />
+            <DetailItem label="No Telp" value={displayValue(order.vendor.telp)} />
+            <DetailItem label="No HP" value={displayValue(order.vendor.HP)} />
+          </div>
+        ) : (
+          <div className="text-center py-4 text-gray-500">No vendor assigned to this work order.</div>
+        )}
 
         {order.attachment && (
           <>
@@ -690,7 +743,7 @@ const ITRequest2: React.FC = () => {
             >
               <div className="flex items-center justify-between z-10 relative">
                 <div>
-                  <p className="text-sm font-medium text-gray-500 mb-1"> </p>
+                  <p className="text-sm font-medium text-gray-500 mb-1">IT New WO</p>
                   <p className="text-3xl font-bold text-gray-900">{filteredWorkOrders.filter((wo) => wo.handling_status === "New").length}</p>
                 </div>
                 <div className="p-2 rounded-full bg-blue-50 text-blue-600 text-2xl opacity-90 transition-all duration-200">
@@ -801,89 +854,99 @@ const ITRequest2: React.FC = () => {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
                   {currentOrders.length > 0 ? (
-                    currentOrders.map((order) => (
-                      <motion.tr
-                        key={order.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.2 }}
-                        whileHover={{ backgroundColor: "rgba(239, 246, 255, 1)" }}
-                        className="transition-colors duration-150"
-                      >
-                        <td
-                          className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 cursor-pointer hover:text-blue-600 hover:underline transition-colors duration-200"
-                          onClick={() => openWorkOrderDetails(order.id)}
-                          title="Click to view details"
+                    currentOrders.map((order) => {
+                      const assignedToName = getAssignedToName(order);
+                      const assignmentType = getAssignmentType(order);
+
+                      return (
+                        <motion.tr
+                          key={order.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.2 }}
+                          whileHover={{ backgroundColor: "rgba(239, 246, 255, 1)" }}
+                          className="transition-colors duration-150"
                         >
-                          {order.work_order_no || "-"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{new Date(order.date).toLocaleDateString()}</td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{order.device_info}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{order.asset_no}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{order.service_type.group_name || "N/A"}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full ${getStatusColor(order.handling_status)} shadow-sm`}>{order.handling_status}</span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order.assigned_to?.name || "Unassigned"}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium flex items-center space-x-2">
-                          {/* View button always available */}
-                          <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
+                          <td
+                            className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 cursor-pointer hover:text-blue-600 hover:underline transition-colors duration-200"
                             onClick={() => openWorkOrderDetails(order.id)}
-                            className="text-blue-600 hover:text-blue-800 transition-colors duration-200 flex items-center space-x-1"
-                            title="View Details"
+                            title="Click to view details"
                           >
-                            <Eye className="text-lg" />
-                          </motion.button>
-
-                          {/* Untuk status "New" - Tampilkan Edit dan Cancel */}
-                          {order.handling_status === "New" && (
-                            <>
-                              <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={() => navigate(`/workorders/it/editworkorder/${order.id}`)}
-                                className="text-gray-600 hover:text-gray-800 transition-colors duration-200 flex items-center space-x-1"
-                                title="Edit Work Order"
-                              >
-                                <Edit className="text-lg" />
-                              </motion.button>
-                              <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={() => handleCancelClick(order.id)}
-                                className="text-red-600 hover:text-red-800 transition-colors duration-200 flex items-center space-x-1"
-                                title="Cancel Work Order"
-                              >
-                                <X className="text-lg" />
-                              </motion.button>
-                            </>
-                          )}
-
-                          {/* Untuk status "Resolved" - Tampilkan Complete saja */}
-                          {order.handling_status === "Resolved" && (
+                            {order.work_order_no || "-"}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{new Date(order.date).toLocaleDateString()}</td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">{order.device_info}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">{order.asset_no}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">{order.service_type.group_name || "N/A"}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full ${getStatusColor(order.handling_status)} shadow-sm`}>{order.handling_status}</span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <span className={`text-sm font-medium ${assignmentType === "vendor" ? "text-purple-600" : assignmentType === "user" ? "text-blue-600" : "text-gray-500"}`}>{assignedToName}</span>
+                              {assignmentType === "vendor" && <span className="ml-2 px-1.5 py-0.5 text-xs bg-purple-100 text-purple-800 rounded-full">Vendor</span>}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium flex items-center space-x-2">
+                            {/* View button always available */}
                             <motion.button
                               whileHover={{ scale: 1.05 }}
                               whileTap={{ scale: 0.95 }}
-                              onClick={(e) => {
-                                handleCompleteClick(order.id); // Pastikan ini memanggil konfirmasi
-                              }}
-                              className="text-green-600 hover:text-green-800 transition-colors duration-200 flex items-center space-x-1"
-                              title="Mark as Closed"
+                              onClick={() => openWorkOrderDetails(order.id)}
+                              className="text-blue-600 hover:text-blue-800 transition-colors duration-200 flex items-center space-x-1"
+                              title="View Details"
                             >
-                              <CheckCircle className="text-lg" />
+                              <Eye className="text-lg" />
                             </motion.button>
-                          )}
-                        </td>
-                      </motion.tr>
-                    ))
+
+                            {/* Untuk status "New" - Tampilkan Edit dan Cancel */}
+                            {order.handling_status === "New" && (
+                              <>
+                                <motion.button
+                                  whileHover={{ scale: 1.05 }}
+                                  whileTap={{ scale: 0.95 }}
+                                  onClick={() => navigate(`/workorders/it/editworkorder/${order.id}`)}
+                                  className="text-gray-600 hover:text-gray-800 transition-colors duration-200 flex items-center space-x-1"
+                                  title="Edit Work Order"
+                                >
+                                  <Edit className="text-lg" />
+                                </motion.button>
+                                <motion.button
+                                  whileHover={{ scale: 1.05 }}
+                                  whileTap={{ scale: 0.95 }}
+                                  onClick={() => handleCancelClick(order.id)}
+                                  className="text-red-600 hover:text-red-800 transition-colors duration-200 flex items-center space-x-1"
+                                  title="Cancel Work Order"
+                                >
+                                  <X className="text-lg" />
+                                </motion.button>
+                              </>
+                            )}
+
+                            {/* Untuk status "Resolved" - Tampilkan Complete saja */}
+                            {order.handling_status === "Resolved" && (
+                              <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={(e) => {
+                                  handleCompleteClick(order.id);
+                                }}
+                                className="text-green-600 hover:text-green-800 transition-colors duration-200 flex items-center space-x-1"
+                                title="Mark as Closed"
+                              >
+                                <CheckCircle className="text-lg" />
+                              </motion.button>
+                            )}
+                          </td>
+                        </motion.tr>
+                      );
+                    })
                   ) : (
                     <tr>
                       <td colSpan={8} className="px-6 py-10 text-center text-gray-600 text-lg">

@@ -31,24 +31,26 @@ const convertMinutesToHoursAndMinutes = (totalMinutes: number | null | undefined
     return "-";
   }
 
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
+  // Round to 2 decimal places
+  const roundedMinutes = Math.round(totalMinutes * 100) / 100;
 
-  if (totalMinutes === 0) {
+  const hours = Math.floor(roundedMinutes / 60);
+  const minutes = roundedMinutes % 60;
+
+  if (roundedMinutes === 0) {
     return "0min";
   }
 
   if (hours === 0 && minutes > 0) {
-    return `${minutes}min`;
+    return `${minutes.toFixed(2)}min`;
   }
 
   if (hours > 0 && minutes === 0) {
     return `${hours}h`;
   }
 
-  return `${hours}h ${minutes}min`;
+  return `${hours}h ${minutes.toFixed(2)}min`;
 };
-
 // StatCard component, copied from Maintenance.tsx
 interface StatCardProps {
   title: string;
@@ -206,6 +208,7 @@ const MachineHistoryReports: React.FC = () => {
   }, [records]);
 
   // 3. Average Downtime per Machine
+  // 3. Average Downtime per Machine
   const averageDowntimePerMachine = useMemo(() => {
     const machineDowntimes: { [key: string]: { totalMinutes: number; count: number } } = {};
 
@@ -222,11 +225,16 @@ const MachineHistoryReports: React.FC = () => {
       }
     });
 
-    return Object.entries(machineDowntimes).map(([name, data]) => ({
-      name,
-      averageDowntimeMinutes: data.count > 0 ? data.totalMinutes / data.count : 0,
-      displayDowntime: convertMinutesToHoursAndMinutes(data.count > 0 ? data.totalMinutes / data.count : 0),
-    }));
+    return Object.entries(machineDowntimes).map(([name, data]) => {
+      const average = data.count > 0 ? data.totalMinutes / data.count : 0;
+      const roundedAverage = Math.round(average * 100) / 100; // Round to 2 decimal places
+
+      return {
+        name,
+        averageDowntimeMinutes: roundedAverage,
+        displayDowntime: convertMinutesToHoursAndMinutes(roundedAverage),
+      };
+    });
   }, [records]);
 
   // 4. Trend of Maintenance per Month (BarChart or LineChart)
@@ -463,7 +471,10 @@ const MachineHistoryReports: React.FC = () => {
               <StatCard title="Total Maintenance Events" value={totalMaintenanceEvents.toLocaleString("id-ID")} icon={<Clipboard />} />
               <StatCard
                 title="Avg. Downtime (All Machines)"
-                value={convertMinutesToHoursAndMinutes(records.reduce((sum, r) => sum + (convertDurationInMinutes(r.stopJam, r.stopMenit, r.startJam, r.startMenit) || 0), 0) / records.length)}
+                value={convertMinutesToHoursAndMinutes(
+                  // Round to 2 decimal places
+                  Math.round((records.reduce((sum, r) => sum + (convertDurationInMinutes(r.stopJam, r.stopMenit, r.startJam, r.startMenit) || 0), 0) / records.length) * 100) / 100
+                )}
                 icon={<Clock />}
               />
               <StatCard title="Machines Maintained" value={new Set(records.map((r) => r.mesin)).size.toLocaleString("id-ID")} icon={<Wrench />} />

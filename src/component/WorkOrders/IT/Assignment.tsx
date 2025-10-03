@@ -191,6 +191,21 @@ const WorkOrderDetails: React.FC<{ order: WorkOrderData; onClose: () => void }> 
         <DetailItem label="Remarks" value={displayValue(order.remarks)} />
       </div>
 
+      {/* Vendor Details Section */}
+      <SectionTitle title="Vendor Details" />
+      {order.vendor ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <DetailItem label="Vendor Name" value={displayValue(order.vendor.name)} />
+          <DetailItem label="Address" value={displayValue(order.vendor.address)} />
+          <DetailItem label="Contact Person" value={displayValue(order.vendor.contact_person)} />
+          <DetailItem label="Email" value={displayValue(order.vendor.email)} />
+          <DetailItem label="No Telp" value={displayValue(order.vendor.telp)} />
+          <DetailItem label="No HP" value={displayValue(order.vendor.HP)} />
+        </div>
+      ) : (
+        <div className="text-center py-4 text-gray-500">No vendor assigned to this work order.</div>
+      )}
+
       <SectionTitle title="Assignment Details" />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <DetailItem label="Received By" value={displayValue(order.received_by?.name)} />
@@ -397,6 +412,24 @@ const ITAssignment: React.FC = () => {
     },
     [updateWorkOrder]
   );
+
+  // Fungsi untuk mendapatkan nama assigned to (user atau vendor)
+  const getAssignedToName = (order: WorkOrderData): string => {
+    // Jika ada vendor, tampilkan nama vendor
+    if (order.vendor) {
+      return `${order.vendor.name}`;
+    }
+
+    // Jika tidak ada vendor, tampilkan assigned_to user atau "Unassigned"
+    return order.assigned_to?.name || "Unassigned";
+  };
+
+  // Fungsi untuk mendapatkan tipe assignment
+  const getAssignmentType = (order: WorkOrderData): string => {
+    if (order.vendor) return "vendor";
+    if (order.assigned_to) return "user";
+    return "unassigned";
+  };
 
   const toggleSidebar = () => {
     setSidebarOpen((prev) => !prev);
@@ -739,6 +772,9 @@ const ITAssignment: React.FC = () => {
                       const canEdit = !isCompleted;
                       const isNew = order.handling_status === "New";
 
+                      const assignedToName = getAssignedToName(order);
+                      const assignmentType = getAssignmentType(order);
+
                       return (
                         <motion.tr
                           key={order.id}
@@ -761,7 +797,12 @@ const ITAssignment: React.FC = () => {
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full ${getStatusColor(order.handling_status)} shadow-sm`}>{order.handling_status}</span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{order.assigned_to?.name || "N/A"}</td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <span className={`text-sm font-medium ${assignmentType === "vendor" ? "text-purple-600" : assignmentType === "user" ? "text-blue-600" : "text-gray-500"}`}>{assignedToName}</span>
+                              {assignmentType === "vendor" && <span className="ml-2 px-1.5 py-0.5 text-xs bg-purple-100 text-purple-800 rounded-full">Vendor</span>}
+                            </div>
+                          </td>
 
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium flex items-center space-x-2">
                             <motion.button
