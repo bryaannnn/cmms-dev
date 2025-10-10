@@ -43,6 +43,56 @@ interface User {
   role?: string;
 }
 
+// Ganti komponen StatCard dengan versi yang lebih dinamis
+interface StatCardProps {
+  title: string;
+  currentCount: number;
+  lastMonthCount: number;
+  icon: React.ReactNode;
+  usePercentage?: boolean;
+}
+
+const StatCard: React.FC<StatCardProps> = ({ title, currentCount, lastMonthCount, icon, usePercentage = true }) => {
+  const change = usePercentage ? calculateChange(currentCount, lastMonthCount) : calculateAbsoluteChange(currentCount, lastMonthCount);
+  const isPositive = currentCount >= lastMonthCount;
+  const changeText = usePercentage ? `${change} from last month` : `${change} from last month`;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
+      whileHover={{ y: -5, boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)", scale: 1.01 }}
+      className="bg-white rounded-2xl shadow-md p-6 border border-blue-50 cursor-pointer overflow-hidden transform transition-transform duration-200"
+    >
+      <div className="flex items-center justify-between z-10 relative">
+        <div>
+          <p className="text-sm font-medium text-gray-500 mb-1">{title}</p>
+          <p className="text-3xl font-bold text-gray-900">{currentCount}</p>
+        </div>
+        <div className="p-2 rounded-full bg-blue-50 text-blue-600 text-2xl opacity-90 transition-all duration-200">{icon}</div>
+      </div>
+      <p className={`mt-3 text-xs font-semibold ${isPositive ? "text-green-600" : "text-red-600"}`}>{changeText}</p>
+    </motion.div>
+  );
+};
+
+// Juga pindahkan helper functions calculation ke luar
+const calculateChange = (currentCount: number, lastMonthCount: number): string => {
+  if (lastMonthCount === 0) {
+    return currentCount > 0 ? "+100%" : "0%";
+  }
+  const change = ((currentCount - lastMonthCount) / lastMonthCount) * 100;
+  const sign = change >= 0 ? "+" : "";
+  return `${sign}${Math.round(change)}%`;
+};
+
+const calculateAbsoluteChange = (currentCount: number, lastMonthCount: number): string => {
+  const change = currentCount - lastMonthCount;
+  const sign = change > 0 ? "+" : change < 0 ? "" : "+";
+  return `${sign}${change}`;
+};
+
 const ITRequest2: React.FC = () => {
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
@@ -64,6 +114,8 @@ const ITRequest2: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const [lastMonthWorkOrders, setLastMonthWorkOrders] = useState<WorkOrderData[]>([]);
 
   // State baru untuk konfirmasi Complete dan Cancel
   const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
@@ -112,30 +164,52 @@ const ITRequest2: React.FC = () => {
     };
   }, []);
 
-  // Request.tsx
-  const loadWorkOrders = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
+  // GANTI fungsi loadWorkOrders yang lama dengan ini:
 
-      // Ambil semua work order
-      const allOrders = await getWorkOrdersIT();
-
-      // Filter hanya yang dimiliki oleh user yang login
-      const userOrders = allOrders.filter((order) => order.requester_id === Number(currentUser?.id));
-
-      setWorkOrders(userOrders);
-    } catch (err) {
-      setError("Failed to load work orders. Please try again.");
-      console.error("Error loading work orders:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [getWorkOrdersIT, currentUser?.id]);
-
+  // GANTI useEffect loadWorkOrders dengan ini:
   useEffect(() => {
-    loadWorkOrders();
-  }, [loadWorkOrders]);
+    let isMounted = true;
+
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const allOrders = await getWorkOrdersIT();
+
+        // Prevent state update if component unmounted
+        if (!isMounted) return;
+
+        const userOrders = allOrders.filter((order) => order.requester_id === Number(currentUser?.id));
+        setWorkOrders(userOrders);
+
+        // Data bulan sebelumnya
+        const oneMonthAgo = new Date();
+        oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+
+        const lastMonthData = userOrders.filter((order) => {
+          const orderDate = new Date(order.date);
+          return orderDate < oneMonthAgo;
+        });
+
+        setLastMonthWorkOrders(lastMonthData);
+      } catch (err) {
+        if (!isMounted) return;
+        setError("Failed to load work orders. Please try again.");
+        console.error("Error loading work orders:", err);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [getWorkOrdersIT, currentUser?.id]); // Hapus loadWorkOrders dari dependencies
 
   useEffect(() => {
     setCurrentPage(1);
@@ -187,7 +261,12 @@ const ITRequest2: React.FC = () => {
         setLoading(true);
         setError(null);
         await deleteWorkOrder(id);
-        await loadWorkOrders();
+
+        // Reload data setelah delete
+        const allOrders = await getWorkOrdersIT();
+        const userOrders = allOrders.filter((order) => order.requester_id === Number(currentUser?.id));
+        setWorkOrders(userOrders);
+
         setShowDeleteConfirm(false);
         setRecordToDelete(null);
         setSuccessMessage("Work order deleted successfully.");
@@ -199,7 +278,7 @@ const ITRequest2: React.FC = () => {
         setLoading(false);
       }
     },
-    [deleteWorkOrder, loadWorkOrders]
+    [deleteWorkOrder, getWorkOrdersIT, currentUser?.id]
   );
 
   const handleCancelClick = useCallback((id: number) => {
@@ -213,7 +292,6 @@ const ITRequest2: React.FC = () => {
     setShowCompleteConfirm(true);
   }, []);
 
-  // Tambahkan fungsi ini setelah handleCompleteWorkOrder
   const handleCancelWorkOrder = useCallback(
     async (id: number) => {
       try {
@@ -229,7 +307,20 @@ const ITRequest2: React.FC = () => {
           }),
         });
 
-        await loadWorkOrders();
+        // ✅ GANTI: loadWorkOrders() dengan reload data langsung
+        const allOrders = await getWorkOrdersIT();
+        const userOrders = allOrders.filter((order) => order.requester_id === Number(currentUser?.id));
+        setWorkOrders(userOrders);
+
+        // Update lastMonthWorkOrders
+        const oneMonthAgo = new Date();
+        oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+        const lastMonthData = userOrders.filter((order) => {
+          const orderDate = new Date(order.date);
+          return orderDate < oneMonthAgo;
+        });
+        setLastMonthWorkOrders(lastMonthData);
+
         setShowWorkOrderDetailsModal(false);
         setSelectedWorkOrder(null);
         setShowCancelConfirm(false);
@@ -243,7 +334,7 @@ const ITRequest2: React.FC = () => {
         setLoading(false);
       }
     },
-    [fetchWithAuth, loadWorkOrders]
+    [fetchWithAuth, getWorkOrdersIT, currentUser?.id] // ✅ Hapus loadWorkOrders
   );
 
   const handleCompleteWorkOrder = useCallback(
@@ -261,7 +352,20 @@ const ITRequest2: React.FC = () => {
           }),
         });
 
-        await loadWorkOrders();
+        // ✅ GANTI: loadWorkOrders() dengan reload data langsung
+        const allOrders = await getWorkOrdersIT();
+        const userOrders = allOrders.filter((order) => order.requester_id === Number(currentUser?.id));
+        setWorkOrders(userOrders);
+
+        // Update lastMonthWorkOrders
+        const oneMonthAgo = new Date();
+        oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+        const lastMonthData = userOrders.filter((order) => {
+          const orderDate = new Date(order.date);
+          return orderDate < oneMonthAgo;
+        });
+        setLastMonthWorkOrders(lastMonthData);
+
         setShowWorkOrderDetailsModal(false);
         setSelectedWorkOrder(null);
         setShowCompleteConfirm(false);
@@ -275,8 +379,21 @@ const ITRequest2: React.FC = () => {
         setLoading(false);
       }
     },
-    [fetchWithAuth, loadWorkOrders]
+    [fetchWithAuth, getWorkOrdersIT, currentUser?.id] // ✅ Hapus loadWorkOrders
   );
+
+  // Tambahkan helper functions di dalam komponen ITRequest2, sebelum return
+  const getProgressWorkOrders = (orders: WorkOrderData[]) => {
+    return orders.filter((wo) => ["Assigned", "In Progress", "Escalated", "Vendor Handled", "Resolved"].includes(wo.handling_status));
+  };
+
+  const getClosedWorkOrders = (orders: WorkOrderData[]) => {
+    return orders.filter((wo) => ["Closed", "Cancel"].includes(wo.handling_status));
+  };
+
+  const getNewWorkOrders = (orders: WorkOrderData[]) => {
+    return orders.filter((wo) => wo.handling_status === "New");
+  };
 
   const toggleSidebar = () => {
     setSidebarOpen((prev) => !prev);
@@ -389,12 +506,60 @@ const ITRequest2: React.FC = () => {
       return <div className="w-full bg-blue-50 border border-blue-100 rounded-lg p-3 text-gray-800 text-base font-medium min-h-[44px] flex items-center" dangerouslySetInnerHTML={{ __html: cleanHTML }} />;
     };
 
-    const DetailItemHTML: React.FC<{ label: string; htmlContent: string }> = ({ label, htmlContent }) => (
-      <div className="flex flex-col">
-        <h4 className="text-sm font-medium text-gray-500 mb-1">{label}</h4>
-        {displayHTML(htmlContent)}
-      </div>
-    );
+    const DetailItemHTML: React.FC<{ label: string; htmlContent: string }> = ({ label, htmlContent }) => {
+      if (!htmlContent)
+        return (
+          <div className="flex flex-col">
+            <h4 className="text-sm font-medium text-gray-500 mb-1">{label}</h4>
+            <p className="w-full bg-blue-50 border border-blue-100 rounded-lg p-3 text-gray-800 text-base font-medium min-h-[44px] flex items-center">-</p>
+          </div>
+        );
+
+      // Konfigurasi DOMPurify yang mengizinkan list dan styling
+      const cleanHTML = DOMPurify.sanitize(htmlContent, {
+        ALLOWED_TAGS: [
+          "h1",
+          "h2",
+          "h3",
+          "h4",
+          "h5",
+          "h6",
+          "p",
+          "br",
+          "span",
+          "div",
+          "ol",
+          "ul",
+          "li", // Pastikan tag list diizinkan
+          "strong",
+          "b",
+          "em",
+          "i",
+          "u",
+          "s",
+          "strike",
+          "code",
+          "mark",
+          "sub",
+          "sup",
+        ],
+        ALLOWED_ATTR: [
+          "style",
+          "class",
+          "data-color",
+          "align",
+          "type",
+          "start", // Izinkan atribut untuk list
+        ],
+      });
+
+      return (
+        <div className="flex flex-col">
+          <h4 className="text-sm font-medium text-gray-500 mb-1">{label}</h4>
+          <div className="rich-text-content w-full bg-blue-50 border border-blue-100 rounded-lg p-4 text-gray-800 min-h-[44px]" dangerouslySetInnerHTML={{ __html: cleanHTML }} />
+        </div>
+      );
+    };
 
     const DetailItem: React.FC<{ label: string; value: string }> = ({ label, value }) => (
       <div className="flex flex-col">
@@ -431,11 +596,17 @@ const ITRequest2: React.FC = () => {
         </div>
 
         <SectionTitle title="Handling Information" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <DetailItem label="Ticket Status" value={displayValue(order.handling_status)} />
-          <DetailItem label="Assigned To" value={displayValue(order.assigned_to?.name)} />
-          <DetailItem label="Handling Date" value={formatDate(order.handling_date || "-")} />
-          <DetailItem label="Action Taken" value={displayValue(order.action_taken)} />
+        <div className="grid grid-cols-1 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <DetailItem label="Ticket Status" value={displayValue(order.handling_status)} />
+            <DetailItem label="Handling Date" value={formatDate(order.handling_date || "-")} />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <DetailItem label="Assigned To" value={displayValue(order.assigned_to?.name)} />
+            <DetailItem label="Received By" value={displayValue(order.received_by?.name)} />
+          </div>
+          <DetailItemHTML label="Action Taken" htmlContent={order.action_taken || ""} />
+          <DetailItemHTML label="Remarks" htmlContent={order.remarks || ""} />
         </div>
 
         {/* Vendor Details Section */}
@@ -481,7 +652,7 @@ const ITRequest2: React.FC = () => {
     );
   };
 
-  if (loading && workOrders.length === 0) {
+  if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-blue-50">
         <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-600"></div>
@@ -490,14 +661,44 @@ const ITRequest2: React.FC = () => {
     );
   }
 
-  if (error && workOrders.length === 0) {
+  if (error) {
     return (
       <div className="flex h-screen items-center justify-center bg-red-50">
         <AlertTriangle className="text-red-600 text-5xl" />
-        <p className="ml-4 text-lg text-red-800">{error}</p>
-        <button onClick={loadWorkOrders} className="ml-4 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">
-          Retry
-        </button>
+        <div className="ml-4">
+          <p className="text-lg text-red-800">{error}</p>
+          {/* ✅ GANTI: onClick={loadWorkOrders} dengan reload langsung */}
+          <button
+            onClick={() => {
+              // Panggil useEffect logic langsung di sini
+              const loadData = async () => {
+                try {
+                  setLoading(true);
+                  setError(null);
+                  const allOrders = await getWorkOrdersIT();
+                  const userOrders = allOrders.filter((order) => order.requester_id === Number(currentUser?.id));
+                  setWorkOrders(userOrders);
+
+                  const oneMonthAgo = new Date();
+                  oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+                  const lastMonthData = userOrders.filter((order) => {
+                    const orderDate = new Date(order.date);
+                    return orderDate < oneMonthAgo;
+                  });
+                  setLastMonthWorkOrders(lastMonthData);
+                } catch (err) {
+                  setError("Failed to load work orders. Please try again.");
+                } finally {
+                  setLoading(false);
+                }
+              };
+              loadData();
+            }}
+            className="mt-4 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+          >
+            Try Again
+          </button>
+        </div>
       </div>
     );
   }
@@ -715,79 +916,12 @@ const ITRequest2: React.FC = () => {
             </div>
           </motion.div>
 
+          {/* Stat cards dengan helper functions */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              whileHover={{ y: -5, boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)", scale: 1.01 }}
-              className="bg-white rounded-2xl shadow-md p-6 border border-blue-50 cursor-pointer overflow-hidden transform transition-transform duration-200"
-            >
-              <div className="flex items-center justify-between z-10 relative">
-                <div>
-                  <p className="text-sm font-medium text-gray-500 mb-1">Total IT Requests</p>
-                  <p className="text-3xl font-bold text-gray-900">{filteredWorkOrders.length}</p>
-                </div>
-                <div className="p-2 rounded-full bg-blue-50 text-blue-600 text-2xl opacity-90 transition-all duration-200">
-                  <Clipboard />
-                </div>
-              </div>
-              <p className="mt-3 text-xs font-semibold text-green-600">+8% from last month</p>
-            </motion.div>
-
-            <motion.div
-              className="bg-white rounded-2xl shadow-md p-6 border border-blue-50 cursor-pointer overflow-hidden transform transition-transform duration-200"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-            >
-              <div className="flex items-center justify-between z-10 relative">
-                <div>
-                  <p className="text-sm font-medium text-gray-500 mb-1">IT New WO</p>
-                  <p className="text-3xl font-bold text-gray-900">{filteredWorkOrders.filter((wo) => wo.handling_status === "New").length}</p>
-                </div>
-                <div className="p-2 rounded-full bg-blue-50 text-blue-600 text-2xl opacity-90 transition-all duration-200">
-                  <Clock />
-                </div>
-              </div>
-              <p className="mt-3 text-xs font-semibold text-green-600">+3 from last month</p>
-            </motion.div>
-
-            <motion.div
-              className="bg-white rounded-2xl shadow-md p-6 border border-blue-50 cursor-pointer overflow-hidden transform transition-transform duration-200"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-            >
-              <div className="flex items-center justify-between z-10 relative">
-                <div>
-                  <p className="text-sm font-medium text-gray-500 mb-1">IT Progress</p>
-                  <p className="text-3xl font-bold text-gray-900">{filteredWorkOrders.filter((wo) => wo.handling_status === "Progress").length}</p>
-                </div>
-                <div className="p-2 rounded-full bg-blue-50 text-blue-600 text-2xl opacity-90 transition-all duration-200">
-                  <Wrench />
-                </div>
-              </div>
-              <p className="mt-3 text-xs font-semibold text-red-600">-1 from last month</p>
-            </motion.div>
-
-            <motion.div
-              className="bg-white rounded-2xl shadow-md p-6 border border-blue-50 cursor-pointer overflow-hidden transform transition-transform duration-200"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-            >
-              <div className="flex items-center justify-between z-10 relative">
-                <div>
-                  <p className="text-sm font-medium text-gray-500 mb-1">IT Closed</p>
-                  <p className="text-3xl font-bold text-gray-900">{filteredWorkOrders.filter((wo) => wo.handling_status === "Closed").length}</p>
-                </div>
-                <div className="p-2 rounded-full bg-blue-50 text-blue-600 text-2xl opacity-90 transition-all duration-200">
-                  <CheckCircle />
-                </div>
-              </div>
-              <p className="mt-3 text-xs font-semibold text-green-600">+5 from last month</p>
-            </motion.div>
+            <StatCard title="Total IT Requests" currentCount={filteredWorkOrders.length} lastMonthCount={lastMonthWorkOrders.length} icon={<Clipboard />} />
+            <StatCard title="IT New WO" currentCount={getNewWorkOrders(filteredWorkOrders).length} lastMonthCount={getNewWorkOrders(lastMonthWorkOrders).length} icon={<Clock />} usePercentage={false} />
+            <StatCard title="IT Progress" currentCount={getProgressWorkOrders(filteredWorkOrders).length} lastMonthCount={getProgressWorkOrders(lastMonthWorkOrders).length} icon={<Wrench />} usePercentage={false} />
+            <StatCard title="IT Closed" currentCount={getClosedWorkOrders(filteredWorkOrders).length} lastMonthCount={getClosedWorkOrders(lastMonthWorkOrders).length} icon={<CheckCircle />} usePercentage={false} />
           </div>
 
           <motion.div layout className="mb-6 bg-white rounded-2xl shadow-md p-4 md:p-6 border border-blue-50">
@@ -1005,7 +1139,7 @@ const ITRequest2: React.FC = () => {
 
       {selectedWorkOrder && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 overflow-y-auto">
+          <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-brightness-50 p-4 overflow-y-auto">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl mx-auto p-6 border border-blue-100">
               <div className="flex justify-between items-center border-b pb-3 mb-4 border-gray-100">
                 <h3 className="text-2xl font-bold text-gray-900">Work Order Details #{selectedWorkOrder.id}</h3>
@@ -1037,7 +1171,7 @@ const ITRequest2: React.FC = () => {
 
       <AnimatePresence>
         {showDeleteConfirm && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center backdrop-brightness-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-auto p-6 border border-blue-100">
               <div className="space-y-5 text-center py-3">
                 <AlertTriangle className="text-red-500 text-5xl mx-auto animate-pulse" />
@@ -1075,7 +1209,7 @@ const ITRequest2: React.FC = () => {
       {/* Modal Konfirmasi Complete */}
       <AnimatePresence>
         {showCompleteConfirm && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center backdrop-brightness-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-auto p-6 border border-blue-100">
               <div className="space-y-5 text-center py-3">
                 <CheckCircle className="text-green-500 text-5xl mx-auto" />

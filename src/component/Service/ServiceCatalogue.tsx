@@ -3,8 +3,6 @@ import Sidebar from "../../component/Sidebar";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Upload, Filter, ChevronDown, Search, X, Bell, Moon, Sun, UserIcon, ChevronRight, Edit, Trash2, Info, Folder, Eye } from "lucide-react";
 import { useAuth } from "../../routes/AuthContext";
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
 import { useNavigate } from "react-router-dom";
 
 function useDebounce<T>(value: T, delay: number): T {
@@ -51,7 +49,7 @@ const Modal: React.FC<{ isOpen: boolean; onClose: () => void; title: string; cla
   return (
     <AnimatePresence>
       {isOpen && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50 p-4 backdrop-blur-sm">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} className="fixed inset-0 backdrop-brightness-50 bg-opacity-40 flex justify-center items-center z-50 p-4">
           <motion.div
             initial={{ y: 50, opacity: 0, scale: 0.98 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
@@ -73,24 +71,42 @@ const Modal: React.FC<{ isOpen: boolean; onClose: () => void; title: string; cla
   );
 };
 
-const StatCard: React.FC<{ title: string; value: string; change?: string; icon?: React.ReactNode }> = ({ title, value, change, icon }) => {
-  const isPositive = (change || "").startsWith("+");
+const StatCard: React.FC<{ title: string; currentCount: number; lastMonthCount: number; icon: React.ReactNode; usePercentage?: boolean }> = ({ title, currentCount, lastMonthCount, icon, usePercentage = true }) => {
+  const calculateChange = (current: number, last: number): string => {
+    if (last === 0) {
+      return current > 0 ? "+100%" : "0%";
+    }
+    const change = ((current - last) / last) * 100;
+    const sign = change >= 0 ? "+" : "";
+    return `${sign}${Math.round(change)}%`;
+  };
+
+  const calculateAbsoluteChange = (current: number, last: number): string => {
+    const change = current - last;
+    const sign = change > 0 ? "+" : change < 0 ? "" : "+";
+    return `${sign}${change}`;
+  };
+
+  const change = usePercentage ? calculateChange(currentCount, lastMonthCount) : calculateAbsoluteChange(currentCount, lastMonthCount);
+  const isPositive = currentCount >= lastMonthCount;
+  const changeText = usePercentage ? `${change} from last month` : `${change} from last month`;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      whileHover={{ y: -5, boxShadow: "0 10px 25px -5px rgba(0,0,0,0.08)", scale: 1.01 }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
+      whileHover={{ y: -5, boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)", scale: 1.01 }}
       className="bg-white rounded-2xl shadow-md p-6 border border-blue-50 cursor-pointer overflow-hidden transform transition-transform duration-200"
     >
       <div className="flex items-center justify-between z-10 relative">
         <div>
           <p className="text-sm font-medium text-gray-500 mb-1">{title}</p>
-          <p className="text-3xl font-bold text-gray-900">{value}</p>
+          <p className="text-3xl font-bold text-gray-900">{currentCount}</p>
         </div>
         <div className="p-2 rounded-full bg-blue-50 text-blue-600 text-2xl opacity-90 transition-all duration-200">{icon}</div>
       </div>
-      {change && <p className={`mt-3 text-xs font-semibold ${isPositive ? "text-green-600" : "text-red-600"}`}>{change} from last month</p>}
+      <p className={`mt-3 text-xs font-semibold ${isPositive ? "text-green-600" : "text-red-600"}`}>{changeText}</p>
     </motion.div>
   );
 };
@@ -135,6 +151,10 @@ const ServiceCataloguePage: React.FC = () => {
   });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  const notificationsRef = useRef<HTMLDivElement>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
 
   const loadServiceGroups = useCallback(async () => {
     try {
@@ -161,7 +181,7 @@ const ServiceCataloguePage: React.FC = () => {
 
   const mapApiToLocal = useCallback((api: any): ServiceCatalogue => {
     return {
-      id: api.id ?? 0, // default ke 0 atau null
+      id: api.id ?? 0,
       service_name: api.service_name ?? api.name ?? "",
       service_description: api.service_description ?? api.description ?? "",
       service_type: Number(api.service_type ?? api.service_type ?? 0),
@@ -202,6 +222,29 @@ const ServiceCataloguePage: React.FC = () => {
     };
   }, [loadServices, loadServiceGroups, loadUsers]);
 
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
+        setShowNotificationsPopup(false);
+      }
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setShowProfileMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
   const showToast = (type: "success" | "error", message: string) => {
     setToast({ type, message });
     setTimeout(() => setToast(null), 3000);
@@ -227,6 +270,15 @@ const ServiceCataloguePage: React.FC = () => {
     const set = new Set<number>();
     services.forEach((s) => set.add(s.service_owner));
     return set.size;
+  }, [services]);
+
+  const lastMonthServices = useMemo(() => {
+    const oneMonthAgo = new Date();
+    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+    return services.filter((service) => {
+      const serviceDate = new Date(service.created_at);
+      return serviceDate < oneMonthAgo;
+    });
   }, [services]);
 
   const clearFilters = () => {
@@ -343,24 +395,25 @@ const ServiceCataloguePage: React.FC = () => {
     return list;
   }, [services, debouncedSearch, groupFilter, priorityFilter, sortConfig]);
 
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case "Critical":
+        return "bg-red-500 text-white";
+      case "High":
+        return "bg-orange-500 text-white";
+      case "Medium":
+        return "bg-yellow-500 text-white";
+      case "Low":
+        return "bg-gray-500 text-white";
+      default:
+        return "bg-gray-500 text-white";
+    }
+  };
+
   const indexOfLastRecord = currentPage * recordsPerPage;
   const indexOfFirstRecord = indexOfLastRecord - recordsPerPage;
   const currentRecords = filteredServices.slice(indexOfFirstRecord, indexOfLastRecord);
   const totalPages = Math.max(1, Math.ceil(filteredServices.length / recordsPerPage));
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (!(target as HTMLElement)?.closest?.(".profile-menu")) {
-        setShowProfileMenu(false);
-      }
-      if (!(target as HTMLElement)?.closest?.(".notifications-popup")) {
-        setShowNotificationsPopup(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   const Form: React.FC = () => {
     const [serviceName, setServiceName] = useState(editingService?.service_name || "");
@@ -533,6 +586,11 @@ const ServiceCataloguePage: React.FC = () => {
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="bg-white border-b border-gray-100 p-4 flex items-center justify-between shadow-sm sticky top-0 z-30">
           <div className="flex items-center space-x-4">
+            {isMobile && (
+              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
+                <ChevronRight className="text-xl" />
+              </motion.button>
+            )}
             <motion.div className="flex items-center space-x-3">
               <motion.div className="text-xl text-blue-600">
                 <Folder />
@@ -544,7 +602,7 @@ const ServiceCataloguePage: React.FC = () => {
             <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setDarkMode(!darkMode)} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200" aria-label="Toggle theme">
               {darkMode ? <Sun className="text-yellow-400 text-xl" /> : <Moon className="text-xl" />}
             </motion.button>
-            <div className="relative notifications-popup">
+            <div className="relative" ref={notificationsRef}>
               <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setShowNotificationsPopup((s) => !s)} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
                 <Bell className="text-xl" />
                 <span className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full animate-pulse border border-white"></span>
@@ -560,7 +618,7 @@ const ServiceCataloguePage: React.FC = () => {
                 )}
               </AnimatePresence>
             </div>
-            <div className="relative profile-menu">
+            <div className="relative" ref={profileRef}>
               <motion.button
                 whileHover={{ backgroundColor: "rgba(239,246,255,0.7)" }}
                 whileTap={{ scale: 0.98 }}
@@ -635,43 +693,50 @@ const ServiceCataloguePage: React.FC = () => {
           </motion.div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
-            <StatCard title="Total Services" value={totalServices.toLocaleString()} change="+2%" icon={<Info />} />
-            <StatCard title="Critical" value={String(priorityCounts.Critical)} change={priorityCounts.Critical > 0 ? "+1" : "-"} icon={<Info />} />
-            <StatCard title="Average SLA (hrs)" value={String(averageSLA)} change="-1%" icon={<Info />} />
-            <StatCard title="Total Owners" value={String(totalOwners)} change="+0" icon={<UserIcon />} />
+            <StatCard title="Total Services" currentCount={totalServices} lastMonthCount={lastMonthServices.length} icon={<Info />} />
+            <StatCard title="Critical" currentCount={priorityCounts.Critical} lastMonthCount={lastMonthServices.filter((s) => s.priority === "Critical").length} icon={<Info />} usePercentage={false} />
+            <StatCard
+              title="Average SLA (hrs)"
+              currentCount={averageSLA}
+              lastMonthCount={lastMonthServices.length > 0 ? Math.round((lastMonthServices.reduce((acc, s) => acc + (s.sla || 0), 0) / lastMonthServices.length) * 100) / 100 : 0}
+              icon={<Info />}
+              usePercentage={false}
+            />
+            <StatCard title="Total Owners" currentCount={totalOwners} lastMonthCount={new Set(lastMonthServices.map((s) => s.service_owner)).size} icon={<UserIcon />} usePercentage={false} />
           </div>
 
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }}>
-            <div className="mb-4 flex items-center justify-between space-x-4">
-              <div className="flex items-center w-full max-w-xl space-x-2">
-                <div className="relative flex-1">
+            <div className="mb-4 bg-white rounded-2xl shadow-md p-4 md:p-6 border border-blue-50">
+              <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-4 md:space-y-0">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
                   <input
                     ref={searchInputRef}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search services by name or description..."
-                    className="w-full px-4 py-2 rounded-lg border border-blue-100 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 text-sm"
+                    className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-base transition-all duration-200"
                   />
                 </div>
-                <button
-                  onClick={() => {
-                    setSearchQuery("");
-                    searchInputRef.current?.focus();
-                  }}
-                  className="px-3 py-2 border border-blue-100 rounded-lg bg-white text-sm"
-                >
-                  Clear
-                </button>
-              </div>
-            </div>
 
-            {showAdvancedFilters && (
-              <AnimatePresence>
-                <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} className="bg-white rounded-2xl p-4 mb-6 border border-blue-100">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div>
-                      <label className="text-sm font-medium text-gray-700">Service Group</label>
-                      <select value={groupFilter} onChange={(e) => setGroupFilter(e.target.value)} className="w-full mt-2 px-4 py-2 border border-blue-200 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+                <AnimatePresence>
+                  {showAdvancedFilters && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 w-full md:w-auto"
+                    >
+                      <select
+                        value={groupFilter}
+                        onChange={(e) => setGroupFilter(e.target.value)}
+                        className="border border-gray-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-base appearance-none bg-no-repeat bg-right-12 bg-center-y transition-all duration-200"
+                        style={{
+                          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/svg%3E")`,
+                          backgroundSize: "1.2rem",
+                        }}
+                      >
                         <option value="">All Groups</option>
                         {groups.map((g) => (
                           <option key={String(g.id)} value={String(g.id)}>
@@ -679,13 +744,14 @@ const ServiceCataloguePage: React.FC = () => {
                           </option>
                         ))}
                       </select>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-700">By Priority</label>
                       <select
                         value={priorityFilter}
                         onChange={(e) => setPriorityFilter(e.target.value as any)}
-                        className="w-full mt-2 px-4 py-2 border border-blue-200 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                        className="border border-gray-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-base appearance-none bg-no-repeat bg-right-12 bg-center-y transition-all duration-200"
+                        style={{
+                          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/svg%3E")`,
+                          backgroundSize: "1.2rem",
+                        }}
                       >
                         <option value="">All Priorities</option>
                         <option value="Critical">Critical</option>
@@ -693,16 +759,11 @@ const ServiceCataloguePage: React.FC = () => {
                         <option value="Medium">Medium</option>
                         <option value="Low">Low</option>
                       </select>
-                    </div>
-                    <div className="flex items-end space-x-2">
-                      <button onClick={clearFilters} className="w-full px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-100 text-gray-700 transition-colors duration-200 text-sm">
-                        Clear Filters
-                      </button>
-                    </div>
-                  </div>
-                </motion.div>
-              </AnimatePresence>
-            )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
 
             {loading ? (
               <div className="bg-white rounded-2xl shadow-md p-8 text-center border border-blue-100">
@@ -731,77 +792,71 @@ const ServiceCataloguePage: React.FC = () => {
               </div>
             ) : (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="bg-white rounded-2xl shadow-md overflow-hidden border border-blue-100">
-                <div className="overflow-x-auto custom-scrollbar">
-                  <table className="min-w-full divide-y divide-blue-100">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-100">
                     <thead className="bg-blue-50">
                       <tr>
-                        <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">No</th>
-                        <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider" onClick={() => requestSort("service_name")}>
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">No</th>
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider" onClick={() => requestSort("service_name")}>
                           Service Name
                         </th>
-                        <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Group</th>
-                        <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Priority</th>
-                        <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Service Owner</th>
-                        <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">SLA (hrs)</th>
-                        <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Impact</th>
-                        <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Group</th>
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Priority</th>
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Service Owner</th>
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">SLA (hrs)</th>
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Impact</th>
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-blue-50">
+                    <tbody className="bg-white divide-y divide-gray-100">
                       {currentRecords.map((s, idx) => {
                         const ownerName = users.find((u) => u.id === Number(s.service_owner))?.name ?? String(s.service_owner);
                         const groupName = groups.find((g) => String(g.id) === String(s.service_type))?.group_name ?? (groups.find((g) => String(g.id) === String(s.service_type)) as any)?.name ?? String(s.service_type);
                         return (
-                          <motion.tr key={s.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.02 * idx }}>
-                            <td className="px-5 py-3 whitespace-nowrap text-sm text-gray-600">{indexOfFirstRecord + idx + 1}</td>
-                            <td className="px-5 py-3 text-sm font-medium text-gray-900">{s.service_name}</td>
-                            <td className="px-5 py-3 text-sm text-gray-700">{groupName}</td>
-                            <td className="px-5 py-3 text-sm text-gray-700">
-                              <span
-                                className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
-                                  s.priority === "Critical"
-                                    ? "bg-red-100 text-red-700 border border-red-200"
-                                    : s.priority === "High"
-                                    ? "bg-yellow-100 text-yellow-800 border border-yellow-200"
-                                    : s.priority === "Medium"
-                                    ? "bg-blue-100 text-blue-800 border border-blue-200"
-                                    : "bg-gray-100 text-gray-800 border border-gray-200"
-                                }`}
-                              >
-                                {s.priority}
-                              </span>
+                          <motion.tr
+                            key={s.id}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.2 }}
+                            whileHover={{ backgroundColor: "rgba(239, 246, 255, 1)" }}
+                            className="transition-colors duration-150"
+                          >
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{indexOfFirstRecord + idx + 1}</td>
+                            <td className="px-6 py-4 text-sm font-medium text-gray-900">{s.service_name}</td>
+                            <td className="px-6 py-4 text-sm text-gray-700">{groupName}</td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full ${getPriorityColor(s.priority)} shadow-sm`}>{s.priority}</span>
                             </td>
-                            <td className="px-5 py-3 text-sm text-gray-700">{ownerName}</td>
-                            <td className="px-5 py-3 text-sm text-gray-700">{s.sla}</td>
-                            <td className="px-5 py-3 text-sm text-gray-700">{s.impact || "-"}</td>
-                            {/* Tabel Actions */}
-                            <td className="px-5 py-3 whitespace-nowrap text-sm font-medium space-x-1.5">
+                            <td className="px-6 py-4 text-sm text-gray-700">{ownerName}</td>
+                            <td className="px-6 py-4 text-sm text-gray-700">{s.sla}</td>
+                            <td className="px-6 py-4 text-sm text-gray-700">{s.impact || "-"}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium flex items-center space-x-2">
                               <motion.button
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
                                 onClick={() => openDetailModal(s)}
-                                className="text-blue-600 hover:text-blue-800 transition-colors duration-200 p-1 rounded-full hover:bg-blue-50"
+                                className="text-blue-600 hover:text-blue-800 transition-colors duration-200 flex items-center space-x-1"
                                 title="View Details"
                               >
-                                <Eye className="inline text-base" />
+                                <Eye className="text-lg" />
                               </motion.button>
                               <motion.button
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
                                 onClick={() => navigate(`/services/servicecatalogues/editservicecatalogue/${s.id}`)}
-                                className="text-yellow-600 hover:text-yellow-800 transition-colors duration-200 p-1 rounded-full hover:bg-yellow-50"
+                                className="text-yellow-600 hover:text-yellow-800 transition-colors duration-200 flex items-center space-x-1"
                                 title="Edit"
                               >
-                                <Edit className="inline text-base" />
+                                <Edit className="text-lg" />
                               </motion.button>
                               <motion.button
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
                                 onClick={() => handleDelete(s.id)}
-                                className="text-red-600 hover:text-red-800 transition-colors duration-200 p-1 rounded-full hover:bg-red-50"
+                                className="text-red-600 hover:text-red-800 transition-colors duration-200 flex items-center space-x-1"
                                 title="Delete"
                               >
-                                <Trash2 className="inline text-base" />
+                                <Trash2 className="text-lg" />
                               </motion.button>
                             </td>
                           </motion.tr>
@@ -814,40 +869,40 @@ const ServiceCataloguePage: React.FC = () => {
             )}
 
             {filteredServices.length > recordsPerPage && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="mt-8 flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
-                <div className="text-sm text-gray-600">
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="mt-8 flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                <div className="text-sm text-gray-600 mb-4 sm:mb-0">
                   Showing <span className="font-semibold">{indexOfFirstRecord + 1}</span> to <span className="font-semibold">{Math.min(indexOfLastRecord, filteredServices.length)}</span> of{" "}
                   <span className="font-semibold">{filteredServices.length}</span> results
                 </div>
                 <div className="flex space-x-2">
                   <motion.button
-                    whileHover={{ scale: 1.03 }}
-                    whileTap={{ scale: 0.97 }}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
-                    className="px-4 py-2 border border-blue-200 rounded-md bg-white text-gray-700 hover:bg-blue-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm font-medium text-sm"
+                    className="px-4 py-2 border border-gray-200 rounded-lg bg-white text-gray-700 hover:bg-blue-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                   >
                     Previous
                   </motion.button>
                   {Array.from({ length: totalPages }, (_, i) => (
                     <motion.button
                       key={i + 1}
-                      whileHover={{ scale: 1.03 }}
-                      whileTap={{ scale: 0.97 }}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                       onClick={() => setCurrentPage(i + 1)}
-                      className={`px-3.5 py-2 rounded-md transition-colors duration-200 shadow-sm font-medium text-sm ${
-                        currentPage === i + 1 ? "bg-blue-600 text-white shadow-md" : "bg-white text-gray-700 hover:bg-blue-50 border border-blue-200"
-                      }`}
+                      className={`px-4 py-2 rounded-lg transition-colors duration-200 shadow-sm
+                          ${currentPage === i + 1 ? "bg-blue-600 text-white shadow-md" : "bg-white text-gray-700 hover:bg-blue-50 border border-gray-200"}
+                        `}
                     >
                       {i + 1}
                     </motion.button>
                   ))}
                   <motion.button
-                    whileHover={{ scale: 1.03 }}
-                    whileTap={{ scale: 0.97 }}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                     disabled={currentPage === totalPages}
-                    className="px-4 py-2 border border-blue-200 rounded-md bg-white text-gray-700 hover:bg-blue-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm font-medium text-sm"
+                    className="px-4 py-2 border border-gray-200 rounded-lg bg-white text-gray-700 hover:bg-blue-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                   >
                     Next
                   </motion.button>
@@ -888,50 +943,86 @@ const ServiceCataloguePage: React.FC = () => {
         </div>
       </Modal>
 
-      <Modal isOpen={showDetailModal} onClose={() => setShowDetailModal(false)} title="Service Details" className="max-w-2xl">
+      <Modal isOpen={showDetailModal} onClose={() => setShowDetailModal(false)} title="Service Details" className="max-w-4xl">
         {selectedService && (
-          <div className="space-y-4">
+          <div className="space-y-6">
+            {/* General Information Section */}
             <div>
-              <h3 className="text-sm font-semibold text-gray-600">Service Name</h3>
-              <p className="text-gray-800">{selectedService.service_name}</p>
+              <h3 className="text-lg font-bold text-gray-800 mb-4 pb-2 border-b border-blue-200">General Information</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="flex flex-col">
+                  <h4 className="text-sm font-medium text-gray-500 mb-1">Service Name</h4>
+                  <p className="w-full bg-blue-50 border border-blue-100 rounded-lg p-3 text-gray-800 text-base font-medium min-h-[44px] flex items-center">{selectedService.service_name}</p>
+                </div>
+                <div className="flex flex-col">
+                  <h4 className="text-sm font-medium text-gray-500 mb-1">Service Type</h4>
+                  <p className="w-full bg-blue-50 border border-blue-100 rounded-lg p-3 text-gray-800 text-base font-medium min-h-[44px] flex items-center">
+                    {groups.find((g) => String(g.id) === String(selectedService.service_type))?.group_name ?? (groups.find((g) => String(g.id) === String(selectedService.service_type)) as any)?.name ?? selectedService.service_type}
+                  </p>
+                </div>
+                <div className="flex flex-col">
+                  <h4 className="text-sm font-medium text-gray-500 mb-1">Priority</h4>
+                  <p className="w-full bg-blue-50 border border-blue-100 rounded-lg p-3 text-base font-medium min-h-[44px] flex items-center">
+                    <span className={`px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full ${getPriorityColor(selectedService.priority)} shadow-sm`}>{selectedService.priority}</span>
+                  </p>
+                </div>
+              </div>
             </div>
+
+            {/* Service Details Section */}
             <div>
-              <h3 className="text-sm font-semibold text-gray-600">Description</h3>
-              <p className="text-gray-800 whitespace-pre-line">{selectedService.service_description || "-"}</p>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-600">Group</h3>
-                <p className="text-gray-800">
-                  {groups.find((g) => String(g.id) === String(selectedService.service_type))?.group_name ?? (groups.find((g) => String(g.id) === String(selectedService.service_type)) as any)?.name ?? selectedService.service_type}
-                </p>
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-gray-600">Priority</h3>
-                <p className="text-gray-800">{selectedService.priority}</p>
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-gray-600">Service Owner</h3>
-                <p className="text-gray-800">{users.find((u) => u.id === Number(selectedService.service_owner))?.name ?? selectedService.service_owner}</p>
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-gray-600">SLA (hours)</h3>
-                <p className="text-gray-800">{selectedService.sla}</p>
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-gray-600">Impact</h3>
-                <p className="text-gray-800">{selectedService.impact || "-"}</p>
+              <h3 className="text-lg font-bold text-gray-800 mb-4 pb-2 border-b border-blue-200">Service Details</h3>
+              <div className="grid grid-cols-1 gap-4">
+                <div className="flex flex-col">
+                  <h4 className="text-sm font-medium text-gray-500 mb-1">Description</h4>
+                  <p className="w-full bg-blue-50 border border-blue-100 rounded-lg p-3 text-gray-800 text-base font-medium min-h-[44px] flex items-center">{selectedService.service_description || "-"}</p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="flex flex-col">
+                    <h4 className="text-sm font-medium text-gray-500 mb-1">Service Owner</h4>
+                    <p className="w-full bg-blue-50 border border-blue-100 rounded-lg p-3 text-gray-800 text-base font-medium min-h-[44px] flex items-center">
+                      {users.find((u) => u.id === Number(selectedService.service_owner))?.name ?? selectedService.service_owner}
+                    </p>
+                  </div>
+                  <div className="flex flex-col">
+                    <h4 className="text-sm font-medium text-gray-500 mb-1">SLA (hours)</h4>
+                    <p className="w-full bg-blue-50 border border-blue-100 rounded-lg p-3 text-gray-800 text-base font-medium min-h-[44px] flex items-center">{selectedService.sla}</p>
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-600">Created At</h3>
-                <p className="text-gray-800">{new Date(selectedService.created_at).toLocaleString()}</p>
+
+            {/* Additional Information Section */}
+            <div>
+              <h3 className="text-lg font-bold text-gray-800 mb-4 pb-2 border-b border-blue-200">Additional Information</h3>
+              <div className="grid grid-cols-1 gap-4">
+                <div className="flex flex-col">
+                  <h4 className="text-sm font-medium text-gray-500 mb-1">Impact</h4>
+                  <p className="w-full bg-blue-50 border border-blue-100 rounded-lg p-3 text-gray-800 text-base font-medium min-h-[44px] flex items-center">{selectedService.impact || "-"}</p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="flex flex-col">
+                    <h4 className="text-sm font-medium text-gray-500 mb-1">Created At</h4>
+                    <p className="w-full bg-blue-50 border border-blue-100 rounded-lg p-3 text-gray-800 text-base font-medium min-h-[44px] flex items-center">{new Date(selectedService.created_at).toLocaleString()}</p>
+                  </div>
+                  <div className="flex flex-col">
+                    <h4 className="text-sm font-medium text-gray-500 mb-1">Updated At</h4>
+                    <p className="w-full bg-blue-50 border border-blue-100 rounded-lg p-3 text-gray-800 text-base font-medium min-h-[44px] flex items-center">{new Date(selectedService.updated_at).toLocaleString()}</p>
+                  </div>
+                </div>
               </div>
-              <div>
-                <h3 className="text-sm font-semibold text-gray-600">Updated At</h3>
-                <p className="text-gray-800">{new Date(selectedService.updated_at).toLocaleString()}</p>
-              </div>
+            </div>
+
+            <div className="flex justify-end pt-6 border-t border-gray-100 mt-8">
+              <motion.button
+                type="button"
+                onClick={() => setShowDetailModal(false)}
+                whileHover={{ scale: 1.03, boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)" }}
+                whileTap={{ scale: 0.97 }}
+                className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 font-semibold"
+              >
+                Close
+              </motion.button>
             </div>
           </div>
         )}

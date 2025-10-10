@@ -4,8 +4,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import Sidebar from "../../Sidebar";
 import { X, Clock, CheckCircle, ToolCase, ArrowLeft, Save, Trash2, Hourglass, ListPlus, Paperclip, Sun, Moon, Settings, Bell, User as UserIcon, ChevronDown, ChevronRight, ChevronLeft, LogOut, AlertTriangle } from "lucide-react";
 import Select from "react-select";
+import DOMPurify from "dompurify";
 import { useAuth, User as AuthUser, Department, WorkOrderFormDataLocal, ServiceCatalogue, Vendor } from "../../../routes/AuthContext";
-import RichTextEditor from "../../RichTextEditor";
+import TiptapEditor from "../../RichTextEditor";
 
 interface ModalProps {
   isOpen: boolean;
@@ -25,11 +26,16 @@ interface ServiceGroup {
   description?: string;
 }
 
+interface HTMLContentProps {
+  content: string;
+  className?: string;
+}
+
 const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
   if (!isOpen) return null;
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center backdrop-brightness-50 bg-opacity-50 p-4">
       <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-auto p-6 border border-blue-100">
         <div className="flex justify-between items-center border-b pb-3 mb-4 border-gray-100">
           <h3 className="text-2xl font-bold text-gray-900">{title}</h3>
@@ -68,8 +74,6 @@ const EditReceiver: React.FC = () => {
   const notificationsRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
-  const [remarksText, setRemarksText] = useState("");
-
   const [filteredServices, setFilteredServices] = useState<ServiceCatalogue[]>([]);
   const [serviceGroupsList, setServiceGroupsList] = useState<ServiceGroup[]>([]);
 
@@ -79,6 +83,24 @@ const EditReceiver: React.FC = () => {
   const [showVendorForm, setShowVendorForm] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [showVendorSelect, setShowVendorSelect] = useState(false);
+
+  const HTMLContent: React.FC<HTMLContentProps> = ({ content, className = "" }) => {
+    if (!content) {
+      return (
+        <div className={`p-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 ${className}`}>
+          <span>-</span>
+        </div>
+      );
+    }
+
+    // Konfigurasi DOMPurify untuk mengizinkan tag HTML yang aman
+    const cleanHTML = DOMPurify.sanitize(content, {
+      ALLOWED_TAGS: ["h1", "h2", "h3", "h4", "h5", "h6", "p", "br", "span", "div", "ol", "ul", "li", "strong", "b", "em", "i", "u", "s", "strike", "code", "mark", "sub", "sup", "blockquote", "table", "thead", "tbody", "tr", "th", "td"],
+      ALLOWED_ATTR: ["style", "class", "align", "type", "start", "colspan", "rowspan"],
+    });
+
+    return <div className={`rich-text-content p-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 ${className}`} dangerouslySetInnerHTML={{ __html: cleanHTML }} />;
+  };
 
   const initialFormData: WorkOrderFormDataLocal = {
     date: new Date().toISOString().split("T")[0],
@@ -344,7 +366,7 @@ const EditReceiver: React.FC = () => {
       handling_date: formData.handling_date,
       action_taken: formData.action_taken,
       handling_status: formData.handling_status,
-      remarks: remarksText,
+      remarks: formData.remarks,
       assigned_to_id: formData.assigned_to_id ? parseInt(formData.assigned_to_id as unknown as string) : null,
       vendor_id: formData.vendor_id, // Tambahkan vendor_id
     };
@@ -738,9 +760,7 @@ const EditReceiver: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Complaint</label>
-                    <div className="p-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-700">
-                      <span>{formData.complaint}</span>
-                    </div>
+                    <HTMLContent content={formData.complaint} className="min-h-[100px]" />
                   </div>
                 </div>
               </div>
@@ -941,30 +961,29 @@ const EditReceiver: React.FC = () => {
                     <label htmlFor="action_taken" className="block text-sm font-medium text-gray-700 mb-1">
                       Action Taken <span className="text-red-500">*</span>
                     </label>
-                    <textarea
-                      id="action_taken"
-                      name="action_taken"
+                    <TiptapEditor
                       value={formData.action_taken || ""}
-                      onChange={handleChange}
-                      required
-                      minLength={5}
-                      rows={4}
-                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
-                      placeholder="Describe the action taken to resolve the issue."
-                    ></textarea>
+                      onChange={(value) => {
+                        // Update langsung ke formData
+                        setFormData((prev) => ({
+                          ...prev,
+                          action_taken: value,
+                        }));
+                      }}
+                    />
                   </div>
 
-                  <div>
+                  <div className="md:col-span-2">
                     <label htmlFor="remarks" className="block text-sm font-medium text-gray-700 mb-1">
                       Remarks <span className="text-red-500">*</span>
                     </label>
-                    <RichTextEditor
-                      value={remarksText}
+                    <TiptapEditor
+                      value={formData.remarks || ""}
                       onChange={(value) => {
-                        setRemarksText(value);
+                        // Update langsung ke formData
                         setFormData((prev) => ({
                           ...prev,
-                          complaint: value,
+                          remarks: value,
                         }));
                       }}
                     />

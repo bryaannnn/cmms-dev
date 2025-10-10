@@ -1,28 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useAuth, AuditLog, User } from "../../routes/AuthContext"; // Assuming AuditLog and User are exported from AuthContext
+import { useAuth, AuditLog, User } from "../../routes/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
 import Sidebar from "../../component/Sidebar";
-import {
-  Clipboard,
-  Search,
-  ChevronDown,
-  ChevronRight,
-  LogOut,
-  Settings,
-  Bell,
-  Info,
-  Moon,
-  Sun,
-  UserIcon,
-  Clock, // For timestamp
-  User as UserLucide, // For user icon
-  Activity, // For action performed
-  MapPin, // For location/IP/device
-  AlertTriangle, // Added for error state
-} from "lucide-react";
+import PageHeader from "../PageHeader";
+import { Clipboard, Search, ChevronDown, ChevronRight, LogOut, Settings, Bell, Info, Moon, Sun, UserIcon, Clock, User as UserLucide, Activity, MapPin, AlertTriangle, Eye, X, FileText, Plus, Trash2, CheckCircle, ListCheck } from "lucide-react";
 
-// Moved useDebounce definition here to resolve "Cannot find module" error
+// useDebounce function
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
   useEffect(() => {
@@ -110,9 +94,15 @@ const AuditTrail: React.FC = () => {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const notificationsRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
-  const [sortConfig, setSortConfig] = useState<{ key: string; direction: "ascending" | "descending" } | null>({ key: "changed_at", direction: "descending" });
+  // Di dalam useState untuk sortConfig - pastikan defaultnya descending:
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: "ascending" | "descending" } | null>({
+    key: "changed_at",
+    direction: "descending", // Pastikan ini descending untuk newest first
+  });
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  const [showAuditDetailsModal, setShowAuditDetailsModal] = useState(false);
+  const [selectedAuditLog, setSelectedAuditLog] = useState<AuditLog | null>(null);
 
   const loadAuditTrail = useCallback(async () => {
     try {
@@ -180,29 +170,72 @@ const AuditTrail: React.FC = () => {
     return value?.toString() || "";
   };
 
+  const openAuditDetails = useCallback((log: AuditLog) => {
+    setSelectedAuditLog(log);
+    setShowAuditDetailsModal(true);
+  }, []);
+
+  const getActionIcon = (action: string) => {
+    switch (action) {
+      case "created":
+        return <Plus className="w-4 h-4 text-green-500" />;
+      case "updated":
+        return <Activity className="w-4 h-4 text-blue-500" />;
+      case "deleted":
+        return <Trash2 className="w-4 h-4 text-red-500" />;
+      default:
+        return <FileText className="w-4 h-4 text-gray-500" />;
+    }
+  };
+
+  const getActionColor = (action: string) => {
+    switch (action) {
+      case "created":
+        return "bg-green-500 text-white";
+      case "updated":
+        return "bg-blue-600 text-white";
+      case "deleted":
+        return "bg-red-500 text-white";
+      default:
+        return "bg-gray-500 text-white";
+    }
+  };
+
+  const getRecordableTypeDisplay = (recordableType: string) => {
+    if (!recordableType) return "Unknown";
+    return recordableType.replace("App\\Models\\", "");
+  };
+
+  // Di dalam filteredAndSortedLogs - GANTI bagian ini:
   const filteredAndSortedLogs = React.useMemo(() => {
-    // Ensure auditLogs is an array before spreading
     let currentLogs = [...(auditLogs || [])];
 
     // Apply search filter
     if (debouncedSearchQuery.trim()) {
       const lowerCaseQuery = debouncedSearchQuery.toLowerCase().trim();
       currentLogs = currentLogs.filter((log) => {
-        // Explicitly convert to string to prevent .toLowerCase() on undefined
-        const userMatch = (log.changed_by || "").toLowerCase().includes(lowerCaseQuery);
-        const actionMatch = (log.action || "").toLowerCase().includes(lowerCaseQuery);
-        // Ensure JSON.stringify output is treated as a string before .toLowerCase()
-        const detailsMatch = (JSON.stringify(log.mhs_details || {}) || "").toLowerCase().includes(lowerCaseQuery);
-        const oldDataMatch = (JSON.stringify(log.old_data_snapshot || {}) || "").toLowerCase().includes(lowerCaseQuery);
-        const newDataMatch = (JSON.stringify(log.new_data_snapshot || {}) || "").toLowerCase().includes(lowerCaseQuery);
-
-        return userMatch || actionMatch || detailsMatch || oldDataMatch || newDataMatch;
+        const searchableFields = [
+          log.changed_by?.toLowerCase() || "",
+          log.action?.toLowerCase() || "",
+          log.recordable_type?.toLowerCase() || "",
+          JSON.stringify(log.old_data_snapshot || {}).toLowerCase(),
+          JSON.stringify(log.new_data_snapshot || {}).toLowerCase(),
+        ];
+        return searchableFields.some((field) => field.includes(lowerCaseQuery));
       });
     }
 
-    // Apply sorting
+    // Apply sorting - FIX: Default sort by timestamp descending (newest first)
     if (sortConfig !== null) {
       currentLogs.sort((a, b) => {
+        // Special handling for timestamp field
+        if (sortConfig.key === "changed_at") {
+          const aTime = new Date(a.changed_at).getTime();
+          const bTime = new Date(b.changed_at).getTime();
+          return sortConfig.direction === "ascending" ? aTime - bTime : bTime - aTime;
+        }
+
+        // For other fields
         const aValue = getDisplayValue((a as Record<string, any>)[sortConfig.key]);
         const bValue = getDisplayValue((b as Record<string, any>)[sortConfig.key]);
 
@@ -214,7 +247,15 @@ const AuditTrail: React.FC = () => {
         }
         return 0;
       });
+    } else {
+      // Default sort: newest first by timestamp
+      currentLogs.sort((a, b) => {
+        const aTime = new Date(a.changed_at).getTime();
+        const bTime = new Date(b.changed_at).getTime();
+        return bTime - aTime;
+      });
     }
+
     return currentLogs;
   }, [auditLogs, debouncedSearchQuery, sortConfig]);
 
@@ -233,10 +274,359 @@ const AuditTrail: React.FC = () => {
   const formatTimestamp = (timestamp: string) => {
     try {
       const date = new Date(timestamp);
-      return date.toLocaleString(); // Formats to "MM/DD/YYYY, HH:MM:SS AM/PM"
+      return date.toLocaleString();
     } catch (e) {
-      return timestamp; // Return original if invalid date
+      return timestamp;
     }
+  };
+
+  // Komponen untuk modal details - FIXED VERSION
+  const AuditDetails: React.FC<{ log: AuditLog; onClose: () => void }> = ({ log, onClose }) => {
+    const displayValue = (value: any): string => {
+      if (value === null || value === undefined) return "-";
+      if (typeof value === "object" && value !== null) {
+        return JSON.stringify(value);
+      }
+      if (typeof value === "string") {
+        return value.trim() !== "" ? value.trim() : "-";
+      }
+      if (typeof value === "number") {
+        return value.toString();
+      }
+      if (typeof value === "boolean") {
+        return value ? "Yes" : "No";
+      }
+      return String(value);
+    };
+
+    const formatDate = (dateString?: string | null) => {
+      if (!dateString) return "-";
+      const date = new Date(dateString);
+      return date.toLocaleDateString("id-ID", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    };
+
+    const DetailItem: React.FC<{ label: string; value: string }> = ({ label, value }) => (
+      <div className="flex flex-col">
+        <h4 className="text-sm font-medium text-gray-500 mb-1">{label}</h4>
+        <p className="w-full bg-blue-50 border border-blue-100 rounded-lg p-3 text-gray-800 text-base font-medium min-h-[44px] flex items-center">{value}</p>
+      </div>
+    );
+
+    const SectionTitle: React.FC<{ title: string }> = ({ title }) => <h3 className="text-lg font-bold text-gray-800 mb-4 pb-2 border-b border-blue-200 mt-6 first:mt-0">{title}</h3>;
+
+    // Fungsi untuk mendapatkan semua keys yang unik dari old dan new data
+    const getAllFieldKeys = () => {
+      const oldKeys = log.old_data_snapshot ? Object.keys(log.old_data_snapshot) : [];
+      const newKeys = log.new_data_snapshot ? Object.keys(log.new_data_snapshot) : [];
+      const allKeys = [...new Set([...oldKeys, ...newKeys])];
+
+      // Filter out fields yang tidak perlu
+      return allKeys.filter((key) => !["id", "created_at", "updated_at", "deleted_at"].includes(key));
+    };
+
+    const areValuesEqual = (val1: any, val2: any): boolean => {
+      // Handle undefined/null cases
+      if (val1 === undefined && val2 === undefined) return true;
+      if (val1 === null && val2 === null) return true;
+      if (val1 === undefined && val2 === null) return false;
+      if (val1 === null && val2 === undefined) return false;
+
+      // Kasus dasar: sama persis
+      if (val1 === val2) return true;
+
+      // Handle number comparisons - termasuk konversi string ke number
+      if (!isNaN(Number(val1)) && !isNaN(Number(val2))) {
+        return Number(val1) === Number(val2);
+      }
+
+      // Handle boolean comparisons
+      if (typeof val1 === "boolean" && typeof val2 === "boolean") {
+        return val1 === val2;
+      }
+
+      // Handle string comparisons (case insensitive)
+      if (typeof val1 === "string" && typeof val2 === "string") {
+        return val1.trim().toLowerCase() === val2.trim().toLowerCase();
+      }
+
+      // Untuk objects/arrays, gunakan JSON comparison
+      if (typeof val1 === "object" && typeof val2 === "object" && val1 !== null && val2 !== null) {
+        try {
+          return JSON.stringify(val1) === JSON.stringify(val2);
+        } catch {
+          return String(val1) === String(val2);
+        }
+      }
+
+      // Fallback: convert to string and compare
+      const str1 = String(val1 || "").trim();
+      const str2 = String(val2 || "").trim();
+
+      // Consider empty strings and null/undefined as equal for comparison purposes
+      if ((str1 === "" || str1 === "null" || str1 === "undefined") && (str2 === "" || str2 === "null" || str2 === "undefined")) {
+        return true;
+      }
+
+      return str1 === str2;
+    };
+
+    // GANTI fungsi renderDataComparison dengan kode ini
+    const renderDataComparison = () => {
+      const fieldKeys = getAllFieldKeys();
+
+      if (fieldKeys.length === 0) {
+        return <div className="text-center py-8 text-gray-500">No data changes recorded</div>;
+      }
+
+      // Bangun rows untuk semua field (termasuk unchanged)
+      const rows = fieldKeys.map((key) => {
+        const oldSnapshot = log.old_data_snapshot ?? {};
+        const newSnapshot = log.new_data_snapshot ?? {};
+
+        const oldHasKey = Object.prototype.hasOwnProperty.call(oldSnapshot, key);
+        const newHasKey = Object.prototype.hasOwnProperty.call(newSnapshot, key);
+
+        const oldValue = oldHasKey ? oldSnapshot[key] : undefined;
+        let newValue = newHasKey ? newSnapshot[key] : undefined;
+
+        // Jika action = 'updated' dan new snapshot TIDAK menyertakan key,
+        // anggap field tersebut unchanged (partial update case).
+        if (log.action === "updated" && oldHasKey && !newHasKey) {
+          newValue = oldValue;
+        }
+
+        // Tentukan status dengan aturan yang benar:
+        let status: "added" | "removed" | "updated" | "unchanged";
+        if (!oldHasKey && newHasKey) {
+          status = "added";
+        } else if (oldHasKey && !newHasKey) {
+          // Hanya treat sebagai removed kalau aksi memang delete; untuk updated treat sebagai unchanged
+          status = log.action === "deleted" ? "removed" : "unchanged";
+        } else if (!areValuesEqual(oldValue, newValue)) {
+          status = "updated";
+        } else {
+          status = "unchanged";
+        }
+
+        return { key, oldValue, newValue, status };
+      });
+
+      const changedCount = rows.filter((r) => r.status !== "unchanged").length;
+      const unchangedCount = rows.length - changedCount;
+
+      return (
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Field</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Old Value</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">New Value</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {rows.map(({ key, oldValue, newValue, status }) => {
+                const formattedKey = key
+                  .split("_")
+                  .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                  .join(" ");
+
+                const oldDisplay = displayValue(oldValue);
+                const newDisplay = displayValue(newValue);
+
+                const rowBg = status === "updated" ? "bg-yellow-50" : status === "added" ? "bg-green-50" : status === "removed" ? "bg-red-50" : "";
+
+                return (
+                  <tr key={key} className={rowBg}>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{formattedKey}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900">
+                      <div
+                        className={`p-2 rounded ${
+                          status === "removed" ? "bg-red-100 text-red-800 border border-red-200" : status === "updated" ? "bg-yellow-100 text-yellow-800 border border-yellow-200" : "bg-gray-100 text-gray-800 border border-gray-200"
+                        }`}
+                      >
+                        {oldDisplay}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900">
+                      <div
+                        className={`p-2 rounded ${
+                          status === "added" ? "bg-green-100 text-green-800 border border-green-200" : status === "updated" ? "bg-yellow-100 text-yellow-800 border border-yellow-200" : "bg-gray-100 text-gray-800 border border-gray-200"
+                        }`}
+                      >
+                        {newDisplay}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm">
+                      {status === "added" ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          <Plus className="w-3 h-3 mr-1" />
+                          Added
+                        </span>
+                      ) : status === "removed" ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                          <Trash2 className="w-3 h-3 mr-1" />
+                          Removed
+                        </span>
+                      ) : status === "updated" ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                          <Activity className="w-3 h-3 mr-1" />
+                          Updated
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                          <CheckCircle className="w-3 h-3 mr-1" />
+                          Unchanged
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          {/* Ringkasan kecil */}
+          <div className="mt-4 text-sm text-gray-600">
+            <span className="font-medium">{changedCount}</span> field(s) changed • <span className="font-medium">{unchangedCount}</span> field(s) unchanged
+          </div>
+        </div>
+      );
+    };
+
+    // TAMBAHKAN fungsi baru untuk render complete data fields:
+
+    const renderCompleteDataFields = (data: any, type: "old" | "new") => {
+      if (!data || Object.keys(data).length === 0) {
+        return <div className="text-center py-8 text-gray-500 bg-white rounded-lg border border-gray-200">No {type} data available</div>;
+      }
+
+      const filteredData = Object.entries(data).filter(([key]) => {
+        // Skip fields yang tidak perlu
+        return !["id", "created_at", "updated_at", "deleted_at"].includes(key);
+      });
+
+      if (filteredData.length === 0) {
+        return <div className="text-center py-8 text-gray-500 bg-white rounded-lg border border-gray-200">No {type} data available</div>;
+      }
+
+      return (
+        <div className="space-y-4">
+          {filteredData.map(([key, value]) => {
+            // Format key untuk display (ubah snake_case ke Title Case)
+            const formattedKey = key
+              .split("_")
+              .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+              .join(" ");
+
+            return (
+              <div key={key} className="flex flex-col md:flex-row md:items-start gap-3 p-4 bg-white rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
+                <div className="md:w-1/3 lg:w-1/4">
+                  <h4 className="text-sm font-semibold text-gray-700 break-words">{formattedKey}</h4>
+                </div>
+                <div className="md:w-2/3 lg:w-3/4">
+                  <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-gray-800 text-sm break-words">{displayValue(value)}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    };
+
+    // Fungsi untuk render data individual (untuk bagian selain comparison)
+    const renderDataFields = (data: any, title: string) => {
+      if (!data || Object.keys(data).length === 0) {
+        return <div className="text-center py-4 text-gray-500">No {title.toLowerCase()} available</div>;
+      }
+
+      const filteredData = Object.entries(data).filter(([key, value]) => {
+        // Skip fields yang tidak perlu
+        if (["id", "created_at", "updated_at", "deleted_at"].includes(key)) return false;
+        // Skip nilai yang kosong
+        if (value === null || value === undefined || value === "") return false;
+        return true;
+      });
+
+      if (filteredData.length === 0) {
+        return <div className="text-center py-4 text-gray-500">No {title.toLowerCase()} available</div>;
+      }
+
+      return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredData.map(([key, value]) => {
+            // Format key untuk display (ubah snake_case ke Title Case)
+            const formattedKey = key
+              .split("_")
+              .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+              .join(" ");
+
+            return <DetailItem key={key} label={formattedKey} value={displayValue(value)} />;
+          })}
+        </div>
+      );
+    };
+
+    return (
+      <div className="space-y-6">
+        <SectionTitle title="General Information" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <DetailItem label="Audit ID" value={displayValue(log.id)} />
+          <DetailItem label="Timestamp" value={formatTimestamp(log.changed_at)} />
+          <DetailItem label="User" value={displayValue(log.changed_by)} />
+          <DetailItem label="Action" value={displayValue(log.action)} />
+          <DetailItem label="Record Type" value={getRecordableTypeDisplay(log.recordable_type)} />
+          <DetailItem label="Record ID" value={displayValue(log.recordable_id)} />
+        </div>
+        {log.recordable_details && Object.keys(log.recordable_details).length > 0 && (
+          <>
+            <SectionTitle title="Record Details" />
+            {renderDataFields(log.recordable_details, "Record Details")}
+          </>
+        )}
+        <SectionTitle title="Data Changes Comparison" />
+        {/* Menampilkan kedua data old dan new dalam bentuk tabel comparison */}
+        {renderDataComparison()}
+
+        {/* Complete Data Snapshots - Vertical Layout */}
+        <SectionTitle title="Complete Data Snapshots" />
+        <div className="space-y-8">
+          {/* Old Data Snapshot */}
+          {log.old_data_snapshot && Object.keys(log.old_data_snapshot).length > 0 && (
+            <div className="w-full">
+              <h4 className="text-md font-semibold text-gray-700 mb-4 pb-2 border-b border-gray-200">Old Data Snapshot</h4>
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">{renderCompleteDataFields(log.old_data_snapshot, "old")}</div>
+            </div>
+          )}
+
+          {/* New Data Snapshot */}
+          {log.new_data_snapshot && Object.keys(log.new_data_snapshot).length > 0 && (
+            <div className="w-full">
+              <h4 className="text-md font-semibold text-gray-700 mb-4 pb-2 border-b border-gray-200">New Data Snapshot</h4>
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">{renderCompleteDataFields(log.new_data_snapshot, "new")}</div>
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end pt-6 border-t border-gray-100 mt-8">
+          <motion.button
+            type="button"
+            onClick={onClose}
+            whileHover={{ scale: 1.03, boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)" }}
+            whileTap={{ scale: 0.97 }}
+            className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 font-semibold"
+          >
+            Close
+          </motion.button>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -244,144 +634,7 @@ const AuditTrail: React.FC = () => {
       <Sidebar />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white border-b border-gray-100 p-4 flex items-center justify-between shadow-sm sticky top-0 z-30">
-          <div className="flex items-center space-x-4">
-            {isMobile && (
-              <motion.button onClick={toggleSidebar} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
-                <ChevronRight className="text-xl" />
-              </motion.button>
-            )}
-            <Clipboard className="text-xl text-blue-600" />
-            <h2 className="text-lg md:text-xl font-bold text-gray-900">Audit Trail</h2>
-          </div>
-
-          <div className="flex items-center space-x-3 relative">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setDarkMode(!darkMode)}
-              className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200"
-              aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
-            >
-              {darkMode ? <Sun className="text-yellow-400 text-xl" /> : <Moon className="text-xl" />}
-            </motion.button>
-
-            <div className="relative" ref={notificationsRef}>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setShowNotificationsPopup(!showNotificationsPopup)}
-                className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200 relative"
-                aria-label="Notifications"
-              >
-                <Bell className="text-xl" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full animate-pulse border border-white"></span>
-              </motion.button>
-
-              <AnimatePresence>
-                {showNotificationsPopup && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 20 }}
-                    transition={{ duration: 0.2 }}
-                    className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl overflow-hidden z-50 border border-gray-100"
-                  >
-                    <div className="p-4 border-b border-gray-100">
-                      <h3 className="text-lg font-semibold text-gray-800">Notifications</h3>
-                    </div>
-                    <div className="max-h-80 overflow-y-auto custom-scrollbar">
-                      {notifications.length > 0 ? (
-                        notifications.map((notif) => (
-                          <div key={notif.id} className="flex items-start p-4 border-b border-gray-50 last:border-b-0 hover:bg-blue-50 transition-colors cursor-pointer">
-                            {notif.icon && <div className="flex-shrink-0 mr-3">{notif.icon}</div>}
-                            <div>
-                              <p className="text-sm font-semibold text-gray-800">{notif.title}</p>
-                              <p className="text-xs text-gray-600 mt-1">{notif.description}</p>
-                              <p className="text-xs text-gray-400 mt-1">{notif.date}</p>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="p-4 text-center text-gray-500 text-sm">No new notifications.</p>
-                      )}
-                    </div>
-                    <div className="p-4 border-t border-gray-100 text-center">
-                      <button
-                        onClick={() => {
-                          setShowNotificationsPopup(false);
-                        }}
-                        className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                      >
-                        Mark all as read
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            <div className="relative" ref={profileRef}>
-              <motion.button
-                whileHover={{ backgroundColor: "rgba(239, 246, 255, 0.7)" }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => setShowProfileMenu(!showProfileMenu)}
-                className="flex items-center space-x-2 cursor-pointer p-2 rounded-lg transition-colors duration-200"
-              >
-                <img
-                  src={`https://api.dicebear.com/7.x/initials/svg?seed=${user?.name || "User"}&backgroundColor=0081ff,3d5a80,ffc300,e0b589&backgroundType=gradientLinear&radius=50`}
-                  alt="User Avatar"
-                  className="w-8 h-8 rounded-full border border-blue-200 object-cover"
-                />
-                <span className="font-medium text-gray-900 text-sm hidden sm:inline">{user?.name}</span>
-                <ChevronDown className="text-gray-500 text-base" />
-              </motion.button>
-
-              <AnimatePresence>
-                {showProfileMenu && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                    transition={{ duration: 0.2 }}
-                    className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-40 border border-gray-100"
-                  >
-                    <div className="px-4 py-2 text-xs text-gray-500 border-b border-gray-100">Signed in as</div>
-                    <div className="px-4 py-2 font-semibold text-gray-800 border-b border-gray-100">{user?.name || "Guest User"}</div>
-                    <button
-                      onClick={() => {
-                        navigate("/profile");
-                        setShowProfileMenu(false);
-                      }}
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 w-full text-left"
-                    >
-                      <UserIcon size={16} className="mr-2" /> My Profile
-                    </button>
-                    <button
-                      onClick={() => {
-                        navigate("/settings");
-                        setShowProfileMenu(false);
-                      }}
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 w-full text-left"
-                    >
-                      <Settings size={16} className="mr-2" /> Settings
-                    </button>
-                    <hr className="my-1 border-gray-100" />
-                    <button
-                      onClick={() => {
-                        navigate("/logout");
-                        setShowProfileMenu(false);
-                      }}
-                      className="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full text-left"
-                    >
-                      <LogOut size={16} className="mr-2" /> Logout
-                    </button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </div>
-        </header>
+        <PageHeader mainTitle="Audit Trail" mainTitleHighlight="Trail" description="Manage activities and their configurations within the system." icon={<ListCheck />} isMobile={isMobile} toggleSidebar={toggleSidebar} />
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-8">
@@ -439,7 +692,7 @@ const AuditTrail: React.FC = () => {
                       <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer" onClick={() => requestSort("changed_at")}>
                         <div className="flex items-center">
                           <Clock className="mr-2 text-sm" /> Timestamp
-                          {sortConfig?.key === "changed_at" && <span className="ml-1">{sortConfig.direction === "ascending" ? "↑" : "↓"}</span>}
+                          {sortConfig?.key === "changed_at" ? <span className="ml-1">{sortConfig.direction === "ascending" ? "↑" : "↓"}</span> : <span className="ml-1 text-gray-400">↓</span>}
                         </div>
                       </th>
                       <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer" onClick={() => requestSort("changed_by")}>
@@ -450,22 +703,23 @@ const AuditTrail: React.FC = () => {
                       </th>
                       <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer" onClick={() => requestSort("action")}>
                         <div className="flex items-center">
-                          <Activity className="mr-2 text-sm" /> Action Performed
+                          <Activity className="mr-2 text-sm" /> Action
                           {sortConfig?.key === "action" && <span className="ml-1">{sortConfig.direction === "ascending" ? "↑" : "↓"}</span>}
                         </div>
                       </th>
-                      {/* Optional: Device/IP/Location column if available in AuditLog */}
-                      {/* <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer" onClick={() => requestSort("recordable_type")}>
                         <div className="flex items-center">
-                          <MapPin className="mr-2 text-sm" /> Device/Location
+                          <FileText className="mr-2 text-sm" /> Record Type
+                          {sortConfig?.key === "recordable_type" && <span className="ml-1">{sortConfig.direction === "ascending" ? "↑" : "↓"}</span>}
                         </div>
-                      </th> */}
+                      </th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-blue-100">
                     {currentRecords.map((log) => (
                       <motion.tr
-                        key={log.history_id} // Assuming history_id is unique
+                        key={log.id}
                         initial={{ opacity: 0, y: 5 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.15 }}
@@ -478,21 +732,25 @@ const AuditTrail: React.FC = () => {
                         <td className="px-5 py-3 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">{log.changed_by || "N/A"}</div>
                         </td>
-                        <td className="px-5 py-3">
-                          <div className="text-sm font-medium text-gray-900">{log.action || "N/A"}</div>
-                          {/* Display additional details if available and relevant */}
-                          {log.mhs_details && <div className="text-xs text-gray-600 truncate max-w-xs">Details: {JSON.stringify(log.mhs_details)}</div>}
-                          {(log.old_data_snapshot || log.new_data_snapshot) && (
-                            <div className="text-xs text-gray-600 truncate max-w-xs">
-                              Changes: {log.old_running_hour !== undefined && log.new_running_hour !== undefined && `Running Hour: ${log.old_running_hour} -> ${log.new_running_hour}`}
-                              {log.old_kegiatan_id !== undefined && log.new_kegiatan_id !== undefined && ` Kegiatan ID: ${log.old_kegiatan_id} -> ${log.new_kegiatan_id}`}
-                            </div>
-                          )}
+                        <td className="px-5 py-3 whitespace-nowrap">
+                          <span className={`px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full ${getActionColor(log.action)} shadow-sm`}>{log.action.charAt(0).toUpperCase() + log.action.slice(1)}</span>
                         </td>
-                        {/* Optional: Device/IP/Location column data */}
-                        {/* <td className="px-5 py-3 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">N/A</div>
-                        </td> */}
+                        <td className="px-5 py-3">
+                          <div className="text-sm font-medium text-gray-900">{getRecordableTypeDisplay(log.recordable_type)}</div>
+                          {log.recordable_id && <div className="text-xs text-gray-500">ID: {log.recordable_id}</div>}
+                        </td>
+                        <td className="px-5 py-3 whitespace-nowrap text-sm font-medium">
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => openAuditDetails(log)}
+                            className="text-blue-600 hover:text-blue-800 transition-colors duration-200 flex items-center space-x-1"
+                            title="View Details"
+                          >
+                            <Eye className="text-lg" />
+                            <span>View</span>
+                          </motion.button>
+                        </td>
                       </motion.tr>
                     ))}
                   </tbody>
@@ -547,6 +805,39 @@ const AuditTrail: React.FC = () => {
           )}
         </main>
       </div>
+
+      {/* Modal untuk Audit Details */}
+      {selectedAuditLog && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-brightness-50 p-4 overflow-y-auto">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl mx-auto p-6 border border-blue-100">
+              <div className="flex justify-between items-center border-b pb-3 mb-4 border-gray-100">
+                <h3 className="text-2xl font-bold text-gray-900">Audit Details #{selectedAuditLog.id}</h3>
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => {
+                    setShowAuditDetailsModal(false);
+                    setSelectedAuditLog(null);
+                  }}
+                  className="text-gray-500 hover:text-gray-700 text-2xl"
+                >
+                  <X size={24} />
+                </motion.button>
+              </div>
+              <div className="overflow-y-auto max-h-[70vh]">
+                <AuditDetails
+                  log={selectedAuditLog}
+                  onClose={() => {
+                    setShowAuditDetailsModal(false);
+                    setSelectedAuditLog(null);
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      )}
     </div>
   );
 };

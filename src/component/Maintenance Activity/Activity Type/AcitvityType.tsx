@@ -2,12 +2,9 @@ import React, { useEffect, useState, useRef, useCallback, useMemo } from "react"
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../../Sidebar";
 import { motion, AnimatePresence } from "framer-motion";
-import { Folder, Plus, Edit, Trash2, X, AlertTriangle, Building, Upload, Filter, ChevronDown, Clipboard, Info, Search, Calendar, Eye, UserIcon, Mail, Users, ListChecks } from "lucide-react";
+import { Plus, Upload, Filter, ChevronDown, Trash2, Edit, Eye, X, AlertTriangle, ListChecks, Search } from "lucide-react";
 import PageHeader from "../../PageHeader";
-import { ActivityType, Department, StopTimes, useAuth, User } from "../../../routes/AuthContext";
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
-import { a } from "node_modules/framer-motion/dist/types.d-CtuPurYT";
+import { ActivityType, useAuth } from "../../../routes/AuthContext";
 
 interface ModalProps {
   isOpen: boolean;
@@ -21,7 +18,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, classNa
   return (
     <AnimatePresence>
       {isOpen && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50 p-4 backdrop-blur-sm">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="fixed inset-0 backdrop-brightness-50 bg-opacity-40 flex justify-center items-center z-50 p-4">
           <motion.div
             initial={{ y: 50, opacity: 0, scale: 0.95 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
@@ -69,61 +66,34 @@ const StatCard: React.FC<{ title: string; value: string; change: string; icon: R
 const ActivityTypePage: React.FC = () => {
   const [activityTypes, setActivityTypes] = useState<ActivityType[]>([]);
   const { getActivityTypes, deleteActivityTypes } = useAuth();
-  const [filteredRecords, setFilteredRecords] = useState<ActivityType[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [showModal, setShowModal] = useState<boolean>(false);
-  const [editing, setEditing] = useState<ActivityType | null>(null);
-  const [name, setName] = useState<string>("");
-  const [description, setDescription] = useState<string>("");
-  const [saving, setSaving] = useState<boolean>(false);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const mountedRef = useRef(true);
-  const [startDate, setStartDate] = useState<Date | null>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
-  const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
+  const [recordToDelete, setRecordToDelete] = useState<number | null>(null);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [isMobile] = useState(window.innerWidth < 768);
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     const stored = localStorage.getItem("sidebarOpen");
     return stored ? JSON.parse(stored) : false;
   });
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
-  const [selectedStopTimes, setSelectedStopTimes] = useState<ActivityType | null>(null);
-  const [showDepartmentDetails, setShowStopTimesDetails] = useState(false);
-  const [showUsersDetails, setShowUsersDetails] = useState(false);
-  const [recordToDelete, setRecordToDelete] = useState<number | null>(null);
   const navigate = useNavigate();
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
 
-  // Di dalam komponen DepartmentPage, setelah mendapatkan data
-  useEffect(() => {
-    if (activityTypes.length > 0) {
-      const sortedActivityTypes = [...activityTypes].sort((a, b) => a.id - b.id);
-      setActivityTypes(sortedActivityTypes);
-    }
-  }, [activityTypes]);
-
-  const searchCategories = useMemo(
-    () => [
-      { id: "department", name: "Department" },
-      { id: "head", name: "Head" },
-    ],
-    []
-  ); // Empty dependency array means it's created once
+  const searchCategories = useMemo(() => [{ id: "activitytype", name: "Activity Type" }], []);
 
   const loadActivityTypes = useCallback(async () => {
     try {
       setLoading(true);
       const dataActivityTypes = await getActivityTypes();
-      setActivityTypes(dataActivityTypes);
+      const sortedActivityTypes = [...dataActivityTypes].sort((a, b) => a.id - b.id);
+      setActivityTypes(sortedActivityTypes);
     } catch (err) {
-      setError("Failed to load Activity Types");
-      console.error("Error loading Activity Types:", err);
+      setError("Failed to load activity types");
+      console.error("Error loading activity types:", err);
     } finally {
-      if (mountedRef.current) {
-        setLoading(false);
-      }
+      setLoading(false);
     }
   }, [getActivityTypes]);
 
@@ -132,7 +102,9 @@ const ActivityTypePage: React.FC = () => {
   }, [loadActivityTypes]);
 
   const toggleSidebar = () => {
-    setSidebarOpen((prev: boolean): boolean => !prev);
+    const newState = !sidebarOpen;
+    setSidebarOpen(newState);
+    localStorage.setItem("sidebarOpen", JSON.stringify(newState));
   };
 
   const handleImport = () => {
@@ -144,7 +116,7 @@ const ActivityTypePage: React.FC = () => {
     setSearchQuery(query);
   };
 
-  const filteredSearchSuggestions = React.useMemo(() => {
+  const filteredSearchSuggestions = useMemo(() => {
     if (!searchQuery) {
       return searchCategories;
     }
@@ -158,15 +130,39 @@ const ActivityTypePage: React.FC = () => {
     searchInputRef.current?.focus();
   };
 
+  const filteredActivityTypes = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return activityTypes;
+    }
+
+    const lowerCaseQuery = searchQuery.toLowerCase().trim();
+    const searchParts = lowerCaseQuery.split(":");
+    let category = "all";
+    let actualQuery = lowerCaseQuery;
+
+    if (searchParts.length > 1 && searchCategories.some((cat) => cat.name.toLowerCase() === searchParts[0].trim())) {
+      category = searchParts[0].trim();
+      actualQuery = searchParts.slice(1).join(":").trim();
+    }
+
+    return activityTypes.filter((activityType) => {
+      const matchesActivityType = activityType.name?.toLowerCase().includes(actualQuery);
+
+      if (category === "activity type") return matchesActivityType;
+
+      return matchesActivityType;
+    });
+  }, [activityTypes, searchQuery, searchCategories]);
+
   const handleDelete = async (id: number) => {
     try {
       await deleteActivityTypes(id);
-      setActivityTypes(activityTypes.filter((activityTypes) => activityTypes.id !== id));
+      setActivityTypes(activityTypes.filter((activityType) => activityType.id !== id));
       setShowDeleteConfirm(false);
       setRecordToDelete(null);
     } catch (error) {
-      console.error("Failed to delete Activity Types:", error);
-      setError("Failed to delete Activity Types. Please try again.");
+      console.error("Failed to delete activity type:", error);
+      setError("Failed to delete activity type. Please try again.");
     }
   };
 
@@ -176,18 +172,11 @@ const ActivityTypePage: React.FC = () => {
   }, []);
 
   return (
-    <div className={"flex h-screen font-sans antialiased bg-blue-50"}>
+    <div className="flex h-screen font-sans antialiased bg-blue-50">
       <Sidebar />
 
-      <div className="flex-1 flex flex-col ooverflow-hidden">
-        <PageHeader
-          mainTitle="Activity Types"
-          mainTitleHighlight="Page"
-          description="Manage user roles and permissions to control access and functionality within the system."
-          icon={<ListChecks />}
-          isMobile={isMobile}
-          toggleSidebar={toggleSidebar}
-        />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <PageHeader mainTitle="Activity Types" mainTitleHighlight="Page" description="Manage activity types and their configurations within the system." icon={<ListChecks />} isMobile={isMobile} toggleSidebar={toggleSidebar} />
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between space-y-5 md:space-y-0">
@@ -195,10 +184,9 @@ const ActivityTypePage: React.FC = () => {
               <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
                 Activity Types <span className="text-blue-600">Management</span>
               </h1>
-              <p className="text-gray-600 mt-2 text-sm max-w-xl">Organize and manage activity types by specific company .</p>
+              <p className="text-gray-600 mt-2 text-sm max-w-xl">Organize and manage activity types by specific company requirements.</p>
             </div>
             <div className="flex flex-wrap gap-3 items-center">
-              {/* {hasPermission("create_machine_history") && ( */}
               <motion.button
                 onClick={() => navigate("/maintenanceactivity/activitytypes/addactivitytype")}
                 whileHover={{ scale: 1.02, boxShadow: "0 4px 12px rgba(37, 99, 235, 0.3)" }}
@@ -206,9 +194,8 @@ const ActivityTypePage: React.FC = () => {
                 className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md font-semibold text-sm"
               >
                 <Plus className="text-base" />
-                <span>Add Activity Types</span>
+                <span>Add Activity Type</span>
               </motion.button>
-              {/* )} */}
               <motion.button
                 onClick={handleImport}
                 whileHover={{ scale: 1.02, boxShadow: "0 4px 10px rgba(0, 0, 0, 0.08)" }}
@@ -233,79 +220,155 @@ const ActivityTypePage: React.FC = () => {
             </div>
           </motion.div>
 
-          {/* Stats Cards dengan data lebih detail */}
-          {/* <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
-            <StatCard title="Total Stop Times" value={department.length.toString()} change={`+${Math.floor((department.length / 10) * 100)}%`} icon={<Building className="w-6 h-6" />} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
+            <StatCard title="Total Activity Types" value={activityTypes.length.toString()} change={`+${Math.floor((activityTypes.length / 10) * 100)}%`} icon={<ListChecks className="w-6 h-6" />} />
             <StatCard
-              title="Head Department"
-              value={department.filter((d) => d.head_id !== null).length.toString()}
-              change={`+${Math.floor((department.filter((d) => d.head_id !== null).length / department.length) * 100)}%`}
-              icon={<UserIcon className="w-6 h-6" />}
+              title="Active Types"
+              value={activityTypes.filter((type) => type.name && type.name.length > 0).length.toString()}
+              change={`+${Math.floor((activityTypes.filter((type) => type.name && type.name.length > 0).length / activityTypes.length) * 100)}%`}
+              icon={<ListChecks className="w-6 h-6" />}
             />
-            <StatCard
-              title="Departments with Email"
-              value={department.filter((d) => d.head?.email).length.toString()}
-              change={`+${Math.floor((department.filter((d) => d.head?.email).length / department.length) * 100)}%`}
-              icon={<Mail className="w-6 h-6" />}
-            />
-            <StatCard title="Total Employees" value={users.length.toString()} change={`+${Math.floor((users.length / 50) * 100)}%`} icon={<Users className="w-6 h-6" />} />
-          </div> */}
+          </div>
 
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="bg-white rounded-2xl shadow-md overflow-hidden border border-blue-100">
-            <div className="overflow-x-auto custom-scrollbar">
-              <table className="min-w-full divide-y divide-blue-100">
-                <thead className="bg-blue-50">
-                  <tr>
-                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ID</th>
-                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Activity Types</th>
-                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-blue-100">
-                  {activityTypes.map((a) => (
-                    <motion.tr key={a.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.15 }} whileHover={{ backgroundColor: "rgba(239, 246, 255, 0.5)" }} className="transition-colors duration-150">
-                      <td className="px-5 py-3 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{a.id}</div>
-                      </td>
-                      <td className="px-5 py-3 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{a.name}</div>
-                      </td>
-                      <td className="px-5 py-3 whitespace-nowrap text-sm font-medium space-x-1.5">
+          <motion.div layout className="mb-8 bg-white rounded-2xl shadow-md p-5 border border-blue-100">
+            <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-4 md:space-y-0 relative">
+              <div className="flex-1 relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder="Search by activity type..."
+                  className="w-full pl-11 pr-4 py-2.5 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white text-sm transition-all duration-200 shadow-sm placeholder-gray-400"
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                  onFocus={() => setShowSearchSuggestions(true)}
+                  aria-label="Search activity types"
+                />
+                <AnimatePresence>
+                  {showSearchSuggestions && filteredSearchSuggestions.length > 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 5 }}
+                      transition={{ duration: 0.15 }}
+                      className="search-suggestions absolute left-0 right-0 mt-2 bg-white border border-blue-200 rounded-lg shadow-lg z-10 max-h-56 overflow-y-auto custom-scrollbar"
+                    >
+                      {filteredSearchSuggestions.map((category) => (
                         <motion.button
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          onClick={() => navigate(`/maintenanceactivity/activitytypes/editactivitytype/${a.id}`)}
-                          className="text-yellow-600 hover:text-yellow-800 transition-colors duration-200 p-1 rounded-full hover:bg-yellow-50"
-                          title="Edit"
+                          key={category.id}
+                          onClick={() => handleSearchCategorySelect(category.name)}
+                          whileHover={{ backgroundColor: "rgba(239, 246, 255, 0.7)" }}
+                          className="w-full text-left p-3 text-gray-700 hover:text-blue-700 transition-colors duration-150 text-sm"
+                          role="option"
                         >
-                          <Edit className="inline text-base" />
+                          <span className="font-semibold">{category.name}</span>
                         </motion.button>
-                        <motion.button
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          onClick={() => {
-                            setRecordToDelete(a.id);
-                            setShowDeleteConfirm(true);
-                          }}
-                          className="text-red-600 hover:text-red-800 transition-colors duration-200 p-1 rounded-full hover:bg-red-50"
-                          title="Delete"
-                        >
-                          <Trash2 className="inline text-base" />
-                        </motion.button>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </tbody>
-              </table>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
+
+            <AnimatePresence>
+              {showAdvancedFilters && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full"
+                >
+                  {/* Advanced filter components can be added here */}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
+
+          {loading ? (
+            <div className="bg-white rounded-2xl shadow-md p-8 text-center border border-blue-100">
+              <div className="animate-spin rounded-full h-14 w-14 border-t-4 border-b-4 border-blue-500 mx-auto mb-5"></div>
+              <p className="text-gray-600 text-base font-medium">Loading activity type data...</p>
+            </div>
+          ) : filteredActivityTypes.length === 0 ? (
+            <div className="bg-white rounded-2xl shadow-md p-8 text-center border border-blue-100">
+              <p className="text-gray-700 text-base font-medium">{searchQuery ? "No activity types found matching your search." : "No activity types available."}</p>
+              {searchQuery && (
+                <button onClick={() => setSearchQuery("")} className="mt-5 px-5 py-2 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors duration-200 text-sm">
+                  Clear Search
+                </button>
+              )}
+            </div>
+          ) : (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="bg-white rounded-2xl shadow-md overflow-hidden border border-blue-100">
+              <div className="overflow-x-auto custom-scrollbar">
+                <table className="min-w-full divide-y divide-blue-100">
+                  <thead className="bg-blue-50">
+                    <tr>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ID</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Activity Type</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-blue-100">
+                    {filteredActivityTypes.map((activityType) => (
+                      <motion.tr
+                        key={activityType.id}
+                        initial={{ opacity: 0, y: 5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.15 }}
+                        whileHover={{ backgroundColor: "rgba(239, 246, 255, 0.5)" }}
+                        className="transition-colors duration-150"
+                      >
+                        <td className="px-5 py-3 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{activityType.id}</div>
+                        </td>
+                        <td className="px-5 py-3 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{activityType.name}</div>
+                        </td>
+                        <td className="px-5 py-3 whitespace-nowrap text-sm font-medium space-x-1.5">
+                          <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={() => navigate(`/maintenanceactivity/activitytypes/editactivitytype/${activityType.id}`)}
+                            className="text-yellow-600 hover:text-yellow-800 transition-colors duration-200 p-1 rounded-full hover:bg-yellow-50"
+                            title="Edit"
+                          >
+                            <Edit className="inline text-base" />
+                          </motion.button>
+                          <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={() => handleDeleteClick(activityType.id)}
+                            className="text-red-600 hover:text-red-800 transition-colors duration-200 p-1 rounded-full hover:bg-red-50"
+                            title="Delete"
+                          >
+                            <Trash2 className="inline text-base" />
+                          </motion.button>
+                          <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={() => navigate(`/maintenanceactivity/activitytypes/view/${activityType.id}`)}
+                            className="text-blue-600 hover:text-blue-800 transition-colors duration-200 p-1 rounded-full hover:bg-blue-50"
+                            title="View Details"
+                          >
+                            <Eye className="inline text-base" />
+                          </motion.button>
+                        </td>
+                      </motion.tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </motion.div>
+          )}
         </main>
       </div>
 
       <Modal isOpen={showDeleteConfirm} onClose={() => setShowDeleteConfirm(false)} title="Confirm Deletion">
         <div className="space-y-5 text-center py-3">
           <AlertTriangle className="text-red-500 text-5xl mx-auto animate-pulse" />
-          <p className="text-base text-gray-700 font-medium">Are you sure you want to delete this Activity Types? This action cannot be undone.</p>
+          <p className="text-base text-gray-700 font-medium">Are you sure you want to delete this activity type? This action cannot be undone.</p>
           <div className="flex justify-center space-x-3 mt-5">
             <motion.button
               whileHover={{ scale: 1.03 }}

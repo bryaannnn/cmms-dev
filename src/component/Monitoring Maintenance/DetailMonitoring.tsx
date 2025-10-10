@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Calendar, Wrench, ChevronDown, CheckCircle, XCircle, Save, Info, MessageSquare, Clock, UserCog, Plus, ArrowLeft, Hourglass, X, History, AlertTriangle, RefreshCw, Monitor } from "lucide-react";
+import { Calendar, Wrench, ChevronDown, CheckCircle, XCircle, Save, Info, MessageSquare, Edit, Clock, UserCog, Plus, ArrowLeft, Hourglass, X, History, AlertTriangle, RefreshCw, Monitor } from "lucide-react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import Sidebar from "../Sidebar";
-import { useAuth, ApprovalTemplate, Approver, MonitoringSchedule, ScheduleApproval } from "../../routes/AuthContext";
+import { useAuth, ApprovalTemplate, Approver, MonitoringSchedule, ScheduleApproval, MonitoringActivityPost } from "../../routes/AuthContext";
 import PageHeader from "../PageHeader";
 
 interface MonitoringItem {
@@ -100,7 +100,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
   if (!isOpen) return null;
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center backdrop-brightness-50 bg-opacity-50 p-4">
       <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-auto p-6 border border-blue-100">
         <div className="flex justify-between items-center border-b pb-3 mb-4 border-gray-100">
           <h3 className="text-2xl font-bold text-gray-900">{title}</h3>
@@ -173,11 +173,68 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment, machineId, currentUs
   );
 };
 
+// Tambahkan komponen ini di dalam file DetailMonitoring.tsx
+
+const ConfirmModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  title: string;
+  message: string;
+  confirmText?: string;
+  cancelText?: string;
+  type?: "approve" | "feedback" | "reject" | "edit";
+}> = ({ isOpen, onClose, onConfirm, title, message, confirmText = "Confirm", cancelText = "Cancel", type = "approve" }) => {
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 backdrop-brightness-50 bg-opacity-40 flex justify-center items-center z-50 p-4">
+          <motion.div
+            initial={{ y: 50, opacity: 0, scale: 0.95 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: 50, opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.3, type: "spring", damping: 25, stiffness: 300 }}
+            className="bg-white rounded-2xl shadow-2xl overflow-hidden max-w-md w-full border border-blue-100"
+          >
+            <div className="p-6 text-center">
+              <div className="flex justify-center mb-4">
+                {type === "approve" && <CheckCircle className="text-green-500 text-5xl" />}
+                {type === "feedback" && <MessageSquare className="text-blue-500 text-5xl" />}
+                {type === "reject" && <AlertTriangle className="text-red-500 text-5xl" />}
+                {type === "edit" && <Edit className="text-purple-500 text-5xl" />}
+              </div>
+
+              <h3 className="text-xl font-bold text-gray-900 mb-2">{title}</h3>
+              <p className="text-gray-600 mb-6">{message}</p>
+
+              <div className="flex justify-center space-x-3">
+                <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={onClose} className="px-5 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-semibold transition-colors duration-200">
+                  {cancelText}
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={onConfirm}
+                  className={`px-5 py-2.5 text-white rounded-lg font-semibold transition-colors duration-200 ${
+                    type === "approve" ? "bg-green-600 hover:bg-green-700" : type === "feedback" ? "bg-blue-600 hover:bg-blue-700" : type === "reject" ? "bg-red-600 hover:bg-red-700" : "bg-purple-600 hover:bg-purple-700"
+                  }`}
+                >
+                  {confirmText}
+                </motion.button>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};
+
 const DetailMonitoringMaintenance: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const { user, getMonitoringScheduleById, addMonitoringActivities, hasPermission, approveSchedule, getApprovalTemplates } = useAuth();
+  const { user, getMonitoringScheduleById, addMonitoringActivities, hasPermission, approveSchedule, getApprovalTemplates, updateMonitoringActivity } = useAuth();
   const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
     const stored = localStorage.getItem("sidebarOpen");
@@ -194,7 +251,6 @@ const DetailMonitoringMaintenance: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"approval" | "history">("approval");
   const [feedbackState, setFeedbackState] = useState<Record<string, { showInput: boolean; text: string }>>({});
-  const [approvalTemplates, setApprovalTemplates] = useState<ApprovalTemplate[]>([]);
   const [activeTemplate, setActiveTemplate] = useState<ApprovalTemplate | null>(null);
   const [isTemplateLoading, setIsTemplateLoading] = useState(true);
   const [scheduleData, setScheduleData] = useState<MonitoringSchedule | null>(null);
@@ -205,34 +261,19 @@ const DetailMonitoringMaintenance: React.FC = () => {
   const [modalTitle, setModalTitle] = useState("");
   const [isSuccess, setIsSuccess] = useState(true);
 
-  // Load approval templates sekali saja saat komponen mount
-  useEffect(() => {
-    const loadTemplates = async () => {
-      try {
-        setIsTemplateLoading(true);
-        const templates = await getApprovalTemplates();
-        setApprovalTemplates(templates);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{
+    type: "approve" | "feedback" | "reject" | "edit";
+    step: number;
+    title: string;
+    message: string;
+    feedbackText?: string;
+  } | null>(null);
 
-        // Cari template yang aktif
-        const active = templates.find((template) => template.is_active);
-        setActiveTemplate(active || null);
-
-        console.log("Loaded templates:", templates);
-        console.log("Active template:", active);
-      } catch (err) {
-        console.error("Error loading approval templates:", err);
-      } finally {
-        setIsTemplateLoading(false);
-      }
-    };
-
-    loadTemplates();
-  }, [getApprovalTemplates]);
-
-  // Load machine detail setelah templates siap
+  // Ganti useEffect pertama dengan ini - YANG INI YANG MASIH SALAH
   useEffect(() => {
     const loadData = async () => {
-      if (!id) return; // Hanya butuh id, tidak perlu menunggu template
+      if (!id) return;
 
       try {
         setIsLoading(true);
@@ -246,6 +287,12 @@ const DetailMonitoringMaintenance: React.FC = () => {
         }
 
         console.log("Schedule data dengan approvals:", scheduleData);
+
+        // SET ACTIVE TEMPLATE DARI RESPONSE - TAMBAHKAN INI
+        if (scheduleData.approval_template) {
+          setActiveTemplate(scheduleData.approval_template);
+          console.log("Active template set in first useEffect:", scheduleData.approval_template);
+        }
 
         // Map data dari backend ke frontend structure
         const machineDetailData: MachineDetail = {
@@ -280,11 +327,12 @@ const DetailMonitoringMaintenance: React.FC = () => {
         const existingActivities = scheduleData.monitoring_activities || [];
         const scheduleApprovals = scheduleData.schedule_approvals || [];
 
-        // Inisialisasi approval status - gunakan activeTemplate jika sudah tersedia
+        // Inisialisasi approval status - gunakan template dari response
         const initialApprovalStatus: ApprovalRole = {};
 
-        if (activeTemplate && activeTemplate.approvers) {
-          activeTemplate.approvers.forEach((approver) => {
+        // GUNAKAN scheduleData.approval_template, BUKAN activeTemplate
+        if (scheduleData.approval_template && scheduleData.approval_template.approvers) {
+          scheduleData.approval_template.approvers.forEach((approver) => {
             const stepKey = `step_${approver.step}`;
             const existingApproval = scheduleApprovals.find((approval: ScheduleApproval) => approval.approval_step === approver.step && approval.approver_id === approver.approver_user_id);
 
@@ -359,7 +407,7 @@ const DetailMonitoringMaintenance: React.FC = () => {
           return {
             type,
             timestamp: timestamp || new Date().toISOString(),
-            actor: `Approver Step ${approval.approval_step}`,
+            actor: approval.approver?.name || `Approver Step ${approval.approval_step}`,
             description,
             details: approval.comments || undefined,
           };
@@ -401,7 +449,7 @@ const DetailMonitoringMaintenance: React.FC = () => {
           activityHistory: activityHistory,
           isSaved: existingActivities.length > 0,
           submissionDate: existingActivities.length > 0 ? new Date().toISOString() : undefined,
-          currentApprovalStep: getCurrentApprovalStepFromApprovals(scheduleApprovals, activeTemplate),
+          currentApprovalStep: getCurrentApprovalStepFromApprovals(scheduleApprovals, scheduleData.approval_template), // GUNAKAN scheduleData.approval_template
         };
 
         setMonitoringResults(initialResults);
@@ -454,58 +502,90 @@ const DetailMonitoringMaintenance: React.FC = () => {
   // Fungsi untuk mengecek apakah user adalah approver untuk step tertentu
   const isUserApproverForStep = useCallback(
     (step: number): boolean => {
-      if (!activeTemplate || !activeTemplate.approvers || !user) return false;
+      if (!activeTemplate || !activeTemplate.approvers || !user) {
+        console.log(`❌ isUserApproverForStep ${step}: Missing data`);
+        return false;
+      }
 
       const approver = activeTemplate.approvers.find((approver) => approver.step === step && approver.approver_user_id.toString() === user.id);
 
-      console.log(`Checking if user is approver for step ${step}:`, {
+      const result = !!approver;
+
+      console.log(`🔍 IS USER APPROVER STEP ${step}:`, {
+        step,
         userID: user.id,
+        userName: user.name,
         approverUserID: approver?.approver_user_id,
-        match: !!approver,
+        approverName: approver?.approver.name,
+        MATCH: result,
       });
 
-      return !!approver;
+      return result;
     },
     [activeTemplate, user]
   );
 
   const getCurrentApprovalStep = useCallback((): number => {
     if (!monitoringResults || !activeTemplate?.approvers) {
+      console.log("❌ GET CURRENT STEP: No monitoringResults or approvers");
       return 1;
     }
 
-    // Urutkan approver berdasarkan step
     const sortedApprovers = [...activeTemplate.approvers].sort((a, b) => a.step - b.step);
 
-    console.log("=== GET CURRENT APPROVAL STEP ===");
-    console.log("All approvers status:", monitoringResults.approvalStatus);
+    console.log("🔍 GET CURRENT STEP - All approvers status:", monitoringResults.approvalStatus);
 
-    // Cari step pertama yang statusnya bukan "Approved"
+    // Cari step pertama yang statusnya "Pending"
     for (let i = 0; i < sortedApprovers.length; i++) {
       const approver = sortedApprovers[i];
       const stepKey = `step_${approver.step}`;
-      const status = monitoringResults.approvalStatus[stepKey];
+      const status = monitoringResults.approvalStatus[stepKey] || "Pending";
 
-      console.log(`Checking step ${approver.step}:`, {
+      console.log(`🔍 Checking step ${approver.step}:`, {
         stepKey,
         status,
-        isApproved: status === "Approved",
         isPending: status === "Pending",
-        isOther: status !== "Approved" && status !== "Pending",
       });
 
-      // Jika status bukan "Approved", maka step ini sedang aktif
-      if (status !== "Approved") {
-        console.log(`✅ Current active step found: ${approver.step}`);
+      if (status === "Pending") {
+        console.log(`✅ CURRENT ACTIVE STEP FOUND: ${approver.step}`);
         return approver.step;
       }
     }
 
-    // Jika semua sudah approved, return step terakhir + 1
+    // Jika semua approved, kembalikan step setelah terakhir
     const nextStep = sortedApprovers.length + 1;
-    console.log(`✅ All steps approved, next step would be: ${nextStep}`);
+    console.log(`✅ ALL STEPS APPROVED, NEXT STEP: ${nextStep}`);
     return nextStep;
   }, [monitoringResults, activeTemplate]);
+
+  // Tambahkan useEffect debug
+  useEffect(() => {
+    if (monitoringResults && activeTemplate && user) {
+      console.log("=== 🎯 DEBUG ACTIONS VISIBILITY ===");
+      console.log("User:", { id: user.id, name: user.name });
+      console.log("Template:", activeTemplate.name);
+      console.log("Is Saved:", monitoringResults.isSaved);
+
+      activeTemplate.approvers?.forEach((approver) => {
+        const stepKey = `step_${approver.step}`;
+        const status = monitoringResults.approvalStatus[stepKey];
+        const shouldShow = calculateShouldShowActionButtons(approver.step, approver, status);
+
+        console.log(`🎯 Step ${approver.step} - ${approver.approver.name}:`, {
+          status,
+          shouldShowActions: shouldShow,
+          isCurrentUser: approver.approver_user_id.toString() === user.id,
+          conditions: {
+            isCurrentApprover: approver.approver_user_id.toString() === user.id,
+            needsAction: status === "Pending",
+            isCurrentStep: getCurrentApprovalStep() === approver.step,
+            isPreviousStepApproved: approver.step === 1 ? true : monitoringResults.approvalStatus[`step_${approver.step - 1}`] === "Approved",
+          },
+        });
+      });
+    }
+  }, [monitoringResults, activeTemplate, user]);
 
   const getCurrentApprovalStepFromApprovals = (approvals: ScheduleApproval[], template: ApprovalTemplate | null): number => {
     if (!template || !template.approvers) return 1;
@@ -556,13 +636,19 @@ const DetailMonitoringMaintenance: React.FC = () => {
       setError(null);
 
       const scheduleData = await getMonitoringScheduleById(parseInt(id));
-      setScheduleData(scheduleData); // Simpan di state
+      setScheduleData(scheduleData);
 
       if (!scheduleData) {
         throw new Error("Data monitoring schedule tidak ditemukan");
       }
 
       console.log("Schedule data dengan approvals:", scheduleData);
+
+      // SET ACTIVE TEMPLATE DARI RESPONSE - INI YANG PERLU DIPERBAIKI
+      if (scheduleData.approval_template) {
+        setActiveTemplate(scheduleData.approval_template);
+        console.log("Active template set:", scheduleData.approval_template);
+      }
 
       // Map data dari backend ke frontend structure
       const machineDetailData: MachineDetail = {
@@ -600,13 +686,15 @@ const DetailMonitoringMaintenance: React.FC = () => {
       // Inisialisasi approval status berdasarkan schedule_approvals
       const initialApprovalStatus: ApprovalRole = {};
 
-      // Di dalam useEffect loadData, perbaiki bagian inisialisasi approvalStatus
-      if (activeTemplate && activeTemplate.approvers) {
-        activeTemplate.approvers.forEach((approver) => {
+      // Gunakan template dari response untuk inisialisasi status
+      // Dalam useEffect pertama & loadMachineDetail:
+      if (scheduleData.approval_template && scheduleData.approval_template.approvers) {
+        scheduleData.approval_template.approvers.forEach((approver) => {
           const stepKey = `step_${approver.step}`;
           const existingApproval = scheduleApprovals.find((approval: ScheduleApproval) => approval.approval_step === approver.step && approval.approver_id === approver.approver_user_id);
 
           if (existingApproval) {
+            // Ada history approval - gunakan status dari history
             let status: "Pending" | "Approved" | "Rejected" | "FeedbackGiven" | "Edited" = "Pending";
             switch (existingApproval.status) {
               case "approved":
@@ -622,16 +710,14 @@ const DetailMonitoringMaintenance: React.FC = () => {
                 status = "Pending";
             }
             initialApprovalStatus[stepKey] = status;
-
-            console.log(`Step ${approver.step} status:`, status);
           } else {
+            // TIDAK ADA HISTORY - BERARTI MASIH "Pending"
             initialApprovalStatus[stepKey] = "Pending";
-            console.log(`Step ${approver.step} status: Pending (no approval found)`);
+            console.log(`✅ Step ${approver.step} di-set ke Pending (no approval history)`);
           }
         });
       }
 
-      // Di dalam fungsi loadMachineDetail, perbaiki bagian activityHistory:
       // Process activity history dari schedule_approvals
       const activityHistory: ActivityLogEntry[] = scheduleApprovals.map((approval: ScheduleApproval) => {
         let type: "submission" | "approval" | "rejection" | "feedback" | "edit" = "approval";
@@ -655,16 +741,12 @@ const DetailMonitoringMaintenance: React.FC = () => {
             description = `Mengajukan approval pada step ${approval.approval_step}`;
         }
 
-        // Pastikan timestamp selalu ada string
         const timestamp = approval.approved_at || approval.created_at;
-        if (!timestamp) {
-          console.warn(`No timestamp found for approval ${approval.id}, using current time`);
-        }
 
         return {
           type,
-          timestamp: timestamp || new Date().toISOString(), // Fallback ke current time jika tidak ada
-          actor: `Approver Step ${approval.approval_step}`,
+          timestamp: timestamp || new Date().toISOString(),
+          actor: approval.approver?.name || `Approver Step ${approval.approval_step}`,
           description,
           details: approval.comments || undefined,
         };
@@ -675,7 +757,7 @@ const DetailMonitoringMaintenance: React.FC = () => {
         const submissionTimestamp = existingActivities[0].created_at;
         activityHistory.unshift({
           type: "submission",
-          timestamp: submissionTimestamp || new Date().toISOString(), // Pastikan selalu ada string
+          timestamp: submissionTimestamp || new Date().toISOString(),
           actor: "Technician",
           description: "Mengisi hasil monitoring",
         });
@@ -706,7 +788,7 @@ const DetailMonitoringMaintenance: React.FC = () => {
         activityHistory: activityHistory,
         isSaved: existingActivities.length > 0,
         submissionDate: existingActivities.length > 0 ? new Date().toISOString() : undefined,
-        currentApprovalStep: getCurrentApprovalStepFromApprovals(scheduleApprovals, activeTemplate),
+        currentApprovalStep: getCurrentApprovalStepFromApprovals(scheduleApprovals, scheduleData.approval_template),
       };
 
       setMonitoringResults(initialResults);
@@ -716,7 +798,7 @@ const DetailMonitoringMaintenance: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [id, getMonitoringScheduleById, activeTemplate]);
+  }, [id, getMonitoringScheduleById]);
 
   const handleResultChange = (itemId: number, value: string | number, itemType: "numeric" | "visual", min?: number, max?: number) => {
     setMonitoringResults((prevResults) => {
@@ -823,6 +905,61 @@ const DetailMonitoringMaintenance: React.FC = () => {
     });
   }, []);
 
+  const handleApprovalWithConfirm = (step: number, action: ApprovalAction, feedbackReason?: string) => {
+    let title = "";
+    let message = "";
+    let type: "approve" | "feedback" | "reject" | "edit" = "approve";
+
+    switch (action) {
+      case "Approved":
+        title = "Confirm Approval";
+        message = `Are you sure you want to approve this monitoring report for step ${step}?`;
+        type = "approve";
+        break;
+      case "FeedbackGiven":
+        title = "Confirm Feedback";
+        message = `Are you sure you want to send feedback for step ${step}?`;
+        type = "feedback";
+        break;
+      case "Rejected":
+        title = "Confirm Rejection";
+        message = `Are you sure you want to reject this monitoring report for step ${step}?`;
+        type = "reject";
+        break;
+      case "Edited":
+        title = "Confirm Edit";
+        message = `Are you sure you want to mark this as edited for step ${step}?`;
+        type = "edit";
+        break;
+    }
+
+    setConfirmAction({
+      type,
+      step,
+      title,
+      message,
+      feedbackText: feedbackReason,
+    });
+    setShowConfirmModal(true);
+  };
+
+  const handleConfirmAction = async () => {
+    if (!confirmAction) return;
+
+    try {
+      await handleApproval(confirmAction.step, confirmAction.type === "approve" ? "Approved" : confirmAction.type === "feedback" ? "FeedbackGiven" : confirmAction.type === "reject" ? "Rejected" : "Edited", confirmAction.feedbackText);
+
+      setShowConfirmModal(false);
+      setConfirmAction(null);
+
+      await loadMachineDetail();
+    } catch (error) {
+      console.error("Error during confirmation:", error);
+      setShowConfirmModal(false);
+      setConfirmAction(null);
+    }
+  };
+
   const handleApproval = async (step: number, action: ApprovalAction, feedbackReason?: string) => {
     if (!monitoringResults || !id || !user) return;
 
@@ -917,6 +1054,30 @@ const DetailMonitoringMaintenance: React.FC = () => {
     }
   };
 
+  // Fungsi untuk mengecek apakah semua step approval template sudah selesai
+  const isAllApprovalStepsCompleted = useCallback((): boolean => {
+    if (!activeTemplate || !activeTemplate.approvers || !monitoringResults) {
+      return false;
+    }
+
+    const sortedApprovers = [...activeTemplate.approvers].sort((a, b) => a.step - b.step);
+
+    // Cek apakah semua step memiliki status "Approved"
+    const allApproved = sortedApprovers.every((approver) => {
+      const stepKey = `step_${approver.step}`;
+      const status = monitoringResults.approvalStatus[stepKey];
+      return status === "Approved";
+    });
+
+    console.log("🔍 CHECK ALL STEPS COMPLETED:", {
+      totalSteps: sortedApprovers.length,
+      allApproved,
+      approvalStatus: monitoringResults.approvalStatus,
+    });
+
+    return allApproved;
+  }, [activeTemplate, monitoringResults]);
+
   const toggleFeedbackInput = (step: number) => {
     setFeedbackState((prev) => ({
       ...prev,
@@ -958,52 +1119,92 @@ const DetailMonitoringMaintenance: React.FC = () => {
         return;
       }
 
-      // Prepare data for backend
-      const activitiesToSave = monitoringResults.itemResults.map((itemResult) => ({
-        id_monitoring_schedule: parseInt(id),
-        id_item_mesin: itemResult.itemId,
-        tgl_monitoring: machineDetail.tgl_start || new Date().toISOString().split("T")[0],
-        hasil_monitoring: itemResult.result.toString(),
-        hasil_keterangan: itemResult.remarks,
-        hasil_ms_tms: itemResult.status === "MS" ? "ms" : itemResult.status === "TMS" ? "tms" : "na",
-      }));
+      // Prepare data for backend - INCLUDE id_monitoring_activities
+      const activitiesToSave = monitoringResults.itemResults.map((itemResult) => {
+        // Cari activity yang sudah ada berdasarkan id_item_mesin
+        const existingActivity = scheduleData?.monitoring_activities?.find((act: any) => act.id_item_mesin === itemResult.itemId);
 
-      await addMonitoringActivities(activitiesToSave);
+        const activityData: MonitoringActivityPost = {
+          id_monitoring_schedule: parseInt(id),
+          id_item_mesin: itemResult.itemId,
+          tgl_monitoring: machineDetail.tgl_start || new Date().toISOString().split("T")[0],
+          hasil_monitoring: itemResult.result.toString(),
+          hasil_keterangan: itemResult.remarks,
+          hasil_ms_tms: itemResult.status === "MS" ? "ms" : itemResult.status === "TMS" ? "tms" : "na",
+        };
 
+        // Jika ada existing activity, kita akan update
+        if (existingActivity && existingActivity.id_monitoring_activity) {
+          return {
+            id: existingActivity.id_monitoring_activity,
+            data: activityData,
+          };
+        } else {
+          // CREATE activity baru jika belum ada
+          return {
+            id: 0, // 0 menandakan create baru
+            data: activityData,
+          };
+        }
+      });
+
+      console.log("📦 Data yang akan dikirim ke backend:", activitiesToSave);
+
+      // Pisahkan antara CREATE dan UPDATE
+      const activitiesToCreate = activitiesToSave.filter((activity) => activity.id === 0);
+      const activitiesToUpdate = activitiesToSave.filter((activity) => activity.id > 0);
+
+      console.log("🆕 Activities to CREATE:", activitiesToCreate.length);
+      console.log("🔄 Activities to UPDATE:", activitiesToUpdate.length);
+
+      // Handle CREATE operations
+      if (activitiesToCreate.length > 0) {
+        const createPayload = activitiesToCreate.map((activity) => activity.data);
+        console.log("🆕 CREATE new monitoring activities:", createPayload);
+        await addMonitoringActivities(createPayload);
+      }
+
+      // Handle UPDATE operations
+      if (activitiesToUpdate.length > 0) {
+        console.log("🔄 UPDATE existing monitoring activities:", activitiesToUpdate);
+        await updateMonitoringActivity(activitiesToUpdate);
+      }
+
+      // Update local state
       setMonitoringResults((prevResults) => {
         if (!prevResults) return null;
-        let updatedCommentsHistory = prevResults.commentsHistory || [];
-        let updatedActivityHistory = [...prevResults.activityHistory];
+
+        const updatedActivityHistory = [...prevResults.activityHistory];
         const timestamp = new Date().toLocaleString();
 
-        if (isStep1Approver) {
-          updatedActivityHistory.push({
-            type: "edit",
-            timestamp,
-            actor: currentUserRole.name,
-            description: `${currentUserRole.name} (Approver Step 1) mengedit hasil monitoring.`,
-          });
-        } else {
-          updatedActivityHistory.push({
-            type: "submission",
-            timestamp,
-            actor: currentUserRole.name,
-            description: `${currentUserRole.name} mengisi hasil monitoring.`,
-          });
-        }
+        // Tentukan jenis aksi berdasarkan isSaved
+        const actionType = prevResults.isSaved ? "edit" : "submission";
+        const actionDescription = prevResults.isSaved ? `${currentUserRole.name} mengedit hasil monitoring.` : `${currentUserRole.name} mengisi hasil monitoring.`;
+
+        updatedActivityHistory.push({
+          type: actionType,
+          timestamp,
+          actor: currentUserRole.name,
+          description: actionDescription,
+        });
 
         return {
           ...prevResults,
           isSaved: true,
           submissionDate: new Date().toISOString(),
-          commentsHistory: updatedCommentsHistory,
           activityHistory: updatedActivityHistory,
         };
       });
 
-      showModal("Success!", `Hasil monitoring untuk ${machineDetail.name} berhasil disimpan!`, true);
+      await loadMachineDetail();
+
+      const actionMessage = monitoringResults.isSaved ? `Hasil monitoring untuk ${machineDetail.name} berhasil diupdate!` : `Hasil monitoring untuk ${machineDetail.name} berhasil disimpan!`;
+
+      showModal("Success!", actionMessage, true);
     } catch (err) {
-      showModal("Error!", "Gagal menyimpan hasil monitoring. Silakan coba lagi.", false);
+      const actionMessage = monitoringResults.isSaved ? "Gagal mengupdate hasil monitoring. Silakan coba lagi." : "Gagal menyimpan hasil monitoring. Silakan coba lagi.";
+
+      showModal("Error!", actionMessage, false);
       console.error("Error saving monitoring results:", err);
     } finally {
       setIsSaving(false);
@@ -1011,45 +1212,62 @@ const DetailMonitoringMaintenance: React.FC = () => {
   };
 
   const calculateShouldShowActionButtons = (step: number, approver: Approver, currentStatus: string | undefined): boolean => {
-    if (!user || !monitoringResults?.isSaved || isTemplateLoading) {
+    if (!user || !monitoringResults?.isSaved) {
+      console.log(`❌ Button step ${step}: User atau monitoringResults tidak siap`, {
+        user: !!user,
+        monitoringResults: !!monitoringResults,
+        isSaved: monitoringResults?.isSaved,
+      });
       return false;
     }
 
-    // Cek apakah user adalah approver untuk step ini
+    // 1. Cek apakah user adalah approver untuk step ini
     const isCurrentApprover = approver.approver_user_id.toString() === user.id;
 
-    // Cek apakah status masih membutuhkan action (bukan "Approved")
-    const needsAction = currentStatus !== "Approved";
+    // 2. Cek apakah status masih "Pending" (butuh action)
+    const needsAction = currentStatus === "Pending";
 
-    // Cek apakah ini step yang sedang aktif
+    // 3. Cek apakah ini step yang sedang aktif
     const currentStep = getCurrentApprovalStep();
     const isCurrentStep = currentStep === step;
 
-    // Cek apakah step sebelumnya sudah approved
-    const previousStep = step - 1;
-    const previousStepKey = `step_${previousStep}`;
-    const previousStepStatus = monitoringResults.approvalStatus[previousStepKey];
+    // 4. Untuk step 1, selalu eligible (tidak ada step sebelumnya)
+    let isPreviousStepApproved = true;
+    if (step > 1) {
+      const previousStepKey = `step_${step - 1}`;
+      const previousStepStatus = monitoringResults.approvalStatus[previousStepKey];
+      isPreviousStepApproved = previousStepStatus === "Approved";
+    }
 
-    // Untuk step 1, tidak ada step sebelumnya
-    const isPreviousStepApproved = step === 1 || previousStepStatus === "Approved";
+    const result = isCurrentApprover && needsAction && isCurrentStep && isPreviousStepApproved;
 
-    console.log(`Step ${step} Action Check:`, {
+    console.log(`🎯 CALCULATE BUTTON STEP ${step}:`, {
+      step,
       isCurrentApprover,
       needsAction,
       isCurrentStep,
       isPreviousStepApproved,
       currentStatus,
       currentStep,
-      previousStepStatus,
+      userID: user.id,
+      approverID: approver.approver_user_id,
+      userPosition: user.position,
+      approverPosition: approver.approver.position,
+      FINAL_RESULT: result,
     });
 
-    return isCurrentApprover && needsAction && isCurrentStep && isPreviousStepApproved;
+    return result;
   };
 
   // Fungsi terpisah untuk handle edit oleh approver step 1
   // Fungsi terpisah untuk handle edit oleh approver step 1
   const handleEditByApprover = async (step: number) => {
     if (!monitoringResults || !id || step !== 1) return;
+
+    if (isAllApprovalStepsCompleted()) {
+      showModal("Info", "Tidak dapat mengedit karena semua step approval sudah selesai.", false);
+      return;
+    }
 
     try {
       // Simpan perubahan data monitoring terlebih dahulu
@@ -1081,11 +1299,23 @@ const DetailMonitoringMaintenance: React.FC = () => {
         };
       });
 
+      await loadMachineDetail();
+
       showModal("Success!", "Berhasil menyimpan perubahan dan menandai sebagai edited oleh Approver Step 1.", true);
     } catch (error) {
       console.error("Error during edit by approver:", error);
       showModal("Error!", "Gagal menyimpan perubahan. Silakan coba lagi.", false);
     }
+  };
+
+  const handleEditWithConfirm = (step: number) => {
+    setConfirmAction({
+      type: "edit",
+      step,
+      title: "Confirm Edit",
+      message: "Are you sure you want to save and mark this monitoring as edited? This action cannot be undone.",
+    });
+    setShowConfirmModal(true);
   };
 
   const groupedComments = useMemo(() => {
@@ -1153,21 +1383,30 @@ const DetailMonitoringMaintenance: React.FC = () => {
     return "visual";
   };
 
-  // Hanya approver step 1 yang bisa mengedit hasil monitoring
+  // Tambahkan useMemo ini untuk mendeteksi technician
+  const isTechnicianUser = useMemo(() => {
+    return currentUserRole.name.toLowerCase().includes("technician") && !isUserApproverForStep(1); // Pastikan bukan approver step 1
+  }, [currentUserRole, isUserApproverForStep]);
+
+  const isStep1Approver = isUserApproverForStep(1);
+
+  // Hanya approver step 1 yang bisa mengedit hasil monitoring, dan hanya jika belum semua step selesai
   const isEditable = useMemo(() => {
-    if (!monitoringResults?.isSaved) {
-      // Jika belum disimpan, semua user bisa mengedit
-      return true;
+    if (!monitoringResults?.isSaved) return true;
+
+    const step1Status = monitoringResults.approvalStatus["step_1"];
+
+    // Simple rule: Jika step 1 masih Pending, semua orang kecuali approver step 2+ bisa edit
+    if (step1Status === "Pending") {
+      return true; // Sementara izinkan semua orang edit selama step 1 pending
     }
 
-    // Jika sudah disimpan, hanya approver step 1 yang bisa mengedit
-    return isUserApproverForStep(1);
-  }, [monitoringResults?.isSaved, isUserApproverForStep]);
+    // Setelah step 1 diproses, hanya approver step 1 yang bisa edit
+    return isUserApproverForStep(1) && !isAllApprovalStepsCompleted();
+  }, [monitoringResults?.isSaved, monitoringResults?.approvalStatus, isUserApproverForStep, isAllApprovalStepsCompleted]);
 
   // User adalah approver untuk step yang sedang aktif
   const isCurrentApprover = isUserApproverForStep(getCurrentApprovalStep());
-
-  const isStep1Approver = isUserApproverForStep(1);
 
   const showModal = useCallback((title: string, message: string, success: boolean = true) => {
     setModalTitle(title);
@@ -1298,23 +1537,28 @@ const DetailMonitoringMaintenance: React.FC = () => {
               <p className="text-gray-600 mt-1">
                 Periode: <span className="font-semibold text-gray-800">{machineDetail.period}</span>
               </p>
+
               <div className="text-sm text-gray-500 mt-2 flex items-center space-x-4">
                 <p>
                   <span className="font-semibold">{machineDetail.items.length}</span> Items
                 </p>
-                {isTemplateLoading ? (
-                  <p>Memuat template...</p>
-                ) : activeTemplate ? (
+                {activeTemplate && activeTemplate.approvers && activeTemplate.approvers.length > 0 ? (
                   <p>
                     Template: <span className="font-semibold">{activeTemplate.name}</span>
+                    {activeTemplate.is_active && <span className="ml-1 text-green-600">(Aktif)</span>}
+                    {isAllApprovalStepsCompleted() && <span className="ml-2 bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-semibold">All Steps Completed</span>}
                   </p>
                 ) : (
                   <p>
-                    Template: <span className="font-semibold text-yellow-600">Tidak ada template aktif</span>
+                    Template: <span className="font-semibold text-yellow-600">Tidak ada template</span>
                   </p>
                 )}
-                {!isTemplateLoading && isStep1Approver && <p className="text-blue-600 font-semibold">(Anda adalah Approver Step 1 - Dapat mengedit)</p>}
-                {!isTemplateLoading && isCurrentApprover && !isStep1Approver && <p className="text-green-600 font-semibold">(Anda adalah approver untuk step {getCurrentApprovalStep()})</p>}
+                {activeTemplate && isStep1Approver && (
+                  <p className={`font-semibold ${isAllApprovalStepsCompleted() ? "text-gray-500" : "text-blue-600"}`}>
+                    {isAllApprovalStepsCompleted() ? "(Semua step approval selesai - tidak dapat edit)" : "(Anda adalah Approver Step 1 - Dapat mengedit)"}
+                  </p>
+                )}
+                {activeTemplate && isCurrentApprover && !isStep1Approver && <p className="text-green-600 font-semibold">(Anda adalah approver untuk step {getCurrentApprovalStep()})</p>}
               </div>
             </div>
           </motion.div>
@@ -1398,13 +1642,13 @@ const DetailMonitoringMaintenance: React.FC = () => {
                 </table>
               </div>
 
-              <div className="flex justify-end mt-6">
+              <div className="flex justify-end mt-6 relative">
                 <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+                  whileHover={{ scale: isEditable ? 1.05 : 1 }}
+                  whileTap={{ scale: isEditable ? 0.95 : 1 }}
                   onClick={isStep1Approver ? () => handleEditByApprover(1) : handleSaveMachineResults}
-                  disabled={!isEditable || isSaving}
-                  className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={!isEditable || isSaving || (isStep1Approver && isAllApprovalStepsCompleted())}
+                  className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold flex items-center disabled:opacity-50 disabled:cursor-not-allowed relative group"
                 >
                   {isSaving ? (
                     <>
@@ -1414,10 +1658,15 @@ const DetailMonitoringMaintenance: React.FC = () => {
                   ) : (
                     <>
                       <Save className="mr-2 h-5 w-5" />
-                      {isStep1Approver ? "Save & Mark as Edited" : "Save Monitoring"}
+                      {isStep1Approver ? (isAllApprovalStepsCompleted() ? "All Steps Completed" : "Save & Mark as Edited") : "Save Monitoring"}
                     </>
                   )}
                 </motion.button>
+
+                {/* Tooltip untuk menjelaskan mengapa tombol disabled */}
+                {isStep1Approver && isAllApprovalStepsCompleted() && (
+                  <div className="absolute bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded py-1 px-2 whitespace-nowrap">Semua step approval sudah selesai. Tidak dapat melakukan edit.</div>
+                )}
               </div>
               <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm mt-8">
                 <div className="flex items-center space-x-4 mb-4 border-b border-gray-200">
@@ -1442,15 +1691,12 @@ const DetailMonitoringMaintenance: React.FC = () => {
                   <AnimatePresence mode="wait">
                     <motion.div key="approval-tab" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.2 }} className="space-y-4">
                       {/* Tampilkan loading state untuk template */}
-                      {isTemplateLoading ? (
-                        <div className="text-center py-4">
-                          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
-                          <p className="text-gray-500 mt-2">Memuat template approval...</p>
-                        </div>
-                      ) : !activeTemplate ? (
+
+                      {!activeTemplate || !activeTemplate.approvers || activeTemplate.approvers.length === 0 ? (
                         <div className="text-center py-8 text-gray-500">
                           <Info className="mx-auto h-12 w-12 mb-4 text-gray-400" />
-                          <p>Tidak ada template approval yang aktif.</p>
+                          <p>Tidak ada template approval yang aktif untuk schedule ini.</p>
+                          <p className="text-sm mt-2">Silakan hubungi administrator untuk mengatur template approval.</p>
                         </div>
                       ) : (
                         activeTemplate.approvers?.map((approver) => {
@@ -1528,12 +1774,12 @@ const DetailMonitoringMaintenance: React.FC = () => {
                                   )}
 
                                   {/* Tombol actions */}
-                                  {!isTemplateLoading && shouldShowActionButtons && (
+                                  {shouldShowActionButtons && (
                                     <div className="flex space-x-2 mt-3">
                                       <motion.button
                                         whileHover={{ scale: 1.05 }}
                                         whileTap={{ scale: 0.95 }}
-                                        onClick={() => handleApproval(approver.step, "Approved")}
+                                        onClick={() => handleApprovalWithConfirm(approver.step, "Approved")}
                                         className="px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-semibold transition-colors flex items-center"
                                       >
                                         <CheckCircle size={16} className="mr-1" />
@@ -1576,14 +1822,13 @@ const DetailMonitoringMaintenance: React.FC = () => {
                                       <motion.button
                                         whileHover={{ scale: 1.05 }}
                                         whileTap={{ scale: 0.95 }}
-                                        onClick={() => handleApproval(approver.step, "FeedbackGiven", feedbackState[stepKey]?.text)}
+                                        onClick={() => handleApprovalWithConfirm(approver.step, "FeedbackGiven", feedbackState[stepKey]?.text)}
                                         disabled={!feedbackState[stepKey]?.text?.trim()}
                                         className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-semibold transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
                                       >
                                         <MessageSquare size={16} className="mr-1" />
                                         Kirim Feedback
                                       </motion.button>
-
                                       <motion.button
                                         whileHover={{ scale: 1.05 }}
                                         whileTap={{ scale: 0.95 }}
@@ -1645,6 +1890,19 @@ const DetailMonitoringMaintenance: React.FC = () => {
           </div>
         </main>
       </div>
+
+      <ConfirmModal
+        isOpen={showConfirmModal}
+        onClose={() => {
+          setShowConfirmModal(false);
+          setConfirmAction(null);
+        }}
+        onConfirm={handleConfirmAction}
+        title={confirmAction?.title || "Confirm Action"}
+        message={confirmAction?.message || "Are you sure you want to proceed?"}
+        confirmText={confirmAction?.type === "approve" ? "Approve" : confirmAction?.type === "feedback" ? "Send Feedback" : confirmAction?.type === "reject" ? "Reject" : confirmAction?.type === "edit" ? "Save & Mark as Edited" : "Confirm"}
+        type={confirmAction?.type}
+      />
 
       <Modal isOpen={showSuccessModal} onClose={handleCloseSuccessModal} title="Success!">
         <div className="flex flex-col items-center justify-center py-4">

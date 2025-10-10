@@ -1,7 +1,6 @@
-// WorkflowApprovalMonitoring.tsx
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { FolderPlus, List, FileText, X, Loader } from "lucide-react";
+import { FolderPlus, List, FileText, X, Loader, AlertTriangle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../Sidebar";
 import { useAuth } from "../../routes/AuthContext";
@@ -17,7 +16,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
   if (!isOpen) return null;
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center backdrop-brightness-50 bg-opacity-50 p-4">
       <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-auto p-6 border border-blue-100">
         <div className="flex justify-between items-center border-b pb-3 mb-4 border-gray-100">
           <h3 className="text-2xl font-bold text-gray-900">{title}</h3>
@@ -40,6 +39,43 @@ const WorkflowApprovalMonitoring: React.FC = () => {
   const [templates, setTemplates] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{ type: "activate" | "delete"; templateId: number; templateName: string } | null>(null);
+
+  const showConfirmation = (type: "activate" | "delete", templateId: number, templateName: string) => {
+    setConfirmAction({ type, templateId, templateName });
+    setShowConfirmModal(true);
+  };
+
+  const handleConfirmedAction = async () => {
+    if (!confirmAction) return;
+
+    try {
+      setLoading(true);
+
+      if (confirmAction.type === "activate") {
+        await setApprovalTemplateActive(confirmAction.templateId);
+        setTemplates((prev) =>
+          prev.map((t) => ({
+            ...t,
+            is_active: t.id === confirmAction.templateId,
+          }))
+        );
+      } else if (confirmAction.type === "delete") {
+        await deleteApprovalTemplate(confirmAction.templateId);
+        await loadTemplates();
+      }
+
+      setShowConfirmModal(false);
+      setConfirmAction(null);
+      setError("");
+    } catch (err) {
+      setError(`Failed to ${confirmAction.type} template`);
+      console.error(`Error ${confirmAction.type}ing template:`, err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     loadTemplates();
@@ -192,7 +228,7 @@ const WorkflowApprovalMonitoring: React.FC = () => {
                           <motion.button
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleActivateTemplate(template.id);
+                              showConfirmation("activate", template.id, template.name);
                             }}
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
@@ -205,7 +241,7 @@ const WorkflowApprovalMonitoring: React.FC = () => {
                         <motion.button
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleDeleteTemplate(template.id, template.name);
+                            showConfirmation("delete", template.id, template.name);
                           }}
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
@@ -223,6 +259,46 @@ const WorkflowApprovalMonitoring: React.FC = () => {
               )}
             </div>
           )}
+
+          <Modal
+            isOpen={showConfirmModal}
+            onClose={() => {
+              setShowConfirmModal(false);
+              setConfirmAction(null);
+            }}
+            title="Confirm Action"
+          >
+            <div className="space-y-5 text-center py-3">
+              <AlertTriangle className="text-red-500 text-5xl mx-auto animate-pulse" />
+              <p className="text-base text-gray-700 font-medium">
+                Are you sure you want to {confirmAction?.type} template "{confirmAction?.templateName}"?
+                {confirmAction?.type === "delete" && " This action cannot be undone."}
+              </p>
+              <div className="flex justify-center space-x-3 mt-5">
+                <motion.button
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => {
+                    setShowConfirmModal(false);
+                    setConfirmAction(null);
+                  }}
+                  className="px-5 py-2.5 border border-gray-300 rounded-md hover:bg-gray-100 text-gray-700 transition-colors duration-200 font-semibold text-sm"
+                >
+                  Cancel
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={handleConfirmedAction}
+                  className={`px-5 py-2.5 text-white rounded-md hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-200 font-semibold text-sm ${
+                    confirmAction?.type === "delete" ? "bg-red-600 hover:bg-red-700 focus:ring-red-500" : "bg-green-600 hover:bg-green-700 focus:ring-green-500"
+                  }`}
+                >
+                  {confirmAction?.type === "delete" ? "Delete" : "Activate"}
+                </motion.button>
+              </div>
+            </div>
+          </Modal>
 
           <Modal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} title="Create New Template">
             <div className="space-y-4">

@@ -1,162 +1,208 @@
-import React, { useRef, useState, useEffect } from "react";
+import "../index.css";
+import { TextStyleKit } from "@tiptap/extension-text-style";
+import TextAlign from "@tiptap/extension-text-align";
+import Color from "@tiptap/extension-color";
+import FontFamily from "@tiptap/extension-font-family";
+import Link from "@tiptap/extension-link";
+import type { Editor } from "@tiptap/react";
+import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Highlight from "@tiptap/extension-highlight";
+import React, { useState } from "react";
+
+// Import ikon Lucide React
 import {
   Bold,
   Italic,
-  Underline,
+  Strikethrough,
+  Code,
+  Pilcrow,
+  Heading1,
+  Heading2,
+  Heading3,
   List,
   ListOrdered,
+  Undo2,
+  Redo2,
+  RemoveFormatting,
+  Trash2,
+  Link as LinkIcon,
+  Palette,
+  Type,
+  PaintBucket,
   AlignLeft,
   AlignCenter,
   AlignRight,
-  Undo,
-  Redo,
-  Strikethrough, // Menambahkan Strikethrough untuk kelengkapan
-  Link, // Menambahkan Link
-  Palette, // Untuk Warna Teks
-  PaintBucket, // Ikon untuk Warna Latar Belakang Teks
-  ChevronDown,
-  Check,
-  X,
+  AlignJustify,
 } from "lucide-react";
 
-interface RichTextEditorProps {
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-}
-
-// Warna yang diminta user: Merah, Kuning, Hijau
-const CUSTOM_COLORS = [
-  // Baris 1: Grayscale & Primary
-  { name: "Hitam", code: "#000000" },
-  { name: "Abu Gelap", code: "#4B5563" },
-  { name: "Merah", code: "#EF4444" },
-  { name: "Oranye", code: "#F97316" },
-
-  // Baris 2: Warm Tones
-  { name: "Kuning", code: "#FACC15" },
-  { name: "Hijau", code: "#22C55E" },
-  { name: "Teal", code: "#14B8A6" },
-  { name: "Biru", code: "#3B82F6" },
-
-  // Baris 3: Cool/Secondary Tones
-  { name: "Indigo", code: "#6366F1" },
-  { name: "Ungu", code: "#8B5CF6" },
-  { name: "Pink", code: "#EC4899" },
-  { name: "Coklat", code: "#A52A2A" },
-
-  // Baris 4: Light Tones & Reset
-  { name: "Abu Muda", code: "#E5E7EB" },
-  { name: "Navy", code: "#000080" },
-  { name: "Putih", code: "#FFFFFF", isLight: true }, // Hanya untuk preview
-  { name: "Hapus", code: "transparent", isNormal: true }, // Opsi untuk menghapus warna
+// Di file TiptapEditor.tsx, update extensions configuration
+const extensions = [
+  TextStyleKit,
+  StarterKit.configure({
+    // Nonaktifkan sanitization untuk mempertahankan semua styling
+    bold: {
+      HTMLAttributes: {
+        class: "font-bold",
+      },
+    },
+    italic: {
+      HTMLAttributes: {
+        class: "italic",
+      },
+    },
+    strike: {
+      HTMLAttributes: {
+        class: "line-through",
+      },
+    },
+    underline: {
+      HTMLAttributes: {
+        class: "underline",
+      },
+    },
+  }),
+  Color.configure({
+    types: ["textStyle"],
+  }),
+  Highlight.configure({
+    multicolor: true,
+  }),
+  FontFamily.configure({
+    types: ["textStyle"],
+  }),
+  Link.configure({
+    openOnClick: false,
+    HTMLAttributes: {
+      class: "text-blue-500 underline hover:text-blue-700 cursor-pointer",
+    },
+  }),
+  TextAlign.configure({
+    types: ["heading", "paragraph"],
+    alignments: ["left", "center", "right", "justify"],
+  }),
 ];
 
-// Fungsi pembantu untuk memeriksa apakah perintah sedang aktif
-const isCommandActive = (command: string): boolean => {
-  try {
-    return document.queryCommandState(command);
-  } catch (e) {
-    return false;
-  }
-};
-
-interface LinkDialogProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onApply: (url: string) => void;
-  onRemove: () => void;
+interface TiptapEditorProps {
+  value: string;
+  onChange: (value: string) => void;
 }
 
-const LinkDialog: React.FC<LinkDialogProps> = ({ isOpen, onClose, onApply, onRemove }) => {
-  const [url, setUrl] = useState("");
-  const [error, setError] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
+interface LinkModalProps {
+  editor: Editor;
+  onClose: () => void;
+}
 
-  // Default value saat modal dibuka
-  useEffect(() => {
-    if (isOpen) {
-      setUrl("https://");
-      setError("");
-      // Fokus otomatis
-      setTimeout(() => inputRef.current?.focus(), 50);
-    }
-  }, [isOpen]);
+const LinkModal: React.FC<LinkModalProps> = ({ editor, onClose }) => {
+  const [url, setUrl] = useState(() => {
+    const previousUrl = editor.getAttributes("link").href;
+    return previousUrl || "";
+  });
 
-  const handleApply = () => {
-    if (!url || url.trim() === "https://" || url.trim() === "http://" || url.trim() === "") {
-      setError("URL tidak boleh kosong. Masukkan tautan yang valid.");
-      return;
+  // PERBAIKAN: Simpan selection saat modal terbuka
+  const [selection, setSelection] = useState(() => {
+    return { from: editor.state.selection.from, to: editor.state.selection.to };
+  });
+
+  // PERBAIKAN: Dapatkan selected text dengan lebih reliable
+  const [text, setText] = useState(() => {
+    try {
+      const { from, to } = editor.state.selection;
+      if (from === to) {
+        // Tidak ada teks yang dipilih, return empty string
+        return "";
+      }
+      const selectedText = editor.state.doc.textBetween(from, to);
+      return selectedText || "";
+    } catch {
+      return "";
     }
-    onApply(url);
+  });
+
+  const saveLink = () => {
+    // PERBAIKAN: Restore selection terlebih dahulu
+    editor.chain().focus().setTextSelection(selection).run();
+
+    if (url) {
+      // Jika ada teks yang dipilih, gunakan teks tersebut
+      if (text) {
+        editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+      } else {
+        // Jika tidak ada teks yang dipilih, insert link dengan teks dari input
+        editor
+          .chain()
+          .focus()
+          .insertContent({
+            type: "text",
+            text: text || url, // Gunakan teks dari input atau URL sebagai fallback
+            marks: [
+              {
+                type: "link",
+                attrs: { href: url },
+              },
+            ],
+          })
+          .run();
+      }
+    } else {
+      editor.chain().focus().unsetLink().run();
+    }
     onClose();
   };
 
-  const handleRemove = () => {
-    onRemove();
+  const removeLink = () => {
+    // PERBAIKAN: Restore selection sebelum remove
+    editor.chain().focus().setTextSelection(selection).run();
+    editor.chain().focus().unsetLink().run();
     onClose();
   };
-
-  if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 bg-opacity-30 z-30 flex items-center justify-center backdrop-blur-sm transition-opacity duration-300"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          onClose();
-        }
-      }}
-    >
-      <div
-        className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 
-                            transform transition-all scale-100 ring-4 ring-white/5"
-      >
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-bold text-gray-800">Tambahkan Tautan</h3>
-          <button onClick={onClose} className="p-1 rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition" aria-label="Tutup">
-            <X size={20} />
+    <div className="fixed inset-0 backdrop-brightness-50 bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-96">
+        <h3 className="text-lg font-semibold mb-4">Add/Edit Link</h3>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">URL</label>
+            <input
+              type="url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://example.com"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              autoFocus // PERBAIKAN: Auto focus ke input URL
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Text {!text && <span className="text-orange-500">(required if no text selected)</span>}</label>
+            <input
+              type="text"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder={text || "Enter link text"}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            {!text && <p className="text-xs text-gray-500 mt-1">No text selected. Enter text above or select text first.</p>}
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 mt-6">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors">
+            Cancel
           </button>
-        </div>
-
-        <div className="mb-4">
-          <label htmlFor="link-url" className="block text-sm font-semibold text-gray-700 mb-2">
-            Alamat Web (URL)
-          </label>
-          <input
-            ref={inputRef}
-            id="link-url"
-            type="url"
-            value={url}
-            onChange={(e) => {
-              setUrl(e.target.value);
-              setError("");
-            }}
-            onKeyDown={(e) => e.key === "Enter" && handleApply()}
-            placeholder="Contoh: https://gemini.google.com"
-            className={`w-full p-3 border ${error ? "border-red-500" : "border-gray-300"} 
-                                    rounded-lg focus:ring-blue-500 focus:border-blue-500 
-                                    transition duration-150 shadow-sm text-gray-800`}
-          />
-
-          {error && <p className="mt-2 text-sm text-red-700 font-medium bg-red-100 border border-red-300 p-2 rounded-lg transition-opacity duration-300">{error}</p>}
-        </div>
-
-        <div className="flex justify-end space-x-3 pt-2">
-          {/* Tombol Hapus: Hanya muncul jika ada konten */}
-          {url && url.length > 0 && url !== "https://" && (
-            <button type="button" onClick={handleRemove} className="px-4 py-2 text-sm font-medium text-red-600 border border-red-300 bg-white rounded-lg hover:bg-red-50 transition-colors shadow-sm">
-              Hapus Tautan
+          {editor.getAttributes("link").href && (
+            <button onClick={removeLink} className="px-4 py-2 text-sm text-red-600 hover:text-red-800 transition-colors">
+              Remove Link
             </button>
           )}
-
           <button
-            type="button"
-            onClick={handleApply}
-            className="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg 
-                                   hover:bg-blue-700 transition-colors shadow-md flex items-center"
+            onClick={saveLink}
+            disabled={!url} // PERBAIKAN: Disable jika URL kosong
+            className="px-4 py-2 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            <Check size={16} className="mr-1" /> Terapkan
+            Save Link
           </button>
         </div>
       </div>
@@ -164,310 +210,420 @@ const LinkDialog: React.FC<LinkDialogProps> = ({ isOpen, onClose, onApply, onRem
   );
 };
 
-const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange, placeholder }) => {
-  const editorRef = useRef<HTMLDivElement>(null);
-  const colorDropdownRef = useRef<HTMLDivElement>(null);
-  const highlightDropdownRef = useRef<HTMLDivElement>(null); // Ref baru untuk dropdown highlight
+interface ColorPickerProps {
+  editor: Editor;
+  type: "color" | "backgroundColor";
+  onClose: () => void;
+}
 
-  const selectionRef = useRef<Selection | null>(null);
-  const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
-  // Gunakan state untuk melacak status aktif tombol (diperlukan untuk UI)
-  const [activeFormats, setActiveFormats] = useState<Record<string, boolean>>({});
-  const [isColorDropdownOpen, setIsColorDropdownOpen] = useState(false);
-  const [isHighlightDropdownOpen, setIsHighlightDropdownOpen] = useState(false); // State baru
+const ColorPicker: React.FC<ColorPickerProps> = ({ editor, type, onClose }) => {
+  const colors = ["#000000", "#FFFFFF", "#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FF00FF", "#00FFFF", "#FFA500", "#800080", "#008000", "#800000", "#008080", "#000080", "#808080", "#FFE4E1", "#F0FFF0", "#F0F8FF", "#FFF8DC", "#F5F5F5"];
 
-  // 1. Inisialisasi contentEditable dengan nilai awal (hanya sekali saat mount)
-  useEffect(() => {
-    if (editorRef.current && editorRef.current.innerHTML === "") {
-      // Atur nilai awal dari props
-      editorRef.current.innerHTML = value;
+  // PERBAIKAN: Ambil current color berdasarkan type
+  const currentColor = type === "color" ? editor.getAttributes("textStyle").color : editor.getAttributes("highlight").color;
+
+  const setColor = (color: string) => {
+    if (type === "color") {
+      // Untuk text color
+      editor.chain().focus().setColor(color).run();
+    } else {
+      // Untuk background color menggunakan highlight
+      editor.chain().focus().setHighlight({ color }).run();
     }
-  }, []); // Hanya jalankan sekali saat mount
+    onClose();
+  };
 
-  // 2. Jika nilai props berubah dari luar, update editor (misalnya saat reset form)
-  useEffect(() => {
-    if (editorRef.current && editorRef.current.innerHTML !== value) {
-      editorRef.current.innerHTML = value;
+  const removeColor = () => {
+    if (type === "color") {
+      editor.chain().focus().unsetColor().run();
+    } else {
+      editor.chain().focus().unsetHighlight().run();
     }
-  }, [value]);
-
-  // Efek untuk menutup dropdown warna/highlight saat klik di luar
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (colorDropdownRef.current && !colorDropdownRef.current.contains(event.target as Node)) {
-        setIsColorDropdownOpen(false);
-      }
-      if (highlightDropdownRef.current && !highlightDropdownRef.current.contains(event.target as Node)) {
-        setIsHighlightDropdownOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
-
-  // Handle input changes
-  const handleInput = () => {
-    if (editorRef.current) {
-      // Panggil onChange untuk menyimpan HTML yang diubah
-      onChange(editorRef.current.innerHTML);
-      updateFormatState();
-    }
-  };
-
-  // Menggunakan event keydown/up untuk memastikan undo/redo browser bawaan bekerja
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    // Memastikan onChange tetap dipanggil setelah input terjadi (opsional, handleInput sudah cukup)
-  };
-
-  // Menggunakan event onMouseUp/onKeyUp untuk memperbarui status aktif format setelah pengguna memilih teks
-  const handleSelectionChange = () => {
-    updateFormatState();
-  };
-
-  // Memperbarui state format yang aktif (diperlukan untuk toggle styling tombol)
-  const updateFormatState = () => {
-    const selection = window.getSelection();
-    const parentNode = selection?.anchorNode?.parentElement;
-
-    const formats = {
-      bold: isCommandActive("bold"),
-      italic: isCommandActive("italic"),
-      underline: isCommandActive("underline"),
-      strikethrough: isCommandActive("strikeThrough"),
-      orderedlist: !!parentNode?.closest("ol"), // cek apakah dalam <ol>
-      unorderedlist: !!parentNode?.closest("ul"), // cek apakah dalam <ul>
-      alignleft: isCommandActive("justifyLeft"),
-      aligncenter: isCommandActive("justifyCenter"),
-      alignright: isCommandActive("justifyRight"),
-    };
-    setActiveFormats(formats);
-  };
-
-  // Fungsi utama untuk menjalankan perintah browser
-  const executeCommand = (command: string, value: string = "") => {
-    if (editorRef.current) {
-      // Fokuskan editor sebelum menjalankan perintah
-      editorRef.current.focus();
-
-      // Menggunakan document.execCommand, yang secara otomatis mengelola Undo/Redo di browser
-      document.execCommand(command, false, value);
-
-      // Memperbarui UI toolbar dan state
-      handleInput();
-    }
-  };
-
-  // Handler kustom untuk Link
-  const handleLink = () => {
-    const url = prompt("Masukkan URL:", "http://");
-    if (url && url !== "http://") {
-      executeCommand("createLink", url);
-    } else if (url === "") {
-      executeCommand("unlink");
-    }
-  };
-
-  // Handler kustom untuk Warna Teks (foreColor)
-  const handleColorSelect = (colorCode: string) => {
-    executeCommand("foreColor", colorCode);
-    setIsColorDropdownOpen(false); // Tutup dropdown setelah memilih
-  };
-
-  // Handler kustom dari LinkDialog
-  const handleApplyLink = (url: string) => {
-    executeCommand("createLink", url);
-  };
-
-  // Handler kustom untuk Warna Latar Belakang Teks (hiliteColor)
-  const handleHighlightSelect = (colorCode: string) => {
-    // HiliteColor lebih andal untuk menyorot teks daripada backColor
-    // Untuk menghapus highlight, gunakan 'white' atau 'transparent' pada beberapa browser
-    executeCommand("hiliteColor", colorCode === "transparent" ? "white" : colorCode);
-    setIsHighlightDropdownOpen(false);
-  };
-
-  // Handle paste untuk membersihkan format yang tidak diinginkan
-  const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    const text = e.clipboardData.getData("text/plain");
-    document.execCommand("insertText", false, text);
-    // Simpan history setelah paste
-    handleInput();
-  };
-
-  // Fungsi untuk mendapatkan style tombol aktif
-  const getButtonClass = (format: keyof typeof activeFormats, command: string) => {
-    const isActive = activeFormats[format] || document.queryCommandState(command);
-    return `p-2 rounded transition-colors duration-100 ${
-      isActive
-        ? "bg-blue-500 text-white shadow-md" // Gaya aktif
-        : "text-gray-600 hover:bg-gray-200" // Gaya tidak aktif
-    }`;
-  };
-
-  const preventBlur = (e: React.MouseEvent) => e.preventDefault();
-  const handleLinkClick = () => {
-    // Simpan selection sebelum dialog dibuka
-    selectionRef.current = window.getSelection();
-    setIsLinkDialogOpen(true);
+    onClose();
   };
 
   return (
-    <div className="border border-gray-300 rounded-lg overflow-hidden bg-white shadow-sm font-sans relative">
-      {/* Toolbar */}
-      <div
-        className="flex flex-wrap items-center gap-1 p-2 border-b border-gray-200 bg-gray-50 sticky top-0 z-10"
-        onMouseDown={(e) => e.preventDefault()} // Mencegah toolbar kehilangan fokus editor
-      >
-        {/* Undo/Redo - Menggunakan execCommand bawaan browser */}
-        <button
-          type="button"
-          onClick={() => {
-            document.execCommand("undo");
-            handleInput();
-          }}
-          className="p-2 rounded hover:bg-gray-200"
-          title="Batal (Undo)"
-        >
-          <Undo size={16} />
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            document.execCommand("redo");
-            handleInput();
-          }}
-          className="p-2 rounded hover:bg-gray-200"
-          title="Ulangi (Redo)"
-        >
-          <Redo size={16} />
-        </button>
-        <div className="w-px h-6 bg-gray-300 mx-1"></div>
-        {/* Text Formatting */}
-        <button type="button" onClick={() => executeCommand("bold")} className={getButtonClass("bold", "bold")} title="Tebal">
-          <Bold size={16} />
-        </button>
-        <button type="button" onClick={() => executeCommand("italic")} className={getButtonClass("italic", "italic")} title="Miring">
-          <Italic size={16} />
-        </button>
-        <button type="button" onClick={() => executeCommand("underline")} className={getButtonClass("underline", "underline")} title="Garis Bawah">
-          <Underline size={16} />
-        </button>
-        <button type="button" onClick={() => executeCommand("strikeThrough")} className={getButtonClass("strikethrough", "strikeThrough")} title="Coret">
-          <Strikethrough size={16} />
-        </button>
-        <div className="w-px h-6 bg-gray-300 mx-1"></div>
-        <div className="relative" ref={colorDropdownRef}>
-          <button
-            type="button"
-            onClick={() => {
-              setIsColorDropdownOpen(!isColorDropdownOpen);
-              setIsHighlightDropdownOpen(false); // Tutup yang lain
-            }}
-            className="p-2 rounded hover:bg-gray-200 flex items-center"
-            title="Warna Teks"
-          >
-            <Palette size={16} />
-            <ChevronDown size={14} className={`ml-1 transition-transform ${isColorDropdownOpen ? "rotate-180" : "rotate-0"}`} />
-          </button>
-          {isColorDropdownOpen && (
-            <div
-              className="absolute top-full mt-1 left-0 bg-white border border-gray-300 rounded-lg shadow-lg p-2 flex flex-col z-20 w-40 max-h-48 overflow-y-auto" // DITAMBAHKAN: w-40, max-h-48, overflow-y-auto
-            >
-              {CUSTOM_COLORS.map((color) => (
-                <button key={color.code + "fore"} type="button" onClick={() => handleColorSelect(color.code)} className="flex items-center p-2 text-sm text-gray-800 hover:bg-gray-100 rounded-md w-full text-left">
-                  <span className={`w-4 h-4 rounded-full mr-2 ${color.code !== "transparent" ? "border border-gray-200" : "border border-gray-400 border-dashed"}`} style={{ backgroundColor: color.code }}></span>
-                  {color.name}
-                </button>
-              ))}
-            </div>
-          )}
+    <div className="fixed inset-0 backdrop-brightness-50 bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-80">
+        <h3 className="text-lg font-semibold mb-4">{type === "color" ? "Text Color" : "Background Color"}</h3>
+
+        <div className="grid grid-cols-5 gap-2 mb-4">
+          {colors.map((color) => (
+            <button key={color} onClick={() => setColor(color)} className={`w-8 h-8 rounded border border-gray-300 ${currentColor === color ? "ring-2 ring-blue-500" : ""}`} style={{ backgroundColor: color }} title={color} />
+          ))}
         </div>
-        {/* Warna Latar Belakang Teks (Highlight) */}
-        <div className="relative" ref={highlightDropdownRef}>
-          <button
-            type="button"
-            onClick={() => {
-              setIsHighlightDropdownOpen(!isHighlightDropdownOpen);
-              setIsColorDropdownOpen(false); // Tutup yang lain
-            }}
-            className="p-2 rounded hover:bg-gray-200 flex items-center"
-            title="Sorotan Teks (Highlight)"
-          >
-            <PaintBucket size={16} />
-            <ChevronDown size={14} className={`ml-1 transition-transform ${isHighlightDropdownOpen ? "rotate-180" : "rotate-0"}`} />
+
+        <div className="flex justify-between">
+          <button onClick={removeColor} className="px-4 py-2 text-sm text-red-600 hover:text-red-800 transition-colors">
+            Remove Color
           </button>
-          {isHighlightDropdownOpen && (
-            <div
-              className="absolute top-full mt-1 left-0 bg-white border border-gray-300 rounded-lg shadow-lg p-2 flex flex-col z-20 w-40 max-h-48 overflow-y-auto" // DITAMBAHKAN: w-40, max-h-48, overflow-y-auto
-            >
-              {CUSTOM_COLORS.map((color) => (
-                <button key={color.code + "back"} type="button" onClick={() => handleHighlightSelect(color.code)} className="flex items-center p-2 text-sm text-gray-800 hover:bg-gray-100 rounded-md w-full text-left">
-                  <span className={`w-4 h-4 rounded-full mr-2 ${color.code !== "transparent" ? "border border-gray-200" : "border border-gray-400 border-dashed"}`} style={{ backgroundColor: color.code }}></span>
-                  {color.name}
-                </button>
-              ))}
-            </div>
-          )}
+          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors">
+            Close
+          </button>
         </div>
-        {/* Tautan - Menggunakan handler modal baru */}
-        <button type="button" onMouseDown={preventBlur} onClick={handleLinkClick} className={getButtonClass("link", "createLink")} title="Masukkan Tautan">
-          <Link size={16} />
-        </button>
-        <div className="w-px h-6 bg-gray-300 mx-1"></div>
-        {/* Lists */}
-        <button type="button" onClick={() => executeCommand("insertUnorderedList")} className={getButtonClass("unorderedlist", "insertUnorderedList")} title="Daftar Poin">
-          <List size={16} />
-        </button>
-        <button type="button" onClick={() => executeCommand("insertOrderedList")} className={getButtonClass("orderedlist", "insertOrderedList")} title="Daftar Nomor">
-          <ListOrdered size={16} />
-        </button>
-        <div className="w-px h-6 bg-gray-300 mx-1"></div>
-        {/* Alignment */}
-        <button type="button" onClick={() => executeCommand("justifyLeft")} className={getButtonClass("alignleft", "justifyLeft")} title="Rata Kiri">
-          <AlignLeft size={16} />
-        </button>
-        <button type="button" onClick={() => executeCommand("justifyCenter")} className={getButtonClass("aligncenter", "justifyCenter")} title="Rata Tengah">
-          <AlignCenter size={16} />
-        </button>
-        <button type="button" onClick={() => executeCommand("justifyRight")} className={getButtonClass("alignright", "justifyRight")} title="Rata Kanan">
-          <AlignRight size={16} />
-        </button>
       </div>
-
-      {/* Editor Area */}
-      <div
-        ref={editorRef}
-        contentEditable
-        onInput={handleInput}
-        onPaste={handlePaste}
-        onMouseUp={handleSelectionChange}
-        onKeyUp={handleSelectionChange}
-        onKeyDown={handleKeyDown}
-        className="min-h-[120px] p-4 focus:outline-none text-gray-800"
-        style={{
-          fontFamily: "Inter, system-ui, sans-serif",
-          fontSize: "16px",
-          lineHeight: "1.6",
-        }}
-        // Inisialisasi konten dilakukan di useEffect
-      />
-
-      {/* Placeholder menggunakan CSS based, hanya terlihat jika innerHTML kosong */}
-      {/* Menggunakan value state sebagai referensi untuk visibilitas placeholder */}
-      {(!value || value === "<br>" || value.trim() === "") && (
-        <div
-          className="absolute top-0 left-0 right-0 p-4 text-gray-400 pointer-events-none"
-          // Atur posisi placeholder relatif terhadap toolbar. Toolbar = 64px (4rem) + padding
-        ></div>
-      )}
-
-      {/* Komponen Dialog Link Kustom */}
-      <LinkDialog isOpen={isLinkDialogOpen} onClose={() => setIsLinkDialogOpen(false)} onApply={handleApplyLink} onRemove={() => executeCommand("unlink")} />
     </div>
   );
 };
 
-export default RichTextEditor;
+function MenuBar({ editor }: { editor: Editor | null }) {
+  const [showLinkModal, setShowLinkModal] = useState(false);
+  const [showColorPicker, setShowColorPicker] = useState<"color" | "backgroundColor" | null>(null);
+  const [showFontPicker, setShowFontPicker] = useState(false);
+
+  if (!editor) {
+    return null;
+  }
+
+  const editorState = useEditorState({
+    editor,
+    selector: (ctx) => {
+      return {
+        isBold: ctx.editor.isActive("bold") ?? false,
+        canBold: ctx.editor.can().chain().toggleBold().run() ?? false,
+        isItalic: ctx.editor.isActive("italic") ?? false,
+        canItalic: ctx.editor.can().chain().toggleItalic().run() ?? false,
+        isStrike: ctx.editor.isActive("strike") ?? false,
+        canStrike: ctx.editor.can().chain().toggleStrike().run() ?? false,
+        isCode: ctx.editor.isActive("code") ?? false,
+        canCode: ctx.editor.can().chain().toggleCode().run() ?? false,
+        isLink: ctx.editor.isActive("link") ?? false,
+        currentColor: ctx.editor.getAttributes("textStyle").color,
+        currentBackgroundColor: ctx.editor.getAttributes("highlight").color,
+        currentFontFamily: ctx.editor.getAttributes("textStyle").fontFamily,
+        // Tambahkan state untuk alignment
+        isAlignLeft: ctx.editor.isActive({ textAlign: "left" }) ?? false,
+        isAlignCenter: ctx.editor.isActive({ textAlign: "center" }) ?? false,
+        isAlignRight: ctx.editor.isActive({ textAlign: "right" }) ?? false,
+        isAlignJustify: ctx.editor.isActive({ textAlign: "justify" }) ?? false,
+        canClearMarks: ctx.editor.can().chain().unsetAllMarks().run() ?? false,
+        isParagraph: ctx.editor.isActive("paragraph") ?? false,
+        isHeading1: ctx.editor.isActive("heading", { level: 1 }) ?? false,
+        isHeading2: ctx.editor.isActive("heading", { level: 2 }) ?? false,
+        isHeading3: ctx.editor.isActive("heading", { level: 3 }) ?? false,
+        isBulletList: ctx.editor.isActive("bulletList") ?? false,
+        isOrderedList: ctx.editor.isActive("orderedList") ?? false,
+        canUndo: ctx.editor.can().chain().undo().run() ?? false,
+        canRedo: ctx.editor.can().chain().redo().run() ?? false,
+      };
+    },
+  });
+
+  const fonts = ["Arial, sans-serif", "Georgia, serif", "Times New Roman, serif", "Helvetica, sans-serif", "Courier New, monospace", "Verdana, sans-serif", "Trebuchet MS, sans-serif", "Comic Sans MS, cursive"];
+
+  return (
+    <>
+      <div className="border-b border-gray-200 bg-gray-50 p-2 sm:p-3">
+        <div className="flex flex-wrap gap-1 sm:gap-2">
+          {/* Text Formatting */}
+          <div className="flex items-center gap-1 sm:gap-1">
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().toggleBold().run()}
+              disabled={!editorState.canBold}
+              className={`p-2 text-sm rounded border transition-colors flex items-center justify-center ${editorState.isBold ? "bg-blue-500 text-white border-blue-500" : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"}`}
+              title="Bold"
+            >
+              <Bold size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().toggleItalic().run()}
+              disabled={!editorState.canItalic}
+              className={`p-2 text-sm rounded border transition-colors flex items-center justify-center ${editorState.isItalic ? "bg-blue-500 text-white border-blue-500" : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"}`}
+              title="Italic"
+            >
+              <Italic size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().toggleStrike().run()}
+              disabled={!editorState.canStrike}
+              className={`p-2 text-sm rounded border transition-colors flex items-center justify-center ${editorState.isStrike ? "bg-blue-500 text-white border-blue-500" : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"}`}
+              title="Strikethrough"
+            >
+              <Strikethrough size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().toggleCode().run()}
+              disabled={!editorState.canCode}
+              className={`p-2 text-sm rounded border transition-colors flex items-center justify-center ${editorState.isCode ? "bg-blue-500 text-white border-blue-500" : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"}`}
+              title="Code"
+            >
+              <Code size={18} />
+            </button>
+          </div>
+          {/* Separator */}
+          <div className="w-px bg-gray-300 mx-1"></div>
+          {/* Text Alignment - TAMBAHKAN BAGIAN INI */}
+          <div className="flex items-center gap-1 sm:gap-1">
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().setTextAlign("left").run()}
+              className={`p-2 text-sm rounded border transition-colors flex items-center justify-center ${editorState.isAlignLeft ? "bg-blue-500 text-white border-blue-500" : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"}`}
+              title="Align Left"
+            >
+              <AlignLeft size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().setTextAlign("center").run()}
+              className={`p-2 text-sm rounded border transition-colors flex items-center justify-center ${editorState.isAlignCenter ? "bg-blue-500 text-white border-blue-500" : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"}`}
+              title="Align Center"
+            >
+              <AlignCenter size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().setTextAlign("right").run()}
+              className={`p-2 text-sm rounded border transition-colors flex items-center justify-center ${editorState.isAlignRight ? "bg-blue-500 text-white border-blue-500" : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"}`}
+              title="Align Right"
+            >
+              <AlignRight size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().setTextAlign("justify").run()}
+              className={`p-2 text-sm rounded border transition-colors flex items-center justify-center ${editorState.isAlignJustify ? "bg-blue-500 text-white border-blue-500" : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"}`}
+              title="Justify"
+            >
+              <AlignJustify size={18} />
+            </button>
+          </div>
+          {/* Separator */}
+          <div className="w-px bg-gray-300 mx-1"></div>
+          {/* Colors */}
+          <div className="flex items-center gap-1 sm:gap-1">
+            <button
+              type="button"
+              onClick={() => setShowColorPicker("color")}
+              className="p-2 text-sm rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center relative"
+              title="Text Color"
+            >
+              <Palette size={18} />
+              {editorState.currentColor && <div className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full border border-white" style={{ backgroundColor: editorState.currentColor }} />}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowColorPicker("backgroundColor")}
+              className="p-2 text-sm rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center relative"
+              title="Background Color"
+            >
+              <PaintBucket size={18} />
+              {editorState.currentBackgroundColor && <div className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full border border-white" style={{ backgroundColor: editorState.currentBackgroundColor }} />}
+            </button>
+          </div>
+          {/* Separator */}
+          <div className="w-px bg-gray-300 mx-1"></div>
+          {/* Font Family */}
+          <div className="flex items-center gap-1 sm:gap-1 relative">
+            <button
+              type="button"
+              onClick={() => setShowFontPicker(!showFontPicker)}
+              className="p-2 text-sm rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center"
+              title="Font Family"
+            >
+              <Type size={18} />
+            </button>
+
+            {showFontPicker && (
+              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-300 rounded-md shadow-lg z-10 w-48">
+                {fonts.map((font) => (
+                  <button
+                    key={font}
+                    onClick={() => {
+                      editor.chain().focus().setFontFamily(font).run();
+                      setShowFontPicker(false);
+                    }}
+                    className="w-full px-3 py-2 text-left hover:bg-gray-50 transition-colors"
+                    style={{ fontFamily: font }}
+                  >
+                    {font.split(",")[0]}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    editor.chain().focus().unsetFontFamily().run();
+                    setShowFontPicker(false);
+                  }}
+                  className="w-full px-3 py-2 text-left hover:bg-gray-50 transition-colors text-red-600"
+                >
+                  Reset Font
+                </button>
+              </div>
+            )}
+          </div>
+          {/* Separator */}
+          <div className="w-px bg-gray-300 mx-1"></div>
+          {/* Link */}
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+
+              // Langsung buka modal tanpa pengecekan
+              setShowLinkModal(true);
+            }}
+            className={`p-2 text-sm rounded border transition-colors flex items-center justify-center ${editorState.isLink ? "bg-blue-500 text-white border-blue-500" : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"}`}
+            title="Insert Link"
+          >
+            <LinkIcon size={18} />
+          </button>
+          {/* Separator */}
+          <div className="w-px bg-gray-300 mx-1"></div>
+          {/* Clear Formatting */}
+          <div className="flex items-center gap-1 sm:gap-1">
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().unsetAllMarks().run()}
+              className="p-2 text-sm rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center"
+              title="Clear formatting"
+            >
+              <RemoveFormatting size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().clearNodes().run()}
+              className="p-2 text-sm rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center"
+              title="Clear nodes"
+            >
+              <Trash2 size={18} />
+            </button>
+          </div>
+          {/* Separator */}
+          <div className="w-px bg-gray-300 mx-1"></div>
+          {/* Headings & Paragraph */}
+          <div className="flex items-center gap-1 sm:gap-1">
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().setParagraph().run()}
+              className={`p-2 text-sm rounded border transition-colors flex items-center justify-center ${editorState.isParagraph ? "bg-blue-500 text-white border-blue-500" : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"}`}
+              title="Paragraph"
+            >
+              <Pilcrow size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+              className={`p-2 text-sm rounded border transition-colors flex items-center justify-center ${editorState.isHeading1 ? "bg-blue-500 text-white border-blue-500" : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"}`}
+              title="Heading 1"
+            >
+              <Heading1 size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+              className={`p-2 text-sm rounded border transition-colors flex items-center justify-center ${editorState.isHeading2 ? "bg-blue-500 text-white border-blue-500" : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"}`}
+              title="Heading 2"
+            >
+              <Heading2 size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+              className={`p-2 text-sm rounded border transition-colors flex items-center justify-center ${editorState.isHeading3 ? "bg-blue-500 text-white border-blue-500" : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"}`}
+              title="Heading 3"
+            >
+              <Heading3 size={18} />
+            </button>
+          </div>
+          {/* Separator */}
+          <div className="w-px bg-gray-300 mx-1"></div>
+          {/* Lists */}
+          <div className="flex items-center gap-1 sm:gap-1">
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().toggleBulletList().run()}
+              className={`p-2 text-sm rounded border transition-colors flex items-center justify-center ${editorState.isBulletList ? "bg-blue-500 text-white border-blue-500" : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"}`}
+              title="Bullet List"
+            >
+              <List size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().toggleOrderedList().run()}
+              className={`p-2 text-sm rounded border transition-colors flex items-center justify-center ${editorState.isOrderedList ? "bg-blue-500 text-white border-blue-500" : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"}`}
+              title="Ordered List"
+            >
+              <ListOrdered size={18} />
+            </button>
+          </div>
+          {/* Separator */}
+          <div className="w-px bg-gray-300 mx-1"></div>
+          {/* History */}
+          <div className="flex items-center gap-1 sm:gap-1">
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().undo().run()}
+              disabled={!editorState.canUndo}
+              className="p-2 text-sm rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+              title="Undo"
+            >
+              <Undo2 size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().redo().run()}
+              disabled={!editorState.canRedo}
+              className="p-2 text-sm rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+              title="Redo"
+            >
+              <Redo2 size={18} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Modals */}
+      {showLinkModal && <LinkModal editor={editor} onClose={() => setShowLinkModal(false)} />}
+
+      {showColorPicker && <ColorPicker editor={editor} type={showColorPicker} onClose={() => setShowColorPicker(null)} />}
+    </>
+  );
+}
+
+const TiptapEditor: React.FC<TiptapEditorProps> = ({ value, onChange }) => {
+  const editor = useEditor({
+    extensions,
+    content: value,
+    onUpdate: ({ editor }) => {
+      const html = editor.getHTML();
+      // HTML akan tetap utuh dengan semua styling
+      onChange(html);
+    },
+    editorProps: {
+      attributes: {
+        class: "tiptap-editor min-h-[120px] p-4 prose max-w-none focus:outline-none",
+      },
+      // Tambahkan transformPastedHTML untuk mempertahankan styling dari copy-paste
+      transformPastedHTML(html) {
+        return html;
+      },
+    },
+    // Nonaktifkan transform yang tidak diinginkan
+    parseOptions: {
+      preserveWhitespace: "full",
+    },
+  });
+
+  if (!editor) {
+    return (
+      <div className="border border-gray-300 rounded-lg p-4 min-h-[120px] bg-gray-50 flex items-center justify-center">
+        <div className="text-gray-500">Loading editor...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 bg-white transition-all duration-200">
+      <MenuBar editor={editor} />
+      <EditorContent editor={editor} className="min-h-[120px]" />
+    </div>
+  );
+};
+
+export default TiptapEditor;

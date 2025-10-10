@@ -371,7 +371,7 @@ export interface Service4 {
   service_name: string;
   service_description: string;
   service_type: number;
-  priority: SimpleUser;
+  priority: string;
   service_owner: number;
   sla: string;
   impact: string;
@@ -672,19 +672,20 @@ export interface AssetData {
 }
 
 export interface AuditLog {
-  history_id: number;
-  mhs_id: number;
-  mhs_details: any | null;
+  id: number;
+  recordable_type: string;
+  recordable_id: number;
+  recordable_details: any | null;
   action: string;
-  batch: number;
+  batch: number | null;
   changed_at: string;
   changed_by: string;
-  old_data_snapshot: Record<string, any>;
-  new_data_snapshot: Record<string, any>;
-  old_running_hour?: number;
-  new_running_hour?: number;
-  old_kegiatan_id?: number;
-  new_kegiatan_id?: number;
+  old_data_snapshot: Record<string, any> | null;
+  new_data_snapshot: Record<string, any> | null;
+  // Field tambahan untuk kompatibilitas
+  history_id?: number;
+  mhs_id?: number;
+  mhs_details?: any | null;
 }
 
 //monitoring maintenance section
@@ -730,6 +731,8 @@ export interface MonitoringSchedule {
   unit: string;
   id_mesins: number;
   id_interval: number;
+  status: string;
+  approval_template_id: number;
   created_at: string;
   updated_at: string;
   data_mesin: {
@@ -749,6 +752,7 @@ export interface MonitoringSchedule {
   monitoring_activities: MonitoringActivity[];
   item_mesins: ItemMesin[];
   schedule_approvals: ScheduleApproval[];
+  approval_template: ApprovalTemplate;
 }
 
 // Tambahkan di bagian interface yang sesuai
@@ -791,6 +795,21 @@ export interface MonitoringActivityPost {
   hasil_monitoring: string;
   hasil_keterangan: string;
   hasil_ms_tms: string;
+}
+
+export interface MonitoringActivityUpdate {
+  id_monitoring_activities: number;
+  id_monitoring_schedule: number;
+  id_item_mesin: number;
+  tgl_monitoring: string;
+  hasil_monitoring: string;
+  hasil_keterangan: string;
+  hasil_ms_tms: string;
+}
+
+export interface MonitoringActivityUpdateRequest {
+  id: number;
+  data: MonitoringActivityPost;
 }
 
 export interface MonitoringActivityResponse {
@@ -944,8 +963,8 @@ export interface ItemMesin {
   mesin_id: number;
   item_mesin: string;
   satuan: string;
-  standard_min: string;
-  standard_max: string;
+  standard_min: string | null;
+  standard_max: string | null;
   standard_visual: string;
   created_at: string;
   updated_at: string;
@@ -990,7 +1009,6 @@ export interface ApprovalTemplate {
 export interface Approver {
   id: number;
   template_id: number;
-  approval_template_id: number;
   approver_user_id: number;
   step: number;
   created_at?: string;
@@ -1004,8 +1022,10 @@ export interface Approver {
     avatar: string;
     department: string;
     position: string;
-    department_id: number;
     email_verified_at: string | null;
+    created_at?: string;
+    updated_at?: string;
+    department_id: number;
   };
 }
 
@@ -1139,6 +1159,7 @@ interface AuthContextType {
   getMonitoringScheduleById: (id: string | number) => Promise<MonitoringSchedule>;
   addMonitoringSchedule: (data: MonitoringScheduleRequest) => Promise<MonitoringScheduleResponse>;
   addMonitoringActivities: (activities: MonitoringActivityPost[]) => Promise<MonitoringActivityResponse[]>;
+  updateMonitoringActivity: (activities: MonitoringActivityUpdateRequest[]) => Promise<MonitoringActivityResponse[]>;
   getStopTimes: () => Promise<StopTimes[]>;
   getStopTimesById: (id: string | number) => Promise<StopTimes>;
   addStopTimes: (data: { name: string; description: string }) => Promise<StopTimes>;
@@ -1597,9 +1618,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const getAuditTrail = useCallback(async (): Promise<AuditLog[]> => {
     try {
-      const response = await fetchWithAuth("/mhs-history?includes_trashed=true");
+      const response = await fetchWithAuth("/history?includes_trashed=true");
+
       // Return the history array from the response
-      return response.history || [];
+      if (response && response.history && Array.isArray(response.history)) {
+        return response.history;
+      }
+
+      // Fallback jika struktur berbeda
+      if (Array.isArray(response)) {
+        return response;
+      }
+
+      if (response && Array.isArray(response.data)) {
+        return response.data;
+      }
+
+      console.warn("Unexpected audit trail response format:", response);
+      return [];
     } catch (error) {
       console.error("Failed to fetch audit trail:", error);
       return [];
@@ -3411,6 +3447,44 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     [fetchWithAuth]
   );
 
+  // Di AuthContext.tsx - perbaiki updateMonitoringActivity
+  // Di AuthContext.tsx - perbaiki updateMonitoringActivity
+  const updateMonitoringActivity = useCallback(
+    async (activities: MonitoringActivityUpdateRequest[]): Promise<MonitoringActivityResponse[]> => {
+      try {
+        // Konversi ke format yang diharapkan backend
+        const activitiesToUpdate = activities.map((activity) => ({
+          id_monitoring_activity: activity.id,
+          ...activity.data,
+        }));
+
+        const response = await fetchWithAuth(`/monitoring-activities-batch`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(activitiesToUpdate), // Kirim array dalam format yang benar
+        });
+
+        // Handle response format
+        if (Array.isArray(response)) {
+          return response;
+        }
+
+        if (response && Array.isArray(response.data)) {
+          return response.data;
+        }
+
+        console.warn("Unexpected response format from monitoring-activities-batch PATCH:", response);
+        return [];
+      } catch (error) {
+        console.error("Error updating monitoring activities:", error);
+        throw new Error(`Failed to update monitoring activities: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
   const getMesinDetail = useCallback(
     async (id: string | number): Promise<MesinDetail> => {
       try {
@@ -3617,27 +3691,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   );
 
   // Di AuthContext.tsx - pastikan approveSchedule mengembalikan response yang konsisten
-const approveSchedule = useCallback(
-  async (scheduleId: string | number, comments: string): Promise<ApprovalResponse> => {
-    const response = await fetchWithAuth(`/schedules/${scheduleId}/approve?includes_trashed=true`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ comments }),
-    });
-    
-    // Pastikan response memiliki properti success
-    if (response && response.message) {
-      return {
-        success: true,
-        message: response.message,
-        data: response.data || response
-      };
-    }
-    
-    return response;
-  },
-  [fetchWithAuth]
-);
+  const approveSchedule = useCallback(
+    async (scheduleId: string | number, comments: string): Promise<ApprovalResponse> => {
+      const response = await fetchWithAuth(`/schedules/${scheduleId}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ comments }),
+      });
+
+      // Pastikan response memiliki properti success
+      if (response && response.message) {
+        return {
+          success: true,
+          message: response.message,
+          data: response.data || response,
+        };
+      }
+
+      return response;
+    },
+    [fetchWithAuth]
+  );
 
   return (
     <AuthContext.Provider
@@ -3703,6 +3777,7 @@ const approveSchedule = useCallback(
         getMonitoringSchedules,
         addMonitoringSchedule,
         addMonitoringActivities,
+        updateMonitoringActivity,
         getStopTimes,
         getStopTimesById,
         addStopTimes,

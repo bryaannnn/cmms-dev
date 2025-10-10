@@ -6,6 +6,7 @@ import { X, Clock, CheckCircle, ToolCase, ArrowLeft, Save, Trash2, Hourglass, Li
 import Select from "react-select";
 import CreatableSelect from "react-select/creatable";
 import { useAuth, User as AuthUser, Department, WorkOrderFormData, ServiceCatalogue } from "../../../routes/AuthContext";
+import TiptapEditor from "../../../component/RichTextEditor";
 
 interface ModalProps {
   isOpen: boolean;
@@ -51,7 +52,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
   if (!isOpen) return null;
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center backdrop-brightness-50 bg-opacity-50 p-4">
       <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-auto p-6 border border-blue-100">
         <div className="flex justify-between items-center border-b pb-3 mb-4 border-gray-100">
           <h3 className="text-2xl font-bold text-gray-900">{title}</h3>
@@ -916,16 +917,16 @@ const EditWorkOrderFormIT: React.FC = () => {
                     <label htmlFor="complaint" className="block text-sm font-medium text-gray-700 mb-1">
                       Complaint <span className="text-red-500">*</span>
                     </label>
-                    <textarea
-                      id="complaint"
-                      name="complaint"
-                      value={formData.complaint}
-                      onChange={handleChange}
-                      required
-                      rows={3}
-                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
-                      placeholder="Describe the complaint in detail."
-                    ></textarea>
+                    <TiptapEditor
+                      value={formData.complaint} // Langsung dari formData
+                      onChange={(value) => {
+                        // Update langsung ke formData
+                        setFormData((prev) => ({
+                          ...prev,
+                          complaint: value,
+                        }));
+                      }}
+                    />
                   </div>
                 </div>
               </div>

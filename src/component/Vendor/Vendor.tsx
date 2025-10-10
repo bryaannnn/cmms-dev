@@ -2,11 +2,25 @@ import React, { useEffect, useState, useRef, useCallback, useMemo } from "react"
 import { useNavigate, useLocation } from "react-router-dom";
 import Sidebar from "../Sidebar";
 import { motion, AnimatePresence } from "framer-motion";
-import { Folder, Plus, Edit, Trash2, X, AlertTriangle, Building, Upload, Filter, ChevronDown, Clipboard, Info, Search, Calendar, Eye, UserIcon, Mail, Users } from "lucide-react";
+import { Building, Plus, Edit, Trash2, X, AlertTriangle, Eye, Upload, Filter, Calendar, ChevronDown, Search, Users, Mail, Phone, MapPin, UserIcon, ChevronRight, Bell, Moon, Sun, Settings, LogOut, Clipboard, Info } from "lucide-react";
 import PageHeader from "../PageHeader";
-import { Department, useAuth, User, Vendor } from "../../routes/AuthContext";
+import { useAuth, User, Vendor } from "../../routes/AuthContext";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+
+// Moved useDebounce definition here to resolve "Cannot find module" error
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+  return debouncedValue;
+}
 
 interface ModalProps {
   isOpen: boolean;
@@ -20,7 +34,13 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, classNa
   return (
     <AnimatePresence>
       {isOpen && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50 p-4 backdrop-blur-sm">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 backdrop-brightness-50 bg-opacity-40 flex justify-center items-center z-50 p-4 backdrop-blur-sm"
+        >
           <motion.div
             initial={{ y: 50, opacity: 0, scale: 0.95 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
@@ -65,10 +85,63 @@ const StatCard: React.FC<{ title: string; value: string; change: string; icon: R
   );
 };
 
+interface VendorDetailsProps {
+  vendor: Vendor;
+  onClose: () => void;
+}
+
+const VendorDetails: React.FC<VendorDetailsProps> = ({ vendor, onClose }) => {
+  const DetailItem: React.FC<{ label: string; value: string }> = ({ label, value }) => (
+    <div className="flex flex-col">
+      <h4 className="text-sm font-medium text-gray-500 mb-1">{label}</h4>
+      <p className="w-full bg-blue-50 border border-blue-100 rounded-lg p-3 text-gray-800 text-base font-medium min-h-[44px] flex items-center">{value || "-"}</p>
+    </div>
+  );
+
+  const SectionTitle: React.FC<{ title: string }> = ({ title }) => <h3 className="text-lg font-bold text-gray-800 mb-4 pb-2 border-b border-blue-200 mt-6 first:mt-0">{title}</h3>;
+
+  return (
+    <div className="space-y-6">
+      <SectionTitle title="Vendor Information" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <DetailItem label="Vendor ID" value={vendor.id.toString()} />
+        <DetailItem label="Vendor Name" value={vendor.name} />
+        <DetailItem label="Contact Person" value={vendor.contact_person} />
+        <DetailItem label="Email" value={vendor.email} />
+        <DetailItem label="Telephone" value={vendor.telp} />
+        <DetailItem label="Mobile Phone" value={vendor.HP} />
+      </div>
+
+      <SectionTitle title="Address Information" />
+      <div className="grid grid-cols-1 gap-4">
+        <DetailItem label="Address" value={vendor.address} />
+      </div>
+
+      <SectionTitle title="Additional Information" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <DetailItem label="Created At" value={vendor.created_at ? new Date(vendor.created_at).toLocaleDateString() : "-"} />
+        <DetailItem label="Updated At" value={vendor.updated_at ? new Date(vendor.updated_at).toLocaleDateString() : "-"} />
+      </div>
+
+      <div className="flex justify-end pt-6 border-t border-gray-100 mt-8">
+        <motion.button
+          type="button"
+          onClick={onClose}
+          whileHover={{ scale: 1.02, boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)" }}
+          whileTap={{ scale: 0.98 }}
+          className="inline-flex items-center px-6 py-2.5 border border-transparent text-base font-semibold rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 ease-in-out"
+        >
+          Close
+        </motion.button>
+      </div>
+    </div>
+  );
+};
+
 const VendorPage: React.FC = () => {
   const location = useLocation();
   const [vendor, setVendor] = useState<Vendor[]>([]);
-  const { getVendor, deleteVendor } = useAuth();
+  const { getVendor, deleteVendor, user, hasPermission } = useAuth();
   const [filteredRecords, setFilteredRecords] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [showModal, setShowModal] = useState<boolean>(false);
@@ -81,6 +154,7 @@ const VendorPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
   const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -90,34 +164,39 @@ const VendorPage: React.FC = () => {
     return stored ? JSON.parse(stored) : false;
   });
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
-  const [selectedDepartment, setSelectedDepartment] = useState<Vendor | null>(null);
-  const [selectedUsers, setSelectedUsers] = useState<User | null>(null);
-  const [showDepartmentDetails, setShowDepartmentDetails] = useState(false);
-  const [showUsersDetails, setShowUsersDetails] = useState(false);
+  const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
+  const [showVendorDetails, setShowVendorDetails] = useState(false);
   const [recordToDelete, setRecordToDelete] = useState<number | null>(null);
   const navigate = useNavigate();
+  const [darkMode, setDarkMode] = useState(false);
+  const [showNotificationsPopup, setShowNotificationsPopup] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const notificationsRef = useRef<HTMLDivElement>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [recordsPerPage] = useState(10);
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: "ascending" | "descending" } | null>({ key: "name", direction: "ascending" });
 
-  // Di dalam komponen DepartmentPage, setelah mendapatkan data
-  useEffect(() => {
-    if (vendor.length > 0) {
-      const sortedVendor = [...vendor].sort((a, b) => a.id - b.id);
-      setVendor(sortedVendor);
-    }
-  }, [vendor]);
+  // Apply useDebounce to searchQuery
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   const searchCategories = useMemo(
     () => [
-      { id: "department", name: "Department" },
-      { id: "head", name: "Head" },
+      { id: "name", name: "Vendor Name" },
+      { id: "contact", name: "Contact Person" },
+      { id: "email", name: "Email" },
+      { id: "id", name: "Vendor ID" },
     ],
     []
-  ); // Empty dependency array means it's created once
+  );
 
   const loadVendors = useCallback(async () => {
     try {
       setLoading(true);
       const dataVendors = await getVendor();
-      setVendor(dataVendors);
+      const sortedVendors = [...dataVendors].sort((a, b) => a.id - b.id);
+      setVendor(sortedVendors);
+      setFilteredRecords(sortedVendors);
     } catch (err) {
       setError("Failed to load vendors");
       console.error("Error loading vendors:", err);
@@ -132,8 +211,82 @@ const VendorPage: React.FC = () => {
     loadVendors();
   }, [loadVendors]);
 
+  useEffect(() => {
+    let currentFilteredRecords = [...vendor];
+
+    // Apply search filter using the debounced query
+    if (debouncedSearchQuery.trim()) {
+      const lowerCaseQuery = debouncedSearchQuery.toLowerCase().trim();
+      currentFilteredRecords = currentFilteredRecords.filter((vendor) => {
+        const searchParts = lowerCaseQuery.split(":");
+        let category = "all";
+        let actualQuery = lowerCaseQuery;
+
+        if (searchParts.length > 1 && searchCategories.some((cat) => cat.name.toLowerCase() === searchParts[0].trim())) {
+          category = searchParts[0].trim();
+          actualQuery = searchParts.slice(1).join(":").trim();
+        }
+
+        const matchesName = vendor.name?.toLowerCase().includes(actualQuery);
+        const matchesContact = vendor.contact_person?.toLowerCase().includes(actualQuery);
+        const matchesEmail = vendor.email?.toLowerCase().includes(actualQuery);
+        const matchesId = vendor.id.toString().includes(actualQuery);
+
+        if (category === "vendor name") return matchesName;
+        if (category === "contact person") return matchesContact;
+        if (category === "email") return matchesEmail;
+        if (category === "vendor id") return matchesId;
+
+        return matchesName || matchesContact || matchesEmail || matchesId;
+      });
+    }
+
+    // Apply date range filter
+    if (startDate) {
+      const startOfDay = new Date(startDate);
+      startOfDay.setHours(0, 0, 0, 0);
+      currentFilteredRecords = currentFilteredRecords.filter((vendor) => {
+        if (!vendor.created_at) return true;
+        const vendorDate = new Date(vendor.created_at);
+        vendorDate.setHours(0, 0, 0, 0);
+        return vendorDate >= startOfDay;
+      });
+    }
+
+    if (endDate) {
+      const endOfDay = new Date(endDate);
+      endOfDay.setHours(23, 59, 59, 999);
+      currentFilteredRecords = currentFilteredRecords.filter((vendor) => {
+        if (!vendor.created_at) return true;
+        const vendorDate = new Date(vendor.created_at);
+        vendorDate.setHours(0, 0, 0, 0);
+        return vendorDate <= endOfDay;
+      });
+    }
+
+    // Apply sorting
+    if (sortConfig !== null) {
+      currentFilteredRecords.sort((a, b) => {
+        const aValue = getDisplayValue((a as Record<string, any>)[sortConfig.key]);
+        const bValue = getDisplayValue((b as Record<string, any>)[sortConfig.key]);
+
+        if (aValue < bValue) {
+          return sortConfig.direction === "ascending" ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === "ascending" ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+
+    setFilteredRecords(currentFilteredRecords);
+  }, [vendor, debouncedSearchQuery, startDate, endDate, sortConfig, searchCategories]);
+
   const toggleSidebar = () => {
-    setSidebarOpen((prev: boolean): boolean => !prev);
+    const newState = !sidebarOpen;
+    setSidebarOpen(newState);
+    localStorage.setItem("sidebarOpen", JSON.stringify(newState));
   };
 
   const handleImport = () => {
@@ -159,9 +312,9 @@ const VendorPage: React.FC = () => {
     searchInputRef.current?.focus();
   };
 
-  const openHistoryDetails = (v: Vendor) => {
-    setSelectedDepartment(v);
-    setShowDepartmentDetails(true);
+  const openVendorDetails = (v: Vendor) => {
+    setSelectedVendor(v);
+    setShowVendorDetails(true);
   };
 
   const handleDelete = async (id: number) => {
@@ -181,12 +334,198 @@ const VendorPage: React.FC = () => {
     setShowDeleteConfirm(true);
   }, []);
 
+  const requestSort = (key: string) => {
+    let direction: "ascending" | "descending" = "ascending";
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === "ascending") {
+      direction = "descending";
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getDisplayValue = (value: any): string => {
+    if (typeof value === "object" && value !== null) {
+      return value.name || value.toString();
+    }
+    return value?.toString() || "";
+  };
+
+  const indexOfLastRecord = currentPage * recordsPerPage;
+  const indexOfFirstRecord = indexOfLastRecord - recordsPerPage;
+  const currentRecords = filteredRecords.slice(indexOfFirstRecord, indexOfLastRecord);
+  const totalPages = Math.ceil(filteredRecords.length / recordsPerPage);
+
+  const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
+        setShowNotificationsPopup(false);
+      }
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setShowProfileMenu(false);
+      }
+      if (searchInputRef.current && !searchInputRef.current.contains(event.target as Node) && !(event.target as HTMLElement).closest(".search-suggestions")) {
+        setShowSearchSuggestions(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  const notifications: any[] = [
+    {
+      id: 1,
+      title: "New Vendor Added",
+      description: "A new vendor has been registered in the system.",
+      date: "Today, 10:00 AM",
+    },
+  ];
+
   return (
-    <div key={location.pathname} className={"flex h-screen font-sans antialiased bg-blue-50"}>
+    <div className={"flex h-screen font-sans antialiased bg-blue-50"}>
       <Sidebar />
 
-      <div className="flex-1 flex flex-col ooverflow-hidden">
-        <PageHeader mainTitle="Vendor" mainTitleHighlight="Page" description="Manage Vendors to control access and functionality within the system." icon={<Building />} isMobile={isMobile} toggleSidebar={toggleSidebar} />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <header className="bg-white border-b border-gray-100 p-4 flex items-center justify-between shadow-sm sticky top-0 z-30">
+          <div className="flex items-center space-x-4">
+            {isMobile && (
+              <motion.button onClick={toggleSidebar} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
+                <ChevronRight className="text-xl" />
+              </motion.button>
+            )}
+            <Building className="text-xl text-blue-600" />
+            <h2 className="text-lg md:text-xl font-bold text-gray-900">Vendors</h2>
+          </div>
+
+          <div className="flex items-center space-x-3 relative">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setDarkMode(!darkMode)}
+              className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200"
+              aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              {darkMode ? <Sun className="text-yellow-400 text-xl" /> : <Moon className="text-xl" />}
+            </motion.button>
+
+            <div className="relative" ref={notificationsRef}>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setShowNotificationsPopup(!showNotificationsPopup)}
+                className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200 relative"
+                aria-label="Notifications"
+              >
+                <Bell className="text-xl" />
+                <span className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full animate-pulse border border-white"></span>
+              </motion.button>
+
+              <AnimatePresence>
+                {showNotificationsPopup && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 20 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl overflow-hidden z-50 border border-gray-100"
+                  >
+                    <div className="p-4 border-b border-gray-100">
+                      <h3 className="text-lg font-semibold text-gray-800">Notifications</h3>
+                    </div>
+                    <div className="max-h-80 overflow-y-auto custom-scrollbar">
+                      {notifications.length > 0 ? (
+                        notifications.map((notif) => (
+                          <div key={notif.id} className="flex items-start p-4 border-b border-gray-50 last:border-b-0 hover:bg-blue-50 transition-colors cursor-pointer">
+                            <div>
+                              <p className="text-sm font-semibold text-gray-800">{notif.title}</p>
+                              <p className="text-xs text-gray-600 mt-1">{notif.description}</p>
+                              <p className="text-xs text-gray-400 mt-1">{notif.date}</p>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="p-4 text-center text-gray-500 text-sm">No new notifications.</p>
+                      )}
+                    </div>
+                    <div className="p-4 border-t border-gray-100 text-center">
+                      <button
+                        onClick={() => {
+                          setShowNotificationsPopup(false);
+                        }}
+                        className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                      >
+                        Mark all as read
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            <div className="relative" ref={profileRef}>
+              <motion.button
+                whileHover={{ backgroundColor: "rgba(239, 246, 255, 0.7)" }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setShowProfileMenu(!showProfileMenu)}
+                className="flex items-center space-x-2 cursor-pointer p-2 rounded-lg transition-colors duration-200"
+              >
+                <img
+                  src={`https://api.dicebear.com/7.x/initials/svg?seed=${user?.name || "User"}&backgroundColor=0081ff,3d5a80,ffc300,e0b589&backgroundType=gradientLinear&radius=50`}
+                  alt="User Avatar"
+                  className="w-8 h-8 rounded-full border border-blue-200 object-cover"
+                />
+                <span className="font-medium text-gray-900 text-sm hidden sm:inline">{user?.name}</span>
+                <ChevronDown className="text-gray-500 text-base" />
+              </motion.button>
+
+              <AnimatePresence>
+                {showProfileMenu && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-40 border border-gray-100"
+                  >
+                    <div className="px-4 py-2 text-xs text-gray-500 border-b border-gray-100">Signed in as</div>
+                    <div className="px-4 py-2 font-semibold text-gray-800 border-b border-gray-100">{user?.name || "Guest User"}</div>
+                    <button
+                      onClick={() => {
+                        navigate("/profile");
+                        setShowProfileMenu(false);
+                      }}
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 w-full text-left"
+                    >
+                      <UserIcon size={16} className="mr-2" /> My Profile
+                    </button>
+                    <button
+                      onClick={() => {
+                        navigate("/settings");
+                        setShowProfileMenu(false);
+                      }}
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 w-full text-left"
+                    >
+                      <Settings size={16} className="mr-2" /> Settings
+                    </button>
+                    <hr className="my-1 border-gray-100" />
+                    <button
+                      onClick={() => {
+                        navigate("/logout");
+                        setShowProfileMenu(false);
+                      }}
+                      className="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full text-left"
+                    >
+                      <LogOut size={16} className="mr-2" /> Logout
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+        </header>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between space-y-5 md:space-y-0">
@@ -194,20 +533,20 @@ const VendorPage: React.FC = () => {
               <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
                 Vendors <span className="text-blue-600">Management</span>
               </h1>
-              <p className="text-gray-600 mt-2 text-sm max-w-xl">Organize and manage vendors by specific company .</p>
+              <p className="text-gray-600 mt-2 text-sm max-w-xl">Organize and manage vendors by specific company.</p>
             </div>
             <div className="flex flex-wrap gap-3 items-center">
-              {/* {hasPermission("create_machine_history") && ( */}
-              <motion.button
-                onClick={() => navigate("/vendors/addvendor")}
-                whileHover={{ scale: 1.02, boxShadow: "0 4px 12px rgba(37, 99, 235, 0.3)" }}
-                whileTap={{ scale: 0.98 }}
-                className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md font-semibold text-sm"
-              >
-                <Plus className="text-base" />
-                <span>Add Vendor</span>
-              </motion.button>
-              {/* )} */}
+              {hasPermission("create_machine_history") && (
+                <motion.button
+                  onClick={() => navigate("/vendors/addvendor")}
+                  whileHover={{ scale: 1.02, boxShadow: "0 4px 12px rgba(37, 99, 235, 0.3)" }}
+                  whileTap={{ scale: 0.98 }}
+                  className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md font-semibold text-sm"
+                >
+                  <Plus className="text-base" />
+                  <span>Add Vendor</span>
+                </motion.button>
+              )}
               <motion.button
                 onClick={handleImport}
                 whileHover={{ scale: 1.02, boxShadow: "0 4px 10px rgba(0, 0, 0, 0.08)" }}
@@ -232,95 +571,307 @@ const VendorPage: React.FC = () => {
             </div>
           </motion.div>
 
-          {/* Stats Cards dengan data lebih detail */}
-          {/* <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
-            <StatCard title="Total Department" value={vendor.length.toString()} change={`+${Math.floor((vendor.length / 10) * 100)}%`} icon={<Building className="w-6 h-6" />} />
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
+            <StatCard title="Total Vendors" value={vendor.length.toString()} change={`+${Math.floor((vendor.length / 10) * 100)}%`} icon={<Building className="w-6 h-6" />} />
             <StatCard
-              title="Head Department"
-              value={vendor.filter((d) => d.id !== null).length.toString()}
-              change={`+${Math.floor((department.filter((d) => d.head_id !== null).length / department.length) * 100)}%`}
-              icon={<UserIcon className="w-6 h-6" />}
-            />
-            <StatCard
-              title="Departments with Email"
-              value={department.filter((d) => d.head?.email).length.toString()}
-              change={`+${Math.floor((department.filter((d) => d.head?.email).length / department.length) * 100)}%`}
+              title="Vendors with Email"
+              value={vendor.filter((v) => v.email).length.toString()}
+              change={`+${Math.floor((vendor.filter((v) => v.email).length / vendor.length) * 100)}%`}
               icon={<Mail className="w-6 h-6" />}
             />
-            <StatCard title="Total Employees" value={users.length.toString()} change={`+${Math.floor((users.length / 50) * 100)}%`} icon={<Users className="w-6 h-6" />} />
-          </div> */}
+            <StatCard
+              title="Vendors with Contact"
+              value={vendor.filter((v) => v.contact_person).length.toString()}
+              change={`+${Math.floor((vendor.filter((v) => v.contact_person).length / vendor.length) * 100)}%`}
+              icon={<Users className="w-6 h-6" />}
+            />
+            <StatCard
+              title="Vendors with Phone"
+              value={vendor.filter((v) => v.telp || v.HP).length.toString()}
+              change={`+${Math.floor((vendor.filter((v) => v.telp || v.HP).length / vendor.length) * 100)}%`}
+              icon={<Phone className="w-6 h-6" />}
+            />
+          </div>
 
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="bg-white rounded-2xl shadow-md overflow-hidden border border-blue-100">
-            <div className="overflow-x-auto custom-scrollbar">
-              <table className="min-w-full divide-y divide-blue-100">
-                <thead className="bg-blue-50">
-                  <tr>
-                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ID</th>
-                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Vendor Name</th>
-                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Address</th>
-                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Contact Person</th>
-                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Email</th>
-                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Telp</th>
-                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Handphone</th>
-                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-blue-100">
-                  {vendor.map((v) => (
-                    <motion.tr key={v.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.15 }} whileHover={{ backgroundColor: "rgba(239, 246, 255, 0.5)" }} className="transition-colors duration-150">
-                      <td className="px-5 py-3 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{v.id}</div>
-                      </td>
-                      <td className="px-5 py-3 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{v.name}</div>
-                      </td>
-                      <td className="px-5 py-3 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{v.address || "-"}</div>
-                      </td>
-                      <td className="px-5 py-3">
-                        <div className="text-sm text-gray-600 truncate max-w-xs">{v.contact_person || "-"}</div>
-                      </td>
-                      <td className="px-5 py-3">
-                        <div className="text-sm text-gray-600 truncate max-w-xs">{v.email || "-"}</div>
-                      </td>
-                      <td className="px-5 py-3">
-                        <div className="text-sm text-gray-600 truncate max-w-xs">{v.telp || "-"}</div>
-                      </td>
-                      <td className="px-5 py-3">
-                        <div className="text-sm text-gray-600 truncate max-w-xs">{v.HP || "-"}</div>
-                      </td>
-
-                      <td className="px-5 py-3 whitespace-nowrap text-sm font-medium space-x-1.5">
+          <motion.div layout className="mb-8 bg-white rounded-2xl shadow-md p-5 border border-blue-100">
+            <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-4 md:space-y-0 relative">
+              <div className="flex-1 relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder="Search by vendor name, contact, email, or ID..."
+                  className="w-full pl-11 pr-4 py-2.5 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white text-sm transition-all duration-200 shadow-sm placeholder-gray-400"
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                  onFocus={() => setShowSearchSuggestions(true)}
+                  aria-label="Search vendors"
+                />
+                <AnimatePresence>
+                  {showSearchSuggestions && filteredSearchSuggestions.length > 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 5 }}
+                      transition={{ duration: 0.15 }}
+                      className="search-suggestions absolute left-0 right-0 mt-2 bg-white border border-blue-200 rounded-lg shadow-lg z-10 max-h-56 overflow-y-auto custom-scrollbar"
+                    >
+                      {filteredSearchSuggestions.map((category) => (
                         <motion.button
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          onClick={() => navigate(`/vendors/editvendor/${v.id}`)}
-                          className="text-yellow-600 hover:text-yellow-800 transition-colors duration-200 p-1 rounded-full hover:bg-yellow-50"
-                          title="Edit"
+                          key={category.id}
+                          onClick={() => handleSearchCategorySelect(category.name)}
+                          whileHover={{ backgroundColor: "rgba(239, 246, 255, 0.7)" }}
+                          className="w-full text-left p-3 text-gray-700 hover:text-blue-700 transition-colors duration-150 text-sm"
+                          role="option"
                         >
-                          <Edit className="inline text-base" />
+                          <span className="font-semibold">{category.name}</span>
                         </motion.button>
-                        <motion.button
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          onClick={() => {
-                            setRecordToDelete(v.id);
-                            setShowDeleteConfirm(true);
-                          }}
-                          className="text-red-600 hover:text-red-800 transition-colors duration-200 p-1 rounded-full hover:bg-red-50"
-                          title="Delete"
-                        >
-                          <Trash2 className="inline text-base" />
-                        </motion.button>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </tbody>
-              </table>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
+
+            <AnimatePresence>
+              {showAdvancedFilters && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full"
+                >
+                  <div className="flex items-center space-x-2 bg-white p-2.5 rounded-lg border border-blue-200 shadow-sm">
+                    <Calendar className="text-gray-500 text-base" />
+                    <DatePicker
+                      selected={startDate}
+                      onChange={(date: Date | null) => setStartDate(date)}
+                      selectsStart
+                      startDate={startDate}
+                      endDate={endDate}
+                      placeholderText="Start Date"
+                      className="w-24 focus:outline-none bg-transparent text-sm text-gray-800 placeholder-gray-400"
+                      dateFormat="dd/MM/yyyy"
+                      isClearable
+                      aria-label="Start Date"
+                    />
+                    <span className="text-gray-400">-</span>
+                    <DatePicker
+                      selected={endDate}
+                      onChange={(date: Date | null) => setEndDate(date)}
+                      selectsEnd
+                      startDate={startDate}
+                      endDate={endDate}
+                      minDate={startDate || undefined}
+                      placeholderText="End Date"
+                      className="w-24 focus:outline-none bg-transparent text-sm text-gray-800 placeholder-gray-400"
+                      dateFormat="dd/MM/yyyy"
+                      isClearable
+                      aria-label="End Date"
+                    />
+                    {(startDate || endDate) && (
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => {
+                          setStartDate(null);
+                          setEndDate(null);
+                        }}
+                        className="p-1 rounded-full text-gray-400 hover:bg-gray-100 transition-colors"
+                        title="Clear Dates"
+                        aria-label="Clear date range"
+                      >
+                        <X className="text-base" />
+                      </motion.button>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
+
+          {loading ? (
+            <div className="bg-white rounded-2xl shadow-md p-8 text-center border border-blue-100">
+              <div className="animate-spin rounded-full h-14 w-14 border-t-4 border-b-4 border-blue-500 mx-auto mb-5"></div>
+              <p className="text-gray-600 text-base font-medium">Loading vendor data...</p>
+            </div>
+          ) : filteredRecords.length === 0 ? (
+            <div className="bg-white rounded-2xl shadow-md p-8 text-center border border-blue-100">
+              <Info className="text-blue-500 text-4xl mx-auto mb-4" />
+              <p className="text-gray-700 text-base font-medium">
+                {debouncedSearchQuery || startDate || endDate ? "No vendors found matching your filters." : "No vendors available."}
+              </p>
+              {(debouncedSearchQuery || startDate || endDate) && (
+                <button
+                  onClick={() => {
+                    setSearchQuery("");
+                    setStartDate(null);
+                    setEndDate(null);
+                  }}
+                  className="mt-5 px-5 py-2 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors duration-200 text-sm"
+                >
+                  Clear All Filters
+                </button>
+              )}
+            </div>
+          ) : (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="bg-white rounded-2xl shadow-md overflow-hidden border border-blue-100">
+              <div className="overflow-x-auto custom-scrollbar">
+                <table className="min-w-full divide-y divide-blue-100">
+                  <thead className="bg-blue-50">
+                    <tr>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer" onClick={() => requestSort("id")}>
+                        ID
+                        {sortConfig?.key === "id" && <span className="ml-1">{sortConfig.direction === "ascending" ? "↑" : "↓"}</span>}
+                      </th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer" onClick={() => requestSort("name")}>
+                        Vendor Name
+                        {sortConfig?.key === "name" && <span className="ml-1">{sortConfig.direction === "ascending" ? "↑" : "↓"}</span>}
+                      </th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Address</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Contact Person</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Email</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Telp</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Handphone</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-blue-100">
+                    {currentRecords.map((v) => (
+                      <motion.tr
+                        key={v.id}
+                        initial={{ opacity: 0, y: 5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.15 }}
+                        whileHover={{ backgroundColor: "rgba(239, 246, 255, 0.5)" }}
+                        className="transition-colors duration-150"
+                      >
+                        <td className="px-5 py-3 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{v.id}</div>
+                        </td>
+                        <td className="px-5 py-3 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{v.name}</div>
+                        </td>
+                        <td className="px-5 py-3">
+                          <div className="text-sm text-gray-600 truncate max-w-xs">{v.address || "-"}</div>
+                        </td>
+                        <td className="px-5 py-3">
+                          <div className="text-sm text-gray-600 truncate max-w-xs">{v.contact_person || "-"}</div>
+                        </td>
+                        <td className="px-5 py-3">
+                          <div className="text-sm text-gray-600 truncate max-w-xs">{v.email || "-"}</div>
+                        </td>
+                        <td className="px-5 py-3">
+                          <div className="text-sm text-gray-600 truncate max-w-xs">{v.telp || "-"}</div>
+                        </td>
+                        <td className="px-5 py-3">
+                          <div className="text-sm text-gray-600 truncate max-w-xs">{v.HP || "-"}</div>
+                        </td>
+                        <td className="px-5 py-3 whitespace-nowrap text-sm font-medium space-x-1.5">
+                          <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={() => openVendorDetails(v)}
+                            className="text-blue-600 hover:text-blue-800 transition-colors duration-200 p-1 rounded-full hover:bg-blue-50"
+                            title="View Details"
+                            aria-label={`View details for vendor ${v.name}`}
+                          >
+                            <Eye className="inline text-base" />
+                          </motion.button>
+                          <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={() => navigate(`/vendors/editvendor/${v.id}`)}
+                            className="text-yellow-600 hover:text-yellow-800 transition-colors duration-200 p-1 rounded-full hover:bg-yellow-50"
+                            title="Edit"
+                            aria-label={`Edit vendor ${v.name}`}
+                          >
+                            <Edit className="inline text-base" />
+                          </motion.button>
+                          <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={() => {
+                              setRecordToDelete(v.id);
+                              setShowDeleteConfirm(true);
+                            }}
+                            className="text-red-600 hover:text-red-800 transition-colors duration-200 p-1 rounded-full hover:bg-red-50"
+                            title="Delete"
+                            aria-label={`Delete vendor ${v.name}`}
+                          >
+                            <Trash2 className="inline text-base" />
+                          </motion.button>
+                        </td>
+                      </motion.tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </motion.div>
+          )}
+
+          {filteredRecords.length > recordsPerPage && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="mt-8 flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
+              <div className="text-sm text-gray-600">
+                Showing <span className="font-semibold">{indexOfFirstRecord + 1}</span> to <span className="font-semibold">{Math.min(indexOfLastRecord, filteredRecords.length)}</span> of{" "}
+                <span className="font-semibold">{filteredRecords.length}</span> results
+              </div>
+              <div className="flex space-x-2">
+                <motion.button
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => paginate(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="px-4 py-2 border border-blue-200 rounded-md bg-white text-gray-700 hover:bg-blue-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm font-medium text-sm"
+                  aria-label="Previous page"
+                >
+                  Previous
+                </motion.button>
+                {Array.from({ length: totalPages }, (_, i) => (
+                  <motion.button
+                    key={i + 1}
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => paginate(i + 1)}
+                    className={`px-3.5 py-2 rounded-md transition-colors duration-200 shadow-sm font-medium text-sm
+                      ${currentPage === i + 1 ? "bg-blue-600 text-white shadow-md" : "bg-white text-gray-700 hover:bg-blue-50 border border-blue-200"}
+                    `}
+                    aria-label={`Go to page ${i + 1}`}
+                  >
+                    {i + 1}
+                  </motion.button>
+                ))}
+                <motion.button
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => paginate(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className="px-4 py-2 border border-blue-200 rounded-md bg-white text-gray-700 hover:bg-blue-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm font-medium text-sm"
+                  aria-label="Next page"
+                >
+                  Next
+                </motion.button>
+              </div>
+            </motion.div>
+          )}
         </main>
       </div>
+
+      {selectedVendor && (
+        <Modal
+          isOpen={showVendorDetails}
+          onClose={() => {
+            setShowVendorDetails(false);
+            setSelectedVendor(null);
+          }}
+          title="Vendor Details"
+          className="max-w-3xl"
+        >
+          <VendorDetails vendor={selectedVendor} onClose={() => setShowVendorDetails(false)} />
+        </Modal>
+      )}
 
       <Modal isOpen={showDeleteConfirm} onClose={() => setShowDeleteConfirm(false)} title="Confirm Deletion">
         <div className="space-y-5 text-center py-3">

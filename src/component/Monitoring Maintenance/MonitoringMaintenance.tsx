@@ -32,9 +32,11 @@ import {
   ChevronLeft,
   Activity,
   Minus,
+  BarChart2,
 } from "lucide-react";
 import Sidebar from "../Sidebar";
 import PageHeader from "../../component/PageHeader";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
 
 export interface MaintenanceTaskRecord {
   id: string;
@@ -48,7 +50,7 @@ export interface MaintenanceTaskRecord {
   standardMax: number | null;
   standartVisual: string;
   monitoringResult: string;
-  msStatus: "OK" | "NG" | "N/A";
+  msStatus: "TMS" | "MS" | "N/A";
   notes: string;
   // HAPUS SEMUA STATUS APPROVAL
   perbaikanPerawatan: string;
@@ -75,6 +77,7 @@ export interface MaintenanceTaskRecord {
   jumlah: number;
   unitSparePart: string;
   scheduleId?: number;
+  scheduleStatus?: string;
 }
 
 export interface RoutineSchedule {
@@ -254,7 +257,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, classNa
   return (
     <AnimatePresence>
       {isOpen && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4 backdrop-blur-sm">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="fixed inset-0 backdrop-brightness-50 bg-opacity-60 flex justify-center items-center z-50 p-4">
           <motion.div
             initial={{ y: 50, opacity: 0, scale: 0.95 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
@@ -277,7 +280,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, classNa
 };
 
 const DetailItem: React.FC<DetailItemProps> = ({ label, value, className = "", valueColorClass = "text-gray-900" }) => (
-  <div className={`p-4 bg-gray-50 rounded-lg shadow-sm ${className}`}>
+  <div className={`p-4 bg-gray-50 backdrop-brightness-50 rounded-lg shadow-sm ${className}`}>
     <p className="text-xs font-medium text-gray-500 uppercase">{label}</p>
     <p className={`mt-1 text-sm font-semibold ${valueColorClass}`}>{value ?? "N/A"}</p>
   </div>
@@ -295,8 +298,8 @@ const DetailView: React.FC<DetailViewProps> = ({ record, onUpdateRecord }) => {
         <DetailItem label="Machine" value={displayValue(record.mesin)} />
         <DetailItem label="Item" value={displayValue(record.item)} />
         <DetailItem label="Unit of Measure" value={displayValue(record.unitOfMeasure)} />
-        <DetailItem label="Monitoring Result" value={displayValue(record.monitoringResult)} valueColorClass={record.msStatus === "OK" ? "text-green-600" : record.msStatus === "NG" ? "text-red-600" : "text-gray-900"} />
-        <DetailItem label="MS Status" value={displayValue(record.msStatus)} valueColorClass={record.msStatus === "OK" ? "text-green-600" : record.msStatus === "NG" ? "text-red-600" : "text-gray-900"} />
+        <DetailItem label="Monitoring Result" value={displayValue(record.monitoringResult)} valueColorClass={record.msStatus === "MS" ? "text-green-600" : record.msStatus === "TMS" ? "text-red-600" : "text-gray-900"} />
+        <DetailItem label="MS Status" value={displayValue(record.msStatus)} valueColorClass={record.msStatus === "MS" ? "text-green-600" : record.msStatus === "TMS" ? "text-red-600" : "text-gray-900"} />
       </div>
 
       <SectionTitle title="Standard" />
@@ -318,108 +321,163 @@ const TrendAnalysis: React.FC<TrendAnalysisProps> = ({ records }) => {
   const [selectedMachine, setSelectedMachine] = useState<string>("");
   const [selectedItem, setSelectedItem] = useState<string>("");
 
+  // Debug: Cek data records
+  console.log("Trend Analysis - Total records:", records.length);
+  console.log("Trend Analysis - Sample records:", records.slice(0, 3));
+
   const machines = useMemo(() => {
-    if (!records || records.length === 0) return [""];
+    if (!records || records.length === 0) {
+      console.log("No records available for machines");
+      return [""];
+    }
 
     const uniqueMachines = [...new Set(records.filter((r) => r.mesin && r.mesin !== "N/A" && r.mesin.trim() !== "").map((r) => r.mesin))].sort();
 
+    console.log("Available machines:", uniqueMachines);
     return ["", ...uniqueMachines];
   }, [records]);
 
   const items = useMemo(() => {
-    if (!selectedMachine || selectedMachine === "") return [""];
+    if (!selectedMachine || selectedMachine === "") {
+      console.log("No machine selected for items");
+      return [""];
+    }
 
     const machineItems = records.filter((r) => r.mesin === selectedMachine && r.item && r.item !== "N/A" && r.item.trim() !== "").map((r) => r.item);
 
     const uniqueItems = [...new Set(machineItems)].sort();
+    console.log(`Available items for ${selectedMachine}:`, uniqueItems);
     return ["", ...uniqueItems];
   }, [records, selectedMachine]);
 
   const trendData = useMemo(() => {
     if (!selectedMachine || !selectedItem || selectedMachine === "" || selectedItem === "") {
+      console.log("Missing selection for trend data");
       return [];
     }
 
-    return records
-      .filter((r) => r.mesin === selectedMachine && r.item === selectedItem && r.monitoringResult && r.monitoringResult !== "N/A" && !isNaN(parseFloat(r.monitoringResult)))
+    const filteredData = records
+      .filter((r) => {
+        const isMachineMatch = r.mesin === selectedMachine;
+        const isItemMatch = r.item === selectedItem;
+
+        // PERBAIKAN: Gunakan semua records yang memiliki monitoring activities
+        const hasActivity = r.id.startsWith("activity-");
+
+        // PERBAIKAN: Cek apakah hasil monitoring numeric dengan cara yang lebih baik
+        const hasNumericResult = r.monitoringResult && r.monitoringResult !== "N/A" && r.monitoringResult !== "MS" && r.monitoringResult !== "TMS" && !isNaN(parseFloat(r.monitoringResult)) && isFinite(parseFloat(r.monitoringResult));
+
+        console.log(`Record ${r.id}:`, {
+          machineMatch: isMachineMatch,
+          itemMatch: isItemMatch,
+          hasActivity,
+          monitoringResult: r.monitoringResult,
+          isNumeric: hasNumericResult,
+          parsedValue: hasNumericResult ? parseFloat(r.monitoringResult) : null,
+        });
+
+        return isMachineMatch && isItemMatch && hasActivity && hasNumericResult;
+      })
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-      .map((r) => ({
-        date: new Date(r.date),
-        dateString: new Date(r.date).toLocaleDateString("en-US"),
-        result: parseFloat(r.monitoringResult),
-        msStatus: r.msStatus,
-        notes: r.notes,
-        machine: r.mesin,
-        item: r.item,
-        standardMin: r.standardMin,
-        standardMax: r.standardMax,
-      }));
+      .map((r) => {
+        const resultValue = parseFloat(r.monitoringResult);
+        console.log(`Trend data point: ${r.date}, ${r.monitoringResult}, numeric: ${resultValue}`);
+        return {
+          date: new Date(r.date),
+          dateString: new Date(r.date).toLocaleDateString("en-US"),
+          result: resultValue,
+          msStatus: r.msStatus,
+          notes: r.notes,
+          machine: r.mesin,
+          item: r.item,
+          standardMin: r.standardMin,
+          standardMax: r.standardMax,
+          isActivity: r.id.startsWith("activity-"),
+        };
+      });
+
+    console.log(`Trend data for ${selectedMachine} - ${selectedItem}:`, filteredData);
+    return filteredData;
   }, [records, selectedMachine, selectedItem]);
 
-  // Statistical Analysis
+  // Statistical Analysis dengan error handling yang lebih baik
   const analysis = useMemo(() => {
-    if (trendData.length === 0) return null;
+    if (trendData.length === 0) {
+      console.log("No trend data available for analysis");
+      return null;
+    }
 
-    const results = trendData.map((d) => d.result);
-    const mean = results.reduce((a, b) => a + b, 0) / results.length;
-    const sorted = [...results].sort((a, b) => a - b);
-    const median = sorted.length % 2 === 0 ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2 : sorted[Math.floor(sorted.length / 2)];
+    try {
+      const results = trendData.map((d) => d.result);
+      console.log("Analysis results:", results);
 
-    const variance = results.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / results.length;
-    const stdDev = Math.sqrt(variance);
-    const min = Math.min(...results);
-    const max = Math.max(...results);
-    const range = max - min;
+      // Basic statistics
+      const mean = results.reduce((a, b) => a + b, 0) / results.length;
+      const sorted = [...results].sort((a, b) => a - b);
+      const median = sorted.length % 2 === 0 ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2 : sorted[Math.floor(sorted.length / 2)];
 
-    // Trend analysis
-    const dates = trendData.map((d) => d.date.getTime());
-    const resultsNum = trendData.map((d) => d.result);
+      const variance = results.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / results.length;
+      const stdDev = Math.sqrt(variance);
+      const min = Math.min(...results);
+      const max = Math.max(...results);
+      const range = max - min;
 
-    const n = dates.length;
-    const sumX = dates.reduce((a, b) => a + b, 0);
-    const sumY = resultsNum.reduce((a, b) => a + b, 0);
-    const sumXY = dates.reduce((acc, x, i) => acc + x * resultsNum[i], 0);
-    const sumX2 = dates.reduce((acc, x) => acc + x * x, 0);
+      // Trend analysis
+      const dates = trendData.map((d) => d.date.getTime());
+      const resultsNum = trendData.map((d) => d.result);
 
-    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
-    const intercept = (sumY - slope * sumX) / n;
+      const n = dates.length;
+      const sumX = dates.reduce((a, b) => a + b, 0);
+      const sumY = resultsNum.reduce((a, b) => a + b, 0);
+      const sumXY = dates.reduce((acc, x, i) => acc + x * resultsNum[i], 0);
+      const sumX2 = dates.reduce((acc, x) => acc + x * x, 0);
 
-    const trendDirection = slope > 0 ? "increasing" : slope < 0 ? "decreasing" : "stable";
-    const trendStrength = Math.abs(slope) / (stdDev || 1);
+      const denominator = n * sumX2 - sumX * sumX;
+      const slope = denominator !== 0 ? (n * sumXY - sumX * sumY) / denominator : 0;
+      const intercept = denominator !== 0 ? (sumY - slope * sumX) / n : 0;
 
-    const outliers = trendData.filter((d) => Math.abs(d.result - mean) > 2 * stdDev);
+      const trendDirection = slope > 0.001 ? "increasing" : slope < -0.001 ? "decreasing" : "stable";
+      const trendStrength = stdDev > 0 ? Math.abs(slope) / stdDev : 0;
 
-    const firstRecord = trendData[0];
-    const withinStandard =
-      firstRecord.standardMin !== null && firstRecord.standardMax !== null ? (trendData.filter((d) => d.result >= (firstRecord.standardMin || 0) && d.result <= (firstRecord.standardMax || Infinity)).length / trendData.length) * 100 : null;
+      const outliers = trendData.filter((d) => Math.abs(d.result - mean) > 2 * stdDev);
 
-    return {
-      mean,
-      median,
-      stdDev,
-      min,
-      max,
-      range,
-      count: results.length,
-      trendDirection,
-      trendStrength: trendStrength * 1000,
-      slope,
-      outliers,
-      withinStandard,
-      coefficientOfVariation: (stdDev / mean) * 100,
-    };
+      const firstRecord = trendData[0];
+      const withinStandard =
+        firstRecord.standardMin !== null && firstRecord.standardMax !== null
+          ? (trendData.filter((d) => d.result >= (firstRecord.standardMin || 0) && d.result <= (firstRecord.standardMax || Infinity)).length / trendData.length) * 100
+          : null;
+
+      return {
+        mean,
+        median,
+        stdDev,
+        min,
+        max,
+        range,
+        count: results.length,
+        trendDirection,
+        trendStrength: trendStrength * 1000,
+        slope,
+        outliers,
+        withinStandard,
+        coefficientOfVariation: mean > 0 ? (stdDev / mean) * 100 : 0,
+      };
+    } catch (error) {
+      console.error("Error in statistical analysis:", error);
+      return null;
+    }
   }, [trendData]);
 
-  // Stat Cards Data
+  // Stat Cards Data - STYLE BARU seperti di luar
   const statCardsData = useMemo(() => {
     const totalRecords = records.length;
     const machinesWithData = new Set(records.map((r) => r.mesin)).size;
-    const okStatusCount = records.filter((r) => r.msStatus === "OK").length;
+    const okStatusCount = records.filter((r) => r.msStatus === "MS").length;
     const okPercentage = totalRecords > 0 ? (okStatusCount / totalRecords) * 100 : 0;
 
     return [
       {
-        title: "Total Monitoring Events",
+        title: "Total Monitoring Items",
         value: totalRecords.toLocaleString("id-ID"),
         icon: <Clipboard />,
       },
@@ -436,7 +494,7 @@ const TrendAnalysis: React.FC<TrendAnalysisProps> = ({ records }) => {
     ];
   }, [records]);
 
-  // Most Monitored Machines
+  // Most Monitored Machines - STYLE BARU
   const mostMonitoredMachines = useMemo(() => {
     const machineCounts: { [key: string]: number } = {};
     records.forEach((record) => {
@@ -451,7 +509,7 @@ const TrendAnalysis: React.FC<TrendAnalysisProps> = ({ records }) => {
       .map(([name, count]) => ({ name, count }));
   }, [records]);
 
-  // Monitoring Trend Data
+  // Monitoring Trend Data - STYLE BARU
   const monitoringTrendData = useMemo(() => {
     const monthlyCounts: { [key: string]: number } = {};
 
@@ -477,11 +535,11 @@ const TrendAnalysis: React.FC<TrendAnalysisProps> = ({ records }) => {
       });
   }, [records]);
 
-  // Status Distribution Data
+  // Status Distribution Data - STYLE BARU
   const statusDistributionData = useMemo(() => {
     const statusCounts: { [key: string]: number } = {
-      OK: 0,
-      NG: 0,
+      MS: 0,
+      TMS: 0,
       "N/A": 0,
     };
 
@@ -490,27 +548,26 @@ const TrendAnalysis: React.FC<TrendAnalysisProps> = ({ records }) => {
       statusCounts[status] = (statusCounts[status] || 0) + 1;
     });
 
+    // PERBAIKAN: Gunakan key yang benar sesuai dengan data
     return [
-      { name: "OK", value: statusCounts.OK },
-      { name: "NG", value: statusCounts.NG },
+      { name: "MS", value: statusCounts.MS },
+      { name: "TMS", value: statusCounts.TMS },
       { name: "N/A", value: statusCounts["N/A"] },
     ].filter((item) => item.value > 0);
   }, [records]);
 
   const PIE_COLORS = ["#10B981", "#EF4444", "#6B7280"];
 
+  // Tampilkan debug information
+  console.log("Current selection:", { selectedMachine, selectedItem });
+  console.log("Trend data length:", trendData.length);
+  console.log("Analysis available:", analysis !== null);
+
+  // Jika belum memilih machine dan item, tampilkan dashboard overview
   if (!selectedMachine || !selectedItem) {
     return (
       <div className="space-y-8">
-        {/* Header */}
-        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-            Monitoring <span className="text-blue-600">Trend Analysis</span>
-          </h1>
-          <p className="text-gray-600 mt-2 text-sm max-w-xl">Gain insights into machine monitoring trends, performance, and status distribution.</p>
-        </motion.div>
-
-        {/* Stat Cards */}
+        {/* Stat Cards - STYLE BARU */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           {statCardsData.map((stat, index) => (
             <motion.div
@@ -532,7 +589,7 @@ const TrendAnalysis: React.FC<TrendAnalysisProps> = ({ records }) => {
           ))}
         </div>
 
-        {/* Charts Grid */}
+        {/* Charts Grid - STYLE BARU */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           {/* Most Monitored Machines */}
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.2 }} className="bg-white rounded-2xl shadow-md p-6 border border-blue-50">
@@ -587,7 +644,7 @@ const TrendAnalysis: React.FC<TrendAnalysisProps> = ({ records }) => {
           </motion.div>
         </div>
 
-        {/* Monitoring Trend */}
+        {/* Monitoring Trend - STYLE BARU */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.4 }} className="bg-white rounded-2xl shadow-md p-6 border border-blue-50">
           <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
             <TrendingUp className="mr-2 text-blue-600" /> Monitoring Trend Over Time
@@ -623,52 +680,62 @@ const TrendAnalysis: React.FC<TrendAnalysisProps> = ({ records }) => {
           <div className="text-center">
             <TrendingUp className="mx-auto text-gray-300 mb-4" size={64} />
             <h3 className="text-2xl font-bold text-gray-900 mb-2">Detailed Trend Analysis</h3>
-            <p className="text-gray-600 mb-8 max-w-md mx-auto">Select a machine and monitoring item to visualize trends and analyze performance patterns over time.</p>
+            <p className="text-gray-600 mb-8 max-w-md mx-auto">
+              {records.length === 0 ? "No monitoring data available for analysis." : "Select a machine and monitoring item to visualize trends and analyze performance patterns over time."}
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
-            <div className="space-y-3">
-              <label className="block text-sm font-semibold text-gray-900">Select Machine</label>
-              <select
-                value={selectedMachine}
-                onChange={(e) => {
-                  setSelectedMachine(e.target.value);
-                  setSelectedItem("");
-                }}
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-gray-900"
-              >
-                <option value="">Choose machine...</option>
-                {machines.slice(1).map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-            </div>
+          {records.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
+              <div className="space-y-3">
+                <label className="block text-sm font-semibold text-gray-900">Select Machine</label>
+                <select
+                  value={selectedMachine}
+                  onChange={(e) => {
+                    console.log("Machine selected:", e.target.value);
+                    setSelectedMachine(e.target.value);
+                    setSelectedItem(""); // Reset item ketika machine berubah
+                  }}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-gray-900"
+                >
+                  <option value="">Choose machine...</option>
+                  {machines.slice(1).map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+                {selectedMachine && <p className="text-xs text-gray-500 mt-1">{items.length - 1} item(s) available for this machine</p>}
+              </div>
 
-            <div className="space-y-3">
-              <label className="block text-sm font-semibold text-gray-900">Select Item</label>
-              <select
-                value={selectedItem}
-                onChange={(e) => setSelectedItem(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-gray-900 disabled:opacity-50"
-                disabled={!selectedMachine}
-              >
-                <option value="">{selectedMachine ? "Choose item..." : "Select machine first"}</option>
-                {items.slice(1).map((i) => (
-                  <option key={i} value={i}>
-                    {i}
-                  </option>
-                ))}
-              </select>
+              <div className="space-y-3">
+                <label className="block text-sm font-semibold text-gray-900">Select Item</label>
+                <select
+                  value={selectedItem}
+                  onChange={(e) => {
+                    console.log("Item selected:", e.target.value);
+                    setSelectedItem(e.target.value);
+                  }}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-gray-900 disabled:opacity-50"
+                  disabled={!selectedMachine}
+                >
+                  <option value="">{selectedMachine ? (items.length > 1 ? "Choose item..." : "No items available") : "Select machine first"}</option>
+                  {items.slice(1).map((i) => (
+                    <option key={i} value={i}>
+                      {i}
+                    </option>
+                  ))}
+                </select>
+                {selectedItem && <p className="text-xs text-gray-500 mt-1">{trendData.length} data point(s) available for analysis</p>}
+              </div>
             </div>
-          </div>
+          )}
         </motion.div>
       </div>
     );
   }
 
-  // Tampilan detail analysis (existing functionality)
+  // Jika sudah memilih machine dan item, tapi tidak ada data numerik
   if (trendData.length === 0) {
     return (
       <div className="space-y-6 bg-white rounded-2xl shadow-sm p-8 border border-gray-100">
@@ -676,7 +743,19 @@ const TrendAnalysis: React.FC<TrendAnalysisProps> = ({ records }) => {
         <div className="text-center py-12">
           <Info className="mx-auto text-gray-300 mb-4" size={48} />
           <p className="text-gray-600 text-lg mb-2">No numeric data available for analysis</p>
-          <p className="text-gray-400 text-sm">The selected item doesn't have numeric monitoring results for trend analysis.</p>
+          <p className="text-gray-400 text-sm mb-4">
+            The selected item "{selectedItem}" for machine "{selectedMachine}" doesn't have numeric monitoring results.
+          </p>
+          <p className="text-gray-400 text-xs">Monitoring results must be numeric values (numbers) for trend analysis.</p>
+          <button
+            onClick={() => {
+              setSelectedMachine("");
+              setSelectedItem("");
+            }}
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+          >
+            Select Different Machine/Item
+          </button>
         </div>
       </div>
     );
@@ -687,17 +766,19 @@ const TrendAnalysis: React.FC<TrendAnalysisProps> = ({ records }) => {
       <div className="space-y-6 bg-white rounded-2xl shadow-sm p-8 border border-gray-100">
         <h3 className="text-2xl font-bold text-gray-900 mb-2">Trend Analysis</h3>
         <div className="text-center py-12">
-          <Info className="mx-auto text-gray-300 mb-4" size={48} />
+          <AlertTriangle className="mx-auto text-yellow-500 mb-4" size={48} />
           <p className="text-gray-600 text-lg mb-2">Unable to analyze data</p>
+          <p className="text-gray-400 text-sm">There was an error processing the data for analysis.</p>
         </div>
       </div>
     );
   }
 
+  // TAMPILAN DETAIL TREND ANALYSIS DENGAN STYLE BARU
   return (
     <div className="space-y-8">
       {/* Header Section */}
-      <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+      <div className="bg-white rounded-2xl shadow-md p-6 border border-blue-100">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
             <h3 className="text-2xl font-bold text-gray-900 mb-2">Trend Analysis</h3>
@@ -733,244 +814,119 @@ const TrendAnalysis: React.FC<TrendAnalysisProps> = ({ records }) => {
         </div>
       </div>
 
-      {/* Key Metrics */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-medium text-gray-600">Data Points</span>
-            <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
-              <Clipboard className="w-4 h-4 text-blue-600" />
-            </div>
-          </div>
-          <p className="text-2xl font-bold text-gray-900">{analysis.count}</p>
-        </div>
-
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-medium text-gray-600">Average</span>
-            <div className="w-8 h-8 bg-green-50 rounded-lg flex items-center justify-center">
-              <TrendingUp className="w-4 h-4 text-green-600" />
-            </div>
-          </div>
-          <p className="text-2xl font-bold text-gray-900">{analysis.mean.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
-        </div>
-
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-medium text-gray-600">Std Deviation</span>
-            <div className="w-8 h-8 bg-purple-50 rounded-lg flex items-center justify-center">
-              <Activity className="w-4 h-4 text-purple-600" />
-            </div>
-          </div>
-          <p className="text-2xl font-bold text-gray-900">{analysis.stdDev.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
-        </div>
-
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-medium text-gray-600">Range</span>
-            <div className="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center">
-              <Minus className="w-4 h-4 text-orange-600" />
-            </div>
-          </div>
-          <p className="text-2xl font-bold text-gray-900">{analysis.range.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
-        </div>
-      </div>
-
-      {/* Trend Indicators */}
+      {/* Key Metrics - STYLE BARU */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Trend Direction */}
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-sm font-semibold text-gray-900">Trend Direction</span>
-            <div className={`p-2 rounded-lg ${analysis.trendDirection === "increasing" ? "bg-red-50" : analysis.trendDirection === "decreasing" ? "bg-green-50" : "bg-gray-50"}`}>
-              <TrendingUp className={`w-5 h-5 ${analysis.trendDirection === "increasing" ? "text-red-600" : analysis.trendDirection === "decreasing" ? "text-green-600" : "text-gray-600"}`} />
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+          whileHover={{ y: -5, boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)", scale: 1.01 }}
+          className="bg-white rounded-2xl shadow-md p-6 border border-blue-50 cursor-pointer overflow-hidden transform transition-transform duration-200"
+        >
+          <div className="flex items-center justify-between z-10 relative">
+            <div>
+              <p className="text-sm font-medium text-gray-500 mb-1">Data Points</p>
+              <p className="text-3xl font-bold text-gray-900">{analysis.count}</p>
+            </div>
+            <div className="p-2 rounded-full bg-blue-50 text-blue-600 text-2xl opacity-90 transition-all duration-200">
+              <Clipboard className="w-6 h-6" />
             </div>
           </div>
-          <p className={`text-3xl font-bold mb-2 ${analysis.trendDirection === "increasing" ? "text-red-600" : analysis.trendDirection === "decreasing" ? "text-green-600" : "text-gray-600"}`}>{analysis.trendDirection.toUpperCase()}</p>
-          <p className="text-sm text-gray-600">Slope: {analysis.slope.toExponential(2)}</p>
-        </div>
+        </motion.div>
 
-        {/* Compliance */}
-        {analysis.withinStandard !== null && (
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-sm font-semibold text-gray-900">Within Standard</span>
-              <div className={`p-2 rounded-lg ${analysis.withinStandard >= 90 ? "bg-green-50" : analysis.withinStandard >= 80 ? "bg-yellow-50" : "bg-red-50"}`}>
-                <CheckCircle className={`w-5 h-5 ${analysis.withinStandard >= 90 ? "text-green-600" : analysis.withinStandard >= 80 ? "text-yellow-600" : "text-red-600"}`} />
-              </div>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          whileHover={{ y: -5, boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)", scale: 1.01 }}
+          className="bg-white rounded-2xl shadow-md p-6 border border-blue-50 cursor-pointer overflow-hidden transform transition-transform duration-200"
+        >
+          <div className="flex items-center justify-between z-10 relative">
+            <div>
+              <p className="text-sm font-medium text-gray-500 mb-1">Average Value</p>
+              <p className="text-3xl font-bold text-gray-900">{analysis.mean.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
             </div>
-            <p className={`text-3xl font-bold mb-2 ${analysis.withinStandard >= 90 ? "text-green-600" : analysis.withinStandard >= 80 ? "text-yellow-600" : "text-red-600"}`}>{analysis.withinStandard.toFixed(1)}%</p>
-            <p className="text-sm text-gray-600">
-              Range: {trendData[0]?.standardMin || 0} - {trendData[0]?.standardMax || 0}
-            </p>
+            <div className="p-2 rounded-full bg-green-50 text-green-600 text-2xl opacity-90 transition-all duration-200">
+              <TrendingUp className="w-6 h-6" />
+            </div>
           </div>
-        )}
+        </motion.div>
 
-        {/* Variability */}
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-sm font-semibold text-gray-900">Variability (CV)</span>
-            <div className={`p-2 rounded-lg ${analysis.coefficientOfVariation < 10 ? "bg-green-50" : analysis.coefficientOfVariation < 20 ? "bg-yellow-50" : "bg-red-50"}`}>
-              <Activity className={`w-5 h-5 ${analysis.coefficientOfVariation < 10 ? "text-green-600" : analysis.coefficientOfVariation < 20 ? "text-yellow-600" : "text-red-600"}`} />
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+          whileHover={{ y: -5, boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)", scale: 1.01 }}
+          className="bg-white rounded-2xl shadow-md p-6 border border-blue-50 cursor-pointer overflow-hidden transform transition-transform duration-200"
+        >
+          <div className="flex items-center justify-between z-10 relative">
+            <div>
+              <p className="text-sm font-medium text-gray-500 mb-1">Standard Deviation</p>
+              <p className="text-3xl font-bold text-gray-900">{analysis.stdDev.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+            </div>
+            <div className="p-2 rounded-full bg-purple-50 text-purple-600 text-2xl opacity-90 transition-all duration-200">
+              <Activity className="w-6 h-6" />
             </div>
           </div>
-          <p className={`text-3xl font-bold mb-2 ${analysis.coefficientOfVariation < 10 ? "text-green-600" : analysis.coefficientOfVariation < 20 ? "text-yellow-600" : "text-red-600"}`}>{analysis.coefficientOfVariation.toFixed(1)}%</p>
-          <p className="text-sm text-gray-600">Lower values indicate more consistency</p>
-        </div>
+        </motion.div>
       </div>
 
-      {/* Statistical Summary */}
-      <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-        <h4 className="text-lg font-semibold text-gray-900 mb-6">Statistical Summary</h4>
+      {/* Trend Visualization - STYLE BARU */}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.4 }} className="bg-white rounded-2xl shadow-md p-6 border border-blue-50">
+        <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
+          <TrendingUp className="mr-2 text-blue-600" /> Trend Visualization
+        </h3>
+        <div className="h-80">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={trendData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e0e7ff" />
+              <XAxis dataKey="dateString" tickLine={false} axisLine={false} style={{ fontSize: "12px", fill: "#6B7280" }} />
+              <YAxis tickLine={false} axisLine={false} style={{ fontSize: "12px", fill: "#6B7280" }} />
+              <Tooltip
+                cursor={{ fill: "rgba(239, 246, 255, 0.7)" }}
+                contentStyle={{
+                  backgroundColor: "#fff",
+                  border: "1px solid #e0e7ff",
+                  borderRadius: "8px",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                  padding: "10px",
+                }}
+                formatter={(value: number) => [value, "Value"]}
+              />
+              <Line type="monotone" dataKey="result" stroke="#3B82F6" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </motion.div>
+
+      {/* Statistical Summary - STYLE BARU */}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.5 }} className="bg-white rounded-2xl shadow-md p-6 border border-blue-50">
+        <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
+          <BarChart2 className="mr-2 text-blue-600" /> Statistical Summary
+        </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-          <div className="text-center">
+          <div className="text-center p-4 bg-gray-50 rounded-lg">
             <p className="text-sm text-gray-600 mb-2">Minimum</p>
             <p className="text-xl font-bold text-gray-900">{analysis.min.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
           </div>
-          <div className="text-center">
+          <div className="text-center p-4 bg-gray-50 rounded-lg">
             <p className="text-sm text-gray-600 mb-2">Maximum</p>
             <p className="text-xl font-bold text-gray-900">{analysis.max.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
           </div>
-          <div className="text-center">
+          <div className="text-center p-4 bg-gray-50 rounded-lg">
             <p className="text-sm text-gray-600 mb-2">Median</p>
             <p className="text-xl font-bold text-gray-900">{analysis.median.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
           </div>
-          <div className="text-center">
-            <p className="text-sm text-gray-600 mb-2">Variance</p>
-            <p className="text-xl font-bold text-gray-900">{(analysis.stdDev * analysis.stdDev).toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+          <div className="text-center p-4 bg-gray-50 rounded-lg">
+            <p className="text-sm text-gray-600 mb-2">Range</p>
+            <p className="text-xl font-bold text-gray-900">{analysis.range.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
           </div>
         </div>
-      </div>
-
-      {/* Outliers Alert */}
-      {analysis.outliers.length > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-6">
-          <div className="flex items-start space-x-3">
-            <AlertTriangle className="text-amber-500 mt-0.5 flex-shrink-0" size={20} />
-            <div>
-              <h4 className="font-semibold text-amber-800 mb-2">Outliers Detected</h4>
-              <p className="text-amber-700 text-sm mb-3">{analysis.outliers.length} data point(s) are more than 2 standard deviations from the mean</p>
-              <div className="space-y-2">
-                {analysis.outliers.slice(0, 3).map((outlier, index) => (
-                  <div key={index} className="text-xs text-amber-600 bg-amber-100 rounded-lg px-3 py-2">
-                    <span className="font-medium">{outlier.dateString}:</span> {outlier.result.toLocaleString()}
-                    {outlier.notes && outlier.notes !== "N/A" && ` (${outlier.notes})`}
-                  </div>
-                ))}
-                {analysis.outliers.length > 3 && <p className="text-xs text-amber-600">+{analysis.outliers.length - 3} more outliers</p>}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Chart Section */}
-      <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-        <h4 className="text-lg font-semibold text-gray-900 mb-6">Trend Visualization</h4>
-        <div className="h-80 relative">
-          <canvas
-            ref={(canvas) => {
-              if (canvas && trendData.length > 0) {
-                const ctx = canvas.getContext("2d");
-                if (ctx) {
-                  // Clear canvas
-                  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-                  // Chart drawing logic
-                  const padding = 50;
-                  const width = canvas.width - padding * 2;
-                  const height = canvas.height - padding * 2;
-
-                  const values = trendData.map((d) => d.result);
-                  const minVal = Math.min(...values);
-                  const maxVal = Math.max(...values);
-                  const range = maxVal - minVal || 1;
-
-                  // Draw trend line
-                  ctx.beginPath();
-                  ctx.strokeStyle = "#3B82F6";
-                  ctx.lineWidth = 3;
-                  ctx.lineJoin = "round";
-
-                  trendData.forEach((point, index) => {
-                    const x = padding + (index / (trendData.length - 1 || 1)) * width;
-                    const y = padding + height - ((point.result - minVal) / range) * height;
-
-                    if (index === 0) {
-                      ctx.moveTo(x, y);
-                    } else {
-                      ctx.lineTo(x, y);
-                    }
-                  });
-
-                  ctx.stroke();
-
-                  // Draw points
-                  ctx.fillStyle = "#3B82F6";
-                  trendData.forEach((point, index) => {
-                    const x = padding + (index / (trendData.length - 1 || 1)) * width;
-                    const y = padding + height - ((point.result - minVal) / range) * height;
-
-                    ctx.beginPath();
-                    ctx.arc(x, y, 4, 0, 2 * Math.PI);
-                    ctx.fill();
-                  });
-
-                  // Draw standards if available
-                  const firstData = trendData[0];
-                  if (firstData?.standardMin !== null) {
-                    ctx.beginPath();
-                    ctx.strokeStyle = "#10B981";
-                    ctx.setLineDash([5, 5]);
-                    ctx.lineWidth = 1;
-                    const yMin = padding + height - (((firstData.standardMin || 0) - minVal) / range) * height;
-                    ctx.moveTo(padding, yMin);
-                    ctx.lineTo(padding + width, yMin);
-                    ctx.stroke();
-                  }
-
-                  if (firstData?.standardMax !== null) {
-                    ctx.beginPath();
-                    ctx.strokeStyle = "#EF4444";
-                    ctx.setLineDash([5, 5]);
-                    ctx.lineWidth = 1;
-                    const yMax = padding + height - (((firstData.standardMax || 0) - minVal) / range) * height;
-                    ctx.moveTo(padding, yMax);
-                    ctx.lineTo(padding + width, yMax);
-                    ctx.stroke();
-                  }
-                  ctx.setLineDash([]);
-                }
-              }
-            }}
-            className="w-full h-full border border-gray-200 rounded-lg"
-          />
-        </div>
-        <div className="flex justify-center space-x-6 mt-4 text-sm text-gray-600">
-          <div className="flex items-center">
-            <div className="w-4 h-1 bg-blue-500 rounded mr-2"></div>
-            Actual Values
-          </div>
-          {trendData[0]?.standardMin !== null && (
-            <div className="flex items-center">
-              <div className="w-4 h-1 bg-green-500 rounded mr-2" style={{ borderBottom: "1px dashed" }}></div>
-              Min Standard
-            </div>
-          )}
-          {trendData[0]?.standardMax !== null && (
-            <div className="flex items-center">
-              <div className="w-4 h-1 bg-red-500 rounded mr-2" style={{ borderBottom: "1px dashed" }}></div>
-              Max Standard
-            </div>
-          )}
-        </div>
-      </div>
+      </motion.div>
 
       {/* Data Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <h4 className="text-lg font-semibold text-gray-900">Raw Data ({trendData.length} records)</h4>
-        </div>
+      <div className="bg-white rounded-2xl shadow-md p-6 border border-blue-100 overflow-hidden">
+        <h4 className="text-lg font-semibold text-gray-900 mb-4">Raw Data ({trendData.length} records)</h4>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
@@ -979,7 +935,6 @@ const TrendAnalysis: React.FC<TrendAnalysisProps> = ({ records }) => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Result</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deviation</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -990,14 +945,13 @@ const TrendAnalysis: React.FC<TrendAnalysisProps> = ({ records }) => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span
                       className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        data.msStatus === "OK" ? "bg-green-100 text-green-800" : data.msStatus === "NG" ? "bg-red-100 text-red-800" : "bg-gray-100 text-gray-800"
+                        data.msStatus === "MS" ? "bg-green-100 text-green-800" : data.msStatus === "TMS" ? "bg-red-100 text-red-800" : "bg-gray-100 text-gray-800"
                       }`}
                     >
                       {data.msStatus || "N/A"}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500 max-w-xs">{data.notes || "-"}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{(data.result - analysis.mean).toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
                 </tr>
               ))}
             </tbody>
@@ -1212,19 +1166,46 @@ const Step4ItemsPerMachine: React.FC<Step4ItemsPerMachineProps> = ({ formData, s
   );
 };
 
+interface DailyScheduleListModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  schedules: MaintenanceTaskRecord[];
+  onSelectSchedule: (record: MaintenanceTaskRecord) => void;
+  titleDate: string;
+}
+
 const DailyScheduleListModal: React.FC<DailyScheduleListModalProps> = ({ isOpen, onClose, schedules, onSelectSchedule, titleDate }) => {
   const handleSelectAndClose = (record: MaintenanceTaskRecord): void => {
     onSelectSchedule(record);
   };
 
-  // Group schedules by machine untuk tampilan yang lebih rapi
-  const schedulesByMachine = schedules.reduce((acc, schedule) => {
-    if (!acc[schedule.mesin]) {
-      acc[schedule.mesin] = [];
-    }
-    acc[schedule.mesin].push(schedule);
-    return acc;
-  }, {} as Record<string, MaintenanceTaskRecord[]>);
+  // Kelompokkan schedules berdasarkan scheduleId
+  const schedulesByGroup = schedules.reduce(
+    (acc, schedule) => {
+      const scheduleId = String(schedule.scheduleId || "unknown"); // Konversi ke string
+      if (!acc[scheduleId]) {
+        acc[scheduleId] = {
+          scheduleId: scheduleId,
+          machine: schedule.mesin,
+          unit: schedule.unitWilayah,
+          interval: schedule.interval,
+          items: [],
+        };
+      }
+      acc[scheduleId].items.push(schedule);
+      return acc;
+    },
+    {} as Record<
+      string,
+      {
+        scheduleId: string;
+        machine: string;
+        unit: string;
+        interval: string;
+        items: MaintenanceTaskRecord[];
+      }
+    >
+  );
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`Schedules for ${new Date(titleDate).toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}`} className="max-w-2xl">
@@ -1232,30 +1213,48 @@ const DailyScheduleListModal: React.FC<DailyScheduleListModalProps> = ({ isOpen,
         {schedules.length === 0 ? (
           <p className="text-gray-600 text-center py-4">No schedules for this date.</p>
         ) : (
-          Object.entries(schedulesByMachine).map(([machineName, machineSchedules]) => (
-            <div key={machineName} className="border border-gray-200 rounded-lg overflow-hidden">
-              <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-                <h4 className="font-semibold text-gray-800">{machineName}</h4>
-                <p className="text-sm text-gray-600">{machineSchedules.length} item(s)</p>
+          Object.values(schedulesByGroup).map((group) => (
+            <div key={group.scheduleId} className="border border-gray-200 rounded-lg overflow-hidden">
+              <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h4 className="font-semibold text-gray-800 text-lg">{group.machine}</h4>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {group.items.length} item(s) • {group.interval} • {group.unit}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    {/* Tampilkan status keseluruhan schedule jika semua item memiliki status yang sama */}
+                    {group.items.every((item) => item.scheduleStatus === group.items[0].scheduleStatus) && (
+                      <span className={`text-xs px-2 py-1 rounded ${getStatusBadgeColor(group.items[0].scheduleStatus)}`}>{group.items[0].scheduleStatus || "New"}</span>
+                    )}
+                  </div>
+                </div>
               </div>
               <div className="divide-y divide-gray-100">
-                {machineSchedules.map((schedule, index) => (
+                {group.items.map((schedule, index) => (
                   <motion.button
-                    key={schedule.id}
+                    key={`${schedule.id}-${index}`}
                     whileHover={{ scale: 1.02, backgroundColor: "rgba(239, 246, 255, 0.7)" }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => handleSelectAndClose(schedule)}
-                    className="w-full text-left p-4 hover:bg-blue-50 transition-colors duration-150 flex flex-col items-start"
+                    className="w-full text-left p-4 hover:bg-blue-50 transition-colors duration-150 flex justify-between items-center"
                   >
-                    <p className="font-medium text-gray-800 text-base">{schedule.item}</p>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Interval: {schedule.interval}</span>
-                      <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">Unit: {schedule.unitWilayah}</span>
-                      <span className={`text-xs px-2 py-1 rounded ${schedule.msStatus === "OK" ? "bg-green-100 text-green-800" : schedule.msStatus === "NG" ? "bg-red-100 text-red-800" : "bg-gray-100 text-gray-800"}`}>
-                        Status: {schedule.msStatus}
-                      </span>
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-800 text-base">{schedule.item}</p>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        <span className={`text-xs px-2 py-1 rounded ${getStatusBadgeColor(schedule.scheduleStatus)}`}>Status: {schedule.scheduleStatus || "New"}</span>
+                        {schedule.monitoringResult && schedule.monitoringResult !== "N/A" && <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">Result: {schedule.monitoringResult}</span>}
+                        {schedule.msStatus && schedule.msStatus !== "N/A" && (
+                          <span className={`text-xs px-2 py-1 rounded ${schedule.msStatus === "MS" ? "bg-green-100 text-green-800" : schedule.msStatus === "TMS" ? "bg-red-100 text-red-800" : "bg-gray-100 text-gray-800"}`}>
+                            MS: {schedule.msStatus}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    {schedule.monitoringResult && schedule.monitoringResult !== "N/A" && <p className="text-sm text-gray-600 mt-1">Result: {schedule.monitoringResult}</p>}
+                    <div className="ml-4">
+                      <ChevronRight className="text-gray-400" size={16} />
+                    </div>
                   </motion.button>
                 ))}
               </div>
@@ -1265,6 +1264,22 @@ const DailyScheduleListModal: React.FC<DailyScheduleListModalProps> = ({ isOpen,
       </div>
     </Modal>
   );
+};
+
+// Fungsi untuk mendapatkan badge color berdasarkan status individual
+const getStatusBadgeColor = (status: string = "New"): string => {
+  switch (status) {
+    case "New":
+      return "bg-blue-100 text-blue-800 border-blue-200";
+    case "On Progress":
+      return "bg-yellow-100 text-yellow-800 border-yellow-200";
+    case "Done":
+      return "bg-green-100 text-green-800 border-green-200";
+    case "Cancelled":
+      return "bg-red-100 text-red-800 border-red-200";
+    default:
+      return "bg-gray-100 text-gray-800 border-gray-200";
+  }
 };
 
 const MonitoringMaintenance: React.FC = () => {
@@ -1296,8 +1311,6 @@ const MonitoringMaintenance: React.FC = () => {
   const [schedules, setSchedules] = useState<MonitoringSchedule[]>([]);
   const [masterMonitoringData, setMasterMonitoringData] = useState<UnitWithMachines[]>([]);
   const [intervals, setIntervals] = useState<MonitoringInterval[]>([]);
-  const [monitoringActivities, setMonitoringActivities] = useState<MonitoringActivity[]>([]);
-  const [monitoringSchedulesDetail, setMonitoringSchedulesDetail] = useState<MonitoringScheduleDetail[]>([]);
 
   const [addForm, setAddForm] = useState<AddFormData>({
     startDate: null,
@@ -1311,48 +1324,6 @@ const MonitoringMaintenance: React.FC = () => {
 
   const notificationsRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
-
-  // Ganti fungsi getMonitoringActivitiesFromSchedules dengan ini:
-  const getMonitoringActivitiesFromSchedules = useCallback(
-    async (schedulesData: MonitoringSchedule[]): Promise<MonitoringActivity[]> => {
-      try {
-        const activities: MonitoringActivity[] = [];
-
-        // Gunakan Promise.all untuk parallel fetching
-        const scheduleDetailPromises = schedulesData.map((schedule) =>
-          getMonitoringScheduleById(schedule.id_monitoring_schedule)
-            .then((scheduleDetail) => {
-              if (scheduleDetail.monitoring_activities && Array.isArray(scheduleDetail.monitoring_activities)) {
-                scheduleDetail.monitoring_activities.forEach((activityDetail) => {
-                  activities.push({
-                    id_monitoring_activity: activityDetail.id_monitoring_activity,
-                    id_monitoring_schedule: activityDetail.id_monitoring_schedule,
-                    id_item_mesin: activityDetail.id_item_mesin,
-                    tgl_monitoring: activityDetail.tgl_monitoring,
-                    hasil_monitoring: activityDetail.hasil_monitoring,
-                    hasil_keterangan: activityDetail.hasil_keterangan,
-                    created_at: activityDetail.created_at,
-                    updated_at: activityDetail.updated_at,
-                  });
-                });
-              }
-              return scheduleDetail;
-            })
-            .catch((error) => {
-              console.error(`Failed to get activities for schedule ${schedule.id_monitoring_schedule}:`, error);
-              return null;
-            })
-        );
-
-        await Promise.all(scheduleDetailPromises);
-        return activities;
-      } catch (error) {
-        console.error("Failed to get monitoring activities from schedules:", error);
-        return [];
-      }
-    },
-    [getMonitoringScheduleById]
-  );
 
   // Convert API schedules to RoutineSchedule format
   const routineSchedules: RoutineSchedule[] = useMemo(() => {
@@ -1387,38 +1358,81 @@ const MonitoringMaintenance: React.FC = () => {
       const intervalDisplay =
         intervalType === "weekly" ? "Weekly" : intervalType === "monthly" ? "Monthly" : intervalType === "quarterly" ? "3 Months" : intervalType === "semi-annual" ? "6 Months" : intervalType === "yearly" ? "1 Year" : "Daily";
 
-      const scheduleActivities = activitiesData.filter((activity) => activity.id_monitoring_schedule === schedule.id_monitoring_schedule);
-
-      const baseRecordId = `schedule-${schedule.id_monitoring_schedule}`;
-
       // PERBAIKAN: Gunakan item_mesins dari schedule jika ada, jika tidak gunakan dari machine
       const itemsToMonitor = schedule.item_mesins && schedule.item_mesins.length > 0 ? schedule.item_mesins : machine?.item_mesin || [];
 
-      // Jika ada aktivitas monitoring, buat record untuk setiap aktivitas
-      if (scheduleActivities.length > 0) {
-        scheduleActivities.forEach((activity) => {
+      // PERBAIKAN: Jika ada monitoring activities, buat record untuk setiap aktivitas
+      if (schedule.monitoring_activities && schedule.monitoring_activities.length > 0) {
+        schedule.monitoring_activities.forEach((activity) => {
           // Cari item mesin yang sesuai dengan aktivitas
           const itemMesin = itemsToMonitor.find((item) => item.id === activity.id_item_mesin);
 
-          // Jika itemMesin tidak ditemukan, skip record ini
-          if (!itemMesin) {
+          // Jika itemMesin tidak ditemukan, coba cari di semua mesin dari master data
+          let finalItemMesin = itemMesin;
+          if (!finalItemMesin) {
+            // Cari di semua mesin dari master data
+            for (const unit of masterData) {
+              for (const m of unit.mesin) {
+                const foundItem = m.item_mesin?.find((item) => item.id === activity.id_item_mesin);
+                if (foundItem) {
+                  finalItemMesin = foundItem;
+                  break;
+                }
+              }
+              if (finalItemMesin) break;
+            }
+          }
+
+          // Jika masih tidak ditemukan, gunakan data default
+          if (!finalItemMesin) {
             console.warn(`Item mesin not found for activity ${activity.id_monitoring_activity}, item_mesin_id: ${activity.id_item_mesin}`);
-            return;
+            finalItemMesin = {
+              id: activity.id_item_mesin,
+              item_mesin: "Unknown Item",
+              satuan: "N/A",
+              standard_min: null,
+              standard_max: null,
+              standard_visual: "N/A",
+              interval_id: 1,
+              mesin_id: schedule.id_mesins,
+              created_at: "",
+              updated_at: "",
+            };
+          }
+
+          // Tentukan MS Status berdasarkan hasil_ms_tms
+          let msStatus: "MS" | "TMS" | "N/A" = "N/A";
+          if (activity.hasil_ms_tms === "ms") {
+            msStatus = "MS";
+          } else if (activity.hasil_ms_tms === "tms") {
+            msStatus = "TMS";
+          }
+
+          // PERBAIKAN PENTING: Handle numeric values properly
+          let monitoringResultValue = activity.hasil_monitoring || "N/A";
+
+          // Cek jika hasil_monitoring adalah string numerik
+          if (activity.hasil_monitoring && activity.hasil_monitoring !== "N/A") {
+            // Coba parse sebagai number
+            const numericValue = parseFloat(activity.hasil_monitoring);
+            if (!isNaN(numericValue) && isFinite(numericValue)) {
+              monitoringResultValue = numericValue.toString();
+            }
           }
 
           records.push({
-            id: `${baseRecordId}-activity-${activity.id_monitoring_activity}`,
+            id: `activity-${activity.id_monitoring_activity}`,
             mesin: machineName,
             date: activity.tgl_monitoring,
             interval: intervalDisplay,
             unitWilayah: schedule.unit,
-            item: itemMesin.item_mesin || "Unknown Item",
-            unitOfMeasure: itemMesin.satuan || "N/A",
-            standardMin: itemMesin.standard_min ? parseFloat(itemMesin.standard_min) : null,
-            standardMax: itemMesin.standard_max ? parseFloat(itemMesin.standard_max) : null,
-            standartVisual: itemMesin.standard_visual || "N/A",
-            monitoringResult: activity.hasil_monitoring || "N/A",
-            msStatus: activity.hasil_keterangan === "OK" ? "OK" : activity.hasil_keterangan === "NG" ? "NG" : "N/A",
+            item: finalItemMesin.item_mesin || "Unknown Item",
+            unitOfMeasure: finalItemMesin.satuan || "N/A",
+            standardMin: finalItemMesin.standard_min ? parseFloat(finalItemMesin.standard_min) : null,
+            standardMax: finalItemMesin.standard_max ? parseFloat(finalItemMesin.standard_max) : null,
+            standartVisual: finalItemMesin.standard_visual || "N/A",
+            monitoringResult: monitoringResultValue,
+            msStatus: msStatus,
             notes: activity.hasil_keterangan || "N/A",
             perbaikanPerawatan: "Preventive",
             description: `Monitoring activity for ${machineName}`,
@@ -1444,13 +1458,14 @@ const MonitoringMaintenance: React.FC = () => {
             jumlah: 0,
             unitSparePart: "N/A",
             scheduleId: schedule.id_monitoring_schedule,
+            scheduleStatus: schedule.status || "New",
           });
         });
       } else {
         // Untuk schedule tanpa aktivitas, buat record scheduled
         itemsToMonitor.forEach((itemMesin) => {
           records.push({
-            id: `${baseRecordId}-scheduled-${itemMesin.id}`,
+            id: `schedule-${schedule.id_monitoring_schedule}-scheduled-${itemMesin.id}`,
             mesin: machineName,
             date: schedule.tgl_start,
             interval: intervalDisplay,
@@ -1487,10 +1502,19 @@ const MonitoringMaintenance: React.FC = () => {
             jumlah: 0,
             unitSparePart: "N/A",
             scheduleId: schedule.id_monitoring_schedule,
+            scheduleStatus: schedule.status || "New",
           });
         });
       }
     });
+
+    console.log("Converted records:", records.length);
+    console.log("Sample converted records:", records.slice(0, 5));
+
+    // Debug: Tampilkan records dengan data numerik
+    const numericRecords = records.filter((r) => r.monitoringResult && r.monitoringResult !== "N/A" && !isNaN(parseFloat(r.monitoringResult)));
+    console.log("Numeric records available:", numericRecords.length);
+    console.log("Numeric records sample:", numericRecords.slice(0, 3));
 
     return records;
   }, []);
@@ -1507,6 +1531,7 @@ const MonitoringMaintenance: React.FC = () => {
   } | null>(null);
 
   // Modifikasi useEffect menjadi:
+  // Modifikasi useEffect menjadi:
   useEffect(() => {
     let isMounted = true;
     const abortController = new AbortController();
@@ -1521,13 +1546,13 @@ const MonitoringMaintenance: React.FC = () => {
         setMasterMonitoringData(dataCache.masterData.unitsWithMachines || []);
         setIntervals(dataCache.masterData.intervals || []);
 
-        // Process records from cache
-        if (dataCache.schedules.length > 0) {
-          const activitiesData = await getMonitoringActivitiesFromSchedules(dataCache.schedules);
-          if (!isMounted) return;
-          const convertedRecords = convertApiDataToRecords(dataCache.schedules, activitiesData, dataCache.masterData.unitsWithMachines || []);
-          setRecords(convertedRecords);
-        }
+        // Process records langsung dari cache
+        const convertedRecords = convertApiDataToRecords(
+          dataCache.schedules,
+          [], // Tidak perlu activities terpisah
+          dataCache.masterData.unitsWithMachines || []
+        );
+        setRecords(convertedRecords);
         setLoading(false);
         return;
       }
@@ -1540,6 +1565,15 @@ const MonitoringMaintenance: React.FC = () => {
 
         if (!isMounted) return;
 
+        // Debug: Lihat struktur data
+        console.log("Schedules data:", schedulesData);
+        console.log("Master data:", masterData);
+        console.log("Units with machines:", masterData.unitsWithMachines);
+
+        if (masterData.unitsWithMachines && masterData.unitsWithMachines.length > 0) {
+          console.log("Sample machine items:", masterData.unitsWithMachines[0]?.mesin?.[0]?.item_mesin);
+        }
+
         // Update cache
         setDataCache({
           schedules: schedulesData,
@@ -1551,16 +1585,13 @@ const MonitoringMaintenance: React.FC = () => {
         setMasterMonitoringData(masterData.unitsWithMachines || []);
         setIntervals(masterData.intervals || []);
 
-        if (schedulesData.length > 0) {
-          const activitiesData = await getMonitoringActivitiesFromSchedules(schedulesData);
-          if (!isMounted) return;
-          setMonitoringActivities(activitiesData);
-
-          const convertedRecords = convertApiDataToRecords(schedulesData, activitiesData, masterData.unitsWithMachines || []);
-          setRecords(convertedRecords);
-        } else {
-          setRecords([]);
-        }
+        // Konversi langsung dari schedulesData tanpa fetch tambahan
+        const convertedRecords = convertApiDataToRecords(
+          schedulesData,
+          [], // Tidak perlu activities terpisah
+          masterData.unitsWithMachines || []
+        );
+        setRecords(convertedRecords);
       } catch (err) {
         if (!isMounted) return;
         setError(err instanceof Error ? err.message : "Failed to fetch data");
@@ -1577,7 +1608,7 @@ const MonitoringMaintenance: React.FC = () => {
       isMounted = false;
       abortController.abort();
     };
-  }, [getMonitoringSchedules, getAllMasterMonitoring, getMonitoringActivitiesFromSchedules, convertApiDataToRecords, dataCache]);
+  }, [getMonitoringSchedules, getAllMasterMonitoring, convertApiDataToRecords, dataCache]);
 
   const dummyUser = {
     name: "John Doe",
@@ -1785,7 +1816,7 @@ const MonitoringMaintenance: React.FC = () => {
     let currentWeekStartDate: Date | null = null;
 
     for (let i = 0; i < firstDayOfWeekOfMonth; i++) {
-      weekDays.push(<div key={`empty-pre-${i}`} className="p-3 md:p-4 text-center text-gray-400 bg-gray-50 border border-gray-100 rounded-md min-h-[80px] md:min-h-[100px] flex items-center justify-center"></div>);
+      weekDays.push(<div key={`empty-pre-${i}`} className="p-3 md:p-4 text-center text-gray-400 bg-gray-50 border border-gray-200 rounded-md min-h-[80px] md:min-h-[100px] flex items-center justify-center"></div>);
     }
 
     while (dayCounter <= daysInMonth) {
@@ -1796,36 +1827,74 @@ const MonitoringMaintenance: React.FC = () => {
 
       const dateString = `${year}-${String(month + 1).padStart(2, "0")}-${String(dayCounter).padStart(2, "0")}`;
 
-      // Filter records untuk hari ini - HANYA YANG TANGGALNYA SAMA DENGAN dateString
+      // Filter records untuk hari ini
       const dayRecords = filteredRecords.filter((record) => record.date === dateString);
 
+      // Kelompokkan records berdasarkan scheduleId
+      const schedulesByGroup = dayRecords.reduce((acc, record) => {
+        const scheduleId = String(record.scheduleId || "unknown"); // Konversi ke string
+        if (!acc[scheduleId]) {
+          acc[scheduleId] = {
+            scheduleId: scheduleId,
+            machine: record.mesin,
+            items: [record],
+          };
+        } else {
+          acc[scheduleId].items.push(record);
+        }
+        return acc;
+      }, {} as Record<string, { scheduleId: string; machine: string; items: MaintenanceTaskRecord[] }>);
+
+      const scheduleGroups = Object.values(schedulesByGroup);
+
+      // ✅ HAPUS WARNA BACKGROUND - hanya gunakan border untuk hari ini
       const isToday = today.toDateString() === date.toDateString();
 
-      let cellClasses = "p-3 md:p-4 text-center border border-gray-100 rounded-md flex flex-col justify-between relative min-h-[80px] md:min-h-[100px]";
+      // PERBAIKAN: Gunakan kelas border yang lebih spesifik untuk hari ini
+      let cellClasses = `p-3 md:p-4 text-center border border-gray-200 rounded-md flex flex-col justify-between relative min-h-[80px] md:min-h-[100px] bg-white`;
+
+      // PERBAIKAN: Gunakan !important atau kelas yang lebih spesifik untuk border hari ini
       if (isToday) {
-        cellClasses += " bg-blue-100 border-blue-400 font-bold";
-      } else {
-        cellClasses += " bg-white";
+        cellClasses = `p-3 md:p-4 text-center border-2 border-blue-500 rounded-md flex flex-col justify-between relative min-h-[80px] md:min-h-[100px] bg-white font-bold`;
       }
 
-      // Group records by machine untuk menghindari duplikasi
-      const uniqueMachinesOnDay = Array.from(new Set(dayRecords.map((r) => r.mesin)));
+      // Ambil status unik dari semua schedule groups
+      const allStatuses = scheduleGroups.flatMap((group) => group.items.map((item) => item.scheduleStatus || "New"));
+      const uniqueStatuses = Array.from(new Set(allStatuses));
 
       weekDays.push(
         <div key={dateString} className={cellClasses}>
           <span className={`text-sm font-semibold ${isToday ? "text-blue-700" : "text-gray-800"}`}>{dayCounter}</span>
-          <div className="flex flex-col items-center justify-center mt-1 space-y-0.5">
-            {dayRecords.length > 0 && (
+          <div className="flex flex-col items-center justify-center mt-1 space-y-1">
+            {scheduleGroups.length > 0 && (
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="w-full text-center text-xs px-2 py-1 rounded-md overflow-hidden truncate bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors"
+                className="w-full text-center text-xs px-2 py-1 rounded-md overflow-hidden bg-gray-50 hover:bg-gray-100 transition-colors shadow-sm"
                 onClick={() => handleOpenDailyScheduleModal(dayRecords, dateString)}
-                title={`${uniqueMachinesOnDay.join(", ")} - ${dayRecords.length} items`}
+                title={`${scheduleGroups.length} schedule(s) with ${dayRecords.length} total items`}
               >
-                <div className="font-semibold">{uniqueMachinesOnDay[0]}</div>
-                {uniqueMachinesOnDay.length > 1 && <div className="text-xs opacity-75">+{uniqueMachinesOnDay.length - 1} more</div>}
-                <div className="text-xs opacity-75 mt-1">{dayRecords.length} item(s)</div>
+                {/* Tampilkan machines yang ada */}
+                <div className="font-semibold truncate w-full text-gray-800">
+                  {scheduleGroups[0].machine}
+                  {scheduleGroups.length > 1 && ` +${scheduleGroups.length - 1}`}
+                </div>
+
+                <div className="text-xs text-gray-500 mt-0.5">
+                  {dayRecords.length} item(s) in {scheduleGroups.length} schedule(s)
+                </div>
+
+                {/* ✅ TAMPILKAN STATUS BADGE DENGAN STRING */}
+                {uniqueStatuses.length > 0 && (
+                  <div className="flex flex-wrap gap-0.5 justify-center mt-1">
+                    {uniqueStatuses.slice(0, 2).map((status, index) => (
+                      <span key={index} className={`px-1 py-0.5 rounded text-[10px] border ${getStatusBadgeColor(status)}`}>
+                        {status}
+                      </span>
+                    ))}
+                    {uniqueStatuses.length > 2 && <span className="px-1 py-0.5 rounded text-[10px] bg-gray-100 text-gray-600 border border-gray-200">+{uniqueStatuses.length - 2}</span>}
+                  </div>
+                )}
               </motion.button>
             )}
           </div>
@@ -1834,7 +1903,7 @@ const MonitoringMaintenance: React.FC = () => {
 
       if (weekDays.length === 7 || dayCounter === daysInMonth) {
         while (weekDays.length < 7) {
-          weekDays.push(<div key={`empty-post-${weekDays.length}`} className="p-3 md:p-4 text-center text-gray-400 bg-gray-50 border border-gray-100 rounded-md min-h-[80px] md:min-h-[100px] flex items-center justify-center"></div>);
+          weekDays.push(<div key={`empty-post-${weekDays.length}`} className="p-3 md:p-4 text-center text-gray-400 bg-gray-50 border border-gray-200 rounded-md min-h-[80px] md:min-h-[100px] flex items-center justify-center"></div>);
         }
 
         const weekNum = currentWeekStartDate ? getISOWeekNumber(currentWeekStartDate) : null;
@@ -1898,7 +1967,7 @@ const MonitoringMaintenance: React.FC = () => {
             <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-6 flex items-center justify-between">
               <div>
                 <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-                  Maintenance <span className="text-blue-600">Monitoring</span>
+                  Monitoring <span className="text-blue-600">Maintenance</span>
                 </h1>
                 <p className="text-gray-600 mt-2 text-sm max-w-xl">Monitor and schedule preventive maintenance tasks for all machines, and track their approval progress.</p>
               </div>
@@ -1936,7 +2005,6 @@ const MonitoringMaintenance: React.FC = () => {
                 </div>
               </div>
             </motion.div>
-
             {loading ? (
               <div className="bg-white rounded-2xl shadow-md p-8 text-center border border-blue-100">
                 <div className="animate-spin rounded-full h-14 w-14 border-t-4 border-b-4 border-blue-500 mx-auto mb-5"></div>
@@ -2059,37 +2127,63 @@ const MonitoringMaintenance: React.FC = () => {
                   </div>
 
                   {/* View Modes */}
+
                   {viewMode === "calendar" && (
-                    <div className="bg-white rounded-2xl shadow-md p-6 border border-blue-100">
-                      {/* Calendar content */}
-                      <div className="flex justify-between items-center mb-4">
-                        <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={goToPreviousMonth} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
-                          <ChevronLeft size={20} />
-                        </motion.button>
-                        <h3 className="text-lg font-bold text-gray-800">{currentCalendarDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</h3>
-                        <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={goToNextMonth} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
-                          <ChevronRight size={20} />
-                        </motion.button>
-                        <motion.button
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={goToCurrentMonth}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-full text-sm font-semibold shadow-md hover:bg-blue-700 transition-colors duration-200"
-                        >
-                          Today
-                        </motion.button>
+                    <div className="space-y-4">
+                      {/* LEGEND - Hanya tampil di calendar view dan di atas calendar */}
+                      <div className="bg-white rounded-2xl shadow-md p-4 border border-blue-100">
+                        <div className="flex flex-wrap gap-4 justify-center text-sm">
+                          <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 bg-blue-100 border border-blue-400 rounded"></div>
+                            <span className="text-gray-700">New / Not Started</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 bg-yellow-100 border border-yellow-400 rounded"></div>
+                            <span className="text-gray-700">On Progress</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 bg-green-100 border border-green-400 rounded"></div>
+                            <span className="text-gray-700">Done / Completed</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 bg-gray-100 border border-gray-300 rounded"></div>
+                            <span className="text-gray-700">No Schedule</span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="grid grid-cols-8 gap-2 text-center text-sm font-semibold text-gray-600 mb-2">
-                        <div className="text-center font-bold">WN</div>
-                        <div>Mon</div>
-                        <div>Tue</div>
-                        <div>Wed</div>
-                        <div>Thu</div>
-                        <div>Fri</div>
-                        <div>Sat</div>
-                        <div>Sun</div>
+
+                      {/* Calendar Content */}
+                      <div className="bg-white rounded-2xl shadow-md p-6 border border-blue-100">
+                        {/* Calendar content */}
+                        <div className="flex justify-between items-center mb-4">
+                          <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={goToPreviousMonth} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
+                            <ChevronLeft size={20} />
+                          </motion.button>
+                          <h3 className="text-lg font-bold text-gray-800">{currentCalendarDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</h3>
+                          <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={goToNextMonth} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
+                            <ChevronRight size={20} />
+                          </motion.button>
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={goToCurrentMonth}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-full text-sm font-semibold shadow-md hover:bg-blue-700 transition-colors duration-200"
+                          >
+                            Today
+                          </motion.button>
+                        </div>
+                        <div className="grid grid-cols-8 gap-2 text-center text-sm font-semibold text-gray-600 mb-2">
+                          <div className="text-center font-bold">WN</div>
+                          <div>Mon</div>
+                          <div>Tue</div>
+                          <div>Wed</div>
+                          <div>Thu</div>
+                          <div>Fri</div>
+                          <div>Sat</div>
+                          <div>Sun</div>
+                        </div>
+                        <div className="grid grid-cols-8 gap-2">{renderCalendarDays()}</div>
                       </div>
-                      <div className="grid grid-cols-8 gap-2">{renderCalendarDays()}</div>
                     </div>
                   )}
                   {viewMode === "table" && (
@@ -2124,7 +2218,7 @@ const MonitoringMaintenance: React.FC = () => {
                                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                                     <span
                                       className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                                        record.msStatus === "OK" ? "bg-green-100 text-green-800" : record.msStatus === "NG" ? "bg-red-100 text-red-800" : "bg-gray-100 text-gray-800"
+                                        record.msStatus === "MS" ? "bg-green-100 text-green-800" : record.msStatus === "TMS" ? "bg-red-100 text-red-800" : "bg-gray-100 text-gray-800"
                                       }`}
                                     >
                                       {record.msStatus}

@@ -1,4 +1,94 @@
 @import "tailwindcss";
+@import "prosemirror-view/style/prosemirror.css";
+
+/* Logout
+/* Tambahkan di file CSS global Anda */
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes float-delay {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-15px);
+  }
+}
+
+@keyframes float-fast {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes progress-fill {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes pulse-light {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-float-delay {
+  animation: float-delay 4s ease-in-out infinite;
+}
+
+.animate-float-fast {
+  animation: float-fast 2.5s ease-in-out infinite;
+}
+
+.animate-progress-fill {
+  animation: progress-fill 2s ease-in-out infinite;
+}
+
+.animate-pulse-light {
+  animation: pulse-light 2s ease-in-out infinite;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
 
 /* For WebKit-based browsers (Chrome, Safari, Edge) */
 .sidebar-nav::-webkit-scrollbar {
@@ -26,19 +116,365 @@
   font-weight: 500;
 }
 
-.rich-text-editor [contenteditable="true"]:focus {
+/* Font families untuk editor */
+.prose {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  line-height: 1.6;
+}
+
+/* Responsive typography */
+.prose h1 {
+  font-size: 1.875rem;
+  font-weight: 700;
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.prose h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-top: 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.prose h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.prose p {
+  margin-bottom: 1rem;
+}
+
+.prose ul,
+.prose ol {
+  margin-bottom: 1rem;
+  padding-left: 1.5rem;
+}
+
+.prose code {
+  background-color: #f3f4f6;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  font-size: 0.875em;
+}
+
+/* Responsive design untuk mobile */
+@media (max-width: 640px) {
+  .prose h1 {
+    font-size: 1.5rem;
+  }
+
+  .prose h2 {
+    font-size: 1.25rem;
+  }
+
+  .prose h3 {
+    font-size: 1.125rem;
+  }
+}
+
+/* Tiptap Editor List Styling */
+.tiptap-editor ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin: 1rem 0;
+}
+
+.tiptap-editor ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin: 1rem 0;
+}
+
+.tiptap-editor li {
+  margin: 0.25rem 0;
+}
+
+.tiptap-editor ul li p,
+.tiptap-editor ol li p {
+  margin: 0;
+}
+
+/* Nested lists */
+.tiptap-editor ul ul,
+.tiptap-editor ol ul {
+  list-style-type: circle;
+  margin: 0.5rem 0;
+}
+
+.tiptap-editor ol ol,
+.tiptap-editor ul ol {
+  list-style-type: lower-latin;
+  margin: 0.5rem 0;
+}
+
+/* Ensure list items are properly displayed */
+.tiptap-editor li > p {
+  display: inline;
+}
+
+/* Link Styling */
+.tiptap-editor a {
+  color: #3b82f6;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.tiptap-editor a:hover {
+  color: #1d4ed8;
+}
+
+/* Background Color Support */
+.tiptap-editor span[style*="background-color"] {
+  padding: 0.1rem 0.2rem;
+  border-radius: 0.25rem;
+  display: inline;
+}
+
+.tiptap-editor mark,
+.tiptap-editor mark[style*="background-color"] {
+  border-radius: 0; /* Kotak */
+  padding: 0.1rem 0.2rem;
+  border: 1px solid rgba(0, 0, 0, 0.1); /* Border subtle */
+}
+
+/* Text Color Styling */
+.tiptap-editor span[style*="color"] {
+  background-color: transparent !important;
+}
+
+/* Fix for nested elements with background color */
+.tiptap-editor * span[style*="background-color"] {
+  background-color: inherit !important;
+}
+
+/* Ensure background color is visible in all elements */
+.tiptap-editor p [style*="background-color"],
+.tiptap-editor li [style*="background-color"],
+.tiptap-editor h1 [style*="background-color"],
+.tiptap-editor h2 [style*="background-color"],
+.tiptap-editor h3 [style*="background-color"] {
+  padding: 0.1rem 0.2rem;
+  border-radius: 0.2rem;
+}
+
+/* Font Family Support */
+.tiptap-editor span[style*="font-family"] {
+  background-color: inherit !important;
+}
+
+/* Selection Styling */
+.tiptap-editor .ProseMirror {
   outline: none;
 }
 
-.rich-text-editor ul,
-.rich-text-editor ol {
+.tiptap-editor .ProseMirror p.is-editor-empty:first-child::before {
+  color: #adb5bd;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Placeholder */
+.tiptap-editor .ProseMirror p.is-empty::before {
+  color: #adb5bd;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Text Alignment Support */
+.tiptap-editor [style*="text-align: left"] {
+  text-align: left;
+}
+
+.tiptap-editor [style*="text-align: center"] {
+  text-align: center;
+}
+
+.tiptap-editor [style*="text-align: right"] {
+  text-align: right;
+}
+
+.tiptap-editor [style*="text-align: justify"] {
+  text-align: justify;
+}
+
+/* Ensure alignment works for all supported elements */
+.tiptap-editor h1[style*="text-align"],
+.tiptap-editor h2[style*="text-align"],
+.tiptap-editor h3[style*="text-align"],
+.tiptap-editor h4[style*="text-align"],
+.tiptap-editor h5[style*="text-align"],
+.tiptap-editor h6[style*="text-align"],
+.tiptap-editor p[style*="text-align"] {
+  width: 100%;
+}
+
+/* Tambahkan di file CSS global atau di komponen */
+.complaint-content h1 {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+  text-align: center;
+}
+
+.complaint-content h2 {
+  font-size: 1.25rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+
+.complaint-content h3 {
+  font-size: 1.125rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+
+.complaint-content p {
+  margin-bottom: 0.5rem;
+}
+
+.complaint-content ol,
+.complaint-content ul {
   margin-left: 1.5rem;
+  margin-bottom: 0.5rem;
 }
 
-.rich-text-editor ul {
-  list-style-type: disc;
+.complaint-content li {
+  margin-bottom: 0.25rem;
 }
 
-.rich-text-editor ol {
-  list-style-type: decimal;
+.complaint-content strong {
+  font-weight: bold;
+}
+
+.complaint-content em {
+  font-style: italic;
+}
+
+.complaint-content s {
+  text-decoration: line-through;
+}
+
+.complaint-content code {
+  background-color: #f3f4f6;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  font-family: monospace;
+}
+
+.complaint-content mark {
+  background-color: #fef08a;
+  padding: 0.125rem 0.25rem;
+}
+
+/* styling untuk view database dompuriify
+
+/* CSS untuk rich text content - FIX LIST STYLING */
+.rich-text-content {
+  font-family: inherit;
+  line-height: 1.6;
+  white-space: normal;
+}
+
+/* Heading styles */
+.rich-text-content h1 {
+  font-size: 1.5em;
+  font-weight: bold;
+  margin: 0.5em 0;
+}
+
+.rich-text-content h2 {
+  font-size: 1.25em;
+  font-weight: bold;
+  margin: 0.5em 0;
+}
+
+.rich-text-content h3 {
+  font-size: 1.125em;
+  font-weight: bold;
+  margin: 0.5em 0;
+}
+
+.rich-text-content p {
+  margin: 0.5em 0;
+}
+
+/* FIX: Styling untuk Unordered List (bullet points) */
+.rich-text-content ul {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+  list-style-type: disc !important; /* Force bullet points */
+}
+
+.rich-text-content ul li {
+  margin: 0.25em 0;
+  display: list-item !important;
+  list-style-type: disc !important;
+}
+
+/* FIX: Styling untuk Ordered List (numbered) */
+.rich-text-content ol {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+  list-style-type: decimal !important; /* Force numbers */
+}
+
+.rich-text-content ol li {
+  margin: 0.25em 0;
+  display: list-item !important;
+  list-style-type: decimal !important;
+}
+
+/* Text formatting */
+.rich-text-content strong,
+.rich-text-content b {
+  font-weight: bold;
+}
+
+.rich-text-content em,
+.rich-text-content i {
+  font-style: italic;
+}
+
+.rich-text-content u {
+  text-decoration: underline;
+}
+
+.rich-text-content s,
+.rich-text-content strike {
+  text-decoration: line-through;
+}
+
+.rich-text-content code {
+  background-color: #f3f4f6;
+  padding: 0.125em 0.25em;
+  border-radius: 0.25em;
+  font-family: "Courier New", monospace;
+  font-size: 0.9em;
+}
+
+.rich-text-content mark {
+  background-color: #fef08a;
+  padding: 0.125em 0.25em;
+  border-radius: 0.125em;
+}
+
+/* Alignment styles */
+.rich-text-content [style*="text-align: center"] {
+  text-align: center;
+}
+
+.rich-text-content [style*="text-align: right"] {
+  text-align: right;
+}
+
+.rich-text-content [style*="text-align: justify"] {
+  text-align: justify;
 }

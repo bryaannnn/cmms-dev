@@ -44,7 +44,7 @@ import MaintenanceActivitySelection from "./component/Maintenance Activity/Maint
 import MachineHistoryReports from "./component/MachineHistory/MaintenanceReports";
 import AuditTrail from "./component/Audit Trail/AuditTrail";
 import WorkflowSelection from "./component/Workflow Approval/WorkflowSelection";
-import WorkflowApprovalMonitoring from "./component/Workflow Approval/WorkflowApprovalMonitoring";
+import WorkflowApprovalMonitoring from "./component/Workflow Approval/WorkflowApprovalTemplate";
 import AddWorkOrderFormITDummy from "./component/WorkOrders/DUMMY/FormITDummy";
 import RequestD from "./component/WorkOrders/DUMMY/RequestD";
 import ITReceiverD from "./component/WorkOrders/DUMMY/ReceiverD";
@@ -97,6 +97,9 @@ import DetailMonitoringMaintenance from "./component/Monitoring Maintenance/Deta
 import DashboardDummy from "./pages/DashboardDummy";
 import DetailDummy from "./component/Monitoring Maintenance/DetailDummy";
 import WorkflowConfigureMonitoring from "./component/Workflow Approval/WorkflowConfigureMonitoring";
+
+import { useLocation } from "react-router-dom";
+import NotFound from "./pages/NotFound";
 
 function App() {
   return (
@@ -257,6 +260,7 @@ function App() {
 
         {/* Logout */}
         <Route path="/logout" element={<Logout />} />
+        <Route path="*" element={<NotFound />} />
         {/* Unauthorized (already defined above, but good to have a dedicated one for direct access) */}
         {/* <Route path="/unauthorized" element={<UnauthorizedPage />} /> */}
       </Routes>

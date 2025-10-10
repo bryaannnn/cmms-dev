@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useAuth } from "../../../routes/AuthContext";
+import { useAuth, WorkOrderData } from "../../../routes/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
 import Sidebar from "../../Sidebar";
+import DOMPurify from "dompurify";
 import { BookOpen, Search, X, ChevronDown, ChevronRight, LogOut, Sun, Moon, Settings, Bell, User as UserIcon, Info, ChevronLeft, FileText, Calendar, UserCheck } from "lucide-react";
 
 interface NavItemProps {
@@ -30,6 +31,58 @@ interface KnowledgeArticle {
   technician: string;
   completionDate: string;
 }
+
+// Tambahkan komponen ini setelah interface ModalProps
+interface RichTextContentProps {
+  content: string;
+  className?: string;
+}
+
+const RichTextContent: React.FC<RichTextContentProps> = ({ content, className = "" }) => {
+  if (!content) {
+    return <div className={`w-full bg-blue-50 border border-blue-100 rounded-lg p-3 text-gray-800 text-base font-medium min-h-[44px] flex items-center ${className}`}>-</div>;
+  }
+
+  // Konfigurasi DOMPurify yang mengizinkan list dan styling
+  const cleanHTML = DOMPurify.sanitize(content, {
+    ALLOWED_TAGS: [
+      "h1",
+      "h2",
+      "h3",
+      "h4",
+      "h5",
+      "h6",
+      "p",
+      "br",
+      "span",
+      "div",
+      "ol",
+      "ul",
+      "li", // Pastikan tag list diizinkan
+      "strong",
+      "b",
+      "em",
+      "i",
+      "u",
+      "s",
+      "strike",
+      "code",
+      "mark",
+      "sub",
+      "sup",
+    ],
+    ALLOWED_ATTR: [
+      "style",
+      "class",
+      "data-color",
+      "align",
+      "type",
+      "start", // Izinkan atribut untuk list
+    ],
+  });
+
+  return <div className={`rich-text-content w-full bg-blue-50 border border-blue-100 rounded-lg p-4 text-gray-800 min-h-[44px] ${className}`} dangerouslySetInnerHTML={{ __html: cleanHTML }} />;
+};
 
 const NavItem: React.FC<NavItemProps> = ({ icon, text, to, expanded }) => {
   const navigate = useNavigate();
@@ -59,7 +112,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
   if (!isOpen) return null;
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center backdrop-brightness-50 bg-opacity-50 p-4">
       <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-auto p-6 border border-blue-100 max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center border-b pb-3 mb-4 border-gray-100 sticky top-0 bg-white">
           <h3 className="text-2xl font-bold text-gray-900">{title}</h3>
@@ -79,6 +132,7 @@ const ITKnowledgeBase: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [showArticleDetailsModal, setShowArticleDetailsModal] = useState(false);
+  const [workOrders, setWorkOrders] = useState<WorkOrderData | null>(null);
   const [selectedArticle, setSelectedArticle] = useState<KnowledgeArticle | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [articlesPerPage] = useState(5);
@@ -459,7 +513,15 @@ const ITKnowledgeBase: React.FC = () => {
                       onClick={() => openArticleDetails(article)}
                     >
                       <h4 className="text-lg font-semibold text-gray-900 mb-2">{article.title}</h4>
-                      <p className="text-gray-700 text-sm line-clamp-2 mb-3">{article.content}</p>
+
+                      {/* Ganti ini: */}
+                      {/* <p className="text-gray-700 text-sm line-clamp-2 mb-3">{article.content}</p> */}
+
+                      {/* Menjadi ini: */}
+                      <div className="text-gray-700 text-sm line-clamp-2 mb-3">
+                        <RichTextContent content={article.content} className="line-clamp-2 bg-transparent border-none p-0" />
+                      </div>
+
                       <div className="flex flex-wrap gap-2 mb-3">
                         <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">{article.category}</span>
                         {article.tags.map((tag) => (
@@ -587,9 +649,10 @@ const ITKnowledgeBase: React.FC = () => {
               </div>
             </div>
 
+            {/* Action Taken Section */}
             <div className="border-t border-gray-200 pt-4">
               <h4 className="font-semibold text-gray-800 mb-2">Solution Details</h4>
-              <p className="text-gray-700 whitespace-pre-wrap">{selectedArticle.content}</p>
+              <RichTextContent content={selectedArticle.content} />
             </div>
 
             <div className="border-t border-gray-200 pt-4">

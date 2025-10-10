@@ -4,6 +4,7 @@ import { useAuth, MachineHistoryRecord } from "../routes/AuthContext";
 import logoWida from "../assets/logo-wida.png";
 import { motion, AnimatePresence } from "framer-motion";
 import DatePicker from "react-datepicker";
+import DOMPurify from "dompurify";
 import "react-datepicker/dist/react-datepicker.css";
 // import { useDebounce } from "../hooks/useDebounce"; // Commented out as it's now defined locally for self-containment
 import Sidebar from "../component/Sidebar";
@@ -14,6 +15,7 @@ import {
   AlertTriangle,
   Wrench,
   CheckCircle,
+  MessageSquare,
   Users,
   BarChart2,
   Database,
@@ -115,19 +117,20 @@ interface ModalProps {
   title: string;
   children: React.ReactNode;
   className?: string;
+  maxWidth?: string; // Tambahkan prop maxWidth
 }
 
-const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, className }) => {
+const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, className, maxWidth = "max-w-xl" }) => {
   return (
     <AnimatePresence>
       {isOpen && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50 p-4 backdrop-blur-sm">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="fixed inset-0 backdrop-brightness-50 bg-opacity-40 flex justify-center items-center z-50 p-4">
           <motion.div
             initial={{ y: 50, opacity: 0, scale: 0.95 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 50, opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.3, type: "spring", damping: 25, stiffness: 300 }}
-            className={`bg-white rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col ${className || "max-w-xl w-full"}`}
+            className={`bg-white rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col ${maxWidth} ${className || "w-full"}`} // Gunakan maxWidth
           >
             <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-blue-50">
               <h2 className="text-xl font-bold text-gray-800">{title}</h2>
@@ -212,7 +215,7 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
       return value.toLocaleString("id-ID");
     }
 
-    return String(value); // Konversi ke string sebagai fallback
+    return String(value);
   };
 
   const downtimeMinutes = convertDurationInMinutes(record.stopJam, record.stopMenit, record.startJam, record.startMenit);
@@ -224,6 +227,29 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
       <p className="w-full bg-blue-50 border border-blue-100 rounded-lg p-3 text-gray-800 text-base font-medium min-h-[44px] flex items-center">{value}</p>
     </div>
   );
+
+  const DetailItemHTML: React.FC<{ label: string; htmlContent: string }> = ({ label, htmlContent }) => {
+    if (!htmlContent)
+      return (
+        <div className="flex flex-col">
+          <h4 className="text-sm font-medium text-gray-500 mb-1">{label}</h4>
+          <p className="w-full bg-blue-50 border border-blue-100 rounded-lg p-3 text-gray-800 text-base font-medium min-h-[44px] flex items-center">-</p>
+        </div>
+      );
+
+    // Konfigurasi DOMPurify yang mengizinkan list dan styling
+    const cleanHTML = DOMPurify.sanitize(htmlContent, {
+      ALLOWED_TAGS: ["h1", "h2", "h3", "h4", "h5", "h6", "p", "br", "span", "div", "ol", "ul", "li", "strong", "b", "em", "i", "u", "s", "strike", "code", "mark", "sub", "sup"],
+      ALLOWED_ATTR: ["style", "class", "data-color", "align", "type", "start"],
+    });
+
+    return (
+      <div className="flex flex-col">
+        <h4 className="text-sm font-medium text-gray-500 mb-1">{label}</h4>
+        <div className="rich-text-content w-full bg-blue-50 border border-blue-100 rounded-lg p-4 text-gray-800 min-h-[44px]" dangerouslySetInnerHTML={{ __html: cleanHTML }} />
+      </div>
+    );
+  };
 
   const SectionTitle: React.FC<{ title: string }> = ({ title }) => <h3 className="text-lg font-bold text-gray-800 mb-4 pb-2 border-b border-blue-200 mt-6 first:mt-0">{title}</h3>;
 
@@ -247,7 +273,7 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <DetailItem label="Item Trouble" value={displayValue(record.itemTrouble)} />
         <DetailItem label="Issue Description" value={displayValue(record.jenisGangguan)} />
-        <DetailItem label="Action Taken" value={displayValue(record.bentukTindakan)} />
+        <DetailItemHTML label="Action Taken" htmlContent={record.bentukTindakan || ""} />
         <DetailItem label="Root Cause" value={displayValue(record.rootCause)} />
       </div>
 
@@ -270,14 +296,78 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
         <motion.button
           type="button"
           onClick={onClose}
-          whileHover={{ scale: 1.02, boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)" }}
-          whileTap={{ scale: 0.98 }}
-          className="inline-flex items-center px-6 py-2.5 border border-transparent text-base font-semibold rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 ease-in-out"
+          whileHover={{ scale: 1.03, boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)" }}
+          whileTap={{ scale: 0.97 }}
+          className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 font-semibold"
         >
           Close
         </motion.button>
       </div>
     </div>
+  );
+};
+
+const ConfirmModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  title: string;
+  message: string;
+  confirmText?: string;
+  cancelText?: string;
+  type?: "approve" | "feedback" | "reject" | "edit";
+}> = ({ isOpen, onClose, onConfirm, title, message, confirmText = "Confirm", cancelText = "Cancel", type = "approve" }) => {
+  if (!isOpen) return null;
+
+  const getButtonColors = () => {
+    switch (type) {
+      case "approve":
+        return "bg-green-600 hover:bg-green-700 focus:ring-green-500";
+      case "feedback":
+        return "bg-blue-600 hover:bg-blue-700 focus:ring-blue-500";
+      case "reject":
+        return "bg-red-600 hover:bg-red-700 focus:ring-red-500";
+      case "edit":
+        return "bg-purple-600 hover:bg-purple-700 focus:ring-purple-500";
+      default:
+        return "bg-blue-600 hover:bg-blue-700 focus:ring-blue-500";
+    }
+  };
+
+  const getIcon = () => {
+    switch (type) {
+      case "approve":
+        return <CheckCircle className="text-green-500 text-5xl mx-auto mb-4" />;
+      case "feedback":
+        return <MessageSquare className="text-blue-500 text-5xl mx-auto mb-4" />;
+      case "reject":
+        return <AlertTriangle className="text-red-500 text-5xl mx-auto mb-4" />;
+      case "edit":
+        return <Edit className="text-purple-500 text-5xl mx-auto mb-4" />;
+      default:
+        return <Info className="text-blue-500 text-5xl mx-auto mb-4" />;
+    }
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center backdrop-brightness-50 bg-opacity-50 p-4">
+      <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-auto p-6 border border-blue-100">
+        <div className="text-center">
+          {getIcon()}
+          <h3 className="text-xl font-bold text-gray-900 mb-2">{title}</h3>
+          <p className="text-gray-600 mb-6">{message}</p>
+
+          <div className="flex justify-center space-x-3">
+            <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={onClose} className="px-5 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-semibold transition-colors duration-200">
+              {cancelText}
+            </motion.button>
+            <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={onConfirm} className={`px-5 py-2.5 text-white rounded-lg font-semibold transition-colors duration-200 ${getButtonColors()}`}>
+              {confirmText}
+            </motion.button>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
   );
 };
 
@@ -342,6 +432,16 @@ const MachineHistoryDashboard: React.FC = () => {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const machineFilterDropdownRef = useRef<HTMLDivElement>(null);
   const [showMachineFilterDropdown, setShowMachineFilterDropdown] = useState(false);
+
+  // Tambahkan state ini setelah state modal lainnya
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{
+    type: "approve" | "feedback" | "reject" | "edit";
+    step: number;
+    title: string;
+    message: string;
+    feedbackText?: string;
+  } | null>(null);
 
   // New state and ref for Status and Shift dropdowns
   const [showStatusFilterDropdown, setShowStatusFilterDropdown] = useState(false);
@@ -1361,7 +1461,7 @@ const MachineHistoryDashboard: React.FC = () => {
             setSelectedRecord(null);
           }}
           title="Machine History Details"
-          className="max-w-3xl"
+          maxWidth="max-w-4xl"
         >
           <HistoryDetails record={selectedRecord} onClose={() => setShowHistoryDetails(false)} />
         </Modal>

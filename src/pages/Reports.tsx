@@ -156,7 +156,13 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, classNa
   return (
     <AnimatePresence>
       {isOpen && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50 p-4 backdrop-blur-sm">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 backdrop-brightness-50 bg-opacity-40 flex justify-center items-center z-50 p-4 backdrop-blur-sm"
+        >
           <motion.div
             initial={{ y: 50, opacity: 0, scale: 0.95 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
@@ -195,11 +201,7 @@ const ReportCard: React.FC<{ report: Report; onView: (id: string) => void; onExp
   };
 
   return (
-    <motion.div
-      whileHover={{ y: -5, boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)" }}
-      transition={{ type: "spring", stiffness: 300 }}
-      className="bg-white rounded-2xl shadow-md p-5 border border-blue-100 cursor-pointer"
-    >
+    <motion.div whileHover={{ y: -5, boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)" }} transition={{ type: "spring", stiffness: 300 }} className="bg-white rounded-2xl shadow-md p-5 border border-blue-100 cursor-pointer">
       <div className="flex items-start justify-between">
         <div className="flex items-center space-x-4">
           <div className="p-3 rounded-full bg-blue-50 text-blue-600">{getReportIcon()}</div>
@@ -215,22 +217,10 @@ const ReportCard: React.FC<{ report: Report; onView: (id: string) => void; onExp
           </div>
         </div>
         <div className="flex space-x-2">
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            onClick={() => onView(report.id)}
-            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-200"
-            title="View Report"
-          >
+          <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => onView(report.id)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-200" title="View Report">
             <Eye className="text-lg" />
           </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            onClick={() => onExport(report.id)}
-            className="p-2 text-gray-600 hover:bg-blue-50 rounded-lg transition-colors duration-200"
-            title="Export Report"
-          >
+          <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => onExport(report.id)} className="p-2 text-gray-600 hover:bg-blue-50 rounded-lg transition-colors duration-200" title="Export Report">
             <Download className="text-lg" />
           </motion.button>
         </div>
@@ -995,12 +985,7 @@ const ReportsDashboard: React.FC = () => {
         </main>
       </div>
 
-      <Modal
-        isOpen={showGenerateReportModal}
-        onClose={() => setShowGenerateReportModal(false)}
-        title="Generate New Report"
-        className="max-w-xl"
-      >
+      <Modal isOpen={showGenerateReportModal} onClose={() => setShowGenerateReportModal(false)} title="Generate New Report" className="max-w-xl">
         <div className="space-y-4">
           <div>
             <label htmlFor="report-title" className="block text-sm font-medium text-gray-700 mb-1">
@@ -1074,12 +1059,7 @@ const ReportsDashboard: React.FC = () => {
       </Modal>
 
       {selectedReport && (
-        <Modal
-          isOpen={!!selectedReport}
-          onClose={() => setSelectedReport(null)}
-          title={selectedReport.title}
-          className="max-w-5xl"
-        >
+        <Modal isOpen={!!selectedReport} onClose={() => setSelectedReport(null)} title={selectedReport.title} className="max-w-5xl">
           <div className="space-y-6">
             <div className="flex justify-between items-center pb-4 border-b border-gray-100">
               <div>
@@ -1130,9 +1110,7 @@ const ReportsDashboard: React.FC = () => {
                               .join(" ")}
                             :
                           </span>
-                          <span className="font-medium">
-                            {typeof value === "number" && key.toLowerCase().includes("cost") ? `$${value.toFixed(2)}` : String(value)}
-                          </span>
+                          <span className="font-medium">{typeof value === "number" && key.toLowerCase().includes("cost") ? `$${value.toFixed(2)}` : String(value)}</span>
                         </div>
                       );
                     }

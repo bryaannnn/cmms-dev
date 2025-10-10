@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth, WorkOrderData } from "../../../routes/AuthContext";
+import DOMPurify from "dompurify";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus,
@@ -101,7 +102,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
   if (!isOpen) return null;
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center backdrop-brightness-50 bg-opacity-50 p-4">
       <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-auto p-6 border border-blue-100 max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center border-b pb-3 mb-4 border-gray-100">
           <h3 className="text-2xl font-bold text-gray-900">{title}</h3>
@@ -148,6 +149,61 @@ const WorkOrderDetails: React.FC<{ order: WorkOrderData; onClose: () => void }> 
     });
   };
 
+  const DetailItemHTML: React.FC<{ label: string; htmlContent: string }> = ({ label, htmlContent }) => {
+    if (!htmlContent)
+      return (
+        <div className="flex flex-col">
+          <h4 className="text-sm font-medium text-gray-500 mb-1">{label}</h4>
+          <p className="w-full bg-blue-50 border border-blue-100 rounded-lg p-3 text-gray-800 text-base font-medium min-h-[44px] flex items-center">-</p>
+        </div>
+      );
+
+    // Konfigurasi DOMPurify yang mengizinkan list dan styling
+    const cleanHTML = DOMPurify.sanitize(htmlContent, {
+      ALLOWED_TAGS: [
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "p",
+        "br",
+        "span",
+        "div",
+        "ol",
+        "ul",
+        "li", // Pastikan tag list diizinkan
+        "strong",
+        "b",
+        "em",
+        "i",
+        "u",
+        "s",
+        "strike",
+        "code",
+        "mark",
+        "sub",
+        "sup",
+      ],
+      ALLOWED_ATTR: [
+        "style",
+        "class",
+        "data-color",
+        "align",
+        "type",
+        "start", // Izinkan atribut untuk list
+      ],
+    });
+
+    return (
+      <div className="flex flex-col">
+        <h4 className="text-sm font-medium text-gray-500 mb-1">{label}</h4>
+        <div className="rich-text-content w-full bg-blue-50 border border-blue-100 rounded-lg p-4 text-gray-800 min-h-[44px]" dangerouslySetInnerHTML={{ __html: cleanHTML }} />
+      </div>
+    );
+  };
+
   const DetailItem: React.FC<{ label: string; value: string }> = ({ label, value }) => (
     <div className="flex flex-col">
       <h4 className="text-sm font-medium text-gray-500 mb-1">{label}</h4>
@@ -173,22 +229,28 @@ const WorkOrderDetails: React.FC<{ order: WorkOrderData; onClose: () => void }> 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <DetailItem label="Service Type" value={displayValue(order.service_type?.group_name)} />
         <DetailItem label="Service" value={displayValue(order.service?.owner?.name || order.service?.service_name)} />
+        <DetailItem label="Priority" value={displayValue(order.service?.priority || order.service?.priority)} />
         <DetailItem label="No Asset" value={displayValue(order.asset_no)} />
       </div>
 
       <SectionTitle title="Device & Complaint" />
       <div className="grid grid-cols-1 gap-4">
         <DetailItem label="Device Information" value={displayValue(order.device_info)} />
-        <DetailItem label="Complaint" value={displayValue(order.complaint)} />
+        <DetailItemHTML label="Complaint" htmlContent={order.complaint || ""} />
       </div>
 
       <SectionTitle title="Handling Information" />
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <DetailItem label="Ticket Status" value={displayValue(order.handling_status)} />
-        <DetailItem label="Assigned To" value={displayValue(order.assigned_to?.name)} />
-        <DetailItem label="Handling Date" value={formatDate(order.handling_date || "-")} />
-        <DetailItem label="Action Taken" value={displayValue(order.action_taken)} />
-        <DetailItem label="Remarks" value={displayValue(order.remarks)} />
+      <div className="grid grid-cols-1 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <DetailItem label="Ticket Status" value={displayValue(order.handling_status)} />
+          <DetailItem label="Handling Date" value={formatDate(order.handling_date || "-")} />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <DetailItem label="Assigned To" value={displayValue(order.assigned_to?.name)} />
+          <DetailItem label="Received By" value={displayValue(order.received_by?.name)} />
+        </div>
+        <DetailItemHTML label="Action Taken" htmlContent={order.action_taken || ""} />
+        <DetailItemHTML label="Remarks" htmlContent={order.remarks || ""} />
       </div>
 
       {/* Vendor Details Section */}
@@ -366,6 +428,59 @@ const ITAssignment: React.FC = () => {
     }
   };
 
+  // Tambahkan setelah fungsi getStatusColor
+  const getPriorityColor = (priority: string) => {
+    switch (priority?.toLowerCase()) {
+      case "high":
+        return "bg-red-500 text-white";
+      case "medium":
+        return "bg-yellow-500 text-white";
+      case "low":
+        return "bg-green-500 text-white";
+      case "critical":
+        return "bg-purple-500 text-white";
+      default:
+        return "bg-gray-500 text-white";
+    }
+  };
+
+  // Tambahkan fungsi untuk menentukan urutan sorting
+  const getStatusOrder = (status: string) => {
+    switch (status) {
+      case "Assigned":
+        return 1;
+      case "In Progress":
+        return 2;
+      case "Escalated":
+        return 3;
+      case "Vendor Handled":
+        return 4;
+      case "Resolved":
+        return 5;
+      case "Cancel":
+        return 6;
+      case "Closed":
+        return 7;
+      default:
+        return 8;
+    }
+  };
+
+  const getPriorityOrder = (priority: string) => {
+    switch (priority?.toLowerCase()) {
+      case "critical":
+        return 1;
+      case "high":
+        return 2;
+      case "medium":
+        return 3;
+      case "low":
+        return 4;
+      default:
+        return 5;
+    }
+  };
+
   const openWorkOrderDetails = useCallback(
     (orderId: number) => {
       const order = workOrders.find((o) => o.id === orderId);
@@ -448,7 +563,23 @@ const ITAssignment: React.FC = () => {
       return matchesSearch && matchesStatus;
     })
     .sort((a, b) => {
-      // Urutkan berdasarkan created_at terbaru di atas (descending)
+      // Urutkan berdasarkan status terlebih dahulu
+      const statusOrderA = getStatusOrder(a.handling_status);
+      const statusOrderB = getStatusOrder(b.handling_status);
+
+      if (statusOrderA !== statusOrderB) {
+        return statusOrderA - statusOrderB;
+      }
+
+      // Jika status sama, urutkan berdasarkan priority
+      const priorityOrderA = getPriorityOrder(a.service?.priority);
+      const priorityOrderB = getPriorityOrder(b.service?.priority);
+
+      if (priorityOrderA !== priorityOrderB) {
+        return priorityOrderA - priorityOrderB;
+      }
+
+      // Jika status dan priority sama, urutkan berdasarkan created_at terbaru
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
 
@@ -759,6 +890,7 @@ const ITAssignment: React.FC = () => {
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Requester</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Date</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Handling Date</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Priority</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Ticket Status</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Assigned To</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
@@ -794,6 +926,9 @@ const ITAssignment: React.FC = () => {
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{order.requester.name}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{new Date(order.date).toLocaleDateString()}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{order.handling_date ? new Date(order.handling_date).toLocaleDateString() : "-"}</td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full ${getPriorityColor(order.service?.priority)} shadow-sm`}>{order.service?.priority || "Medium"}</span>
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full ${getStatusColor(order.handling_status)} shadow-sm`}>{order.handling_status}</span>
                           </td>
@@ -888,7 +1023,7 @@ const ITAssignment: React.FC = () => {
 
       {selectedWorkOrder && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 overflow-y-auto">
+          <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-brightness-50 p-4 overflow-y-auto">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl mx-auto p-6 border border-blue-100">
               <div className="flex justify-between items-center border-b pb-3 mb-4 border-gray-100">
                 <h3 className="text-2xl font-bold text-gray-900">Work Order Details #{selectedWorkOrder.work_order_no || selectedWorkOrder.id}</h3>

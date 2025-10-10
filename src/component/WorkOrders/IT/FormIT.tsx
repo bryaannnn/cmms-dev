@@ -1,9 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import ReactQuill from "react-quill";
-import "react-quill/dist/quill.snow.css";
-import RichTextEditor from "../../RichTextEditor";
+import TiptapEditor from "../../RichTextEditor";
 import Sidebar from "../../Sidebar";
 import {
   X,
@@ -77,7 +75,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
   if (!isOpen) return null;
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center backdrop-brightness-50 bg-opacity-50 p-4">
       <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-auto p-6 border border-blue-100">
         <div className="flex justify-between items-center border-b pb-3 mb-4 border-gray-100">
           <h3 className="text-2xl font-bold text-gray-900">{title}</h3>
@@ -121,18 +119,10 @@ const AddWorkOrderFormIT: React.FC = () => {
   const [serviceGroupsList, setServiceGroupsList] = useState<ServiceGroup[]>([]);
   const [isServicesLoading, setIsServicesLoading] = useState(false);
 
-  const [complaintText, setComplaintText] = useState("");
-
   const [showAttachmentOptions, setShowAttachmentOptions] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  const quillModules = {
-    toolbar: [[{ header: [1, 2, 3, false] }], ["bold", "italic", "underline", "strike"], [{ list: "ordered" }, { list: "bullet" }], [{ indent: "-1" }, { indent: "+1" }], [{ align: [] }], ["link"], ["clean"]],
-  };
-
-  const quillFormats = ["header", "bold", "italic", "underline", "strike", "list", "bullet", "indent", "align", "link"];
 
   // Fungsi untuk menampilkan pilihan attachment
   const handleAttachmentClick = () => {
@@ -425,7 +415,7 @@ const AddWorkOrderFormIT: React.FC = () => {
       service_catalogue_id: Number(formData.service_id),
       asset_no: formData.asset_no,
       device_info: formData.device_info,
-      complaint: complaintText,
+      complaint: formData.complaint,
       attachment: formData.attachment,
     };
 
@@ -966,10 +956,10 @@ const AddWorkOrderFormIT: React.FC = () => {
                     <label htmlFor="complaint" className="block text-sm font-medium text-gray-700 mb-1">
                       Complaint <span className="text-red-500">*</span>
                     </label>
-                    <RichTextEditor
-                      value={complaintText}
+
+                    <TiptapEditor
+                      value={formData.complaint}
                       onChange={(value) => {
-                        setComplaintText(value);
                         setFormData((prev) => ({
                           ...prev,
                           complaint: value,
@@ -999,7 +989,7 @@ const AddWorkOrderFormIT: React.FC = () => {
                 {/* Modal pilihan attachment */}
                 <AnimatePresence>
                   {showAttachmentOptions && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center backdrop-brightness-50 bg-opacity-50 p-4">
                       <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-auto p-6">
                         <div className="flex justify-between items-center mb-4">
                           <h3 className="text-lg font-semibold text-gray-900">Pilih Attachment</h3>

@@ -1,21 +1,10 @@
 // src/component/PageHeader.tsx
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "../routes/AuthContext"; // Assuming AuthContext is in this path
+import { useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "../routes/AuthContext";
 
-import {
-  ChevronRight,
-  Bell,
-  ChevronDown,
-  User as UserIcon, // Renamed to avoid conflict with User interface
-  Settings,
-  LogOut,
-  Sun,
-  Moon,
-  AlertTriangle,
-  Calendar,
-} from "lucide-react";
+import { ChevronRight, Bell, ChevronDown, User as UserIcon, Settings, LogOut, Sun, Moon, AlertTriangle, Calendar, Home } from "lucide-react";
 
 // Interface for notification items
 interface NotificationItem {
@@ -30,15 +19,15 @@ interface NotificationItem {
 const notifications: NotificationItem[] = [
   {
     id: 1,
-    title: "Peringatan Mesin A",
-    description: "Suhu mesin A melebihi batas normal.",
+    title: "Machine A Warning",
+    description: "Machine A temperature exceeds normal limits.",
     date: "Today, 10:00 AM",
     icon: <AlertTriangle className="text-red-500" />,
   },
   {
     id: 2,
-    title: "Jadwal Perawatan Mendatang",
-    description: "Perawatan rutin untuk Mesin B akan dilakukan besok.",
+    title: "Upcoming Maintenance Schedule",
+    description: "Routine maintenance for Machine B will be performed tomorrow.",
     date: "Yesterday, 03:00 PM",
     icon: <Calendar className="text-blue-500" />,
   },
@@ -46,55 +35,150 @@ const notifications: NotificationItem[] = [
 
 // Props interface for the PageHeader component
 interface PageHeaderProps {
-  mainTitle: string; // The main part of the page title (e.g., "Machine History")
-  mainTitleHighlight: string; // The highlighted part of the page title (e.g., "Records")
-  description: string; // The descriptive paragraph below the title
-  // Changed icon type to be more specific, expecting an SVG element from Lucide
+  mainTitle: string;
+  mainTitleHighlight: string;
+  description: string;
   icon: React.ReactElement<React.SVGProps<SVGSVGElement>>;
-  isMobile: boolean; // Boolean to check if the current view is mobile
-  toggleSidebar: () => void; // Function to toggle the sidebar visibility
+  isMobile: boolean;
+  toggleSidebar: () => void;
 }
 
-const PageHeader: React.FC<PageHeaderProps> = ({ mainTitle, mainTitleHighlight, description, icon, isMobile, toggleSidebar }) => {
-  // Access user authentication context
-  const { user, logout } = useAuth();
-  // Hook for programmatic navigation
-  const navigate = useNavigate();
+// Mapping for breadcrumb based on path
+const breadcrumbMap: Record<string, string> = {
+  "/dashboard": "Dashboard",
+  "/assets": "Assets",
+  "/assets/assetsdata": "Assets Data",
+  "/assets/assetsdata/addasset": "Add Asset",
+  "/assets/assetsdata/editasset": "Edit Asset",
+  "/machinehistory": "Machine History",
+  "/machinehistory/reports": "Machine History Reports",
+  "/machinehistory/addmachinehistory": "Add Machine History",
+  "/machinehistory/edit": "Edit Machine History",
+  "/workorders": "Work Orders",
+  "/workorders/it": "IT Work Orders",
+  "/workorders/it/addworkorder": "Add Work Order",
+  "/workorders/it/editworkorder": "Edit Work Order",
+  "/workorders/it/receiver": "Receiver",
+  "/workorders/it/assignment": "Assignment",
+  "/workorders/it/reports": "Reports",
+  "/workorders/it/knowledgebase": "Knowledge Base",
+  "/inventory": "Inventory",
+  "/reports": "Reports",
+  "/team": "Team",
+  "/settings": "Settings",
+  "/settings/change-password": "Change Password",
+  "/permissions": "Permissions",
+  "/permissions/adduser": "Add User",
+  "/audittrail": "Audit Trail",
+  "/workflowapproval": "Workflow Approval",
+  "/workflowapproval/monitoringapproval": "Approval Monitoring",
+  "/vendors": "Vendors",
+  "/vendors/addvendor": "Add Vendor",
+  "/vendors/editvendor": "Edit Vendor",
+  "/services": "Services",
+  "/services/servicegroups": "Service Groups",
+  "/services/servicegroups/addservicegroup": "Add Service Group",
+  "/services/servicegroups/editservicegroup": "Edit Service Group",
+  "/services/servicecatalogues": "Service Catalogues",
+  "/services/servicecatalogues/addservicecatalogue": "Add Service Catalogue",
+  "/services/servicecatalogues/editservicecatalogue": "Edit Service Catalogue",
+  "/maintenanceactivity": "Maintenance Activity",
+  "/maintenanceactivity/stoptimes": "Stop Times",
+  "/maintenanceactivity/stoptimes/addstoptime": "Add Stop Time",
+  "/maintenanceactivity/stoptimes/editstoptime": "Edit Stop Time",
+  "/maintenanceactivity/activitytypes": "Activity Types",
+  "/maintenanceactivity/activitytypes/addactivitytype": "Add Activity Type",
+  "/maintenanceactivity/activitytypes/editactivitytype": "Edit Activity Type",
+  "/maintenanceactivity/activity": "Activity",
+  "/maintenanceactivity/activity/addactivity": "Add Activity",
+  "/maintenanceactivity/activity/editactivity": "Edit Activity",
+  "/maintenanceactivity/troubleitem": "Trouble Item",
+  "/maintenanceactivity/troubleitem/addtroubleitem": "Add Trouble Item",
+  "/maintenanceactivity/troubleitem/edittroubleitem": "Edit Trouble Item",
+  "/worklocation": "Work Location",
+  "/worklocation/department": "Department",
+  "/worklocation/department/adddepartment": "Add Department",
+  "/worklocation/department/editdepartment": "Edit Department",
+  "/worklocation/workunit": "Work Unit",
+  "/worklocation/workunit/addworkunit": "Add Work Unit",
+  "/worklocation/workunit/editworkunit": "Edit Work Unit",
+  "/workarrangement": "Work Arrangement",
+  "/workarrangement/workshift": "Work Shift",
+  "/workarrangement/workshift/addworkshift": "Add Work Shift",
+  "/workarrangement/workshift/editworkshift": "Edit Work Shift",
+  "/workarrangement/workgroup": "Work Group",
+  "/workarrangement/workgroup/addworkgroup": "Add Work Group",
+  "/workarrangement/workgroup/editworkgroup": "Edit Work Group",
+  "/sparepart": "Spare Part",
+  "/monitoringmaintenance": "Maintenance Monitoring",
+  "/monitoringmaintenance/detailmonitoringmaintenance": "Monitoring Details",
+  "/monitoringmaintenance/formmonitoringmaintenance": "Monitoring Form",
+};
 
-  // State for controlling notification popup visibility
+const PageHeader: React.FC<PageHeaderProps> = ({ mainTitle, mainTitleHighlight, description, icon, isMobile, toggleSidebar }) => {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const [showNotificationsPopup, setShowNotificationsPopup] = useState(false);
-  // State for controlling user profile menu visibility
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  // State for controlling dark mode (managed internally by PageHeader)
   const [darkMode, setDarkMode] = useState(false);
 
-  // Refs for detecting clicks outside notification and profile popups
   const notificationsRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
-  // Effect to handle clicks outside popups to close them
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      // Close notifications if click is outside its ref
       if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
         setShowNotificationsPopup(false);
       }
-      // Close profile menu if click is outside its ref
       if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
         setShowProfileMenu(false);
       }
     };
 
-    // Add event listener when component mounts
     document.addEventListener("mousedown", handleClickOutside);
-    // Clean up event listener when component unmounts
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, []); // Empty dependency array means this effect runs once on mount and clean up on unmount
+  }, []);
 
-  // Safely get the existing className from the icon's props
-  // Now, icon.props is already typed as React.SVGProps<SVGSVGElement>, so direct access is safe.
+  const generateBreadcrumbs = () => {
+    const pathSegments = location.pathname.split("/").filter((segment) => segment !== "");
+
+    const breadcrumbs = [];
+
+    // Always add Home/Dashboard as first breadcrumb
+    breadcrumbs.push({
+      label: "Dashboard",
+      path: "/dashboard",
+      isClickable: true,
+    });
+
+    // Build breadcrumbs based on path segments
+    let currentPath = "";
+    for (let i = 0; i < pathSegments.length; i++) {
+      const segment = pathSegments[i];
+      currentPath += `/${segment}`;
+
+      // Skip if it's an ID parameter (numeric or UUID)
+      if (/^\d+$/.test(segment) || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(segment)) {
+        continue;
+      }
+
+      const label = breadcrumbMap[currentPath] || segment.charAt(0).toUpperCase() + segment.slice(1).replace(/([A-Z])/g, " $1");
+
+      breadcrumbs.push({
+        label,
+        path: currentPath,
+        isClickable: i < pathSegments.length - 1 && breadcrumbMap[currentPath] !== undefined,
+      });
+    }
+
+    return breadcrumbs;
+  };
+
+  const breadcrumbs = generateBreadcrumbs();
   const existingIconClassName = icon.props.className || "";
 
   return (
@@ -109,8 +193,7 @@ const PageHeader: React.FC<PageHeaderProps> = ({ mainTitle, mainTitleHighlight, 
               <ChevronRight className="text-xl" />
             </motion.button>
           )}
-          {/* Page icon, dynamically styled */}
-          {/* Clones the icon element and adds/merges className for consistent styling */}
+          {/* Page icon */}
           {React.cloneElement(icon, { className: `text-xl text-blue-600 ${existingIconClassName}` })}
           {/* Main page title */}
           <h2 className="text-lg md:text-xl font-bold text-gray-900">{mainTitle}</h2>
@@ -219,7 +302,7 @@ const PageHeader: React.FC<PageHeaderProps> = ({ mainTitle, mainTitleHighlight, 
                 >
                   <div className="px-4 py-2 text-xs text-gray-500 border-b border-gray-100">Signed in as</div>
                   <div className="px-4 py-2 font-semibold text-gray-800 border-b border-gray-100">{user?.name || "Guest User"}</div>
-                 
+
                   <button
                     onClick={() => {
                       navigate("/settings");
@@ -232,8 +315,8 @@ const PageHeader: React.FC<PageHeaderProps> = ({ mainTitle, mainTitleHighlight, 
                   <hr className="my-1 border-gray-100" />
                   <button
                     onClick={() => {
-                      logout(); // Use logout from useAuth
-                      navigate("/login"); 
+                      logout();
+                      navigate("/login");
                       setShowProfileMenu(false);
                     }}
                     className="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full text-left"
@@ -247,7 +330,24 @@ const PageHeader: React.FC<PageHeaderProps> = ({ mainTitle, mainTitleHighlight, 
         </div>
       </header>
 
-      
+      {/* Breadcrumb section */}
+      <div className="bg-gray-50 border-b border-gray-100 px-4 py-3">
+        <div className="flex items-center space-x-2 text-sm">
+          {breadcrumbs.map((breadcrumb, index) => (
+            <div key={breadcrumb.path} className="flex items-center space-x-2">
+              {index === 0 ? <Home size={16} className="text-gray-400" /> : <ChevronRight size={16} className="text-gray-400" />}
+
+              {breadcrumb.isClickable ? (
+                <button onClick={() => navigate(breadcrumb.path)} className="text-blue-600 hover:text-blue-800 font-medium transition-colors duration-200">
+                  {breadcrumb.label}
+                </button>
+              ) : (
+                <span className="text-gray-600 font-medium">{breadcrumb.label}</span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
     </>
   );
 };
