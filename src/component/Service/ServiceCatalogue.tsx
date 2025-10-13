@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Sidebar from "../../component/Sidebar";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Upload, Filter, ChevronDown, Search, X, Bell, Moon, Sun, UserIcon, ChevronRight, Edit, Trash2, Info, Folder, Eye, BookOpen } from "lucide-react";
+import { Plus, Upload, Filter, ChevronDown, Search, X, Bell, Moon, Sun, UserIcon, ChevronRight, Edit, Trash2, Info, Folder, Eye, BookOpen, Calendar, AlertTriangle, Clock } from "lucide-react";
 import { useAuth } from "../../routes/AuthContext";
 import { useNavigate } from "react-router-dom";
 import PageHeader from "../PageHeader";
@@ -124,10 +124,12 @@ const ServiceCataloguePage: React.FC = () => {
   };
   const navigate = useNavigate();
   const [selectedService, setSelectedService] = useState<ServiceCatalogue | null>(null);
+  // Fungsi ini sudah ada, pastikan tetap seperti ini
   const openDetailModal = (s: ServiceCatalogue) => {
     setSelectedService(s);
     setShowDetailModal(true);
   };
+
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -585,6 +587,154 @@ const ServiceCataloguePage: React.FC = () => {
     );
   };
 
+  // Tambahkan komponen ini di dalam komponen ServiceCataloguePage, sebelum return
+  const ServiceDetails: React.FC<{ service: ServiceCatalogue; onClose: () => void }> = ({ service, onClose }) => {
+    const displayValue = (value: any): string => {
+      if (value === null || value === undefined) return "-";
+      if (typeof value === "string") {
+        return value.trim() !== "" ? value.trim() : "-";
+      }
+      if (typeof value === "number") {
+        return value.toString();
+      }
+      return String(value);
+    };
+
+    const formatDate = (dateString: string) => {
+      if (!dateString) return "-";
+      const date = new Date(dateString);
+      return date.toLocaleDateString("id-ID", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    };
+
+    // Komponen untuk priority badge yang lebih menonjol
+    const PriorityBadge: React.FC<{ priority: string }> = ({ priority }) => {
+      const priorityColors = {
+        Critical: "bg-red-100 text-red-800 border-red-300",
+        High: "bg-orange-100 text-orange-800 border-orange-300",
+        Medium: "bg-yellow-100 text-yellow-800 border-yellow-300",
+        Low: "bg-gray-100 text-gray-800 border-gray-300",
+      };
+
+      return <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold border ${priorityColors[priority as keyof typeof priorityColors] || priorityColors.Low}`}>{priority}</span>;
+    };
+
+    // Komponen Section dengan header yang lebih jelas
+    const Section: React.FC<{ title: string; children: React.ReactNode; icon?: React.ReactNode }> = ({ title, children, icon }) => (
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center">
+            {icon && <div className="mr-3 text-blue-600">{icon}</div>}
+            <h3 className="text-lg font-bold text-gray-900">{title}</h3>
+          </div>
+        </div>
+        <div className="p-6">{children}</div>
+      </div>
+    );
+
+    // Komponen Detail Item yang lebih modern
+    const DetailItem: React.FC<{
+      label: string;
+      value: string;
+      icon?: React.ReactNode;
+      fullWidth?: boolean;
+      priority?: "high" | "medium" | "low";
+    }> = ({ label, value, icon, fullWidth = false, priority = "medium" }) => {
+      const priorityStyles = {
+        high: "border-l-4 border-l-blue-500 bg-blue-25",
+        medium: "border-l-2 border-l-gray-200",
+        low: "border-l border-l-gray-100",
+      };
+
+      return (
+        <div className={`${fullWidth ? "col-span-full" : ""}`}>
+          <div className={`p-4 rounded-lg ${priorityStyles[priority]} transition-all duration-200 hover:shadow-sm`}>
+            <div className="flex items-start space-x-3">
+              {icon && <div className="text-gray-400 mt-0.5 flex-shrink-0">{icon}</div>}
+              <div className="flex-1 min-w-0">
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{label}</label>
+                <p className="text-sm font-medium text-gray-900 leading-relaxed">{value}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // Get service owner name
+    const ownerName = users.find((u) => u.id === Number(service.service_owner))?.name ?? String(service.service_owner);
+
+    // Get service group name
+    const groupName = groups.find((g) => String(g.id) === String(service.service_type))?.group_name ?? (groups.find((g) => String(g.id) === String(service.service_type)) as any)?.name ?? String(service.service_type);
+
+    return (
+      <div className="space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar pr-2">
+        {/* Header dengan informasi utama */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                <h2 className="text-2xl font-bold text-gray-900">{service.service_name}</h2>
+                <PriorityBadge priority={service.priority} />
+              </div>
+              <p className="text-gray-600 flex items-center gap-2">
+                <Calendar className="w-4 h-4" />
+                Created: {formatDate(service.created_at)}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={onClose}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+              >
+                <X className="w-4 h-4 mr-2" />
+                Close
+              </motion.button>
+            </div>
+          </div>
+        </div>
+
+        {/* Service Information */}
+        <Section title="Service Information" icon={<Info className="w-5 h-5" />}>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <DetailItem label="Service Name" value={displayValue(service.service_name)} icon={<BookOpen className="w-4 h-4" />} priority="high" />
+            <DetailItem label="Service Type" value={displayValue(groupName)} icon={<Folder className="w-4 h-4" />} priority="high" />
+            <DetailItem label="Priority" value={displayValue(service.priority)} icon={<AlertTriangle className="w-4 h-4" />} priority="high" />
+          </div>
+        </Section>
+
+        {/* Service Details */}
+        <Section title="Service Details" icon={<BookOpen className="w-5 h-5" />}>
+          <div className="grid grid-cols-1 gap-4">
+            <DetailItem label="Service Description" value={displayValue(service.service_description)} icon={<BookOpen className="w-4 h-4" />} fullWidth />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <DetailItem label="Service Owner" value={displayValue(ownerName)} icon={<UserIcon className="w-4 h-4" />} />
+              <DetailItem label="SLA (hours)" value={displayValue(service.sla)} icon={<Clock className="w-4 h-4" />} />
+            </div>
+          </div>
+        </Section>
+
+        {/* Additional Information */}
+        <Section title="Additional Information" icon={<Info className="w-5 h-5" />}>
+          <div className="grid grid-cols-1 gap-4">
+            <DetailItem label="Impact" value={displayValue(service.impact)} icon={<AlertTriangle className="w-4 h-4" />} fullWidth />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <DetailItem label="Created At" value={formatDate(service.created_at)} icon={<Calendar className="w-4 h-4" />} />
+              <DetailItem label="Updated At" value={formatDate(service.updated_at)} icon={<Calendar className="w-4 h-4" />} />
+            </div>
+          </div>
+        </Section>
+      </div>
+    );
+  };
+
   return (
     <div className={`flex h-screen font-sans antialiased bg-blue-50`}>
       <Sidebar />
@@ -862,11 +1012,9 @@ const ServiceCataloguePage: React.FC = () => {
           </motion.div>
         </main>
       </div>
-
       <Modal isOpen={showFormModal} onClose={() => setShowFormModal(false)} title={editingService ? "Edit Service" : "Add Service"} className="max-w-3xl">
         <Form />
       </Modal>
-
       <Modal isOpen={showDeleteConfirm} onClose={() => setShowDeleteConfirm(false)} title="Confirm Deletion">
         <div className="space-y-5 text-center py-3">
           <Info className="text-red-500 text-5xl mx-auto animate-pulse" />
@@ -892,92 +1040,10 @@ const ServiceCataloguePage: React.FC = () => {
           </div>
         </div>
       </Modal>
-
-      <Modal isOpen={showDetailModal} onClose={() => setShowDetailModal(false)} title="Service Details" className="max-w-4xl">
-        {selectedService && (
-          <div className="space-y-6">
-            {/* General Information Section */}
-            <div>
-              <h3 className="text-lg font-bold text-gray-800 mb-4 pb-2 border-b border-blue-200">General Information</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div className="flex flex-col">
-                  <h4 className="text-sm font-medium text-gray-500 mb-1">Service Name</h4>
-                  <p className="w-full bg-blue-50 border border-blue-100 rounded-lg p-3 text-gray-800 text-base font-medium min-h-[44px] flex items-center">{selectedService.service_name}</p>
-                </div>
-                <div className="flex flex-col">
-                  <h4 className="text-sm font-medium text-gray-500 mb-1">Service Type</h4>
-                  <p className="w-full bg-blue-50 border border-blue-100 rounded-lg p-3 text-gray-800 text-base font-medium min-h-[44px] flex items-center">
-                    {groups.find((g) => String(g.id) === String(selectedService.service_type))?.group_name ?? (groups.find((g) => String(g.id) === String(selectedService.service_type)) as any)?.name ?? selectedService.service_type}
-                  </p>
-                </div>
-                <div className="flex flex-col">
-                  <h4 className="text-sm font-medium text-gray-500 mb-1">Priority</h4>
-                  <p className="w-full bg-blue-50 border border-blue-100 rounded-lg p-3 text-base font-medium min-h-[44px] flex items-center">
-                    <span className={`px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full ${getPriorityColor(selectedService.priority)} shadow-sm`}>{selectedService.priority}</span>
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Service Details Section */}
-            <div>
-              <h3 className="text-lg font-bold text-gray-800 mb-4 pb-2 border-b border-blue-200">Service Details</h3>
-              <div className="grid grid-cols-1 gap-4">
-                <div className="flex flex-col">
-                  <h4 className="text-sm font-medium text-gray-500 mb-1">Description</h4>
-                  <p className="w-full bg-blue-50 border border-blue-100 rounded-lg p-3 text-gray-800 text-base font-medium min-h-[44px] flex items-center">{selectedService.service_description || "-"}</p>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="flex flex-col">
-                    <h4 className="text-sm font-medium text-gray-500 mb-1">Service Owner</h4>
-                    <p className="w-full bg-blue-50 border border-blue-100 rounded-lg p-3 text-gray-800 text-base font-medium min-h-[44px] flex items-center">
-                      {users.find((u) => u.id === Number(selectedService.service_owner))?.name ?? selectedService.service_owner}
-                    </p>
-                  </div>
-                  <div className="flex flex-col">
-                    <h4 className="text-sm font-medium text-gray-500 mb-1">SLA (hours)</h4>
-                    <p className="w-full bg-blue-50 border border-blue-100 rounded-lg p-3 text-gray-800 text-base font-medium min-h-[44px] flex items-center">{selectedService.sla}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Additional Information Section */}
-            <div>
-              <h3 className="text-lg font-bold text-gray-800 mb-4 pb-2 border-b border-blue-200">Additional Information</h3>
-              <div className="grid grid-cols-1 gap-4">
-                <div className="flex flex-col">
-                  <h4 className="text-sm font-medium text-gray-500 mb-1">Impact</h4>
-                  <p className="w-full bg-blue-50 border border-blue-100 rounded-lg p-3 text-gray-800 text-base font-medium min-h-[44px] flex items-center">{selectedService.impact || "-"}</p>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="flex flex-col">
-                    <h4 className="text-sm font-medium text-gray-500 mb-1">Created At</h4>
-                    <p className="w-full bg-blue-50 border border-blue-100 rounded-lg p-3 text-gray-800 text-base font-medium min-h-[44px] flex items-center">{new Date(selectedService.created_at).toLocaleString()}</p>
-                  </div>
-                  <div className="flex flex-col">
-                    <h4 className="text-sm font-medium text-gray-500 mb-1">Updated At</h4>
-                    <p className="w-full bg-blue-50 border border-blue-100 rounded-lg p-3 text-gray-800 text-base font-medium min-h-[44px] flex items-center">{new Date(selectedService.updated_at).toLocaleString()}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end pt-6 border-t border-gray-100 mt-8">
-              <motion.button
-                type="button"
-                onClick={() => setShowDetailModal(false)}
-                whileHover={{ scale: 1.03, boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)" }}
-                whileTap={{ scale: 0.97 }}
-                className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 font-semibold"
-              >
-                Close
-              </motion.button>
-            </div>
-          </div>
-        )}
+      
+      <Modal isOpen={showDetailModal} onClose={() => setShowDetailModal(false)} title="Service Details" className="max-w-5xl">
+        {selectedService && <ServiceDetails service={selectedService} onClose={() => setShowDetailModal(false)} />}
       </Modal>
-
       {toast && (
         <div className={`fixed bottom-6 right-6 z-50`}>
           <motion.div

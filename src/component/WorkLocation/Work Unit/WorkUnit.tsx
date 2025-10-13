@@ -232,8 +232,8 @@ const WorkUnitPage: React.FC = () => {
             <StatCard title="Total Work Units" value={workUnit.length.toString()} change={`+${Math.floor((workUnit.length / 10) * 100)}%`} icon={<Warehouse className="w-6 h-6" />} />
             <StatCard
               title="Production Units"
-              value={workUnit.filter((unit) => unit.is_production === "1").length.toString()}
-              change={`+${Math.floor((workUnit.filter((unit) => unit.is_production === "1").length / workUnit.length) * 100)}%`}
+              value={workUnit.filter((unit) => String(unit.is_production) === "1").length.toString()}
+              change={`+${Math.floor((workUnit.filter((unit) => String(unit.is_production) === "1").length / workUnit.length) * 100)}%`}
               icon={<Warehouse className="w-6 h-6" />}
             />
           </div>
@@ -337,7 +337,7 @@ const WorkUnitPage: React.FC = () => {
                           <div className="text-sm font-medium text-gray-900">{unit.name}</div>
                         </td>
                         <td className="px-5 py-3 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{unit.is_production === "1" ? "Yes" : "No"}</div>
+                          <div className="text-sm font-medium text-gray-900">{String(unit.is_production) === "1" ? "Yes" : "No"}</div>
                         </td>
                         <td className="px-5 py-3">
                           <div className="text-sm font-medium text-gray-900">{unit.description || "-"}</div>

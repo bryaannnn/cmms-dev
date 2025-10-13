@@ -1805,8 +1805,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     [fetchWithAuth]
   );
 
-  // Tambahkan fungsi ini di AuthContext.tsx
-  // Located in AuthContext.tsx
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -1966,7 +1964,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [fetchWithAuth]);
 
-  // Tambahkan di AuthContext.tsx
   const getUserById = useCallback(
     async (userId: string | number): Promise<User> => {
       const response = await fetchWithAuth(`/users/${userId}?includes_trashed=true`);
