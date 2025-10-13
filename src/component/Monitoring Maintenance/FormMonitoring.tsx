@@ -5,7 +5,8 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { motion, AnimatePresence } from "framer-motion";
 import Sidebar from "../Sidebar";
-import { X, CheckCircle, ArrowLeft, Save, Hourglass, Plus, ChevronLeft, ChevronRight, Trash2, ArrowRight } from "lucide-react";
+import PageHeader from "../PageHeader";
+import { X, CheckCircle, ArrowLeft, Save, Hourglass, Plus, ChevronLeft, ChevronRight, Trash2, ArrowRight, Monitor } from "lucide-react";
 import { useAuth, AllMasterMonitoring, UnitWithMachines, MesinDetail, ItemMesin } from "../../routes/AuthContext";
 
 interface ModalProps {
@@ -62,7 +63,15 @@ interface FormState {
 const FormMonitoringMaintenance: React.FC = () => {
   const navigate = useNavigate();
   const { getAllMasterMonitoring, addMonitoringSchedule, addMonitoringActivities, getMesinDetail } = useAuth();
-
+  const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768);
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
+    const stored = localStorage.getItem("sidebarOpen");
+    return JSON.parse(stored || "false");
+  });
+  const toggleSidebar = (): void => {
+    localStorage.setItem("sidebarOpen", JSON.stringify(!sidebarOpen));
+    setSidebarOpen((prev) => !prev);
+  };
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -649,21 +658,20 @@ const FormMonitoringMaintenance: React.FC = () => {
     <div className="flex h-screen font-sans antialiased bg-blue-50 text-gray-900">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white border-b border-gray-100 p-4 flex items-center justify-between shadow-sm sticky top-0 z-30">
-          <div className="flex items-center space-x-4">
-            <motion.button onClick={() => navigate("/monitoringmaintenance")} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="flex items-center text-blue-600 hover:text-blue-800">
-              <ArrowLeft className="text-xl" />
-              <span className="font-semibold text-sm hidden md:inline">Back To Monitoring Maintenance</span>
-            </motion.button>
-            <h2 className="text-lg md:text-xl font-bold text-gray-900 ml-4">Create Monitoring Maintenance</h2>
-          </div>
-        </header>
+        <PageHeader
+          mainTitle="Create Monitoring Schedule"
+          mainTitleHighlight="Create Monitoring Schedule"
+          description="Manage user roles and permissions to control access and functionality within the system."
+          icon={<Monitor />}
+          isMobile={isMobile}
+          toggleSidebar={toggleSidebar}
+        />
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Create Monitoring Maintenance</h1>
-              <p className="text-gray-600 mt-1">All create detail for monitoring maintenance</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Create Monitoring Schedule</h1>
+              <p className="text-gray-600 mt-1">All create detail for monitoring schedule</p>
             </div>
             <motion.button
               onClick={() => navigate("/monitoringmaintenance")}

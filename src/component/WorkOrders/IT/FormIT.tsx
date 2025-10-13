@@ -26,9 +26,11 @@ import {
   AlertTriangle,
   Camera,
   File,
+  Clipboard,
 } from "lucide-react";
 import Select from "react-select";
 import CreatableSelect from "react-select/creatable";
+import PageHeader from "../../PageHeader";
 import { useAuth, User as AuthUser, Department, WorkOrderFormData, ServiceCatalogue } from "../../../routes/AuthContext";
 
 interface ModalProps {
@@ -591,147 +593,14 @@ const AddWorkOrderFormIT: React.FC = () => {
       <Sidebar />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white border-b border-gray-100 p-4 flex items-center justify-between shadow-sm sticky top-0 z-30">
-          <div className="flex items-center space-x-4">
-            {isMobile && (
-              <motion.button onClick={toggleSidebar} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
-                <ChevronRight className="text-xl" />
-              </motion.button>
-            )}
-            <motion.button onClick={() => navigate("/workorders/it")} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="flex items-center text-blue-600 hover:text-blue-800 transition-colors duration-200">
-              <ChevronLeft className="text-xl" />
-              <span className="font-semibold text-sm hidden md:inline">Back to Work Orders</span>
-            </motion.button>
-            <h2 className="text-lg md:text-xl font-bold text-gray-900 ml-4">Add Work Order</h2>
-          </div>
-
-          <div className="flex items-center space-x-3 relative">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setDarkMode(!darkMode)}
-              className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200"
-              aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
-            >
-              {darkMode ? <Sun className="text-yellow-400 text-xl" /> : <Moon className="text-xl" />}
-            </motion.button>
-
-            <div className="relative" ref={notificationsRef}>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setShowNotificationsPopup(!showNotificationsPopup)}
-                className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200 relative"
-                aria-label="Notifications"
-              >
-                <Bell className="text-xl" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full animate-pulse border border-white"></span>
-              </motion.button>
-
-              <AnimatePresence>
-                {showNotificationsPopup && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                    transition={{ duration: 0.2 }}
-                    className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-lg py-2 z-40 border border-gray-100"
-                  >
-                    <div className="flex justify-between items-center px-4 py-2 border-b border-gray-100">
-                      <h4 className="font-semibold text-gray-800">Notifications</h4>
-                      <button onClick={() => setShowNotificationsPopup(false)} className="text-gray-500 hover:text-gray-700">
-                        <X size={18} />
-                      </button>
-                    </div>
-                    <div className="max-h-64 overflow-y-auto custom-scrollbar">
-                      {insights.slice(0, 3).map((notification) => (
-                        <div key={notification.id} className="flex items-start px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-50 last:border-b-0">
-                          <div className="p-2 mr-3 mt-0.5 rounded-full bg-blue-50 text-blue-600">{notification.icon}</div>
-                          <div>
-                            <p className="font-medium text-sm text-gray-800">{notification.title}</p>
-                            <p className="text-xs text-gray-600 mt-1">{notification.description}</p>
-                            <p className="text-xs text-gray-500 mt-1">{notification.date}</p>
-                          </div>
-                        </div>
-                      ))}
-                      {insights.length === 0 && <p className="text-gray-500 text-sm px-4 py-3">No new notifications.</p>}
-                    </div>
-                    <div className="px-4 py-2 border-t border-gray-100 text-center">
-                      <button
-                        onClick={() => {
-                          setShowNotificationsPopup(false);
-                        }}
-                        className="text-blue-600 hover:underline text-sm font-medium"
-                      >
-                        View All
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            <div className="relative" ref={profileRef}>
-              <motion.button
-                whileHover={{ backgroundColor: "rgba(239, 246, 255, 0.7)" }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => setShowProfileMenu(!showProfileMenu)}
-                className="flex items-center space-x-2 cursor-pointer p-2 rounded-lg transition-colors duration-200"
-              >
-                <img
-                  src={`https://api.dicebear.com/7.x/initials/svg?seed=${user?.name || "User"}&backgroundColor=0081ff,3d5a80,ffc300,e0b589&backgroundType=gradientLinear&radius=50`}
-                  alt="User Avatar"
-                  className="w-8 h-8 rounded-full border border-blue-200 object-cover"
-                />
-                <span className="font-medium text-gray-900 text-sm hidden sm:inline">{user?.name}</span>
-                <ChevronDown className="text-gray-500 text-base" />
-              </motion.button>
-
-              <AnimatePresence>
-                {showProfileMenu && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                    transition={{ duration: 0.2 }}
-                    className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-40 border border-gray-100"
-                  >
-                    <div className="px-4 py-2 text-xs text-gray-500 border-b border-gray-100">Signed in as</div>
-                    <div className="px-4 py-2 font-semibold text-gray-800 border-b border-gray-100">{user?.name || "Guest User"}</div>
-                    <button
-                      onClick={() => {
-                        navigate("/profile");
-                        setShowProfileMenu(false);
-                      }}
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 w-full text-left"
-                    >
-                      <UserIcon size={16} className="mr-2" /> My Profile
-                    </button>
-                    <button
-                      onClick={() => {
-                        navigate("/settings");
-                        setShowProfileMenu(false);
-                      }}
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 w-full text-left"
-                    >
-                      <Settings size={16} className="mr-2" /> Settings
-                    </button>
-                    <hr className="my-1 border-gray-100" />
-                    <button
-                      onClick={() => {
-                        navigate("/logout");
-                        setShowProfileMenu(false);
-                      }}
-                      className="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full text-left"
-                    >
-                      <LogOut size={16} className="mr-2" /> Logout
-                    </button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </div>
-        </header>
+        <PageHeader
+          mainTitle="Work Unit"
+          mainTitleHighlight="Page"
+          description="Manage work units and their configurations within the system."
+          icon={<Clipboard/>}
+          isMobile={isMobile}
+          toggleSidebar={toggleSidebar}
+        />
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">

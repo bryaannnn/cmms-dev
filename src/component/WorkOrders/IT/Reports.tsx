@@ -3,9 +3,12 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth, WorkOrderData } from "../../../routes/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
 import Sidebar from "../../Sidebar";
+import DOMPurify from "dompurify";
+import PageHeader from "../../PageHeader";
 import {
   BarChart2,
   Filter,
+  Calendar,
   X,
   ChevronDown,
   ChevronRight,
@@ -118,13 +121,11 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
   );
 };
 
-interface WorkOrderDetailModalProps {
+const WorkOrderDetailModal: React.FC<{
   isOpen: boolean;
+  workOrder: WorkOrderData | undefined;
   onClose: () => void;
-  workOrder: any;
-}
-
-const WorkOrderDetailModal: React.FC<WorkOrderDetailModalProps> = ({ isOpen, onClose, workOrder }) => {
+}> = ({ isOpen, workOrder, onClose }) => {
   if (!isOpen || !workOrder) return null;
 
   const formatDate = (dateString: string | null) => {
@@ -136,50 +137,205 @@ const WorkOrderDetailModal: React.FC<WorkOrderDetailModalProps> = ({ isOpen, onC
     });
   };
 
-  const DetailSection: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-    <div className="mb-6">
-      <h4 className="text-lg font-semibold text-gray-800 mb-3 pb-2 border-b border-gray-200">{title}</h4>
-      {children}
+  // Komponen Section dengan header yang lebih jelas
+  const Section: React.FC<{ title: string; children: React.ReactNode; icon?: React.ReactNode }> = ({ title, children, icon }) => (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-200">
+        <div className="flex items-center">
+          {icon && <div className="mr-3 text-blue-600">{icon}</div>}
+          <h3 className="text-lg font-bold text-gray-900">{title}</h3>
+        </div>
+      </div>
+      <div className="p-6">{children}</div>
     </div>
   );
 
-  const DetailItem: React.FC<{ label: string; value: string }> = ({ label, value }) => (
-    <div className="grid grid-cols-3 gap-4 mb-3">
-      <span className="text-sm font-medium text-gray-600">{label}</span>
-      <span className="col-span-2 text-sm text-gray-800 bg-gray-50 px-3 py-2 rounded-md">{value || "-"}</span>
-    </div>
-  );
+  // Komponen Detail Item yang lebih modern untuk Reports
+  const DetailItem: React.FC<{
+    label: string;
+    value: string;
+    icon?: React.ReactNode;
+    fullWidth?: boolean;
+    priority?: "high" | "medium" | "low";
+  }> = ({ label, value, icon, fullWidth = false, priority = "medium" }) => {
+    const priorityStyles = {
+      high: "border-l-4 border-l-blue-500 bg-blue-25",
+      medium: "border-l-2 border-l-gray-200",
+      low: "border-l border-l-gray-100",
+    };
+
+    return (
+      <div className={`${fullWidth ? "col-span-full" : ""}`}>
+        <div className={`p-4 rounded-lg ${priorityStyles[priority]} transition-all duration-200 hover:shadow-sm`}>
+          <div className="flex items-start space-x-3">
+            {icon && <div className="text-gray-400 mt-0.5 flex-shrink-0">{icon}</div>}
+            <div className="flex-1 min-w-0">
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{label}</label>
+              <p className="text-sm font-medium text-gray-900 leading-relaxed">{value}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const DetailItemHTML: React.FC<{
+    label: string;
+    htmlContent: string;
+    icon?: React.ReactNode;
+    fullWidth?: boolean;
+  }> = ({ label, htmlContent, icon, fullWidth = false }) => {
+    if (!htmlContent) {
+      return <DetailItem label={label} value="-" icon={icon} fullWidth={fullWidth} priority="low" />;
+    }
+
+    const cleanHTML = DOMPurify.sanitize(htmlContent, {
+      ALLOWED_TAGS: ["h1", "h2", "h3", "h4", "h5", "h6", "p", "br", "span", "div", "ol", "ul", "li", "strong", "b", "em", "i", "u", "s", "strike", "code", "mark", "sub", "sup", "blockquote", "pre"],
+      ALLOWED_ATTR: ["style", "class", "data-color", "align", "type", "start"],
+    });
+
+    return (
+      <div className={`${fullWidth ? "col-span-full" : ""}`}>
+        <div className="p-4 rounded-lg border-l-2 border-l-blue-200 bg-blue-25 transition-all duration-200 hover:shadow-sm">
+          <div className="flex items-start space-x-3">
+            {icon && <div className="text-gray-400 mt-0.5 flex-shrink-0">{icon}</div>}
+            <div className="flex-1 min-w-0">
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{label}</label>
+              <div
+                className="rich-text-content text-sm text-gray-900 leading-relaxed prose prose-sm max-w-none
+                          prose-headings:font-semibold prose-p:my-2 prose-ul:my-2 prose-ol:my-2
+                          prose-li:my-1 prose-strong:font-semibold prose-em:italic"
+                dangerouslySetInnerHTML={{ __html: cleanHTML }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Work Order Details">
-      <div className="space-y-4">
-        <DetailSection title="General Information">
-          <DetailItem label="Work Order No" value={workOrder.work_order_no} />
-          <DetailItem label="Date" value={formatDate(workOrder.date)} />
-          <DetailItem label="Reception Method" value={workOrder.reception_method} />
-          <DetailItem label="Requester" value={workOrder.requester?.name || "-"} />
-          <DetailItem label="Known By" value={workOrder.known_by?.name || "-"} />
-          <DetailItem label="Department" value={workOrder.department?.name || "-"} />
-        </DetailSection>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center backdrop-brightness-50 bg-opacity-50 p-4">
+      <motion.div
+        initial={{ scale: 0.95, y: 20 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.95, y: 20 }}
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl mx-auto border border-blue-100 max-h-[90vh] overflow-hidden flex flex-col"
+      >
+        <div className="flex justify-between items-center border-b border-gray-100 px-6 py-4 bg-blue-50">
+          <h3 className="text-2xl font-bold text-gray-900">Work Order Details</h3>
+          <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl p-1 rounded-full hover:bg-blue-100 transition-colors duration-200">
+            <X size={24} />
+          </motion.button>
+        </div>
 
-        <DetailSection title="Service Details">
-          <DetailItem label="Service Type" value={workOrder.service_type?.group_name || "-"} />
-          <DetailItem label="Service" value={workOrder.service?.service_name || "-"} />
-          <DetailItem label="Asset No" value={workOrder.asset_no} />
-          <DetailItem label="Device Info" value={workOrder.device_info} />
-          <DetailItem label="Complaint" value={workOrder.complaint} />
-        </DetailSection>
+        <div className="overflow-y-auto custom-scrollbar p-6 space-y-6 flex-grow">
+          {/* Header Information */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-2">
+                  <h2 className="text-2xl font-bold text-gray-900">{workOrder.work_order_no || "No Work Order Number"}</h2>
+                  <span
+                    className={`px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full ${
+                      workOrder.handling_status === "New"
+                        ? "bg-gray-100 text-gray-800 border border-gray-300"
+                        : workOrder.handling_status === "Assigned"
+                        ? "bg-blue-100 text-blue-800 border border-blue-300"
+                        : workOrder.handling_status === "In Progress"
+                        ? "bg-yellow-100 text-yellow-800 border border-yellow-300"
+                        : workOrder.handling_status === "Resolved"
+                        ? "bg-green-100 text-green-800 border border-green-300"
+                        : workOrder.handling_status === "Closed"
+                        ? "bg-green-100 text-green-800 border border-green-300"
+                        : "bg-gray-100 text-gray-800 border border-gray-300"
+                    }`}
+                  >
+                    {workOrder.handling_status || "Unknown Status"}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-4 text-sm text-gray-600">
+                  <span className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4" />
+                    Created: {formatDate(workOrder.date)}
+                  </span>
+                  {workOrder.handling_date && (
+                    <span className="flex items-center gap-2">
+                      <Clock className="w-4 h-4" />
+                      Handled: {formatDate(workOrder.handling_date)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
 
-        <DetailSection title="Handling Information">
-          <DetailItem label="Status" value={workOrder.handling_status} />
-          <DetailItem label="Received By" value={workOrder.received_by?.name || "-"} />
-          <DetailItem label="Assigned To" value={workOrder.assigned_to?.name || "-"} />
-          <DetailItem label="Handling Date" value={formatDate(workOrder.handling_date)} />
-          <DetailItem label="Action Taken" value={workOrder.action_taken || "-"} />
-          <DetailItem label="Remarks" value={workOrder.remarks || "-"} />
-        </DetailSection>
-      </div>
-    </Modal>
+          {/* General Information */}
+          <Section title="General Information" icon={<Clipboard className="w-5 h-5" />}>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <DetailItem label="Work Order No" value={workOrder.work_order_no || "-"} icon={<Clipboard className="w-4 h-4" />} priority="high" />
+              <DetailItem label="Date" value={formatDate(workOrder.date)} icon={<Calendar className="w-4 h-4" />} priority="high" />
+              <DetailItem label="Reception Method" value={workOrder.reception_method || "-"} icon={<UserIcon className="w-4 h-4" />} />
+              <DetailItem label="Requester" value={workOrder.requester?.name || "-"} icon={<UserIcon className="w-4 h-4" />} priority="high" />
+              <DetailItem label="Known By" value={workOrder.known_by?.name || "-"} icon={<Eye className="w-4 h-4" />} />
+              <DetailItem label="Department" value={workOrder.department?.name || "-"} icon={<Users className="w-4 h-4" />} />
+            </div>
+          </Section>
+
+          {/* Service Details */}
+          <Section title="Service Details" icon={<Settings className="w-5 h-5" />}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <DetailItem label="Service Type" value={workOrder.service_type?.group_name || "-"} icon={<Settings className="w-4 h-4" />} priority="high" />
+              <DetailItem label="Service" value={workOrder.service?.service_name || "-"} icon={<Wrench className="w-4 h-4" />} priority="high" />
+              <DetailItem label="Asset No" value={workOrder.asset_no || "-"} icon={<Clipboard className="w-4 h-4" />} />
+              <DetailItem label="Device Info" value={workOrder.device_info || "-"} icon={<Settings className="w-4 h-4" />} />
+              <DetailItemHTML label="Complaint" htmlContent={workOrder.complaint || ""} icon={<AlertTriangle className="w-4 h-4" />} fullWidth />
+            </div>
+          </Section>
+
+          {/* Handling Information */}
+          <Section title="Handling Information" icon={<Clock className="w-5 h-5" />}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <DetailItem label="Status" value={workOrder.handling_status || "-"} icon={<Clock className="w-4 h-4" />} priority="high" />
+              <DetailItem label="Received By" value={workOrder.received_by?.name || "-"} icon={<UserIcon className="w-4 h-4" />} />
+              <DetailItem label="Assigned To" value={workOrder.assigned_to?.name || "-"} icon={<UserIcon className="w-4 h-4" />} priority="high" />
+              <DetailItem label="Handling Date" value={formatDate(workOrder.handling_date)} icon={<Calendar className="w-4 h-4" />} />
+              <DetailItemHTML label="Action Taken" htmlContent={workOrder.action_taken || ""} icon={<CheckCircle className="w-4 h-4" />} fullWidth />
+              <DetailItemHTML label="Remarks" htmlContent={workOrder.remarks || ""} icon={<Clipboard className="w-4 h-4" />} fullWidth />
+            </div>
+          </Section>
+
+          {/* Summary Section */}
+          <Section title="Report Summary" icon={<BarChart2 className="w-5 h-5" />}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-4 bg-blue-25 rounded-lg border-l-4 border-l-blue-400">
+                <h4 className="text-sm font-semibold text-gray-700 mb-2">Current Status</h4>
+                <p className="text-lg font-bold text-blue-600">{workOrder.handling_status || "Unknown"}</p>
+              </div>
+              <div className="p-4 bg-green-25 rounded-lg border-l-4 border-l-green-400">
+                <h4 className="text-sm font-semibold text-gray-700 mb-2">Timeline</h4>
+                <p className="text-sm text-green-600">
+                  Created: {formatDate(workOrder.date)}
+                  {workOrder.handling_date && ` • Handled: ${formatDate(workOrder.handling_date)}`}
+                </p>
+              </div>
+            </div>
+          </Section>
+        </div>
+
+        <div className="flex justify-end pt-4 border-t border-gray-100 px-6 py-4 bg-gray-50">
+          <motion.button
+            type="button"
+            onClick={onClose}
+            whileHover={{ scale: 1.03, boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)" }}
+            whileTap={{ scale: 0.97 }}
+            className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 font-semibold"
+          >
+            Close Details
+          </motion.button>
+        </div>
+      </motion.div>
+    </motion.div>
   );
 };
 
@@ -381,6 +537,11 @@ const ITReports: React.FC = () => {
     setShowDetailModal(true);
   };
 
+  const handleCloseDetailModal = () => {
+    setShowDetailModal(false);
+    setSelectedWorkOrder(undefined); // Reset selected work order
+  };
+
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "-";
 
@@ -425,134 +586,7 @@ const ITReports: React.FC = () => {
       <Sidebar />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white border-b border-gray-100 p-4 flex items-center justify-between shadow-sm sticky top-0 z-30">
-          <div className="flex items-center space-x-4">
-            {isMobile && (
-              <motion.button onClick={toggleSidebar} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
-                <ChevronRight className="text-xl" />
-              </motion.button>
-            )}
-            <BarChart2 className="text-xl text-blue-600" />
-            <h2 className="text-lg md:text-xl font-bold text-gray-900">IT Work Order Reports</h2>
-          </div>
-
-          <div className="flex items-center space-x-3 relative">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setDarkMode(!darkMode)}
-              className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200"
-              aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
-            >
-              {darkMode ? <Sun className="text-yellow-400 text-xl" /> : <Moon className="text-xl" />}
-            </motion.button>
-
-            <div className="relative" ref={notificationsRef}>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setShowNotificationsPopup(!showNotificationsPopup)}
-                className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200 relative"
-                aria-label="Notifications"
-              >
-                <Bell className="text-xl" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full animate-pulse border border-white"></span>
-              </motion.button>
-
-              <AnimatePresence>
-                {showNotificationsPopup && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                    transition={{ duration: 0.2 }}
-                    className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-lg py-2 z-40 border border-gray-100"
-                  >
-                    <div className="flex justify-between items-center px-4 py-2 border-b border-gray-100">
-                      <h4 className="font-semibold text-gray-800">Notifications</h4>
-                      <button onClick={() => setShowNotificationsPopup(false)} className="text-gray-500 hover:text-gray-700">
-                        <X size={18} />
-                      </button>
-                    </div>
-                    <div className="max-h-64 overflow-y-auto custom-scrollbar">
-                      <p className="text-gray-500 text-sm px-4 py-3">No new notifications.</p>
-                    </div>
-                    <div className="px-4 py-2 border-t border-gray-100 text-center">
-                      <button
-                        onClick={() => {
-                          setShowNotificationsPopup(false);
-                        }}
-                        className="text-blue-600 hover:underline text-sm font-medium"
-                      >
-                        View All
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            <div className="relative" ref={profileRef}>
-              <motion.button
-                whileHover={{ backgroundColor: "rgba(239, 246, 255, 0.7)" }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => setShowProfileMenu(!showProfileMenu)}
-                className="flex items-center space-x-2 cursor-pointer p-2 rounded-lg transition-colors duration-200"
-              >
-                <img
-                  src={`https://api.dicebear.com/7.x/initials/svg?seed=${user?.name || "User"}&backgroundColor=0081ff,3d5a80,ffc300,e0b589&backgroundType=gradientLinear&radius=50`}
-                  alt="User Avatar"
-                  className="w-8 h-8 rounded-full border border-blue-200 object-cover"
-                />
-                <span className="font-medium text-gray-900 text-sm hidden sm:inline">{user?.name}</span>
-                <ChevronDown className="text-gray-500 text-base" />
-              </motion.button>
-
-              <AnimatePresence>
-                {showProfileMenu && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                    transition={{ duration: 0.2 }}
-                    className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-40 border border-gray-100"
-                  >
-                    <div className="px-4 py-2 text-xs text-gray-500 border-b border-gray-100">Signed in as</div>
-                    <div className="px-4 py-2 font-semibold text-gray-800 border-b border-gray-100">{user?.name || "Guest User"}</div>
-                    <button
-                      onClick={() => {
-                        navigate("/profile");
-                        setShowProfileMenu(false);
-                      }}
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 w-full text-left"
-                    >
-                      <UserIcon size={16} className="mr-2" /> My Profile
-                    </button>
-                    <button
-                      onClick={() => {
-                        navigate("/settings");
-                        setShowProfileMenu(false);
-                      }}
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 w-full text-left"
-                    >
-                      <Settings size={16} className="mr-2" /> Settings
-                    </button>
-                    <hr className="my-1 border-gray-100" />
-                    <button
-                      onClick={() => {
-                        navigate("/logout");
-                        setShowProfileMenu(false);
-                      }}
-                      className="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full text-left"
-                    >
-                      <LogOut size={16} className="mr-2" /> Logout
-                    </button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </div>
-        </header>
+        <PageHeader mainTitle="IT Work Order - Reports" mainTitleHighlight="Page" description="Manage work units and their configurations within the system." icon={<BarChart2 />} isMobile={isMobile} toggleSidebar={toggleSidebar} />
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="isi style mb-6 flex space-x-6 border-b border-gray-200">
@@ -836,7 +870,7 @@ const ITReports: React.FC = () => {
         </main>
       </div>
 
-      <WorkOrderDetailModal isOpen={showDetailModal} onClose={() => setShowDetailModal(false)} workOrder={selectedWorkOrder} />
+      <WorkOrderDetailModal isOpen={showDetailModal} onClose={handleCloseDetailModal} workOrder={selectedWorkOrder} />
     </div>
   );
 };

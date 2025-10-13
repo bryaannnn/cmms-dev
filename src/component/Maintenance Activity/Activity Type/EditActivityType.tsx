@@ -5,7 +5,7 @@ import Sidebar from "../../Sidebar";
 import Select from "react-select";
 import PageHeader from "../../PageHeader";
 import { useNavigate, useParams } from "react-router-dom";
-import { useAuth, User, Department, StopTimes, ActivityType } from "../../../routes/AuthContext";
+import { useAuth, User, Department, ActivityType } from "../../../routes/AuthContext";
 
 interface OptionType {
   value: string;
@@ -189,12 +189,12 @@ const EditActivityType: React.FC = () => {
               <p className="text-gray-600 mt-1">Update Activity Type information</p>
             </div>
             <motion.button
-              onClick={() => navigate("/maintenanceactivity/stoptimes")}
+              onClick={() => navigate("/maintenanceactivity/activitytypes")}
               whileHover={{ scale: 1.05, boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)" }}
               whileTap={{ scale: 0.95 }}
               className="flex items-center space-x-2 bg-white border border-gray-200 text-gray-800 px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md"
             >
-              <ArrowLeft className="text-lg" /> Back to Stop Times Management
+              <ArrowLeft className="text-lg" /> Back to Activity Type Management
             </motion.button>
           </motion.div>
 

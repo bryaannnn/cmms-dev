@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../routes/AuthContext";
 import Sidebar from "../component/Sidebar"; // Assuming Sidebar is in ../component/Sidebar
+import { User } from "lucide-react";
+import PageHeader from "../component/PageHeader";
 
 interface Permission {
   id: string;
@@ -73,6 +75,16 @@ const AddUserPage: React.FC = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [roles, setRoles] = useState<Role[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
+
+  const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768);
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
+    const stored = localStorage.getItem("sidebarOpen");
+    return JSON.parse(stored || "false");
+  });
+  const toggleSidebar = (): void => {
+    localStorage.setItem("sidebarOpen", JSON.stringify(!sidebarOpen));
+    setSidebarOpen((prev) => !prev);
+  };
 
   const [newUser, setNewUser] = useState({
     name: "",
@@ -192,46 +204,7 @@ const AddUserPage: React.FC = () => {
     <div className={`flex h-screen font-sans antialiased ${darkMode ? "dark bg-gray-900" : "bg-blue-50"} text-gray-900`}>
       <Sidebar /> {/* Sidebar component */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className={`${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"} border-b p-4 flex items-center justify-between shadow-sm sticky top-0 z-30`}>
-          <div className="flex items-center space-x-4">
-            <motion.button
-              onClick={() => navigate("/permissions")}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className={`${darkMode ? "text-gray-300 hover:bg-gray-700" : "text-blue-600 hover:text-blue-800"} flex items-center transition-colors duration-200`}
-            >
-              <FiArrowLeft className="text-xl" />
-              <span className="font-semibold text-sm hidden md:inline ml-2">Back to Permissions</span>
-            </motion.button>
-            <h2 className={`${darkMode ? "text-gray-100" : "text-gray-900"} text-lg md:text-xl font-bold ml-4`}>Add New User</h2>
-          </div>
-
-          <div className="flex items-center space-x-3 relative">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setDarkMode(!darkMode)}
-              className={`p-2 rounded-full ${darkMode ? "text-gray-300 hover:bg-gray-700" : "text-gray-600 hover:bg-blue-50"} transition-colors duration-200`}
-              aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
-            >
-              {darkMode ? <FiSun className="text-yellow-400 text-xl" /> : <FiMoon className="text-xl" />}
-            </motion.button>
-
-            <motion.button
-              whileHover={{ backgroundColor: darkMode ? "rgba(55, 65, 81, 0.7)" : "rgba(239, 246, 255, 0.7)" }}
-              whileTap={{ scale: 0.98 }}
-              className={`flex items-center space-x-2 cursor-pointer p-2 rounded-lg transition-colors duration-200 ${darkMode ? "hover:bg-gray-700" : "hover:bg-blue-50"}`}
-            >
-              <img
-                src={`https://api.dicebear.com/7.x/initials/svg?seed=${user?.name || "User"}&backgroundColor=0081ff,3d5a80,ffc300,e0b589&backgroundType=gradientLinear&radius=50`}
-                alt="User Avatar"
-                className={`w-8 h-8 rounded-full ${darkMode ? "border-gray-600" : "border-blue-200"} border`}
-              />
-              <span className={`font-medium ${darkMode ? "text-gray-100" : "text-gray-900"} text-sm hidden sm:inline`}>{user?.name}</span>
-              <FiChevronDown className={darkMode ? "text-gray-400" : "text-gray-500"} />
-            </motion.button>
-          </div>
-        </header>
+        <PageHeader mainTitle="Add User" mainTitleHighlight="Page" description="Manage work units and their configurations within the system." icon={<User />} isMobile={isMobile} toggleSidebar={toggleSidebar} />
 
         <main className={`flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar ${darkMode ? "bg-gray-900" : "bg-gray-50"}`}>
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">

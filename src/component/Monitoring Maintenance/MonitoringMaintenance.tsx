@@ -38,6 +38,83 @@ import Sidebar from "../Sidebar";
 import PageHeader from "../../component/PageHeader";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
 
+// Tambahkan di bagian atas file, setelah import
+const useDeviceDetection = () => {
+  const [deviceType, setDeviceType] = useState<"mobile" | "tablet" | "desktop">("desktop");
+
+  useEffect(() => {
+    const checkDevice = () => {
+      const width = window.innerWidth;
+      if (width < 768) {
+        setDeviceType("mobile");
+      } else if (width >= 768 && width < 1024) {
+        setDeviceType("tablet");
+      } else {
+        setDeviceType("desktop");
+      }
+    };
+
+    checkDevice();
+    window.addEventListener("resize", checkDevice);
+    return () => window.removeEventListener("resize", checkDevice);
+  }, []);
+
+  return deviceType;
+};
+
+// Komponen Responsive Container baru
+const ResponsiveContainers: React.FC<{
+  children: React.ReactNode;
+  className?: string;
+}> = ({ children, className = "" }) => {
+  const deviceType = useDeviceDetection();
+
+  const containerClasses = {
+    mobile: "px-3 max-w-full",
+    tablet: "px-4 max-w-5xl mx-auto",
+    desktop: "px-6 max-w-7xl mx-auto",
+  };
+
+  return <div className={`${containerClasses[deviceType]} ${className}`}>{children}</div>;
+};
+
+// Komponen Responsive Grid untuk layout yang adaptif
+const ResponsiveGrid: React.FC<{
+  children: React.ReactNode;
+  className?: string;
+  cols?: {
+    mobile?: number;
+    tablet?: number;
+    desktop?: number;
+  };
+}> = ({ children, className = "", cols = { mobile: 1, tablet: 2, desktop: 3 } }) => {
+  const deviceType = useDeviceDetection();
+
+  const gridCols = {
+    mobile: `grid-cols-${cols.mobile || 1}`,
+    tablet: `grid-cols-${cols.tablet || 2}`,
+    desktop: `grid-cols-${cols.desktop || 3}`,
+  };
+
+  return <div className={`grid ${gridCols[deviceType]} gap-4 ${className}`}>{children}</div>;
+};
+
+// Komponen Responsive Card
+const ResponsiveCard: React.FC<{
+  children: React.ReactNode;
+  className?: string;
+}> = ({ children, className = "" }) => {
+  const deviceType = useDeviceDetection();
+
+  const cardPadding = {
+    mobile: "p-3",
+    tablet: "p-4",
+    desktop: "p-6",
+  };
+
+  return <div className={`bg-white rounded-2xl shadow-md border border-blue-100 ${cardPadding[deviceType]} ${className}`}>{children}</div>;
+};
+
 export interface MaintenanceTaskRecord {
   id: string;
   mesin: string;
@@ -1285,7 +1362,7 @@ const getStatusBadgeColor = (status: string = "New"): string => {
 const MonitoringMaintenance: React.FC = () => {
   const navigate = useNavigate();
   const { getMonitoringSchedules, getAllMasterMonitoring, getMonitoringScheduleById } = useAuth();
-
+  const deviceType = useDeviceDetection();
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
     const stored = localStorage.getItem("sidebarOpen");
     return JSON.parse(stored || "false");
@@ -1815,8 +1892,10 @@ const MonitoringMaintenance: React.FC = () => {
     let weekDays: React.ReactNode[] = [];
     let currentWeekStartDate: Date | null = null;
 
+    const cellSizeClass = getCalendarCellSize();
+
     for (let i = 0; i < firstDayOfWeekOfMonth; i++) {
-      weekDays.push(<div key={`empty-pre-${i}`} className="p-3 md:p-4 text-center text-gray-400 bg-gray-50 border border-gray-200 rounded-md min-h-[80px] md:min-h-[100px] flex items-center justify-center"></div>);
+      weekDays.push(<div key={`empty-pre-${i}`} className={`text-center text-gray-400 bg-gray-50 border border-gray-200 rounded-md flex items-center justify-center ${cellSizeClass}`}></div>);
     }
 
     while (dayCounter <= daysInMonth) {
@@ -1826,13 +1905,10 @@ const MonitoringMaintenance: React.FC = () => {
       }
 
       const dateString = `${year}-${String(month + 1).padStart(2, "0")}-${String(dayCounter).padStart(2, "0")}`;
-
-      // Filter records untuk hari ini
       const dayRecords = filteredRecords.filter((record) => record.date === dateString);
 
-      // Kelompokkan records berdasarkan scheduleId
       const schedulesByGroup = dayRecords.reduce((acc, record) => {
-        const scheduleId = String(record.scheduleId || "unknown"); // Konversi ke string
+        const scheduleId = String(record.scheduleId || "unknown");
         if (!acc[scheduleId]) {
           acc[scheduleId] = {
             scheduleId: scheduleId,
@@ -1846,53 +1922,43 @@ const MonitoringMaintenance: React.FC = () => {
       }, {} as Record<string, { scheduleId: string; machine: string; items: MaintenanceTaskRecord[] }>);
 
       const scheduleGroups = Object.values(schedulesByGroup);
-
-      // ✅ HAPUS WARNA BACKGROUND - hanya gunakan border untuk hari ini
       const isToday = today.toDateString() === date.toDateString();
 
-      // PERBAIKAN: Gunakan kelas border yang lebih spesifik untuk hari ini
-      let cellClasses = `p-3 md:p-4 text-center border border-gray-200 rounded-md flex flex-col justify-between relative min-h-[80px] md:min-h-[100px] bg-white`;
-
-      // PERBAIKAN: Gunakan !important atau kelas yang lebih spesifik untuk border hari ini
+      let cellClasses = `${cellSizeClass} text-center border border-gray-200 rounded-md flex flex-col justify-between relative bg-white`;
       if (isToday) {
-        cellClasses = `p-3 md:p-4 text-center border-2 border-blue-500 rounded-md flex flex-col justify-between relative min-h-[80px] md:min-h-[100px] bg-white font-bold`;
+        cellClasses = `${cellSizeClass} text-center border-2 border-blue-500 rounded-md flex flex-col justify-between relative bg-white font-bold`;
       }
 
-      // Ambil status unik dari semua schedule groups
-      const allStatuses = scheduleGroups.flatMap((group) => group.items.map((item) => item.scheduleStatus || "New"));
-      const uniqueStatuses = Array.from(new Set(allStatuses));
+      // Optimasi konten untuk tablet
+      const showMachineName = deviceType !== "mobile" && scheduleGroups.length > 0;
+      const showItemCount = deviceType === "desktop" || (deviceType === "tablet" && scheduleGroups.length <= 2);
 
       weekDays.push(
         <div key={dateString} className={cellClasses}>
-          <span className={`text-sm font-semibold ${isToday ? "text-blue-700" : "text-gray-800"}`}>{dayCounter}</span>
+          <span className={`font-semibold ${isToday ? "text-blue-700" : "text-gray-800"} ${deviceType === "mobile" ? "text-xs" : "text-sm"}`}>{dayCounter}</span>
           <div className="flex flex-col items-center justify-center mt-1 space-y-1">
             {scheduleGroups.length > 0 && (
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="w-full text-center text-xs px-2 py-1 rounded-md overflow-hidden bg-gray-50 hover:bg-gray-100 transition-colors shadow-sm"
+                className="w-full text-center rounded-md overflow-hidden bg-gray-50 hover:bg-gray-100 transition-colors shadow-sm"
                 onClick={() => handleOpenDailyScheduleModal(dayRecords, dateString)}
                 title={`${scheduleGroups.length} schedule(s) with ${dayRecords.length} total items`}
               >
-                {/* Tampilkan machines yang ada */}
-                <div className="font-semibold truncate w-full text-gray-800">
-                  {scheduleGroups[0].machine}
-                  {scheduleGroups.length > 1 && ` +${scheduleGroups.length - 1}`}
-                </div>
+                {showMachineName && (
+                  <div className="font-semibold truncate w-full text-gray-800 text-xs">
+                    {scheduleGroups[0].machine}
+                    {scheduleGroups.length > 1 && ` +${scheduleGroups.length - 1}`}
+                  </div>
+                )}
 
-                <div className="text-xs text-gray-500 mt-0.5">
-                  {dayRecords.length} item(s) in {scheduleGroups.length} schedule(s)
-                </div>
+                {showItemCount && <div className="text-xs text-gray-500 mt-0.5">{dayRecords.length} item(s)</div>}
 
-                {/* ✅ TAMPILKAN STATUS BADGE DENGAN STRING */}
-                {uniqueStatuses.length > 0 && (
+                {/* Status badges - disesuaikan untuk tablet */}
+                {scheduleGroups.length > 0 && deviceType !== "mobile" && (
                   <div className="flex flex-wrap gap-0.5 justify-center mt-1">
-                    {uniqueStatuses.slice(0, 2).map((status, index) => (
-                      <span key={index} className={`px-1 py-0.5 rounded text-[10px] border ${getStatusBadgeColor(status)}`}>
-                        {status}
-                      </span>
-                    ))}
-                    {uniqueStatuses.length > 2 && <span className="px-1 py-0.5 rounded text-[10px] bg-gray-100 text-gray-600 border border-gray-200">+{uniqueStatuses.length - 2}</span>}
+                    <span className={`px-1 py-0.5 rounded text-[10px] border ${getStatusBadgeColor(scheduleGroups[0].items[0].scheduleStatus)}`}>{scheduleGroups[0].items[0].scheduleStatus || "New"}</span>
+                    {scheduleGroups.length > 1 && <span className="px-1 py-0.5 rounded text-[10px] bg-gray-100 text-gray-600 border border-gray-200">+{scheduleGroups.length - 1}</span>}
                   </div>
                 )}
               </motion.button>
@@ -1903,13 +1969,15 @@ const MonitoringMaintenance: React.FC = () => {
 
       if (weekDays.length === 7 || dayCounter === daysInMonth) {
         while (weekDays.length < 7) {
-          weekDays.push(<div key={`empty-post-${weekDays.length}`} className="p-3 md:p-4 text-center text-gray-400 bg-gray-50 border border-gray-200 rounded-md min-h-[80px] md:min-h-[100px] flex items-center justify-center"></div>);
+          weekDays.push(<div key={`empty-post-${weekDays.length}`} className={`text-center text-gray-400 bg-gray-50 border border-gray-200 rounded-md flex items-center justify-center ${cellSizeClass}`}></div>);
         }
 
         const weekNum = currentWeekStartDate ? getISOWeekNumber(currentWeekStartDate) : null;
         calendarRows.push(
           <React.Fragment key={`week-row-${dayCounter}`}>
-            <div className="p-2 text-center font-bold text-gray-700 bg-gray-100 rounded-md border border-gray-200">{weekNum !== null ? ` ${String(weekNum).padStart(2, "0")}` : ""}</div>
+            <div className={`text-center font-bold text-gray-700 bg-gray-100 rounded-md border border-gray-200 flex items-center justify-center ${deviceType === "mobile" ? "p-1 text-xs" : "p-2 text-sm"}`}>
+              {weekNum !== null ? ` ${String(weekNum).padStart(2, "0")}` : ""}
+            </div>
             {weekDays}
           </React.Fragment>
         );
@@ -1948,6 +2016,319 @@ const MonitoringMaintenance: React.FC = () => {
   const isStep3Complete = addForm.selectedUnits.every((unit) => unit.machines.length > 0 && unit.machines.every((machine) => machine.selectedInterval !== null));
   const isStep4Complete = addForm.selectedUnits.every((unit) => unit.machines.every((machine) => machine.selectedInterval === null || (machine.selectedInterval !== null && machine.selectedItems.length > 0)));
 
+  const getCalendarCellSize = () => {
+    switch (deviceType) {
+      case "mobile":
+        return "min-h-[60px] p-2 text-xs";
+      case "tablet":
+        return "min-h-[80px] p-3 text-sm";
+      default:
+        return "min-h-[100px] p-4 text-base";
+    }
+  };
+
+  const getHeaderLayout = () => {
+    switch (deviceType) {
+      case "mobile":
+        return (
+          <div className="flex flex-col space-y-4">
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">
+                Monitoring <span className="text-blue-600">Maintenance</span>
+              </h1>
+              <p className="text-gray-600 mt-1 text-xs">Monitor and schedule preventive maintenance tasks</p>
+            </div>
+            <div className="flex flex-col space-y-2">
+              <motion.button
+                onClick={() => navigate("/monitoringmaintenance/formmonitoringmaintenance")}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="flex items-center justify-center px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold shadow-md hover:bg-blue-700 transition-colors duration-200 w-full"
+              >
+                <Plus className="w-4 h-4 mr-2" /> Add Schedule
+              </motion.button>
+              <div className="flex space-x-1 p-1 bg-white rounded-lg shadow-sm border border-gray-100 w-full">
+                <motion.button
+                  onClick={() => setViewMode("calendar")}
+                  whileTap={{ scale: 0.95 }}
+                  className={`flex-1 flex items-center justify-center px-2 py-2 rounded-lg text-xs font-semibold transition-colors duration-200 ${
+                    viewMode === "calendar" ? "bg-blue-600 text-white shadow" : "text-gray-700 hover:bg-gray-100"
+                  }`}
+                >
+                  <Calendar className="w-3 h-3 mr-1" /> Calendar
+                </motion.button>
+                <motion.button
+                  onClick={() => setViewMode("table")}
+                  whileTap={{ scale: 0.95 }}
+                  className={`flex-1 flex items-center justify-center px-2 py-2 rounded-lg text-xs font-semibold transition-colors duration-200 ${viewMode === "table" ? "bg-blue-600 text-white shadow" : "text-gray-700 hover:bg-gray-100"}`}
+                >
+                  <Clipboard className="w-3 h-3 mr-1" /> Table
+                </motion.button>
+                <motion.button
+                  onClick={() => setViewMode("trend")}
+                  whileTap={{ scale: 0.95 }}
+                  className={`flex-1 flex items-center justify-center px-2 py-2 rounded-lg text-xs font-semibold transition-colors duration-200 ${viewMode === "trend" ? "bg-blue-600 text-white shadow" : "text-gray-700 hover:bg-gray-100"}`}
+                >
+                  <TrendingUp className="w-3 h-3 mr-1" /> Trend
+                </motion.button>
+              </div>
+            </div>
+          </div>
+        );
+      case "tablet":
+        return (
+          <div className="flex flex-col space-y-4">
+            <div className="flex justify-between items-start">
+              <div className="flex-1">
+                <h1 className="text-2xl font-bold text-gray-900">
+                  Monitoring <span className="text-blue-600">Maintenance</span>
+                </h1>
+                <p className="text-gray-600 mt-1 text-sm">Monitor and schedule preventive maintenance tasks for all machines</p>
+              </div>
+              <motion.button
+                onClick={() => navigate("/monitoringmaintenance/formmonitoringmaintenance")}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold shadow-md hover:bg-blue-700 transition-colors duration-200 ml-4"
+              >
+                <Plus className="w-4 h-4 mr-2" /> Add Schedule
+              </motion.button>
+            </div>
+            <div className="flex space-x-1 p-1 bg-white rounded-xl shadow-sm border border-gray-100 w-fit">
+              <motion.button
+                onClick={() => setViewMode("calendar")}
+                whileTap={{ scale: 0.95 }}
+                className={`flex items-center px-4 py-2 rounded-xl text-sm font-semibold transition-colors duration-200 ${viewMode === "calendar" ? "bg-blue-600 text-white shadow" : "text-gray-700 hover:bg-gray-100"}`}
+              >
+                <Calendar className="w-4 h-4 mr-2" /> Calendar
+              </motion.button>
+              <motion.button
+                onClick={() => setViewMode("table")}
+                whileTap={{ scale: 0.95 }}
+                className={`flex items-center px-4 py-2 rounded-xl text-sm font-semibold transition-colors duration-200 ${viewMode === "table" ? "bg-blue-600 text-white shadow" : "text-gray-700 hover:bg-gray-100"}`}
+              >
+                <Clipboard className="w-4 h-4 mr-2" /> Table
+              </motion.button>
+              <motion.button
+                onClick={() => setViewMode("trend")}
+                whileTap={{ scale: 0.95 }}
+                className={`flex items-center px-4 py-2 rounded-xl text-sm font-semibold transition-colors duration-200 ${viewMode === "trend" ? "bg-blue-600 text-white shadow" : "text-gray-700 hover:bg-gray-100"}`}
+              >
+                <TrendingUp className="w-4 h-4 mr-2" /> Trend
+              </motion.button>
+            </div>
+          </div>
+        );
+      default:
+        return (
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
+                Monitoring <span className="text-blue-600">Maintenance</span>
+              </h1>
+              <p className="text-gray-600 mt-2 text-sm max-w-xl">Monitor and schedule preventive maintenance tasks for all machines, and track their approval progress.</p>
+            </div>
+            <div className="flex items-center space-x-2">
+              <motion.button
+                onClick={() => navigate("/monitoringmaintenance/formmonitoringmaintenance")}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-full text-sm font-semibold shadow-md hover:bg-blue-700 transition-colors duration-200"
+              >
+                <Plus className="w-4 h-4 mr-2" /> Add Schedule
+              </motion.button>
+              <div className="flex space-x-1 p-1 bg-white rounded-full shadow-sm border border-gray-100">
+                <motion.button
+                  onClick={() => setViewMode("calendar")}
+                  whileTap={{ scale: 0.95 }}
+                  className={`flex items-center px-4 py-2 rounded-full text-sm font-semibold transition-colors duration-200 ${viewMode === "calendar" ? "bg-blue-600 text-white shadow" : "text-gray-700 hover:bg-gray-100"}`}
+                >
+                  <Calendar className="w-4 h-4 mr-2" /> Calendar
+                </motion.button>
+                <motion.button
+                  onClick={() => setViewMode("table")}
+                  whileTap={{ scale: 0.95 }}
+                  className={`flex items-center px-4 py-2 rounded-full text-sm font-semibold transition-colors duration-200 ${viewMode === "table" ? "bg-blue-600 text-white shadow" : "text-gray-700 hover:bg-gray-100"}`}
+                >
+                  <Clipboard className="w-4 h-4 mr-2" /> Table
+                </motion.button>
+                <motion.button
+                  onClick={() => setViewMode("trend")}
+                  whileTap={{ scale: 0.95 }}
+                  className={`flex items-center px-4 py-2 rounded-full text-sm font-semibold transition-colors duration-200 ${viewMode === "trend" ? "bg-blue-600 text-white shadow" : "text-gray-700 hover:bg-gray-100"}`}
+                >
+                  <TrendingUp className="w-4 h-4 mr-2" /> Trend
+                </motion.button>
+              </div>
+            </div>
+          </div>
+        );
+    }
+  };
+
+  const getFilterLayout = () => {
+    switch (deviceType) {
+      case "mobile":
+        return (
+          <ResponsiveCard className="mb-6">
+            <div className="flex flex-col space-y-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-base" />
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  className="w-full pl-10 pr-4 py-2 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white text-sm transition-all duration-200 shadow-sm placeholder-gray-400"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                className="flex items-center justify-center space-x-2 bg-white border border-blue-200 text-gray-800 px-3 py-2 rounded-lg transition-all duration-200 ease-in-out shadow-sm font-semibold text-sm hover:bg-gray-50"
+              >
+                <Filter className="text-sm" />
+                <span>Filter</span>
+                <motion.span animate={{ rotate: showAdvancedFilters ? 180 : 0 }} transition={{ duration: 0.2 }}>
+                  <ChevronDown className="text-sm" />
+                </motion.span>
+              </motion.button>
+
+              {showAdvancedFilters && (
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="space-y-3">
+                  <div className="grid grid-cols-1 gap-3">
+                    <div className="flex items-center space-x-2 bg-white p-2 rounded-lg border border-blue-200 shadow-sm">
+                      <Calendar className="text-gray-500 text-sm" />
+                      <input
+                        type="date"
+                        value={filterStartDate ? filterStartDate.toISOString().split("T")[0] : ""}
+                        onChange={(e) => setFilterStartDate(e.target.value ? new Date(e.target.value) : null)}
+                        className="flex-1 focus:outline-none bg-transparent text-sm text-gray-800"
+                      />
+                    </div>
+                    <div className="flex items-center space-x-2 bg-white p-2 rounded-lg border border-blue-200 shadow-sm">
+                      <Calendar className="text-gray-500 text-sm" />
+                      <input
+                        type="date"
+                        value={filterEndDate ? filterEndDate.toISOString().split("T")[0] : ""}
+                        onChange={(e) => setFilterEndDate(e.target.value ? new Date(e.target.value) : null)}
+                        className="flex-1 focus:outline-none bg-transparent text-sm text-gray-800"
+                      />
+                    </div>
+                  </div>
+
+                  <select
+                    value={selectedUnit.length > 0 ? selectedUnit[0] : ""}
+                    onChange={(e) => setSelectedUnit(e.target.value ? [e.target.value] : [])}
+                    className="w-full border border-blue-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white text-sm"
+                  >
+                    <option value="">All Units</option>
+                    {uniqueUnits.map((unit) => (
+                      <option key={unit} value={unit}>
+                        {unit}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={selectedMachine.length > 0 ? selectedMachine[0] : ""}
+                    onChange={(e) => setSelectedMachine(e.target.value ? [e.target.value] : [])}
+                    className="w-full border border-blue-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white text-sm"
+                  >
+                    <option value="">All Machines</option>
+                    {uniqueMachines.map((machine) => (
+                      <option key={machine} value={machine}>
+                        {machine}
+                      </option>
+                    ))}
+                  </select>
+                </motion.div>
+              )}
+            </div>
+          </ResponsiveCard>
+        );
+      default:
+        return (
+          <ResponsiveCard className="mb-6">
+            <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-4 md:space-y-0">
+              <div className="flex-1 relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
+                <input
+                  type="text"
+                  placeholder="Search by Interval, unit, or machine..."
+                  className="w-full pl-11 pr-4 py-2.5 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white text-sm transition-all duration-200 shadow-sm placeholder-gray-400"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                className="flex items-center space-x-2 bg-white border border-blue-200 text-gray-800 px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-sm font-semibold text-sm hover:bg-gray-50"
+              >
+                <Filter className="text-base" />
+                <span>Filter</span>
+                <motion.span animate={{ rotate: showAdvancedFilters ? 180 : 0 }} transition={{ duration: 0.2 }}>
+                  <ChevronDown className="text-base" />
+                </motion.span>
+              </motion.button>
+            </div>
+
+            {showAdvancedFilters && (
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="flex items-center space-x-2 bg-white p-2.5 rounded-lg border border-blue-200 shadow-sm">
+                  <Calendar className="text-gray-500 text-base" />
+                  <input
+                    type="date"
+                    value={filterStartDate ? filterStartDate.toISOString().split("T")[0] : ""}
+                    onChange={(e) => setFilterStartDate(e.target.value ? new Date(e.target.value) : null)}
+                    className="flex-1 focus:outline-none bg-transparent text-sm text-gray-800"
+                  />
+                  <span className="text-gray-400">-</span>
+                  <input
+                    type="date"
+                    value={filterEndDate ? filterEndDate.toISOString().split("T")[0] : ""}
+                    onChange={(e) => setFilterEndDate(e.target.value ? new Date(e.target.value) : null)}
+                    className="flex-1 focus:outline-none bg-transparent text-sm text-gray-800"
+                  />
+                </div>
+
+                <select
+                  value={selectedUnit.length > 0 ? selectedUnit[0] : ""}
+                  onChange={(e) => setSelectedUnit(e.target.value ? [e.target.value] : [])}
+                  className="border border-blue-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white text-sm"
+                >
+                  <option value="">All Units</option>
+                  {uniqueUnits.map((unit) => (
+                    <option key={unit} value={unit}>
+                      {unit}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={selectedMachine.length > 0 ? selectedMachine[0] : ""}
+                  onChange={(e) => setSelectedMachine(e.target.value ? [e.target.value] : [])}
+                  className="border border-blue-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white text-sm"
+                >
+                  <option value="">All Machines</option>
+                  {uniqueMachines.map((machine) => (
+                    <option key={machine} value={machine}>
+                      {machine}
+                    </option>
+                  ))}
+                </select>
+              </motion.div>
+            )}
+          </ResponsiveCard>
+        );
+    }
+  };
+
   return (
     <MaintenanceRecordsContext.Provider value={{ records, setRecords, routineSchedules }}>
       <div className={`flex h-screen font-sans antialiased bg-blue-50`}>
@@ -1955,276 +2336,142 @@ const MonitoringMaintenance: React.FC = () => {
 
         <div className="flex-1 flex flex-col overflow-hidden">
           <PageHeader
-            mainTitle="Moninoring Maintenance"
+            mainTitle="Monitoring Maintenance"
             mainTitleHighlight="Management"
             description="Manage user roles and permissions to control access and functionality within the system."
             icon={<Monitor />}
-            isMobile={isMobile}
+            isMobile={deviceType === "mobile"}
             toggleSidebar={toggleSidebar}
           />
 
-          <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
-            <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-6 flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-                  Monitoring <span className="text-blue-600">Maintenance</span>
-                </h1>
-                <p className="text-gray-600 mt-2 text-sm max-w-xl">Monitor and schedule preventive maintenance tasks for all machines, and track their approval progress.</p>
-              </div>
-              <div className="flex items-center space-x-2">
-                <motion.button
-                  onClick={() => navigate("/monitoringmaintenance/formmonitoringmaintenance")}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-full text-sm font-semibold shadow-md hover:bg-blue-700 transition-colors duration-200"
-                >
-                  <Plus className="w-4 h-4 mr-2" /> Add Schedule
-                </motion.button>
-                <div className="flex space-x-1 p-1 bg-white rounded-full shadow-sm border border-gray-100">
-                  <motion.button
-                    onClick={() => setViewMode("calendar")}
-                    whileTap={{ scale: 0.95 }}
-                    className={`flex items-center px-4 py-2 rounded-full text-sm font-semibold transition-colors duration-200 ${viewMode === "calendar" ? "bg-blue-600 text-white shadow" : "text-gray-700 hover:bg-gray-100"}`}
-                  >
-                    <Calendar className="w-4 h-4 mr-2" /> Calendar
-                  </motion.button>
-                  <motion.button
-                    onClick={() => setViewMode("table")}
-                    whileTap={{ scale: 0.95 }}
-                    className={`flex items-center px-4 py-2 rounded-full text-sm font-semibold transition-colors duration-200 ${viewMode === "table" ? "bg-blue-600 text-white shadow" : "text-gray-700 hover:bg-gray-100"}`}
-                  >
-                    <Clipboard className="w-4 h-4 mr-2" /> Table
-                  </motion.button>
-                  <motion.button
-                    onClick={() => setViewMode("trend")}
-                    whileTap={{ scale: 0.95 }}
-                    className={`flex items-center px-4 py-2 rounded-full text-sm font-semibold transition-colors duration-200 ${viewMode === "trend" ? "bg-blue-600 text-white shadow" : "text-gray-700 hover:bg-gray-100"}`}
-                  >
-                    <TrendingUp className="w-4 h-4 mr-2" /> Trend
-                  </motion.button>
-                </div>
-              </div>
-            </motion.div>
-            {loading ? (
-              <div className="bg-white rounded-2xl shadow-md p-8 text-center border border-blue-100">
-                <div className="animate-spin rounded-full h-14 w-14 border-t-4 border-b-4 border-blue-500 mx-auto mb-5"></div>
-                <p className="text-gray-600 text-base font-medium">Loading maintenance data...</p>
-              </div>
-            ) : records.length === 0 ? (
-              <div className="bg-white rounded-2xl shadow-md p-8 text-center border border-blue-100">
-                <Info className="text-blue-500 text-4xl mx-auto mb-4" />
-                <p className="text-gray-700 text-base font-medium">No monitoring data available.</p>
-              </div>
-            ) : (
-              <AnimatePresence mode="wait">
-                <motion.div key={viewMode} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
-                  {/* Filter Section - Tampilkan selalu ketika ada data */}
-                  <div className="mb-8 bg-white rounded-2xl shadow-md p-5 border border-blue-100">
-                    <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-4 md:space-y-0 relative">
-                      <div className="flex-1 relative">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
-                        <input
-                          type="text"
-                          placeholder="Search by Interval, unit, or machine..."
-                          className="w-full pl-11 pr-4 py-2.5 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white text-sm transition-all duration-200 shadow-sm placeholder-gray-400"
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                          aria-label="Search records"
-                        />
-                      </div>
+          <main className="flex-1 overflow-y-auto custom-scrollbar bg-gray-50">
+            <ResponsiveContainers>
+              <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-6">
+                {getHeaderLayout()}
+              </motion.div>
 
-                      <motion.button
-                        whileHover={{ scale: 1.02, boxShadow: "0 4px 10px rgba(0, 0, 0, 0.08)" }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                        className="flex items-center space-x-2 bg-white border border-blue-200 text-gray-800 px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-sm font-semibold text-sm hover:bg-gray-50"
-                      >
-                        <Filter className="text-base" />
-                        <span>Filter</span>
-                        <motion.span animate={{ rotate: showAdvancedFilters ? 180 : 0 }} transition={{ duration: 0.2 }}>
-                          <ChevronDown className="text-base" />
-                        </motion.span>
-                      </motion.button>
-                    </div>
+              {loading ? (
+                <ResponsiveCard className="text-center">
+                  <div className="animate-spin rounded-full h-14 w-14 border-t-4 border-b-4 border-blue-500 mx-auto mb-5"></div>
+                  <p className="text-gray-600 text-base font-medium">Loading maintenance data...</p>
+                </ResponsiveCard>
+              ) : records.length === 0 ? (
+                <ResponsiveCard className="text-center">
+                  <Info className="text-blue-500 text-4xl mx-auto mb-4" />
+                  <p className="text-gray-700 text-base font-medium">No monitoring data available.</p>
+                </ResponsiveCard>
+              ) : (
+                <AnimatePresence mode="wait">
+                  <motion.div key={viewMode} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
+                    {getFilterLayout()}
 
-                    <AnimatePresence>
-                      {showAdvancedFilters && (
-                        <motion.div
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: "auto" }}
-                          exit={{ opacity: 0, height: 0 }}
-                          transition={{ duration: 0.2 }}
-                          className="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full"
-                        >
-                          <div className="flex items-center space-x-2 bg-white p-2.5 rounded-lg border border-blue-200 shadow-sm">
-                            <Calendar className="text-gray-500 text-base" />
-                            <input
-                              type="date"
-                              value={filterStartDate ? filterStartDate.toISOString().split("T")[0] : ""}
-                              onChange={(e) => setFilterStartDate(e.target.value ? new Date(e.target.value) : null)}
-                              placeholder="Start Date"
-                              className="w-24 focus:outline-none bg-transparent text-sm text-gray-800 placeholder-gray-400"
-                              aria-label="Start Date"
-                            />
-                            <span className="text-gray-400">-</span>
-                            <input
-                              type="date"
-                              value={filterEndDate ? filterEndDate.toISOString().split("T")[0] : ""}
-                              onChange={(e) => setFilterEndDate(e.target.value ? new Date(e.target.value) : null)}
-                              placeholder="End Date"
-                              className="w-24 focus:outline-none bg-transparent text-sm text-gray-800 placeholder-gray-400"
-                              aria-label="End Date"
-                              min={filterStartDate ? filterStartDate.toISOString().split("T")[0] : undefined}
-                            />
-                            {(filterStartDate || filterEndDate) && (
-                              <motion.button
-                                whileHover={{ scale: 1.1 }}
-                                whileTap={{ scale: 0.9 }}
-                                onClick={() => {
-                                  setFilterStartDate(null);
-                                  setFilterEndDate(null);
-                                }}
-                                className="p-1 rounded-full text-gray-400 hover:bg-gray-100 transition-colors"
-                                title="Clear Date"
-                                aria-label="Clear date range"
-                              >
-                                <X className="text-base" />
+                    {/* View Modes */}
+                    {viewMode === "calendar" && (
+                      <div className="space-y-4">
+                        {/* Legend */}
+                        <ResponsiveCard>
+                          <div className={`flex flex-wrap gap-4 justify-center ${deviceType === "mobile" ? "text-xs" : "text-sm"}`}>
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 bg-blue-100 border border-blue-400 rounded"></div>
+                              <span className="text-gray-700">New / Not Started</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 bg-yellow-100 border border-yellow-400 rounded"></div>
+                              <span className="text-gray-700">On Progress</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 bg-green-100 border border-green-400 rounded"></div>
+                              <span className="text-gray-700">Done / Completed</span>
+                            </div>
+                          </div>
+                        </ResponsiveCard>
+
+                        {/* Calendar Content */}
+                        <ResponsiveCard>
+                          <div className={`flex justify-between items-center mb-4 ${deviceType === "mobile" ? "flex-col space-y-3" : "flex-row"}`}>
+                            <div className="flex items-center space-x-2">
+                              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={goToPreviousMonth} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
+                                <ChevronLeft size={deviceType === "mobile" ? 16 : 20} />
                               </motion.button>
-                            )}
-                          </div>
-
-                          <div className="relative w-full">
-                            <select
-                              value={selectedUnit.length > 0 ? selectedUnit[0] : ""}
-                              onChange={(e) => setSelectedUnit(e.target.value ? [e.target.value] : [])}
-                              className="w-full border border-blue-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white text-sm text-left transition-all duration-200 shadow-sm cursor-pointer"
+                              <h3 className={`font-bold text-gray-800 ${deviceType === "mobile" ? "text-lg" : "text-xl"}`}>{currentCalendarDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</h3>
+                              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={goToNextMonth} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
+                                <ChevronRight size={deviceType === "mobile" ? 16 : 20} />
+                              </motion.button>
+                            </div>
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={goToCurrentMonth}
+                              className={`bg-blue-600 text-white rounded-full font-semibold shadow-md hover:bg-blue-700 transition-colors duration-200 ${deviceType === "mobile" ? "px-3 py-1.5 text-xs w-full" : "px-4 py-2 text-sm"}`}
                             >
-                              <option value="">All Units</option>
-                              {uniqueUnits.map((unit) => (
-                                <option key={unit} value={unit}>
-                                  {unit}
-                                </option>
-                              ))}
-                            </select>
+                              Today
+                            </motion.button>
                           </div>
-                          <div className="relative w-full">
-                            <select
-                              value={selectedMachine.length > 0 ? selectedMachine[0] : ""}
-                              onChange={(e) => setSelectedMachine(e.target.value ? [e.target.value] : [])}
-                              className="w-full border border-blue-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white text-sm text-left transition-all duration-200 shadow-sm cursor-pointer"
-                            >
-                              <option value="">All Machines</option>
-                              {uniqueMachines.map((machine) => (
-                                <option key={machine} value={machine}>
-                                  {machine}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
 
-                  {/* View Modes */}
+                          <div className={`grid grid-cols-8 gap-1 text-center font-semibold text-gray-600 mb-2 ${deviceType === "mobile" ? "text-xs" : "text-sm"}`}>
+                            <div className="text-center font-bold">WN</div>
+                            <div>Mon</div>
+                            <div>Tue</div>
+                            <div>Wed</div>
+                            <div>Thu</div>
+                            <div>Fri</div>
+                            <div>Sat</div>
+                            <div>Sun</div>
+                          </div>
 
-                  {viewMode === "calendar" && (
-                    <div className="space-y-4">
-                      {/* LEGEND - Hanya tampil di calendar view dan di atas calendar */}
-                      <div className="bg-white rounded-2xl shadow-md p-4 border border-blue-100">
-                        <div className="flex flex-wrap gap-4 justify-center text-sm">
-                          <div className="flex items-center gap-2">
-                            <div className="w-4 h-4 bg-blue-100 border border-blue-400 rounded"></div>
-                            <span className="text-gray-700">New / Not Started</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-4 h-4 bg-yellow-100 border border-yellow-400 rounded"></div>
-                            <span className="text-gray-700">On Progress</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-4 h-4 bg-green-100 border border-green-400 rounded"></div>
-                            <span className="text-gray-700">Done / Completed</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-4 h-4 bg-gray-100 border border-gray-300 rounded"></div>
-                            <span className="text-gray-700">No Schedule</span>
-                          </div>
-                        </div>
+                          <div className="grid grid-cols-8 gap-1">{renderCalendarDays()}</div>
+                        </ResponsiveCard>
                       </div>
+                    )}
 
-                      {/* Calendar Content */}
-                      <div className="bg-white rounded-2xl shadow-md p-6 border border-blue-100">
-                        {/* Calendar content */}
-                        <div className="flex justify-between items-center mb-4">
-                          <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={goToPreviousMonth} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
-                            <ChevronLeft size={20} />
-                          </motion.button>
-                          <h3 className="text-lg font-bold text-gray-800">{currentCalendarDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</h3>
-                          <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={goToNextMonth} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
-                            <ChevronRight size={20} />
-                          </motion.button>
-                          <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={goToCurrentMonth}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-full text-sm font-semibold shadow-md hover:bg-blue-700 transition-colors duration-200"
-                          >
-                            Today
-                          </motion.button>
-                        </div>
-                        <div className="grid grid-cols-8 gap-2 text-center text-sm font-semibold text-gray-600 mb-2">
-                          <div className="text-center font-bold">WN</div>
-                          <div>Mon</div>
-                          <div>Tue</div>
-                          <div>Wed</div>
-                          <div>Thu</div>
-                          <div>Fri</div>
-                          <div>Sat</div>
-                          <div>Sun</div>
-                        </div>
-                        <div className="grid grid-cols-8 gap-2">{renderCalendarDays()}</div>
-                      </div>
-                    </div>
-                  )}
-                  {viewMode === "table" && (
-                    <div className="bg-white rounded-2xl shadow-md p-6 border border-blue-100">
-                      {/* Table content */}
-                      <div className="overflow-x-auto bg-white rounded-lg shadow-md mt-6 animate-fade-in">
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Interval</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Machine</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monitoring Result</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">MS Status</th>
-                              <th className="relative px-6 py-3">
-                                <span className="sr-only">Actions</span>
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
-                            {filteredRecords.length > 0 ? (
-                              filteredRecords.map((record) => (
+                    {/* Table View - Optimized for tablets */}
+                    {viewMode === "table" && (
+                      <ResponsiveCard>
+                        <div className="overflow-x-auto">
+                          <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                {deviceType !== "mobile" && (
+                                  <>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Interval</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
+                                  </>
+                                )}
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Machine</th>
+                                {deviceType === "desktop" && <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>}
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Result</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th className="relative px-4 py-3">
+                                  <span className="sr-only">Actions</span>
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                              {filteredRecords.map((record) => (
                                 <motion.tr key={record.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="hover:bg-gray-50">
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{record.date}</td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{record.interval}</td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{record.unitWilayah}</td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{record.mesin}</td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{record.item}</td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{record.monitoringResult}</td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                  <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                                    {deviceType === "mobile" ? new Date(record.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : record.date}
+                                  </td>
+                                  {deviceType !== "mobile" && (
+                                    <>
+                                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{record.interval}</td>
+                                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{record.unitWilayah}</td>
+                                    </>
+                                  )}
+                                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{deviceType === "mobile" ? (record.mesin.length > 15 ? record.mesin.substring(0, 15) + "..." : record.mesin) : record.mesin}</td>
+                                  {deviceType === "desktop" && <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{record.item}</td>}
+                                  <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{record.monitoringResult}</td>
+                                  <td className="px-4 py-3 whitespace-nowrap text-sm">
                                     <span
-                                      className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                                      className={`px-2 py-1 rounded-full text-xs font-semibold ${
                                         record.msStatus === "MS" ? "bg-green-100 text-green-800" : record.msStatus === "TMS" ? "bg-red-100 text-red-800" : "bg-gray-100 text-gray-800"
                                       }`}
                                     >
                                       {record.msStatus}
                                     </span>
                                   </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                  <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
                                     <motion.button
                                       whileHover={{ scale: 1.1 }}
                                       whileTap={{ scale: 0.9 }}
@@ -2232,36 +2479,30 @@ const MonitoringMaintenance: React.FC = () => {
                                       className="text-blue-600 hover:text-blue-900 transition-colors duration-200"
                                       title="View Details"
                                     >
-                                      <Eye size={18} />
+                                      <Eye size={deviceType === "mobile" ? 16 : 18} />
                                     </motion.button>
                                   </td>
                                 </motion.tr>
-                              ))
-                            ) : (
-                              <tr>
-                                <td colSpan={8} className="px-6 py-4 text-center text-sm text-gray-500">
-                                  No monitoring data found.
-                                </td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-                  {viewMode === "trend" && <TrendAnalysis records={filteredRecords} />}
-                </motion.div>
-              </AnimatePresence>
-            )}
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </ResponsiveCard>
+                    )}
+
+                    {viewMode === "trend" && <TrendAnalysis records={filteredRecords} />}
+                  </motion.div>
+                </AnimatePresence>
+              )}
+            </ResponsiveContainers>
           </main>
         </div>
 
+        {/* Modal components tetap sama */}
         <Modal isOpen={showDetailsModal} onClose={() => setShowDetailsModal(false)} title="Monitoring Details">
           {selectedRecord && (
             <>
-              {/* PERBAIKI DI SINI - HAPUS onUpdateRecord KARENA TIDAK DIPERLUKAN LAGI */}
               <DetailView record={selectedRecord} onUpdateRecord={handleUpdateRecord} />
-
               <div className="mt-6 pt-4 border-t border-gray-200 flex justify-center">
                 <motion.button
                   onClick={() => handleNavigateToEditForm(selectedRecord)}

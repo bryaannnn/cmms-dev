@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../../component/Sidebar";
 import { motion, AnimatePresence } from "framer-motion";
-import { Folder, Plus, Edit, Trash2, X } from "lucide-react";
+import { Folder, Plus, Edit, Trash2, X, Users } from "lucide-react";
 import PageHeader from "../../component/PageHeader";
 import { useAuth } from "../../routes/AuthContext";
 
@@ -209,7 +209,7 @@ const ServiceGroup: React.FC = () => {
       <Sidebar />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <PageHeader mainTitle="Service Groups" mainTitleHighlight="Groups" description="Manage service groups used across the service management system." icon={<Folder />} isMobile={isMobile} toggleSidebar={toggleSidebar} />
+        <PageHeader mainTitle="Service Groups" mainTitleHighlight="Groups" description="Manage service groups used across the service management system." icon={<Users />} isMobile={isMobile} toggleSidebar={toggleSidebar} />
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-8 flex items-center justify-between">

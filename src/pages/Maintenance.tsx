@@ -41,7 +41,9 @@ import {
   Moon,
   Sun,
   UserIcon,
+  ChartBar,
 } from "lucide-react";
+import PageHeader from "../component/PageHeader";
 
 // Moved useDebounce definition here to resolve "Cannot find module" error
 function useDebounce<T>(value: T, delay: number): T {
@@ -221,77 +223,222 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
   const downtimeMinutes = convertDurationInMinutes(record.stopJam, record.stopMenit, record.startJam, record.startMenit);
   const displayDowntime = convertMinutesToHoursAndMinutes(downtimeMinutes);
 
-  const DetailItem: React.FC<{ label: string; value: string }> = ({ label, value }) => (
-    <div className="flex flex-col">
-      <h4 className="text-sm font-medium text-gray-500 mb-1">{label}</h4>
-      <p className="w-full bg-blue-50 border border-blue-100 rounded-lg p-3 text-gray-800 text-base font-medium min-h-[44px] flex items-center">{value}</p>
+  // Komponen untuk status badge yang lebih menonjol
+  const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
+    const statusColors = {
+      PM: "bg-blue-100 text-blue-800 border-blue-300",
+      Harmonisasi: "bg-green-100 text-green-800 border-green-300",
+      CIP: "bg-purple-100 text-purple-800 border-purple-300",
+      Unplanned: "bg-red-100 text-red-800 border-red-300",
+      Standby: "bg-yellow-100 text-yellow-800 border-yellow-300",
+    };
+
+    return <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold border ${statusColors[status as keyof typeof statusColors] || "bg-gray-100 text-gray-800 border-gray-300"}`}>{status}</span>;
+  };
+
+  const ActivityBadge: React.FC<{ activity: string }> = ({ activity }) => {
+    const activityColors = {
+      Perbaikan: "bg-orange-100 text-orange-800 border-orange-300",
+      Perawatan: "bg-cyan-100 text-cyan-800 border-cyan-300",
+    };
+
+    return <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold border ${activityColors[activity as keyof typeof activityColors] || "bg-gray-100 text-gray-800 border-gray-300"}`}>{activity}</span>;
+  };
+
+  // Komponen Section dengan header yang lebih jelas
+  const Section: React.FC<{ title: string; children: React.ReactNode; icon?: React.ReactNode }> = ({ title, children, icon }) => (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-200">
+        <div className="flex items-center">
+          {icon && <div className="mr-3 text-blue-600">{icon}</div>}
+          <h3 className="text-lg font-bold text-gray-900">{title}</h3>
+        </div>
+      </div>
+      <div className="p-6">{children}</div>
     </div>
   );
 
-  const DetailItemHTML: React.FC<{ label: string; htmlContent: string }> = ({ label, htmlContent }) => {
-    if (!htmlContent)
-      return (
-        <div className="flex flex-col">
-          <h4 className="text-sm font-medium text-gray-500 mb-1">{label}</h4>
-          <p className="w-full bg-blue-50 border border-blue-100 rounded-lg p-3 text-gray-800 text-base font-medium min-h-[44px] flex items-center">-</p>
-        </div>
-      );
-
-    // Konfigurasi DOMPurify yang mengizinkan list dan styling
-    const cleanHTML = DOMPurify.sanitize(htmlContent, {
-      ALLOWED_TAGS: ["h1", "h2", "h3", "h4", "h5", "h6", "p", "br", "span", "div", "ol", "ul", "li", "strong", "b", "em", "i", "u", "s", "strike", "code", "mark", "sub", "sup"],
-      ALLOWED_ATTR: ["style", "class", "data-color", "align", "type", "start"],
-    });
+  // Komponen Detail Item yang lebih modern untuk Maintenance
+  const DetailItem: React.FC<{
+    label: string;
+    value: string;
+    icon?: React.ReactNode;
+    fullWidth?: boolean;
+    priority?: "high" | "medium" | "low";
+  }> = ({ label, value, icon, fullWidth = false, priority = "medium" }) => {
+    const priorityStyles = {
+      high: "border-l-4 border-l-blue-500 bg-blue-25",
+      medium: "border-l-2 border-l-gray-200",
+      low: "border-l border-l-gray-100",
+    };
 
     return (
-      <div className="flex flex-col">
-        <h4 className="text-sm font-medium text-gray-500 mb-1">{label}</h4>
-        <div className="rich-text-content w-full bg-blue-50 border border-blue-100 rounded-lg p-4 text-gray-800 min-h-[44px]" dangerouslySetInnerHTML={{ __html: cleanHTML }} />
+      <div className={`${fullWidth ? "col-span-full" : ""}`}>
+        <div className={`p-4 rounded-lg ${priorityStyles[priority]} transition-all duration-200 hover:shadow-sm`}>
+          <div className="flex items-start space-x-3">
+            {icon && <div className="text-gray-400 mt-0.5 flex-shrink-0">{icon}</div>}
+            <div className="flex-1 min-w-0">
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{label}</label>
+              <p className="text-sm font-medium text-gray-900 leading-relaxed">{value}</p>
+            </div>
+          </div>
+        </div>
       </div>
     );
   };
 
-  const SectionTitle: React.FC<{ title: string }> = ({ title }) => <h3 className="text-lg font-bold text-gray-800 mb-4 pb-2 border-b border-blue-200 mt-6 first:mt-0">{title}</h3>;
+  // Komponen DetailItemHTML yang lebih rapi untuk Maintenance
+  const DetailItemHTML: React.FC<{
+    label: string;
+    htmlContent: string;
+    icon?: React.ReactNode;
+    fullWidth?: boolean;
+  }> = ({ label, htmlContent, icon, fullWidth = false }) => {
+    if (!htmlContent) {
+      return <DetailItem label={label} value="-" icon={icon} fullWidth={fullWidth} priority="low" />;
+    }
+
+    const cleanHTML = DOMPurify.sanitize(htmlContent, {
+      ALLOWED_TAGS: ["h1", "h2", "h3", "h4", "h5", "h6", "p", "br", "span", "div", "ol", "ul", "li", "strong", "b", "em", "i", "u", "s", "strike", "code", "mark", "sub", "sup", "blockquote", "pre"],
+      ALLOWED_ATTR: ["style", "class", "data-color", "align", "type", "start"],
+    });
+
+    return (
+      <div className={`${fullWidth ? "col-span-full" : ""}`}>
+        <div className="p-4 rounded-lg border-l-2 border-l-blue-200 bg-blue-25 transition-all duration-200 hover:shadow-sm">
+          <div className="flex items-start space-x-3">
+            {icon && <div className="text-gray-400 mt-0.5 flex-shrink-0">{icon}</div>}
+            <div className="flex-1 min-w-0">
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{label}</label>
+              <div
+                className="rich-text-content text-sm text-gray-900 leading-relaxed prose prose-sm max-w-none
+                          prose-headings:font-semibold prose-p:my-2 prose-ul:my-2 prose-ol:my-2
+                          prose-li:my-1 prose-strong:font-semibold prose-em:italic"
+                dangerouslySetInnerHTML={{ __html: cleanHTML }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
-    <div className="space-y-6">
-      <SectionTitle title="General Information" />
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <DetailItem label="Date" value={displayValue(record.date)} />
-        <DetailItem label="Shift" value={displayValue(record.shift)} />
-        <DetailItem label="Group" value={displayValue(record.group)} />
-        <DetailItem label="Machine" value={displayValue(record.mesin)} />
-        <DetailItem label="Unit" value={displayValue(record.unit)} />
-        <DetailItem label="Stop Time" value={formatTime(record.stopJam, record.stopMenit)} />
-        <DetailItem label="Start Time" value={formatTime(record.startJam, record.startMenit)} />
-        <DetailItem label="Durationtime" value={displayValue(displayDowntime)} />
-        <DetailItem label="Stop Type" value={displayValue(record.stopTime)} />
-        <DetailItem label="Running Hour" value={displayValue(record.runningHour)} />
+    <div className="space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar pr-2">
+      {/* Header dengan informasi utama untuk Maintenance */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-2">
+              <h2 className="text-2xl font-bold text-gray-900">Maintenance Record</h2>
+              <ActivityBadge activity={record.perbaikanPerawatan} />
+              <StatusBadge status={record.stopTime} />
+            </div>
+            <div className="flex flex-wrap gap-4 text-sm text-gray-600">
+              <span className="flex items-center gap-2">
+                <Calendar className="w-4 h-4" />
+                Date: {displayValue(record.date)}
+              </span>
+              <span className="flex items-center gap-2">
+                <Clock className="w-4 h-4" />
+                Duration: {displayValue(displayDowntime)}
+              </span>
+              <span className="flex items-center gap-2">
+                <Wrench className="w-4 h-4" />
+                Machine: {displayValue(record.mesin)}
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <SectionTitle title="Issue Details" />
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <DetailItem label="Item Trouble" value={displayValue(record.itemTrouble)} />
-        <DetailItem label="Issue Description" value={displayValue(record.jenisGangguan)} />
-        <DetailItemHTML label="Action Taken" htmlContent={record.bentukTindakan || ""} />
-        <DetailItem label="Root Cause" value={displayValue(record.rootCause)} />
-      </div>
+      {/* Basic Information */}
+      <Section title="Basic Information" icon={<Clipboard className="w-5 h-5" />}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <DetailItem label="Date" value={displayValue(record.date)} icon={<Calendar className="w-4 h-4" />} priority="high" />
+          <DetailItem label="Shift" value={displayValue(record.shift)} icon={<Clock className="w-4 h-4" />} />
+          <DetailItem label="Group" value={displayValue(record.group)} icon={<Users className="w-4 h-4" />} />
+          <DetailItem label="Machine" value={displayValue(record.mesin)} icon={<Settings className="w-4 h-4" />} priority="high" />
+          <DetailItem label="Unit" value={displayValue(record.unit)} icon={<Package className="w-4 h-4" />} />
+          <DetailItem label="Running Hour" value={displayValue(record.runningHour)} icon={<Clock className="w-4 h-4" />} />
+        </div>
+      </Section>
 
-      <SectionTitle title="Maintenance Details" />
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <DetailItem label="Activity Type" value={displayValue(record.jenisAktivitas)} />
-        <DetailItem label="Specific Activity" value={displayValue(record.kegiatan)} />
-      </div>
+      {/* Time Information */}
+      <Section title="Time Details" icon={<Clock className="w-5 h-5" />}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <DetailItem label="Stop Time" value={formatTime(record.stopJam, record.stopMenit)} icon={<Clock className="w-4 h-4" />} priority="high" />
+          <DetailItem label="Start Time" value={formatTime(record.startJam, record.startMenit)} icon={<Clock className="w-4 h-4" />} priority="high" />
+          <DetailItem label="Duration" value={displayValue(displayDowntime)} icon={<Clock className="w-4 h-4" />} priority="high" />
+          <DetailItem label="Stop Type" value={displayValue(record.stopTime)} icon={<AlertTriangle className="w-4 h-4" />} />
+        </div>
+      </Section>
 
-      <SectionTitle title="Spare Parts Used" />
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        <DetailItem label="Part Code" value={displayValue(record.kodePart)} />
-        <DetailItem label="Part Name" value={displayValue(record.sparePart)} />
-        <DetailItem label="ID Part" value={displayValue(record.idPart)} />
-        <DetailItem label="Quantity" value={displayValue(record.jumlah)} />
-        <DetailItem label="Unit" value={displayValue(record.unitSparePart)} />
-      </div>
+      {/* Issue & Problem Details */}
+      <Section title="Issue & Problem Details" icon={<AlertTriangle className="w-5 h-5" />}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <DetailItem label="Item Trouble" value={displayValue(record.itemTrouble)} icon={<Wrench className="w-4 h-4" />} priority="high" />
+          <DetailItem label="Issue Description" value={displayValue(record.jenisGangguan)} icon={<AlertTriangle className="w-4 h-4" />} priority="high" />
+          <DetailItemHTML label="Action Taken" htmlContent={record.bentukTindakan || ""} icon={<CheckCircle className="w-4 h-4" />} fullWidth />
+          <DetailItem label="Root Cause" value={displayValue(record.rootCause)} icon={<Search className="w-4 h-4" />} fullWidth />
+        </div>
+      </Section>
 
+      {/* Maintenance Activity */}
+      <Section title="Maintenance Activity" icon={<Wrench className="w-5 h-5" />}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <DetailItem label="Activity Type" value={displayValue(record.perbaikanPerawatan)} icon={<Settings className="w-4 h-4" />} priority="high" />
+          <DetailItem label="Specific Activity" value={displayValue(record.jenisAktivitas)} icon={<Wrench className="w-4 h-4" />} />
+          <DetailItem label="Kegiatan" value={displayValue(record.kegiatan)} icon={<Clipboard className="w-4 h-4" />} fullWidth />
+        </div>
+      </Section>
+
+      {/* Spare Parts Information */}
+      <Section title="Spare Parts Used" icon={<Package className="w-5 h-5" />}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <DetailItem label="Part Code" value={displayValue(record.kodePart)} icon={<Package className="w-4 h-4" />} />
+          <DetailItem label="Part Name" value={displayValue(record.sparePart)} icon={<Package className="w-4 h-4" />} priority="high" />
+          <DetailItem label="ID Part" value={displayValue(record.idPart)} icon={<Key className="w-4 h-4" />} />
+          <DetailItem label="Quantity" value={displayValue(record.jumlah)} icon={<BarChart2 className="w-4 h-4" />} />
+          <DetailItem label="Unit" value={displayValue(record.unitSparePart)} icon={<Package className="w-4 h-4" />} fullWidth />
+        </div>
+      </Section>
+
+      {/* Timeline Information */}
+      <Section title="Event Timeline" icon={<Clock className="w-5 h-5" />}>
+        <div className="space-y-3">
+          <div className="flex justify-between items-center p-3 bg-red-50 rounded-lg border border-red-200">
+            <span className="text-sm font-medium text-red-800">Machine Stopped</span>
+            <span className="text-sm text-red-600">{formatTime(record.stopJam, record.stopMenit)}</span>
+          </div>
+
+          <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg border border-blue-200">
+            <span className="text-sm font-medium text-blue-800">Maintenance Started</span>
+            <span className="text-sm text-blue-600">{formatTime(record.startJam, record.startMenit)}</span>
+          </div>
+
+          <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg border border-green-200">
+            <span className="text-sm font-medium text-green-800">Total Downtime</span>
+            <span className="text-sm text-green-600">{displayValue(displayDowntime)}</span>
+          </div>
+        </div>
+      </Section>
+
+      {/* Technical Summary */}
+      <Section title="Technical Summary" icon={<BarChart2 className="w-5 h-5" />}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="p-4 bg-blue-25 rounded-lg border-l-4 border-l-blue-400">
+            <h4 className="text-sm font-semibold text-gray-700 mb-2">Maintenance Type</h4>
+            <p className="text-lg font-bold text-blue-600">{displayValue(record.perbaikanPerawatan)}</p>
+          </div>
+          <div className="p-4 bg-green-25 rounded-lg border-l-4 border-l-green-400">
+            <h4 className="text-sm font-semibold text-gray-700 mb-2">Efficiency Impact</h4>
+            <p className="text-lg font-bold text-green-600">{displayValue(displayDowntime)} downtime</p>
+          </div>
+        </div>
+      </Section>
+
+      {/* Action Buttons */}
       <div className="flex justify-end pt-6 border-t border-gray-100 mt-8">
         <motion.button
           type="button"
@@ -300,7 +447,7 @@ const HistoryDetails: React.FC<HistoryDetailsProps> = ({ record, onClose }) => {
           whileTap={{ scale: 0.97 }}
           className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 font-semibold"
         >
-          Close
+          Close Details
         </motion.button>
       </div>
     </div>
@@ -792,144 +939,7 @@ const MachineHistoryDashboard: React.FC = () => {
       <Sidebar />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white border-b border-gray-100 p-4 flex items-center justify-between shadow-sm sticky top-0 z-30">
-          <div className="flex items-center space-x-4">
-            {isMobile && (
-              <motion.button onClick={toggleSidebar} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
-                <ChevronRight className="text-xl" />
-              </motion.button>
-            )}
-            <Clipboard className="text-xl text-blue-600" />
-            <h2 className="text-lg md:text-xl font-bold text-gray-900">Machine History</h2>
-          </div>
-
-          <div className="flex items-center space-x-3 relative">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setDarkMode(!darkMode)}
-              className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200"
-              aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
-            >
-              {darkMode ? <Sun className="text-yellow-400 text-xl" /> : <Moon className="text-xl" />}
-            </motion.button>
-
-            <div className="relative" ref={notificationsRef}>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setShowNotificationsPopup(!showNotificationsPopup)}
-                className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200 relative"
-                aria-label="Notifications"
-              >
-                <Bell className="text-xl" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full animate-pulse border border-white"></span>
-              </motion.button>
-
-              <AnimatePresence>
-                {showNotificationsPopup && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 20 }}
-                    transition={{ duration: 0.2 }}
-                    className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl overflow-hidden z-50 border border-gray-100"
-                  >
-                    <div className="p-4 border-b border-gray-100">
-                      <h3 className="text-lg font-semibold text-gray-800">Notifications</h3>
-                    </div>
-                    <div className="max-h-80 overflow-y-auto custom-scrollbar">
-                      {notifications.length > 0 ? (
-                        notifications.map((notif) => (
-                          <div key={notif.id} className="flex items-start p-4 border-b border-gray-50 last:border-b-0 hover:bg-blue-50 transition-colors cursor-pointer">
-                            {notif.icon && <div className="flex-shrink-0 mr-3">{notif.icon}</div>}
-                            <div>
-                              <p className="text-sm font-semibold text-gray-800">{notif.title}</p>
-                              <p className="text-xs text-gray-600 mt-1">{notif.description}</p>
-                              <p className="text-xs text-gray-400 mt-1">{notif.date}</p>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="p-4 text-center text-gray-500 text-sm">No new notifications.</p>
-                      )}
-                    </div>
-                    <div className="p-4 border-t border-gray-100 text-center">
-                      <button
-                        onClick={() => {
-                          setShowNotificationsPopup(false);
-                        }}
-                        className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                      >
-                        Mark all as read
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            <div className="relative" ref={profileRef}>
-              <motion.button
-                whileHover={{ backgroundColor: "rgba(239, 246, 255, 0.7)" }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => setShowProfileMenu(!showProfileMenu)}
-                className="flex items-center space-x-2 cursor-pointer p-2 rounded-lg transition-colors duration-200"
-              >
-                <img
-                  src={`https://api.dicebear.com/7.x/initials/svg?seed=${user?.name || "User"}&backgroundColor=0081ff,3d5a80,ffc300,e0b589&backgroundType=gradientLinear&radius=50`}
-                  alt="User Avatar"
-                  className="w-8 h-8 rounded-full border border-blue-200 object-cover"
-                />
-                <span className="font-medium text-gray-900 text-sm hidden sm:inline">{user?.name}</span>
-                <ChevronDown className="text-gray-500 text-base" />
-              </motion.button>
-
-              <AnimatePresence>
-                {showProfileMenu && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                    transition={{ duration: 0.2 }}
-                    className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-40 border border-gray-100"
-                  >
-                    <div className="px-4 py-2 text-xs text-gray-500 border-b border-gray-100">Signed in as</div>
-                    <div className="px-4 py-2 font-semibold text-gray-800 border-b border-gray-100">{user?.name || "Guest User"}</div>
-                    <button
-                      onClick={() => {
-                        navigate("/profile");
-                        setShowProfileMenu(false);
-                      }}
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 w-full text-left"
-                    >
-                      <UserIcon size={16} className="mr-2" /> My Profile
-                    </button>
-                    <button
-                      onClick={() => {
-                        navigate("/settings");
-                        setShowProfileMenu(false);
-                      }}
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 w-full text-left"
-                    >
-                      <Settings size={16} className="mr-2" /> Settings
-                    </button>
-                    <hr className="my-1 border-gray-100" />
-                    <button
-                      onClick={() => {
-                        navigate("/logout");
-                        setShowProfileMenu(false);
-                      }}
-                      className="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full text-left"
-                    >
-                      <LogOut size={16} className="mr-2" /> Logout
-                    </button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </div>
-        </header>
+        <PageHeader mainTitle="Machine History" mainTitleHighlight="Page" description="Manage work units and their configurations within the system." icon={<ChartBar />} isMobile={isMobile} toggleSidebar={toggleSidebar} />
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="isi style mb-6 flex space-x-6 border-b border-gray-200">

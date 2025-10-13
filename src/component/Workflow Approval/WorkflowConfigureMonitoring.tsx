@@ -5,6 +5,7 @@ import { Plus, Trash2, Save, ArrowLeft, UserCog, Loader } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth, Approver } from "../../routes/AuthContext";
 import Sidebar from "../Sidebar";
+import PageHeader from "../PageHeader";
 
 interface ConfigurableApprovalStep {
   order: number;
@@ -26,6 +27,15 @@ const WorkflowConfigureMonitoring: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { getUsers, getTemplateApprovers, addApproverToTemplate, updateApprover, deleteApprover, getApprovalTemplateById } = useAuth();
 
+  const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768);
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
+    const stored = localStorage.getItem("sidebarOpen");
+    return JSON.parse(stored || "false");
+  });
+  const toggleSidebar = (): void => {
+    localStorage.setItem("sidebarOpen", JSON.stringify(!sidebarOpen));
+    setSidebarOpen((prev) => !prev);
+  };
   const [users, setUsers] = useState<LocalUser[]>([]);
   const [template, setTemplate] = useState<any>(null);
   const [customApprovalFlow, setCustomApprovalFlow] = useState<ConfigurableApprovalStep[]>([]);
@@ -275,15 +285,7 @@ const WorkflowConfigureMonitoring: React.FC = () => {
     <div className="flex h-screen font-sans antialiased bg-blue-50 text-gray-900">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white border-b border-gray-100 p-4 flex items-center justify-between shadow-sm sticky top-0 z-30">
-          <div className="flex items-center space-x-4">
-            <motion.button onClick={() => navigate(-1)} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="flex items-center text-blue-600 hover:text-blue-800 transition-colors duration-200">
-              <ArrowLeft className="text-xl" />
-              <span className="font-semibold text-sm hidden md:inline">Back</span>
-            </motion.button>
-            <h2 className="text-lg md:text-xl font-bold text-gray-900 ml-4">Approval Monitoring Flow Management</h2>
-          </div>
-        </header>
+        <PageHeader mainTitle="Monitoring Approval" mainTitleHighlight="Page" description="Manage work shifts and their configurations within the system." icon={<UserCog />} isMobile={isMobile} toggleSidebar={toggleSidebar} />
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-6 bg-white p-6 rounded-lg border border-gray-200 shadow-sm">

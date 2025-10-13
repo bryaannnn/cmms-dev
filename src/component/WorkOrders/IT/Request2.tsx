@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Sidebar from "../../Sidebar";
 import DOMPurify from "dompurify";
 import { useAuth, WorkOrderData, Vendor } from "../../../routes/AuthContext";
+import PageHeader from "../../PageHeader";
 import {
   Plus,
   Upload,
@@ -29,6 +30,11 @@ import {
   Trash2,
   User as UserIcon,
   Printer,
+  Mail,
+  Phone,
+  MapPin,
+  Paperclip,
+  ExternalLink
 } from "lucide-react";
 
 interface Department {
@@ -496,158 +502,202 @@ const ITRequest2: React.FC = () => {
       });
     };
 
-    // Fungsi untuk menampilkan HTML yang aman
-    const displayHTML = (htmlString: string) => {
-      if (!htmlString) return "-";
+    // Komponen untuk status badge yang lebih menonjol
+    const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
+      const statusColors = {
+        New: "bg-gray-100 text-gray-800 border-gray-300",
+        Assigned: "bg-blue-100 text-blue-800 border-blue-300",
+        "In Progress": "bg-cyan-100 text-cyan-800 border-cyan-300",
+        Escalated: "bg-purple-100 text-purple-800 border-purple-300",
+        "Vendor Handled": "bg-red-100 text-red-800 border-red-300",
+        Resolved: "bg-orange-100 text-orange-800 border-orange-300",
+        Cancel: "bg-gray-100 text-gray-800 border-gray-300",
+        Closed: "bg-green-100 text-green-800 border-green-300",
+      };
 
-      // Bersihkan HTML dari potensi XSS
-      const cleanHTML = DOMPurify.sanitize(htmlString);
-
-      return <div className="w-full bg-blue-50 border border-blue-100 rounded-lg p-3 text-gray-800 text-base font-medium min-h-[44px] flex items-center" dangerouslySetInnerHTML={{ __html: cleanHTML }} />;
+      return <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold border ${statusColors[status as keyof typeof statusColors] || statusColors.New}`}>{status}</span>;
     };
 
-    const DetailItemHTML: React.FC<{ label: string; htmlContent: string }> = ({ label, htmlContent }) => {
-      if (!htmlContent)
-        return (
-          <div className="flex flex-col">
-            <h4 className="text-sm font-medium text-gray-500 mb-1">{label}</h4>
-            <p className="w-full bg-blue-50 border border-blue-100 rounded-lg p-3 text-gray-800 text-base font-medium min-h-[44px] flex items-center">-</p>
+    // Komponen Section dengan header yang lebih jelas
+    const Section: React.FC<{ title: string; children: React.ReactNode; icon?: React.ReactNode }> = ({ title, children, icon }) => (
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center">
+            {icon && <div className="mr-3 text-blue-600">{icon}</div>}
+            <h3 className="text-lg font-bold text-gray-900">{title}</h3>
           </div>
-        );
+        </div>
+        <div className="p-6">{children}</div>
+      </div>
+    );
 
-      // Konfigurasi DOMPurify yang mengizinkan list dan styling
-      const cleanHTML = DOMPurify.sanitize(htmlContent, {
-        ALLOWED_TAGS: [
-          "h1",
-          "h2",
-          "h3",
-          "h4",
-          "h5",
-          "h6",
-          "p",
-          "br",
-          "span",
-          "div",
-          "ol",
-          "ul",
-          "li", // Pastikan tag list diizinkan
-          "strong",
-          "b",
-          "em",
-          "i",
-          "u",
-          "s",
-          "strike",
-          "code",
-          "mark",
-          "sub",
-          "sup",
-        ],
-        ALLOWED_ATTR: [
-          "style",
-          "class",
-          "data-color",
-          "align",
-          "type",
-          "start", // Izinkan atribut untuk list
-        ],
-      });
+    // Komponen Detail Item yang lebih modern
+    const DetailItem: React.FC<{
+      label: string;
+      value: string;
+      icon?: React.ReactNode;
+      fullWidth?: boolean;
+      priority?: "high" | "medium" | "low";
+    }> = ({ label, value, icon, fullWidth = false, priority = "medium" }) => {
+      const priorityStyles = {
+        high: "border-l-4 border-l-blue-500 bg-blue-25",
+        medium: "border-l-2 border-l-gray-200",
+        low: "border-l border-l-gray-100",
+      };
 
       return (
-        <div className="flex flex-col">
-          <h4 className="text-sm font-medium text-gray-500 mb-1">{label}</h4>
-          <div className="rich-text-content w-full bg-blue-50 border border-blue-100 rounded-lg p-4 text-gray-800 min-h-[44px]" dangerouslySetInnerHTML={{ __html: cleanHTML }} />
+        <div className={`${fullWidth ? "col-span-full" : ""}`}>
+          <div className={`p-4 rounded-lg ${priorityStyles[priority]} transition-all duration-200 hover:shadow-sm`}>
+            <div className="flex items-start space-x-3">
+              {icon && <div className="text-gray-400 mt-0.5 flex-shrink-0">{icon}</div>}
+              <div className="flex-1 min-w-0">
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{label}</label>
+                <p className="text-sm font-medium text-gray-900 leading-relaxed">{value}</p>
+              </div>
+            </div>
+          </div>
         </div>
       );
     };
 
-    const DetailItem: React.FC<{ label: string; value: string }> = ({ label, value }) => (
-      <div className="flex flex-col">
-        <h4 className="text-sm font-medium text-gray-500 mb-1">{label}</h4>
-        <p className="w-full bg-blue-50 border border-blue-100 rounded-lg p-3 text-gray-800 text-base font-medium min-h-[44px] flex items-center">{value}</p>
-      </div>
-    );
+    // Komponen DetailItemHTML yang lebih rapi
+    const DetailItemHTML: React.FC<{
+      label: string;
+      htmlContent: string;
+      icon?: React.ReactNode;
+      fullWidth?: boolean;
+    }> = ({ label, htmlContent, icon, fullWidth = false }) => {
+      if (!htmlContent) {
+        return <DetailItem label={label} value="-" icon={icon} fullWidth={fullWidth} priority="low" />;
+      }
 
-    const SectionTitle: React.FC<{ title: string }> = ({ title }) => <h3 className="text-lg font-bold text-gray-800 mb-4 pb-2 border-b border-blue-200 mt-6 first:mt-0">{title}</h3>;
+      const cleanHTML = DOMPurify.sanitize(htmlContent, {
+        ALLOWED_TAGS: ["h1", "h2", "h3", "h4", "h5", "h6", "p", "br", "span", "div", "ol", "ul", "li", "strong", "b", "em", "i", "u", "s", "strike", "code", "mark", "sub", "sup", "blockquote", "pre"],
+        ALLOWED_ATTR: ["style", "class", "data-color", "align", "type", "start"],
+      });
+
+      return (
+        <div className={`${fullWidth ? "col-span-full" : ""}`}>
+          <div className="p-4 rounded-lg border-l-2 border-l-blue-200 bg-blue-25 transition-all duration-200 hover:shadow-sm">
+            <div className="flex items-start space-x-3">
+              {icon && <div className="text-gray-400 mt-0.5 flex-shrink-0">{icon}</div>}
+              <div className="flex-1 min-w-0">
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{label}</label>
+                <div
+                  className="rich-text-content text-sm text-gray-900 leading-relaxed prose prose-sm max-w-none
+                          prose-headings:font-semibold prose-p:my-2 prose-ul:my-2 prose-ol:my-2
+                          prose-li:my-1 prose-strong:font-semibold prose-em:italic"
+                  dangerouslySetInnerHTML={{ __html: cleanHTML }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
 
     return (
-      <div className="space-y-6">
-        <SectionTitle title="General Information" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <DetailItem label="Work Order No" value={displayValue(order.work_order_no)} />
-          <DetailItem label="Date" value={formatDate(order.date)} />
-          <DetailItem label="Reception Method" value={displayValue(order.reception_method)} />
-          <DetailItem label="Requester" value={displayValue(order.requester?.name)} />
-          <DetailItem label="Department" value={displayValue(order.department?.name)} />
-          <DetailItem label="Known By" value={displayValue(order.known_by?.name)} />
-        </div>
-
-        <SectionTitle title="Service Details" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <DetailItem label="Service Type" value={displayValue(order.service_type.group_name)} />
-          <DetailItem label="Service" value={displayValue(order.service.service_name)} />
-          <DetailItem label="No Asset" value={displayValue(order.asset_no)} />
-        </div>
-
-        <SectionTitle title="Device & Complaint" />
-        <div className="grid grid-cols-1 gap-4">
-          <DetailItem label="Device Information" value={displayValue(order.device_info)} />
-          <DetailItemHTML label="Complaint" htmlContent={order.complaint || ""} />
-        </div>
-
-        <SectionTitle title="Handling Information" />
-        <div className="grid grid-cols-1 gap-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <DetailItem label="Ticket Status" value={displayValue(order.handling_status)} />
-            <DetailItem label="Handling Date" value={formatDate(order.handling_date || "-")} />
+      <div className="space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar pr-2">
+        {/* Header dengan informasi utama */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                <h2 className="text-2xl font-bold text-gray-900">#{order.work_order_no || order.id}</h2>
+                <StatusBadge status={order.handling_status} />
+              </div>
+              <p className="text-gray-600 flex items-center gap-2">
+                <Calendar className="w-4 h-4" />
+                Created: {formatDate(order.date)}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={onClose}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+              >
+                <X className="w-4 h-4 mr-2" />
+                Close
+              </motion.button>
+            </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <DetailItem label="Assigned To" value={displayValue(order.assigned_to?.name)} />
-            <DetailItem label="Received By" value={displayValue(order.received_by?.name)} />
-          </div>
-          <DetailItemHTML label="Action Taken" htmlContent={order.action_taken || ""} />
-          <DetailItemHTML label="Remarks" htmlContent={order.remarks || ""} />
         </div>
 
-        {/* Vendor Details Section */}
-        <SectionTitle title="Vendor Details" />
-        {order.vendor ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <DetailItem label="Vendor Name" value={displayValue(order.vendor.name)} />
-            <DetailItem label="Address" value={displayValue(order.vendor.address)} />
-            <DetailItem label="Contact Person" value={displayValue(order.vendor.contact_person)} />
-            <DetailItem label="Email" value={displayValue(order.vendor.email)} />
-            <DetailItem label="No Telp" value={displayValue(order.vendor.telp)} />
-            <DetailItem label="No HP" value={displayValue(order.vendor.HP)} />
+        {/* General Information */}
+        <Section title="General Information" icon={<UserIcon className="w-5 h-5" />}>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <DetailItem label="Work Order No" value={displayValue(order.work_order_no)} icon={<Clipboard className="w-4 h-4" />} priority="high" />
+            <DetailItem label="Reception Method" value={displayValue(order.reception_method)} icon={<Upload className="w-4 h-4" />} />
+            <DetailItem label="Requester" value={displayValue(order.requester?.name)} icon={<UserIcon className="w-4 h-4" />} priority="high" />
+            <DetailItem label="Department" value={displayValue(order.department?.name)} icon={<Settings className="w-4 h-4" />} />
+            <DetailItem label="Known By" value={displayValue(order.known_by?.name)} icon={<Eye className="w-4 h-4" />} />
           </div>
-        ) : (
-          <div className="text-center py-4 text-gray-500">No vendor assigned to this work order.</div>
+        </Section>
+
+        {/* Service Details */}
+        <Section title="Service Details" icon={<Wrench className="w-5 h-5" />}>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <DetailItem label="Service Type" value={displayValue(order.service_type.group_name)} icon={<Settings className="w-4 h-4" />} priority="high" />
+            <DetailItem label="Service" value={displayValue(order.service.service_name)} icon={<Wrench className="w-4 h-4" />} priority="high" />
+            <DetailItem label="No Asset" value={displayValue(order.asset_no)} icon={<Clipboard className="w-4 h-4" />} />
+          </div>
+        </Section>
+
+        {/* Device & Complaint */}
+        <Section title="Device & Complaint" icon={<AlertTriangle className="w-5 h-5" />}>
+          <div className="grid grid-cols-1 gap-4">
+            <DetailItem label="Device Information" value={displayValue(order.device_info)} icon={<Settings className="w-4 h-4" />} fullWidth />
+            <DetailItemHTML label="Complaint Details" htmlContent={order.complaint || ""} icon={<AlertTriangle className="w-4 h-4" />} fullWidth />
+          </div>
+        </Section>
+
+        {/* Handling Information */}
+        <Section title="Handling Information" icon={<Clock className="w-5 h-5" />}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:col-span-2">
+              <DetailItem label="Ticket Status" value={displayValue(order.handling_status)} icon={<Clock className="w-4 h-4" />} priority="high" />
+              <DetailItem label="Handling Date" value={formatDate(order.handling_date || "-")} icon={<Calendar className="w-4 h-4" />} />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:col-span-2">
+              <DetailItem label="Assigned To" value={displayValue(order.assigned_to?.name)} icon={<UserIcon className="w-4 h-4" />} />
+              <DetailItem label="Received By" value={displayValue(order.received_by?.name)} icon={<CheckCircle className="w-4 h-4" />} />
+            </div>
+            <DetailItemHTML label="Action Taken" htmlContent={order.action_taken || ""} icon={<Wrench className="w-4 h-4" />} fullWidth />
+            <DetailItemHTML label="Remarks" htmlContent={order.remarks || ""} icon={<Clipboard className="w-4 h-4" />} fullWidth />
+          </div>
+        </Section>
+
+        {/* Vendor Details */}
+        {order.vendor && (
+          <Section title="Vendor Details" icon={<UserIcon className="w-5 h-5" />}>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <DetailItem label="Vendor Name" value={displayValue(order.vendor.name)} icon={<UserIcon className="w-4 h-4" />} priority="high" />
+              <DetailItem label="Contact Person" value={displayValue(order.vendor.contact_person)} icon={<UserIcon className="w-4 h-4" />} />
+              <DetailItem label="Email" value={displayValue(order.vendor.email)} icon={<Mail className="w-4 h-4" />} />
+              <DetailItem label="Phone" value={displayValue(order.vendor.telp)} icon={<Phone className="w-4 h-4" />} />
+              <DetailItem label="Mobile" value={displayValue(order.vendor.HP)} icon={<Phone className="w-4 h-4" />} />
+              <DetailItem label="Address" value={displayValue(order.vendor.address)} icon={<MapPin className="w-4 h-4" />} fullWidth />
+            </div>
+          </Section>
         )}
 
+        {/* Attachment */}
         {order.attachment && (
-          <>
-            <SectionTitle title="Attachment" />
-            <div className="grid grid-cols-1 gap-4">
-              <div className="flex items-center space-x-3">
-                <a href={order.attachment} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+          <Section title="Attachment" icon={<Paperclip className="w-5 h-5" />}>
+            <div className="flex items-center space-x-3 p-4 bg-blue-25 rounded-lg border-l-4 border-l-blue-400">
+              <Paperclip className="w-5 h-5 text-blue-600 flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-900 mb-1">Document Attachment</p>
+                <a href={order.attachment} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-blue-600 hover:text-blue-800 font-medium text-sm transition-colors duration-200">
+                  <ExternalLink className="w-4 h-4 mr-1" />
                   View Attachment
                 </a>
               </div>
             </div>
-          </>
+          </Section>
         )}
-
-        <div className="flex justify-end pt-6 border-t border-gray-100 mt-8">
-          <motion.button
-            type="button"
-            onClick={onClose}
-            whileHover={{ scale: 1.03, boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)" }}
-            whileTap={{ scale: 0.97 }}
-            className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 font-semibold"
-          >
-            Close
-          </motion.button>
-        </div>
       </div>
     );
   };
@@ -708,145 +758,7 @@ const ITRequest2: React.FC = () => {
       <Sidebar />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white border-b border-gray-100 p-4 flex items-center justify-between shadow-sm sticky top-0 z-30">
-          <div className="flex items-center space-x-4">
-            {isMobile && (
-              <motion.button onClick={toggleSidebar} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
-                <ChevronRight className="text-xl" />
-              </motion.button>
-            )}
-            <Clipboard className="text-xl text-blue-600" />
-            <h2 className="text-lg md:text-xl font-bold text-gray-900">IT Work Order - Request</h2>
-          </div>
-
-          <div className="flex items-center space-x-3 relative">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setDarkMode(!darkMode)}
-              className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200"
-              aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
-            >
-              {darkMode ? <Sun className="text-yellow-400 text-xl" /> : <Moon className="text-xl" />}
-            </motion.button>
-
-            <div className="relative" ref={notificationsRef}>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setShowNotificationsPopup(!showNotificationsPopup)}
-                className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200 relative"
-                aria-label="Notifications"
-              >
-                <Bell className="text-xl" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full animate-pulse border border-white"></span>
-              </motion.button>
-
-              <AnimatePresence>
-                {showNotificationsPopup && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                    transition={{ duration: 0.2 }}
-                    className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-lg py-2 z-40 border border-gray-100"
-                  >
-                    <div className="flex justify-between items-center px-4 py-2 border-b border-gray-100">
-                      <h4 className="font-semibold text-gray-800">Notifications</h4>
-                      <button onClick={() => setShowNotificationsPopup(false)} className="text-gray-500 hover:text-gray-700">
-                        <X size={18} />
-                      </button>
-                    </div>
-                    <div className="max-h-64 overflow-y-auto custom-scrollbar">
-                      {filteredWorkOrders.slice(0, 3).map((order) => (
-                        <div key={order.id} className="flex items-start px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-50 last:border-b-0">
-                          <div className="p-2 mr-3 mt-0.5 rounded-full bg-blue-50 text-blue-600">
-                            {order.handling_status === "Closed" ? <CheckCircle className="text-green-500" /> : order.handling_status === "Progress" ? <Wrench className="text-blue-500" /> : <AlertTriangle className="text-yellow-500" />}
-                          </div>
-                          <div>
-                            <p className="font-medium text-sm text-gray-800">Work Order #{order.id}</p>
-                            <p className="text-xs text-gray-600 mt-1">{order.requester?.name}</p>
-                          </div>
-                        </div>
-                      ))}
-                      {filteredWorkOrders.length === 0 && <p className="text-gray-500 text-sm px-4 py-3">No new notifications.</p>}
-                    </div>
-                    <div className="px-4 py-2 border-t border-gray-100 text-center">
-                      <button
-                        onClick={() => {
-                          setShowNotificationsPopup(false);
-                        }}
-                        className="text-blue-600 hover:underline text-sm font-medium"
-                      >
-                        View All
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            <div className="relative" ref={profileRef}>
-              <motion.button
-                whileHover={{ backgroundColor: "rgba(239, 246, 255, 0.7)" }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => setShowProfileMenu(!showProfileMenu)}
-                className="flex items-center space-x-2 cursor-pointer p-2 rounded-lg transition-colors duration-200"
-              >
-                <img
-                  src={`https://api.dicebear.com/7.x/initials/svg?seed=${currentUser?.name || "User"}&backgroundColor=0081ff,3d5a80,ffc300,e0b589&backgroundType=gradientLinear&radius=50`}
-                  alt="User Avatar"
-                  className="w-8 h-8 rounded-full border border-blue-200 object-cover"
-                />
-                <span className="font-medium text-gray-900 text-sm hidden sm:inline">{currentUser?.name}</span>
-                <ChevronDown className="text-gray-500 text-base" />
-              </motion.button>
-
-              <AnimatePresence>
-                {showProfileMenu && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                    transition={{ duration: 0.2 }}
-                    className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-40 border border-gray-100"
-                  >
-                    <div className="px-4 py-2 text-xs text-gray-500 border-b border-gray-100">Signed in as</div>
-                    <div className="px-4 py-2 font-semibold text-gray-800 border-b border-gray-100">{currentUser?.name || "Guest User"}</div>
-                    <button
-                      onClick={() => {
-                        navigate("/profile");
-                        setShowProfileMenu(false);
-                      }}
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 w-full text-left"
-                    >
-                      <UserIcon size={16} className="mr-2" /> My Profile
-                    </button>
-                    <button
-                      onClick={() => {
-                        navigate("/settings");
-                        setShowProfileMenu(false);
-                      }}
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 w-full text-left"
-                    >
-                      <Settings size={16} className="mr-2" /> Settings
-                    </button>
-                    <hr className="my-1 border-gray-100" />
-                    <button
-                      onClick={() => {
-                        navigate("/logout");
-                        setShowProfileMenu(false);
-                      }}
-                      className="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full text-left"
-                    >
-                      <LogOut size={16} className="mr-2" /> Logout
-                    </button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </div>
-        </header>
+        <PageHeader mainTitle="IT Work Orders - Request" mainTitleHighlight="Page" description="Manage work units and their configurations within the system." icon={<Clipboard />} isMobile={isMobile} toggleSidebar={toggleSidebar} />
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="isi style mb-6 flex space-x-6 border-b border-gray-200">

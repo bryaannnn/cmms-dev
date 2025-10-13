@@ -345,15 +345,6 @@ const ActivityTypePage: React.FC = () => {
                           >
                             <Trash2 className="inline text-base" />
                           </motion.button>
-                          <motion.button
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                            onClick={() => navigate(`/maintenanceactivity/activitytypes/view/${activityType.id}`)}
-                            className="text-blue-600 hover:text-blue-800 transition-colors duration-200 p-1 rounded-full hover:bg-blue-50"
-                            title="View Details"
-                          >
-                            <Eye className="inline text-base" />
-                          </motion.button>
                         </td>
                       </motion.tr>
                     ))}

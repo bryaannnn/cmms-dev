@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth, PermissionName, ERPRecord } from "../routes/AuthContext";
 import logoWida from "../assets/logo-wida.png";
 import { motion, AnimatePresence } from "framer-motion";
+import PageHeader from "../component/PageHeader";
 import type { User } from "../routes/AuthContext";
 import Sidebar from "../component/Sidebar";
 import {
@@ -32,6 +33,8 @@ import {
   Eye,
   Key,
   User as UserIcon,
+  Calendar,
+  Clock,
   Edit, // Added for Edit button
   Trash2, // Added for Delete button
 } from "lucide-react";
@@ -131,216 +134,214 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
   );
 };
 
-// AssetDetailsForm component (unchanged, assuming it's consistent)
 interface AssetDetailsFormProps {
   asset: Asset;
   isEditing: boolean;
   onSave: (asset: Asset) => void;
   onCancel: () => void;
 }
+
 const AssetDetailsForm: React.FC<AssetDetailsFormProps> = ({ asset, isEditing, onSave, onCancel }) => {
   const [formData, setFormData] = useState<Asset>(asset);
+
   useEffect(() => {
     setFormData(asset);
   }, [asset]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
+
   const handleHealthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value, 10);
     setFormData((prev) => ({ ...prev, health: isNaN(value) ? 0 : Math.max(0, Math.min(100, value)) }));
   };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave(formData);
   };
+
+  // Komponen Section dengan header yang lebih jelas
+  const Section: React.FC<{ title: string; children: React.ReactNode; icon?: React.ReactNode }> = ({ title, children, icon }) => (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-200">
+        <div className="flex items-center">
+          {icon && <div className="mr-3 text-blue-600">{icon}</div>}
+          <h3 className="text-lg font-bold text-gray-900">{title}</h3>
+        </div>
+      </div>
+      <div className="p-6">{children}</div>
+    </div>
+  );
+
+  // Komponen Detail Item yang lebih modern untuk Assets
+  const DetailItem: React.FC<{
+    label: string;
+    value: string;
+    icon?: React.ReactNode;
+    fullWidth?: boolean;
+    priority?: "high" | "medium" | "low";
+  }> = ({ label, value, icon, fullWidth = false, priority = "medium" }) => {
+    const priorityStyles = {
+      high: "border-l-4 border-l-blue-500 bg-blue-25",
+      medium: "border-l-2 border-l-gray-200",
+      low: "border-l border-l-gray-100",
+    };
+
+    return (
+      <div className={`${fullWidth ? "col-span-full" : ""}`}>
+        <div className={`p-4 rounded-lg ${priorityStyles[priority]} transition-all duration-200 hover:shadow-sm`}>
+          <div className="flex items-start space-x-3">
+            {icon && <div className="text-gray-400 mt-0.5 flex-shrink-0">{icon}</div>}
+            <div className="flex-1 min-w-0">
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{label}</label>
+              <p className="text-sm font-medium text-gray-900 leading-relaxed">{value}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label htmlFor="detail-id" className="block text-sm font-medium text-gray-700">
-          Asset ID
-        </label>
-        <input type="text" id="detail-id" value={formData.id} readOnly className="mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 bg-blue-50 cursor-not-allowed transition-all duration-200" />
+    <div className="space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar pr-2">
+      {/* Header Information */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-2">
+              <h2 className="text-2xl font-bold text-gray-900">{formData.name}</h2>
+              <span
+                className={`px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full ${
+                  formData.status === "running"
+                    ? "bg-green-100 text-green-800 border border-green-300"
+                    : formData.status === "maintenance"
+                    ? "bg-yellow-100 text-yellow-800 border border-yellow-300"
+                    : formData.status === "breakdown"
+                    ? "bg-red-100 text-red-800 border border-red-300"
+                    : "bg-blue-100 text-blue-800 border border-blue-300"
+                }`}
+              >
+                {formData.status.charAt(0).toUpperCase() + formData.status.slice(1)}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-4 text-sm text-gray-600">
+              <span className="flex items-center gap-2">
+                <Package className="w-4 h-4" />
+                Asset ID: {formData.id}
+              </span>
+              <span className="flex items-center gap-2">
+                <Settings className="w-4 h-4" />
+                Type: {formData.type.charAt(0).toUpperCase() + formData.type.slice(1)}
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
-      <div>
-        <label htmlFor="detail-name" className="block text-sm font-medium text-gray-700">
-          Asset Name
-        </label>
-        <input
-          type="text"
-          id="detail-name"
-          name="name"
-          value={formData.name}
-          onChange={handleChange}
-          readOnly={!isEditing}
-          required
-          className={`mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
-        />
-      </div>
-      <div>
-        <label htmlFor="detail-type" className="block text-sm font-medium text-gray-700">
-          Asset Type
-        </label>
-        <select
-          id="detail-type"
-          name="type"
-          value={formData.type}
-          onChange={handleChange}
-          disabled={!isEditing}
-          required
-          className={`mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
-        >
-          <option value="mechanical">Mechanical</option>
-          <option value="electrical">Electrical</option>
-          <option value="vehicle">Vehicle</option>
-          <option value="building">Building</option>
-        </select>
-      </div>
-      <div>
-        <label htmlFor="detail-make" className="block text-sm font-medium text-gray-700">
-          Make
-        </label>
-        <input
-          type="text"
-          id="detail-make"
-          name="make"
-          value={formData.make}
-          onChange={handleChange}
-          readOnly={!isEditing}
-          required
-          className={`mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
-        />
-      </div>
-      <div>
-        <label htmlFor="detail-model" className="block text-sm font-medium text-gray-700">
-          Model
-        </label>
-        <input
-          type="text"
-          id="detail-model"
-          name="model"
-          value={formData.model}
-          onChange={handleChange}
-          readOnly={!isEditing}
-          required
-          className={`mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
-        />
-      </div>
-      <div>
-        <label htmlFor="detail-status" className="block text-sm font-medium text-gray-700">
-          Status
-        </label>
-        <select
-          id="detail-status"
-          name="status"
-          value={formData.status}
-          onChange={handleChange}
-          disabled={!isEditing}
-          required
-          className={`mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
-        >
-          <option value="running">Running</option>
-          <option value="maintenance">Maintenance</option>
-          <option value="breakdown">Breakdown</option>
-          <option value="idle">Idle</option>
-        </select>
-      </div>
-      <div>
-        <label htmlFor="detail-lastMaintenance" className="block text-sm font-medium text-gray-700">
-          Last Maintenance Date
-        </label>
-        <input
-          type="date"
-          id="detail-lastMaintenance"
-          name="lastMaintenance"
-          value={formData.lastMaintenance}
-          onChange={handleChange}
-          readOnly={!isEditing}
-          className={`mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
-        />
-      </div>
-      <div>
-        <label htmlFor="detail-nextMaintenance" className="block text-sm font-medium text-gray-700">
-          Next Maintenance Date
-        </label>
-        <input
-          type="date"
-          id="detail-nextMaintenance"
-          name="nextMaintenance"
-          value={formData.nextMaintenance}
-          onChange={handleChange}
-          readOnly={!isEditing}
-          className={`mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
-        />
-      </div>
-      <div>
-        <label htmlFor="detail-location" className="block text-sm font-medium text-gray-700">
-          Location
-        </label>
-        <input
-          type="text"
-          id="detail-location"
-          name="location"
-          value={formData.location}
-          onChange={handleChange}
-          readOnly={!isEditing}
-          required
-          className={`mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
-        />
-      </div>
-      <div>
-        <label htmlFor="detail-workOrders" className="block text-sm font-medium text-gray-700">
-          Work Orders
-        </label>
-        <input
-          type="text"
-          id="detail-workOrders"
-          name="workOrders"
-          value={formData.workOrders}
-          onChange={handleChange}
-          readOnly={!isEditing}
-          className={`mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
-        />
-      </div>
-      <div>
-        <label htmlFor="detail-health" className="block text-sm font-medium text-gray-700">
-          Health (%)
-        </label>
-        <input
-          type="text"
-          id="detail-health"
-          name="health"
-          value={formData.health}
-          onChange={handleHealthChange}
-          readOnly={!isEditing}
-          min="0"
-          max="100"
-          className={`mt-1 block w-full border border-gray-200 rounded-lg shadow-sm p-2.5 transition-all duration-200 ${isEditing ? "bg-white focus:ring-blue-500 focus:border-blue-500" : "bg-blue-50 cursor-not-allowed"}`}
-        />
-      </div>
-      <div className="flex justify-end space-x-3 mt-6">
+
+      {/* Basic Information */}
+      <Section title="Basic Information" icon={<Package className="w-5 h-5" />}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <DetailItem label="Asset ID" value={formData.id} icon={<Key className="w-4 h-4" />} priority="high" />
+          <DetailItem label="Asset Name" value={formData.name} icon={<Package className="w-4 h-4" />} priority="high" />
+          <DetailItem label="Asset Type" value={formData.type.charAt(0).toUpperCase() + formData.type.slice(1)} icon={<Settings className="w-4 h-4" />} priority="high" />
+          <DetailItem label="Make" value={formData.make} icon={<Wrench className="w-4 h-4" />} />
+          <DetailItem label="Model" value={formData.model} icon={<Settings className="w-4 h-4" />} />
+          <DetailItem label="Location" value={formData.location} icon={<Home className="w-4 h-4" />} />
+        </div>
+      </Section>
+
+      {/* Status & Maintenance */}
+      <Section title="Status & Maintenance" icon={<Clipboard className="w-5 h-5" />}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <DetailItem label="Current Status" value={formData.status.charAt(0).toUpperCase() + formData.status.slice(1)} icon={<CheckCircle className="w-4 h-4" />} priority="high" />
+          <DetailItem label="Last Maintenance" value={formData.lastMaintenance} icon={<Calendar className="w-4 h-4" />} />
+          <DetailItem label="Next Maintenance" value={formData.nextMaintenance} icon={<Clock className="w-4 h-4" />} priority="high" />
+          <DetailItem label="Work Orders" value={formData.workOrders.toString()} icon={<Clipboard className="w-4 h-4" />} />
+          <DetailItem label="Health Status" value={`${formData.health}%`} icon={<BarChart2 className="w-4 h-4" />} priority="high" />
+        </div>
+      </Section>
+
+      {/* Technical Details */}
+      <Section title="Technical Details" icon={<Wrench className="w-5 h-5" />}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="p-4 bg-blue-25 rounded-lg border-l-4 border-l-blue-400">
+            <h4 className="text-sm font-semibold text-gray-700 mb-2">Asset Specifications</h4>
+            <div className="space-y-2 text-sm text-gray-600">
+              <p>
+                <span className="font-medium">Make:</span> {formData.make}
+              </p>
+              <p>
+                <span className="font-medium">Model:</span> {formData.model}
+              </p>
+              <p>
+                <span className="font-medium">Type:</span> {formData.type.charAt(0).toUpperCase() + formData.type.slice(1)}
+              </p>
+            </div>
+          </div>
+          <div className="p-4 bg-green-25 rounded-lg border-l-4 border-l-green-400">
+            <h4 className="text-sm font-semibold text-gray-700 mb-2">Performance Metrics</h4>
+            <div className="space-y-2 text-sm text-gray-600">
+              <p>
+                <span className="font-medium">Health Score:</span> {formData.health}%
+              </p>
+              <p>
+                <span className="font-medium">Work Orders:</span> {formData.workOrders}
+              </p>
+              <p>
+                <span className="font-medium">Status:</span> {formData.status.charAt(0).toUpperCase() + formData.status.slice(1)}
+              </p>
+            </div>
+          </div>
+        </div>
+      </Section>
+
+      {/* Maintenance Timeline */}
+      <Section title="Maintenance Timeline" icon={<Clock className="w-5 h-5" />}>
+        <div className="space-y-3">
+          <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg border border-green-200">
+            <span className="text-sm font-medium text-green-800">Last Maintenance</span>
+            <span className="text-sm text-green-600">{formData.lastMaintenance}</span>
+          </div>
+
+          <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg border border-blue-200">
+            <span className="text-sm font-medium text-blue-800">Next Scheduled Maintenance</span>
+            <span className="text-sm text-blue-600">{formData.nextMaintenance}</span>
+          </div>
+
+          <div className="flex justify-between items-center p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+            <span className="text-sm font-medium text-yellow-800">Current Status</span>
+            <span className="text-sm text-yellow-600">{formData.status.charAt(0).toUpperCase() + formData.status.slice(1)}</span>
+          </div>
+        </div>
+      </Section>
+
+      {/* Action Buttons */}
+      <div className="flex justify-end pt-6 border-t border-gray-100 mt-8">
         <motion.button
           type="button"
           onClick={onCancel}
-          whileHover={{ scale: 1.03 }}
+          whileHover={{ scale: 1.03, boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)" }}
           whileTap={{ scale: 0.97 }}
-          className="inline-flex items-center px-5 py-2.5 border border-gray-200 text-base font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+          className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 font-semibold"
         >
-          {isEditing ? "Cancel" : "Close"}
+          {isEditing ? "Cancel" : "Close Details"}
         </motion.button>
         {isEditing && (
           <motion.button
             type="submit"
-            whileHover={{ scale: 1.03 }}
+            onClick={handleSubmit}
+            whileHover={{ scale: 1.03, boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)" }}
             whileTap={{ scale: 0.97 }}
-            className="inline-flex items-center px-5 py-2.5 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+            className="ml-4 inline-flex items-center px-6 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200 font-semibold"
           >
             Save Changes
           </motion.button>
         )}
       </div>
-    </form>
+    </div>
   );
 };
 
@@ -548,141 +549,8 @@ const AssetsDashboard: React.FC = () => {
       <Sidebar />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white border-b border-gray-100 p-4 flex items-center justify-between shadow-sm sticky top-0 z-30">
-          <div className="flex items-center space-x-4">
-            {isMobile && (
-              <motion.button onClick={toggleSidebar} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
-                <ChevronRight className="text-xl" />
-              </motion.button>
-            )}
-            <Package className="text-xl text-blue-600" />
-            <h2 className="text-lg md:text-xl font-bold text-gray-900">Assets Data</h2>
-          </div>
-          <div className="flex items-center space-x-3 relative">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setDarkMode(!darkMode)}
-              className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200"
-              aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
-            >
-              {darkMode ? <Sun className="text-yellow-400 text-xl" /> : <Moon className="text-xl" />}
-            </motion.button>
-            <div className="relative" ref={notificationsRef}>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setShowNotificationsPopup(!showNotificationsPopup)}
-                className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200 relative"
-                aria-label="Notifications"
-              >
-                <Bell className="text-xl" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full animate-pulse border border-white"></span>
-              </motion.button>
-              <AnimatePresence>
-                {showNotificationsPopup && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                    transition={{ duration: 0.2 }}
-                    className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-lg py-2 z-40 border border-gray-100"
-                  >
-                    <div className="flex justify-between items-center px-4 py-2 border-b border-gray-100">
-                      <h4 className="font-semibold text-gray-800">Notifications</h4>
-                      <button onClick={() => setShowNotificationsPopup(false)} className="text-gray-500 hover:text-gray-700">
-                        <X size={18} />
-                      </button>
-                    </div>
-                    <div className="max-h-64 overflow-y-auto custom-scrollbar">
-                      {insights.slice(0, 3).map((notification) => (
-                        <div key={notification.id} className="flex items-start px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-50 last:border-b-0">
-                          <div className="p-2 mr-3 mt-0.5 rounded-full bg-blue-50 text-blue-600">{notification.icon}</div>
-                          <div>
-                            <p className="font-medium text-sm text-gray-800">{notification.title}</p>
-                            <p className="text-xs text-gray-600 mt-1">{notification.description}</p>
-                            <p className="text-xs text-gray-500 mt-1">{notification.date}</p>
-                          </div>
-                        </div>
-                      ))}
-                      {insights.length === 0 && <p className="text-gray-500 text-sm px-4 py-3">No new notifications.</p>}
-                    </div>
-                    <div className="px-4 py-2 border-t border-gray-100 text-center">
-                      <button
-                        onClick={() => {
-                          // In a real application, you might navigate to a notifications page
-                          // Removed alert
-                          setShowNotificationsPopup(false);
-                        }}
-                        className="text-blue-600 hover:underline text-sm font-medium"
-                      >
-                        View All
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-            <div className="relative" ref={profileRef}>
-              <motion.button
-                whileHover={{ backgroundColor: "rgba(239, 246, 255, 0.7)" }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => setShowProfileMenu(!showProfileMenu)}
-                className="flex items-center space-x-2 cursor-pointer p-2 rounded-lg transition-colors duration-200"
-              >
-                <img
-                  src={`https://api.dicebear.com/7.x/initials/svg?seed=${user?.name || "User"}&backgroundColor=0081ff,3d5a80,ffc300,e0b589&backgroundType=gradientLinear&radius=50`}
-                  alt="User Avatar"
-                  className="w-8 h-8 rounded-full border border-blue-200 object-cover"
-                />
-                <span className="font-medium text-gray-900 text-sm hidden sm:inline">{user?.name}</span>
-                <ChevronDown className="text-gray-500 text-base" />
-              </motion.button>
-              <AnimatePresence>
-                {showProfileMenu && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                    transition={{ duration: 0.2 }}
-                    className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-40 border border-gray-100"
-                  >
-                    <div className="px-4 py-2 text-xs text-gray-500 border-b border-gray-100">Signed in as</div>
-                    <div className="px-4 py-2 font-semibold text-gray-800 border-b border-gray-100">{user?.name || "Guest User"}</div>
-                    <button
-                      onClick={() => {
-                        navigate("/profile");
-                        setShowProfileMenu(false);
-                      }}
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 w-full text-left"
-                    >
-                      <UserIcon size={16} className="mr-2" /> My Profile
-                    </button>
-                    <button
-                      onClick={() => {
-                        navigate("/settings");
-                        setShowProfileMenu(false);
-                      }}
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 w-full text-left"
-                    >
-                      <Settings size={16} className="mr-2" /> Settings
-                    </button>
-                    <hr className="my-1 border-gray-100" />
-                    <button
-                      onClick={() => {
-                        navigate("/logout");
-                        setShowProfileMenu(false);
-                      }}
-                      className="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full text-left"
-                    >
-                      <LogOut size={16} className="mr-2" /> Logout
-                    </button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </div>
-        </header>
+        <PageHeader mainTitle="Assets Data" mainTitleHighlight="Page" description="Manage work units and their configurations within the system." icon={<Package />} isMobile={isMobile} toggleSidebar={toggleSidebar} />
+
         <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
             <div>
@@ -959,33 +827,47 @@ const AssetsDashboard: React.FC = () => {
           )}
         </main>
       </div>
+
       {selectedAsset && (
-        <Modal
-          isOpen={showAssetDetailsModal}
-          onClose={() => {
-            setShowAssetDetailsModal(false);
-            setSelectedAsset(null);
-            setIsEditing(false);
-          }}
-          title={isEditing ? "Edit Asset" : "Asset Details"}
-        >
-          {/* Note: AssetDetailsForm expects 'Asset' type, but selectedAsset is ERPRecord.
-              You might need to map ERPRecord to Asset or adjust AssetDetailsForm to accept ERPRecord
-              For this refactor, I'm casting it for demonstration, but a proper type conversion
-              or form update would be ideal. */}
-          <AssetDetailsForm
-            asset={selectedAsset as unknown as Asset} // Casting for now, proper type handling needed
-            isEditing={isEditing}
-            onSave={() => {
-              /* Implement save logic for asset details */
-            }}
-            onCancel={() => {
-              setShowAssetDetailsModal(false);
-              setSelectedAsset(null);
-              setIsEditing(false);
-            }}
-          />
-        </Modal>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center backdrop-brightness-50 bg-opacity-50 p-4">
+          <motion.div
+            initial={{ scale: 0.95, y: 20 }}
+            animate={{ scale: 1, y: 0 }}
+            exit={{ scale: 0.95, y: 20 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl mx-auto border border-blue-100 max-h-[90vh] overflow-hidden flex flex-col"
+          >
+            <div className="flex justify-between items-center border-b border-gray-100 px-6 py-4 bg-blue-50">
+              <h3 className="text-2xl font-bold text-gray-900">{isEditing ? "Edit Asset" : "Asset Details"}</h3>
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => {
+                  setShowAssetDetailsModal(false);
+                  setSelectedAsset(null);
+                  setIsEditing(false);
+                }}
+                className="text-gray-500 hover:text-gray-700 text-2xl p-1 rounded-full hover:bg-blue-100 transition-colors duration-200"
+              >
+                <X size={24} />
+              </motion.button>
+            </div>
+
+            <div className="overflow-y-auto custom-scrollbar p-6 flex-grow">
+              <AssetDetailsForm
+                asset={selectedAsset as unknown as Asset}
+                isEditing={isEditing}
+                onSave={() => {
+                  /* Implement save logic for asset details */
+                }}
+                onCancel={() => {
+                  setShowAssetDetailsModal(false);
+                  setSelectedAsset(null);
+                  setIsEditing(false);
+                }}
+              />
+            </div>
+          </motion.div>
+        </motion.div>
       )}
     </div>
   );

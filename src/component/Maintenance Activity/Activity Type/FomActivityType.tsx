@@ -5,7 +5,7 @@ import Sidebar from "../../Sidebar";
 import Select from "react-select";
 import PageHeader from "../../PageHeader";
 import { useNavigate } from "react-router-dom";
-import { useAuth, User, Department, StopTimes, ActivityType } from "../../../routes/AuthContext";
+import { useAuth, User, Department, ActivityType } from "../../../routes/AuthContext";
 
 interface OptionType {
   value: string;

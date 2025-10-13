@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, Save, Hourglass, CheckCircle, X } from "lucide-react";
+import { ArrowLeft, Save, Hourglass, CheckCircle, X, User, Users } from "lucide-react";
 import Sidebar from "../../component/Sidebar";
+import PageHeader from "../PageHeader";
 import { useAuth } from "../../routes/AuthContext";
 
 interface ServiceGroup {
@@ -56,6 +57,15 @@ const FormEditServiceGroup: React.FC = () => {
 
   const { getServiceGroup, updateServiceGroup } = auth as unknown as AuthSubset;
 
+  const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768);
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
+    const stored = localStorage.getItem("sidebarOpen");
+    return JSON.parse(stored || "false");
+  });
+  const toggleSidebar = (): void => {
+    localStorage.setItem("sidebarOpen", JSON.stringify(!sidebarOpen));
+    setSidebarOpen((prev) => !prev);
+  };
   const [groupName, setGroupName] = useState<string>("");
   const [groupDescription, setGroupDescription] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
@@ -126,15 +136,14 @@ const FormEditServiceGroup: React.FC = () => {
     <div className="flex h-screen font-sans antialiased bg-blue-50 text-gray-900">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white border-b border-gray-100 p-4 flex items-center justify-between shadow-sm sticky top-0 z-30">
-          <div className="flex items-center space-x-4">
-            <motion.button onClick={handleBack} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="flex items-center text-blue-600 hover:text-blue-800 transition-colors duration-200">
-              <ArrowLeft className="text-xl" />
-              <span className="font-semibold text-sm hidden md:inline">Back to Service Groups</span>
-            </motion.button>
-            <h2 className="text-lg md:text-xl font-bold text-gray-900 ml-4">Edit Service Group</h2>
-          </div>
-        </header>
+        <PageHeader
+          mainTitle="Edit Group"
+          mainTitleHighlight="Management"
+          description="Manage user roles and permissions to control access and functionality within the system."
+          icon={<Users />}
+          isMobile={isMobile}
+          toggleSidebar={toggleSidebar}
+        />
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="mb-6">

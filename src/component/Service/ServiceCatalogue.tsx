@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Sidebar from "../../component/Sidebar";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Upload, Filter, ChevronDown, Search, X, Bell, Moon, Sun, UserIcon, ChevronRight, Edit, Trash2, Info, Folder, Eye } from "lucide-react";
+import { Plus, Upload, Filter, ChevronDown, Search, X, Bell, Moon, Sun, UserIcon, ChevronRight, Edit, Trash2, Info, Folder, Eye, BookOpen } from "lucide-react";
 import { useAuth } from "../../routes/AuthContext";
 import { useNavigate } from "react-router-dom";
+import PageHeader from "../PageHeader";
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
@@ -113,10 +114,14 @@ const StatCard: React.FC<{ title: string; currentCount: number; lastMonthCount: 
 
 const ServiceCataloguePage: React.FC = () => {
   const auth = useAuth();
-  const [sidebarOpen] = useState<boolean>(() => {
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
     const stored = localStorage.getItem("sidebarOpen");
-    return stored ? JSON.parse(stored) : false;
+    return JSON.parse(stored || "false");
   });
+  const toggleSidebar = (): void => {
+    localStorage.setItem("sidebarOpen", JSON.stringify(!sidebarOpen));
+    setSidebarOpen((prev) => !prev);
+  };
   const navigate = useNavigate();
   const [selectedService, setSelectedService] = useState<ServiceCatalogue | null>(null);
   const openDetailModal = (s: ServiceCatalogue) => {
@@ -584,69 +589,14 @@ const ServiceCataloguePage: React.FC = () => {
     <div className={`flex h-screen font-sans antialiased bg-blue-50`}>
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white border-b border-gray-100 p-4 flex items-center justify-between shadow-sm sticky top-0 z-30">
-          <div className="flex items-center space-x-4">
-            {isMobile && (
-              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
-                <ChevronRight className="text-xl" />
-              </motion.button>
-            )}
-            <motion.div className="flex items-center space-x-3">
-              <motion.div className="text-xl text-blue-600">
-                <Folder />
-              </motion.div>
-              <h2 className="text-lg md:text-xl font-bold text-gray-900">Service Catalogue</h2>
-            </motion.div>
-          </div>
-          <div className="flex items-center space-x-3 relative">
-            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setDarkMode(!darkMode)} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200" aria-label="Toggle theme">
-              {darkMode ? <Sun className="text-yellow-400 text-xl" /> : <Moon className="text-xl" />}
-            </motion.button>
-            <div className="relative" ref={notificationsRef}>
-              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setShowNotificationsPopup((s) => !s)} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
-                <Bell className="text-xl" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full animate-pulse border border-white"></span>
-              </motion.button>
-              <AnimatePresence>
-                {showNotificationsPopup && (
-                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-xl overflow-hidden z-50 border border-gray-100">
-                    <div className="p-4 border-b border-gray-100">
-                      <h3 className="text-lg font-semibold text-gray-800">Notifications</h3>
-                    </div>
-                    <div className="p-4 text-sm text-gray-600">No new notifications</div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-            <div className="relative" ref={profileRef}>
-              <motion.button
-                whileHover={{ backgroundColor: "rgba(239,246,255,0.7)" }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => setShowProfileMenu((s) => !s)}
-                className="flex items-center space-x-2 cursor-pointer p-2 rounded-lg transition-colors duration-200"
-              >
-                <img
-                  src={`https://api.dicebear.com/7.x/initials/svg?seed=Service&backgroundColor=0081ff,3d5a80,ffc300,e0b589&backgroundType=gradientLinear&radius=50`}
-                  alt="avatar"
-                  className="w-8 h-8 rounded-full border border-blue-200 object-cover"
-                />
-                <span className="font-medium text-gray-900 text-sm hidden sm:inline">Admin</span>
-                <ChevronDown className="text-gray-500 text-base" />
-              </motion.button>
-              <AnimatePresence>
-                {showProfileMenu && (
-                  <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-40 border border-gray-100">
-                    <div className="px-4 py-2 text-xs text-gray-500 border-b border-gray-100">Signed in as</div>
-                    <div className="px-4 py-2 font-semibold text-gray-800 border-b border-gray-100">Admin</div>
-                    <button className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 w-full text-left">
-                      <UserIcon size={16} className="mr-2" /> My Profile
-                    </button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </div>
-        </header>
+        <PageHeader
+          mainTitle="Service Catalogue"
+          mainTitleHighlight="Management"
+          description="Manage user roles and permissions to control access and functionality within the system."
+          icon={<BookOpen />}
+          isMobile={isMobile}
+          toggleSidebar={toggleSidebar}
+        />
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between space-y-5 md:space-y-0">

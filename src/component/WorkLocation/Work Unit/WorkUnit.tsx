@@ -184,14 +184,7 @@ const WorkUnitPage: React.FC = () => {
       <Sidebar />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <PageHeader
-          mainTitle="Work Unit"
-          mainTitleHighlight="Page"
-          description="Manage work units and their configurations within the system."
-          icon={<Warehouse />}
-          isMobile={isMobile}
-          toggleSidebar={toggleSidebar}
-        />
+        <PageHeader mainTitle="Work Unit" mainTitleHighlight="Page" description="Manage work units and their configurations within the system." icon={<Warehouse />} isMobile={isMobile} toggleSidebar={toggleSidebar} />
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between space-y-5 md:space-y-0">
@@ -307,14 +300,9 @@ const WorkUnitPage: React.FC = () => {
             </div>
           ) : filteredWorkUnits.length === 0 ? (
             <div className="bg-white rounded-2xl shadow-md p-8 text-center border border-blue-100">
-              <p className="text-gray-700 text-base font-medium">
-                {searchQuery ? "No work units found matching your search." : "No work units available."}
-              </p>
+              <p className="text-gray-700 text-base font-medium">{searchQuery ? "No work units found matching your search." : "No work units available."}</p>
               {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="mt-5 px-5 py-2 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors duration-200 text-sm"
-                >
+                <button onClick={() => setSearchQuery("")} className="mt-5 px-5 py-2 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors duration-200 text-sm">
                   Clear Search
                 </button>
               )}
@@ -372,15 +360,6 @@ const WorkUnitPage: React.FC = () => {
                             title="Delete"
                           >
                             <Trash2 className="inline text-base" />
-                          </motion.button>
-                          <motion.button
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                            onClick={() => navigate(`/worklocation/workunit/view/${unit.id}`)}
-                            className="text-blue-600 hover:text-blue-800 transition-colors duration-200 p-1 rounded-full hover:bg-blue-50"
-                            title="View Details"
-                          >
-                            <Eye className="inline text-base" />
                           </motion.button>
                         </td>
                       </motion.tr>
