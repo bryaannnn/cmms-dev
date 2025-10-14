@@ -5,7 +5,7 @@ import ProtectedRoute from "./routes/ProtectedRoute";
 import ForgotPassword from "./pages/ForgotPassword";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import Logout from "./pages/Logout";
-import Assets from "./pages/Assets"; // This is AssetsPage
+import Assets from "./component/Assets/Assets"; // This is AssetsPage
 // import WorkOrdersDashboard from "./pages/WorkOrders";
 import SettingsPage from "./pages/Settings";
 import MachineHistoryDashboard from "./pages/Maintenance";
@@ -15,8 +15,6 @@ import PermissionsPage from "./pages/Permission";
 import ChangePasswordPage from "./pages/ChangePassword";
 import AddUserPage from "./pages/AddUserPage";
 import InternetStatusToast from "./component/InternetStatus";
-import AddAsset from "./pages/AddAssets";
-import EditAssetPage from "./pages/EditAssets";
 // import FormWorkOrders from "./component/WorkOrders/FormWO";
 // import EditWorkOrder from "./component/WorkOrders/EditWO";
 // import WorkOrderAdminDashboard from "./pages/WorkOrdersAdmin";
@@ -95,6 +93,11 @@ import WorkflowConfigureMonitoring from "./component/Workflow Approval/WorkflowC
 
 import { useLocation } from "react-router-dom";
 import NotFound from "./pages/NotFound";
+import EditWorkArea from "./component/WorkLocation/WorkArea/EditWorkArea";
+import FormWorkArea from "./component/WorkLocation/WorkArea/FormWorkArea";
+import WorkAreaPage from "./component/WorkLocation/WorkArea/WorkArea";
+import FormAsset from "./component/Assets/FormAssets";
+import EditAsset from "./component/Assets/EditAssets";
 
 function App() {
   return (
@@ -139,6 +142,9 @@ function App() {
           <Route path="/worklocation/workgroup" element={<WorkGroupPage />} />
           <Route path="/worklocation/workgroup/addworkgroup" element={<FormWorkGroup />} />
           <Route path="/worklocation/workgroup/editworkgroup/:id" element={<EditWorkGroup />} />
+          <Route path="/worklocation/workarea" element={<WorkAreaPage />} />
+          <Route path="/worklocation/workarea/addworkarea" element={<FormWorkArea />} />
+          <Route path="/worklocation/workarea/editworkarea/:id" element={<EditWorkArea />} />
         </Route>
 
         <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}>
@@ -160,8 +166,8 @@ function App() {
           <Route path="/assets" element={<AssetsSelection />} />
           {/* <Route path="/assets/assetsgroup" element={<Assets />} /> */}
           <Route path="/assets/assetsdata" element={<Assets />} />
-          <Route path="/assets/assetsdata/addasset" element={<AddAsset />} />
-          <Route path="/assets/assetsdata/editasset/:id" element={<EditAssetPage />} />
+          <Route path="/assets/assetsdata/addasset" element={<FormAsset />} />
+          <Route path="/assets/assetsdata/editasset/:id" element={<EditAsset />} />
         </Route>
 
         <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}>

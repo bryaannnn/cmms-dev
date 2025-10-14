@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useAuth, PermissionName, ERPRecord } from "../routes/AuthContext";
+import { useAuth, PermissionName, ERPRecord } from "../../routes/AuthContext";
 import logoWida from "../assets/logo-wida.png";
 import { motion, AnimatePresence } from "framer-motion";
-import PageHeader from "../component/PageHeader";
-import type { User } from "../routes/AuthContext";
-import Sidebar from "../component/Sidebar";
+import PageHeader from "../PageHeader";
+import type { User } from "../../routes/AuthContext";
+import Sidebar from "../Sidebar";
 import {
   Plus,
   Upload,
@@ -110,15 +110,16 @@ const StatCard: React.FC<{ title: string; value: string; change: string; icon: R
   );
 };
 
-// Modal component (unchanged, assuming it's consistent)
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
   children: React.ReactNode;
 }
+
 const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
   if (!isOpen) return null;
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center backdrop-brightness-50 bg-opacity-50 p-4">
       <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-auto p-6 border border-blue-100">
@@ -361,7 +362,7 @@ const AssetsDashboard: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [assetsPerPage] = useState(5);
-  const { user, fetchWithAuth, hasPermission, getERPData, deleteAsset } = useAuth();
+  const { user, fetchWithAuth, hasPermission, getAssetsData, deleteAsset } = useAuth();
   const [data, setData] = useState<User | null>(null); // Not directly used for assets, but kept for consistency
   const navigate = useNavigate();
   const [hasInteracted, setHasInteracted] = useState(false); // Not directly used, but kept for consistency
@@ -373,6 +374,40 @@ const AssetsDashboard: React.FC = () => {
   const [dataERP, setDataERP] = useState<ERPRecord[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [assetToDelete, setAssetToDelete] = useState<{ id: string; name: string } | null>(null);
+
+  const handleDeleteClick = (assetId: string, assetName: string) => {
+    setAssetToDelete({ id: assetId, name: assetName });
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!assetToDelete) return;
+
+    console.log("Attempting to delete asset with ID:", assetToDelete.id);
+    if (!assetToDelete.id) {
+      console.error("Asset ID is empty or invalid.");
+      alert("Cannot delete: Asset ID is missing.");
+      return;
+    }
+
+    try {
+      await deleteAsset(assetToDelete.id);
+      setDataERP(dataERP.filter((asset) => String(asset.id) !== assetToDelete.id));
+      console.log(`Asset with ID: ${assetToDelete.id} deleted successfully.`);
+      setShowDeleteModal(false);
+      setAssetToDelete(null);
+    } catch (error) {
+      console.error("Failed to delete asset:", error);
+      alert("Failed to delete asset.");
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteModal(false);
+    setAssetToDelete(null);
+  };
 
   useEffect(() => {
     const handleResize = () => {
@@ -404,7 +439,7 @@ const AssetsDashboard: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const fetchedData = await getERPData();
+      const fetchedData = await getAssetsData();
       setDataERP(fetchedData);
     } catch (err) {
       setError("Failed to load data from ERP.");
@@ -569,7 +604,7 @@ const AssetsDashboard: React.FC = () => {
                 <span className="font-semibold">{isLoading ? "Loading..." : "Load Data from ERP"}</span>
               </motion.button>
               <motion.button
-                onClick={() => navigate("/assets/addasset")}
+                onClick={() => navigate("/assets/assetsdata/addasset")}
                 whileHover={{ scale: 1.02, boxShadow: "0 4px 12px rgba(37, 99, 235, 0.3)" }}
                 whileTap={{ scale: 0.98 }}
                 className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md font-semibold text-sm"
@@ -748,7 +783,7 @@ const AssetsDashboard: React.FC = () => {
                             <motion.button
                               whileHover={{ scale: 1.1, color: "#2563eb" }} // Darker blue on hover
                               whileTap={{ scale: 0.9 }}
-                              onClick={() => navigate(`/assets/editasset/${asset.id}`)}
+                              onClick={() => navigate(`/assets/assetsdata/editasset/${asset.id}`)}
                               className="text-yellow-600 hover:text-blue-600 transition-colors duration-200"
                               title="Edit Asset"
                             >
@@ -756,9 +791,9 @@ const AssetsDashboard: React.FC = () => {
                             </motion.button>
 
                             <motion.button
-                              whileHover={{ scale: 1.1, color: "#dc2626" }} // Red on hover
+                              whileHover={{ scale: 1.1, color: "#dc2626" }}
                               whileTap={{ scale: 0.9 }}
-                              onClick={() => handleDeleteAsset(String(asset.id))} // Assuming ID is string for deletion
+                              onClick={() => handleDeleteClick(String(asset.id), asset.name)}
                               className="text-red-600 hover:text-red-600 transition-colors duration-200"
                               title="Delete Asset"
                             >
@@ -869,6 +904,34 @@ const AssetsDashboard: React.FC = () => {
           </motion.div>
         </motion.div>
       )}
+
+      <Modal isOpen={showDeleteModal} onClose={handleDeleteCancel} title="Confirm Delete">
+        <div className="flex flex-col items-center justify-center py-4">
+          <AlertTriangle className="text-yellow-500 text-6xl mb-4" />
+          <p className="text-lg font-medium text-gray-800 text-center mb-2">Are you sure you want to delete this asset?</p>
+          <p className="text-sm text-gray-600 text-center mb-6">
+            Asset: <strong>{assetToDelete?.name}</strong>
+          </p>
+          <div className="flex gap-3">
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={handleDeleteCancel}
+              className="px-6 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200"
+            >
+              Cancel
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={handleDeleteConfirm}
+              className="px-6 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors duration-200"
+            >
+              Delete
+            </motion.button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

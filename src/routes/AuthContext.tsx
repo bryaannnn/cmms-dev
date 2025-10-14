@@ -653,20 +653,20 @@ export interface Asset {
 
 // Perbarui interface AssetData untuk payload addAsset, sesuai dengan format yang Anda inginkan
 export interface AssetData {
-  id: number; // Diperbarui menjadi number
+  id: number;
   name: string;
   category: string;
   location: string;
   purchase_date: string;
   description: string;
-  type: string | null; // Diperbarui menjadi string | null
+  type: string | null;
   make: string | null;
   model: string | null;
   status: string | null;
-  last_maintenance: string | null; // Diperbarui menjadi number | null
-  next_maintenance: string | null; // Diperbarui menjadi number | null
-  work_orders: string | null; // Diperbarui menjadi string | null
-  health: string | null; // Diperbarui menjadi string | null
+  last_maintenance: string | null;
+  next_maintenance: string | null;
+  work_orders: string | null;
+  health: string | null;
   created_at: string;
   update_at: string;
 }
@@ -1053,6 +1053,11 @@ export interface ScheduleApproval {
   };
 }
 
+export interface WorkArea {
+  id: number;
+  work_area: string;
+}
+
 // monitoring maintenance stop
 
 interface EditingUser extends User {
@@ -1134,10 +1139,12 @@ interface AuthContextType {
   updateUserPermissions: (id: string, data: { roleId?: string | null; customPermissions?: string[] }) => Promise<User>;
   deleteUser: (id: string) => Promise<void>;
   isAuthLoading: boolean;
-  getERPData: () => Promise<ERPRecord[]>;
+
+  getAssetsData: () => Promise<ERPRecord[]>;
   addAsset: (assetData: AssetData) => Promise<any>;
   editAsset: (assetData: AssetData) => Promise<any>;
   deleteAsset: (assetId: string) => Promise<any>;
+
   getAuditTrail: () => Promise<AuditLog[]>;
   // getService: (id: number) => Promise<Service>;S
   getServices: (id: number) => Promise<ServiceCatalogue[]>;
@@ -1223,6 +1230,12 @@ interface AuthContextType {
 
   // Schedule Approval
   approveSchedule: (scheduleId: string | number, comments: string) => Promise<ApprovalResponse>;
+
+  getWorkArea: () => Promise<WorkArea[]>;
+  getWorkAreaById: (id: string | number) => Promise<WorkArea>;
+  addWorkArea: (data: { work_area: string }) => Promise<WorkArea>;
+  updateWorkArea: (id: string | number, data: { work_area: string }) => Promise<WorkArea>;
+  deleteWorkArea: (id: string | number) => Promise<void>;
 }
 
 const projectEnvVariables = getProjectEnvVariables();
@@ -1473,7 +1486,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, [fetchWithAuth]);
 
-  const getERPData = useCallback(async (): Promise<ERPRecord[]> => {
+  const getAssetsData = useCallback(async (): Promise<ERPRecord[]> => {
     try {
       const erpRecords = await fetchWithAuth("/erp?includes_trashed=true", {
         method: "GET",
@@ -1484,62 +1497,65 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [fetchWithAuth]);
 
-  const addAsset = useCallback(async (assetData: AssetData): Promise<any> => {
-    const soapBody = `<?xml version="1.0" encoding="utf-8"?>
-      <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-                    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
-                    xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
-        <soap:Body>
-          <AddAsset xmlns="http://tempuri.org/ERPService/AssetManagement">
-            <asset>
-              <Name>${assetData.name}</Name>
-              <Category>${assetData.category}</Category>
-              <Location>${assetData.location}</Location>
-              <PurchaseDate>${assetData.purchase_date}</PurchaseDate>
-              <Description>${assetData.description}</Description>
-              <Type>${assetData.type ?? ""}</Type>
-              <Make>${assetData.make ?? ""}</Make>
-              <Model>${assetData.model ?? ""}</Model>
-              <Status>${assetData.status ?? ""}</Status>
-              <LastMaintenance>${assetData.last_maintenance ?? ""}</LastMaintenance>
-              <NextMaintenance>${assetData.next_maintenance ?? ""}</NextMaintenance>
-              <WorkOrders>${assetData.work_orders ?? ""}</WorkOrders>
-              <Health>${assetData.health ?? ""}</Health>
-            </asset>
-          </AddAsset>
-        </soap:Body>
+  // Tambahkan fungsi-fungsi berikut di dalam AuthProvider:
+
+  const addAsset = useCallback(
+    async (assetData: AssetData): Promise<any> => {
+      const soapBody = `<?xml version="1.0" encoding="utf-8"?>
+      <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" 
+                    xmlns:tem="http://tempuri.org/" 
+                    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+                    xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+          <soap:Body>
+              <AddAsset xmlns="http://tempuri.org/">
+                  <asset>
+                      <Name>${assetData.name}</Name>
+                      <Category>${assetData.category}</Category>
+                      <Location>${assetData.location}</Location>
+                      <PurchaseDate>${assetData.purchase_date}</PurchaseDate>
+                      <Description>${assetData.description}</Description>
+                      <Type>${assetData.type || ""}</Type>
+                      <Make>${assetData.make || ""}</Make>
+                      <Model>${assetData.model || ""}</Model>
+                      <Status>${assetData.status || ""}</Status>
+                      <LastMaintenance ${!assetData.last_maintenance ? 'xsi:nil="true"' : ""}>${assetData.last_maintenance || ""}</LastMaintenance>
+                      <NextMaintenance>${assetData.next_maintenance || ""}</NextMaintenance>
+                      <WorkOrders>${assetData.work_orders || ""}</WorkOrders>
+                      <Health>${assetData.health || ""}</Health>
+                  </asset>
+              </AddAsset>
+          </soap:Body>
       </soap:Envelope>`;
 
-    try {
-      const response = await fetchWithAuth(`/erp-endpoint?includes_trashed=true`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "text/xml; charset=utf-8",
-          SOAPAction: "http://tempuri.org/ERPService/AssetManagement/AddAsset",
-        },
-        body: soapBody,
-      });
+      try {
+        const response = await fetchWithAuth(`/erp-endpoint?includes_trashed=true`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "text/xml; charset=utf-8",
+            SOAPAction: "http://tempuri.org/AddAsset",
+          },
+          body: soapBody,
+        });
 
-      console.log("ERP SOAP Response:", response);
+        console.log("ERP SOAP Add Asset Response:", response);
 
-      if (typeof response === "string" && response.includes("<soap:Fault>")) {
-        throw new Error("SOAP Fault detected in response.");
+        if (typeof response === "string" && response.includes("<soap:Fault>")) {
+          throw new Error("SOAP Fault detected in response.");
+        }
+
+        return response;
+      } catch (error) {
+        console.error("Error adding asset:", error);
+        throw error;
       }
-
-      return response;
-    } catch (error) {
-      console.error("Error adding asset:", error);
-      throw error;
-    }
-  }, []);
+    },
+    [fetchWithAuth]
+  );
 
   const editAsset = useCallback(
     async (assetData: AssetData): Promise<any> => {
-      // Perbaikan: Hapus tag <asset> dan sesuaikan nama elemen sesuai contoh yang berhasil
       const soapBody = `<?xml version="1.0" encoding="utf-8"?>
-      <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-                    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
-                    xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+      <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
         <soap:Body>
           <EditAsset xmlns="http://tempuri.org/ERPService/AssetManagement">
             <assetId>${assetData.id}</assetId>
@@ -1548,14 +1564,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             <assetLocation>${assetData.location}</assetLocation>
             <purchaseDate>${assetData.purchase_date}</purchaseDate>
             <description>${assetData.description}</description>
-            <assetType>${assetData.type ?? ""}</assetType>
-            <assetMake>${assetData.make ?? ""}</assetMake>
-            <assetModel>${assetData.model ?? ""}</assetModel>
-            <assetStatus>${assetData.status ?? ""}</assetStatus>
-            <lastMaintenance>${assetData.last_maintenance ?? ""}</lastMaintenance>
-            <nextMaintenance>${assetData.next_maintenance ?? ""}</nextMaintenance>
-            <workOrders>${assetData.work_orders ?? ""}</workOrders>
-            <health>${assetData.health ?? ""}</health>
+            <assetType>${assetData.type || ""}</assetType>
+            <assetMake>${assetData.make || ""}</assetMake>
+            <assetModel>${assetData.model || ""}</assetModel>
+            <assetStatus>${assetData.status || ""}</assetStatus>
+            <lastMaintenance>${assetData.last_maintenance || ""}</lastMaintenance>
+            <nextMaintenance>${assetData.next_maintenance || ""}</nextMaintenance>
+            <workOrders>${assetData.work_orders || ""}</workOrders>
+            <health>${assetData.health || ""}</health>
           </EditAsset>
         </soap:Body>
       </soap:Envelope>`;
@@ -1565,12 +1581,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           method: "POST",
           headers: {
             "Content-Type": "text/xml; charset=utf-8",
-            SOAPAction: "http://tempuri.org/ERPService/AssetManagement/EditAsset",
+            SOAPAction: "http://tempuri.org/EditAsset",
           },
           body: soapBody,
         });
 
-        // For XML responses, we might just want to return the raw response
+        console.log("ERP SOAP Edit Asset Response:", response);
+
+        if (typeof response === "string" && response.includes("<soap:Fault>")) {
+          throw new Error("SOAP Fault detected in response.");
+        }
+
         return response;
       } catch (error) {
         console.error("Error editing asset:", error);
@@ -1583,25 +1604,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const deleteAsset = useCallback(
     async (assetId: string): Promise<any> => {
       const soapBody = `<?xml version="1.0" encoding="utf-8"?>
-    <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
-      <soap:Body>
-        <DeleteAsset xmlns="http://tempuri.org/ERPService/AssetManagement">
-          <assetId>${assetId}</assetId>
-        </DeleteAsset>
-      </soap:Body>
-    </soap:Envelope>`;
+        <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" 
+               xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+               xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+          <soap:Body>
+            <DeleteAsset xmlns="http://tempuri.org/ERPService/AssetManagement">
+             <assetId>${assetId}</assetId>
+            </DeleteAsset>
+          </soap:Body>
+        </soap:Envelope>`;
 
       try {
         const response = await fetchWithAuth(`/erp-endpoint?includes_trashed=true`, {
           method: "POST",
           headers: {
             "Content-Type": "text/xml; charset=utf-8",
-            SOAPAction: "http://tempuri.org/ERPService/AssetManagement/DeleteAsset",
+            SOAPAction: "http://tempuri.org/DeleteAsset",
           },
           body: soapBody,
         });
 
-        console.log("ERP SOAP Delete Response:", response);
+        console.log("ERP SOAP Delete Asset Response:", response);
 
         if (typeof response === "string" && response.includes("<soap:Fault>")) {
           throw new Error("SOAP Fault detected in response.");
@@ -3710,6 +3733,73 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     [fetchWithAuth]
   );
 
+  const getWorkArea = useCallback(async (): Promise<WorkArea[]> => {
+    try {
+      const response = await fetchWithAuth("/workarea?includes_trashed=true");
+      return response.data || response;
+    } catch (error) {
+      console.error("Failed to fetch workarea:", error);
+      return [];
+    }
+  }, [fetchWithAuth]);
+
+  const getWorkAreaById = useCallback(
+    async (id: string | number): Promise<WorkArea> => {
+      const responseData = await fetchWithAuth(`/workarea/${id}?includes_trashed=true`);
+      return responseData.data;
+    },
+    [fetchWithAuth]
+  );
+
+  const addWorkArea = useCallback(
+    async (data: { work_area: string }) => {
+      const responseData = await fetchWithAuth("/workarea?includes_trashed=true", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      return responseData;
+    },
+    [fetchWithAuth]
+  );
+
+  const updateWorkArea = useCallback(
+    async (id: string | number, data: { work_area: string }): Promise<WorkArea> => {
+      try {
+        const response = await fetchWithAuth(`/workarea/${id}?includes_trashed=true`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+
+        const responseData = response.data || response;
+
+        return {
+          id: responseData.id,
+          work_area: responseData.work_area,
+        };
+      } catch (error) {
+        console.error(`Failed to update work area with id ${id}:`, error);
+        throw new Error(`Failed to update work area: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  const deleteWorkArea = useCallback(
+    async (id: string | number): Promise<void> => {
+      try {
+        await fetchWithAuth(`/workarea/${id}?includes_trashed=true`, {
+          method: "DELETE",
+        });
+      } catch (error) {
+        console.error(`Failed to delete work area with id ${id}:`, error);
+        throw new Error(`Failed to delete work area: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    },
+    [fetchWithAuth]
+  );
+
   return (
     <AuthContext.Provider
       value={{
@@ -3760,9 +3850,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         updateUserPermissions,
         deleteUser,
         isAuthLoading,
-        getERPData,
-        addAsset,
-        editAsset,
+        getAssetsData,
+        addAsset, 
+        editAsset, 
         deleteAsset,
         getWorkOrdersForUser,
         getAuditTrail,
@@ -3832,6 +3922,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         getTemplateApprovers,
         setApprovalTemplateActive,
         approveSchedule,
+        getWorkArea,
+        getWorkAreaById,
+        addWorkArea,
+        updateWorkArea,
+        deleteWorkArea,
       }}
     >
       {children}
