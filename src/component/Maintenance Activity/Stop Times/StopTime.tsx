@@ -236,12 +236,12 @@ const StopTimesPage: React.FC = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
             <StatCard title="Total Stop Times" value={stoptimes.length.toString()} change={`+${Math.floor((stoptimes.length / 10) * 100)}%`} icon={<Clock className="w-6 h-6" />} />
-            <StatCard
+            {/* <StatCard
               title="Active Times"
               value={stoptimes.filter((stopTime) => stopTime.description && stopTime.description.length > 0).length.toString()}
               change={`+${Math.floor((stoptimes.filter((stopTime) => stopTime.description && stopTime.description.length > 0).length / stoptimes.length) * 100)}%`}
               icon={<Clock className="w-6 h-6" />}
-            />
+            /> */}
           </div>
 
           <motion.div layout className="mb-8 bg-white rounded-2xl shadow-md p-5 border border-blue-100">
@@ -319,14 +319,14 @@ const StopTimesPage: React.FC = () => {
                 <table className="min-w-full divide-y divide-blue-100">
                   <thead className="bg-blue-50">
                     <tr>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ID</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">No</th>
                       <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Stop Time</th>
                       <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Description</th>
                       <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-blue-100">
-                    {filteredStopTimes.map((stopTime) => (
+                    {filteredStopTimes.map((stopTime, index) => (
                       <motion.tr
                         key={stopTime.id}
                         initial={{ opacity: 0, y: 5 }}
@@ -336,7 +336,7 @@ const StopTimesPage: React.FC = () => {
                         className="transition-colors duration-150"
                       >
                         <td className="px-5 py-3 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{stopTime.id}</div>
+                          <div className="text-sm font-medium text-gray-900">{index + 1}</div>
                         </td>
                         <td className="px-5 py-3 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">{stopTime.name}</div>

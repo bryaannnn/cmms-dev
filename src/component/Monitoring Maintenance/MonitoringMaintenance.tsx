@@ -32,10 +32,14 @@ import {
   ChevronLeft,
   Activity,
   Minus,
+  Clock,
+  Package,
   BarChart2,
 } from "lucide-react";
 import Sidebar from "../Sidebar";
 import PageHeader from "../../component/PageHeader";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
 
 export interface MaintenanceTaskRecord {
@@ -101,6 +105,7 @@ interface ModalProps {
   title: string;
   children: React.ReactNode;
   className?: string;
+  maxWidth?: string;
 }
 
 interface DetailItemProps {
@@ -253,7 +258,7 @@ const normalizeIntervalType = (interval: AddIntervalType | RoutineSchedule["inte
 };
 
 // Components
-const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, className }) => {
+const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, className, maxWidth = "max-w-xl" }) => {
   return (
     <AnimatePresence>
       {isOpen && (
@@ -263,12 +268,12 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, classNa
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 50, opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.3, type: "spring", damping: 25, stiffness: 300 }}
-            className={`bg-white rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col ${className || "max-w-xl w-full"}`}
+            className={`bg-white rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col ${maxWidth} ${className || "w-full"}`}
           >
-            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-blue-50">
+            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gradient-to-r from-blue-50 to-indigo-50">
               <h2 className="text-xl font-bold text-gray-800">{title}</h2>
-              <button onClick={onClose} className="p-1.5 rounded-full text-gray-500 hover:bg-blue-100 hover:text-gray-700 focus:outline-none transition-colors duration-150" aria-label="Close modal">
-                <X className="text-xl" />
+              <button onClick={onClose} className="p-2 rounded-xl text-gray-500 hover:bg-white hover:text-gray-700 focus:outline-none transition-colors duration-150" aria-label="Close modal">
+                <X className="w-5 h-5" />
               </button>
             </div>
             <div className="p-6 overflow-y-auto custom-scrollbar flex-grow">{children}</div>
@@ -1182,7 +1187,7 @@ const DailyScheduleListModal: React.FC<DailyScheduleListModalProps> = ({ isOpen,
   // Kelompokkan schedules berdasarkan scheduleId
   const schedulesByGroup = schedules.reduce(
     (acc, schedule) => {
-      const scheduleId = String(schedule.scheduleId || "unknown"); // Konversi ke string
+      const scheduleId = String(schedule.scheduleId || "unknown");
       if (!acc[scheduleId]) {
         acc[scheduleId] = {
           scheduleId: scheduleId,
@@ -1207,60 +1212,186 @@ const DailyScheduleListModal: React.FC<DailyScheduleListModalProps> = ({ isOpen,
     >
   );
 
+  // Komponen Status Badge yang lebih modern
+  const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
+    const statusConfig = {
+      New: { color: "bg-blue-100 text-blue-800 border-blue-200", icon: "🆕" },
+      "On Progress": { color: "bg-yellow-100 text-yellow-800 border-yellow-200", icon: "⏳" },
+      Done: { color: "bg-green-100 text-green-800 border-green-200", icon: "✅" },
+      Cancelled: { color: "bg-red-100 text-red-800 border-red-200", icon: "❌" },
+    };
+
+    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig["New"];
+
+    return (
+      <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${config.color}`}>
+        <span className="text-xs">{config.icon}</span>
+        {status}
+      </span>
+    );
+  };
+
+  // Komponen MS Status Badge
+  const MSStatusBadge: React.FC<{ status: string }> = ({ status }) => {
+    const config = {
+      MS: { color: "bg-green-100 text-green-800 border-green-200", label: "Within Standard" },
+      TMS: { color: "bg-red-100 text-red-800 border-red-200", label: "Out of Standard" },
+      "N/A": { color: "bg-gray-100 text-gray-800 border-gray-200", label: "Not Applicable" },
+    }[status] || { color: "bg-gray-100 text-gray-800 border-gray-200", label: status };
+
+    return <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium border ${config.color}`}>{config.label}</span>;
+  };
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={`Schedules for ${new Date(titleDate).toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}`} className="max-w-2xl">
-      <div className="space-y-4">
-        {schedules.length === 0 ? (
-          <p className="text-gray-600 text-center py-4">No schedules for this date.</p>
-        ) : (
-          Object.values(schedulesByGroup).map((group) => (
-            <div key={group.scheduleId} className="border border-gray-200 rounded-lg overflow-hidden">
-              <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h4 className="font-semibold text-gray-800 text-lg">{group.machine}</h4>
-                    <p className="text-sm text-gray-600 mt-1">
-                      {group.items.length} item(s) • {group.interval} • {group.unit}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    {/* Tampilkan status keseluruhan schedule jika semua item memiliki status yang sama */}
-                    {group.items.every((item) => item.scheduleStatus === group.items[0].scheduleStatus) && (
-                      <span className={`text-xs px-2 py-1 rounded ${getStatusBadgeColor(group.items[0].scheduleStatus)}`}>{group.items[0].scheduleStatus || "New"}</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="divide-y divide-gray-100">
-                {group.items.map((schedule, index) => (
-                  <motion.button
-                    key={`${schedule.id}-${index}`}
-                    whileHover={{ scale: 1.02, backgroundColor: "rgba(239, 246, 255, 0.7)" }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => handleSelectAndClose(schedule)}
-                    className="w-full text-left p-4 hover:bg-blue-50 transition-colors duration-150 flex justify-between items-center"
-                  >
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-800 text-base">{schedule.item}</p>
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        <span className={`text-xs px-2 py-1 rounded ${getStatusBadgeColor(schedule.scheduleStatus)}`}>Status: {schedule.scheduleStatus || "New"}</span>
-                        {schedule.monitoringResult && schedule.monitoringResult !== "N/A" && <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">Result: {schedule.monitoringResult}</span>}
-                        {schedule.msStatus && schedule.msStatus !== "N/A" && (
-                          <span className={`text-xs px-2 py-1 rounded ${schedule.msStatus === "MS" ? "bg-green-100 text-green-800" : schedule.msStatus === "TMS" ? "bg-red-100 text-red-800" : "bg-gray-100 text-gray-800"}`}>
-                            MS: {schedule.msStatus}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="ml-4">
-                      <ChevronRight className="text-gray-400" size={16} />
-                    </div>
-                  </motion.button>
-                ))}
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={`Schedules for ${new Date(titleDate).toLocaleDateString("en-US", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })}`}
+      className="max-w-4xl"
+      maxWidth="max-w-4xl"
+    >
+      <div className="space-y-6">
+        {/* Header Summary */}
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-100">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Daily Overview</h3>
+              <div className="flex flex-wrap gap-4 text-sm text-gray-600">
+                <span className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  {schedules.length} total items
+                </span>
+                <span className="flex items-center gap-2">
+                  <Settings className="w-4 h-4" />
+                  {Object.keys(schedulesByGroup).length} schedules
+                </span>
               </div>
             </div>
-          ))
+            <div className="flex gap-2">
+              {Object.values(schedulesByGroup).some((group) => group.items.some((item) => item.scheduleStatus === "Done")) && <StatusBadge status="Done" />}
+              {Object.values(schedulesByGroup).some((group) => group.items.some((item) => item.scheduleStatus === "On Progress")) && <StatusBadge status="On Progress" />}
+              {Object.values(schedulesByGroup).some((group) => group.items.some((item) => item.scheduleStatus === "New")) && <StatusBadge status="New" />}
+            </div>
+          </div>
+        </div>
+
+        {schedules.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Calendar className="text-gray-400 text-2xl" />
+            </div>
+            <p className="text-gray-600 text-lg font-medium mb-2">No schedules for this date</p>
+            <p className="text-gray-400 text-sm">There are no maintenance schedules scheduled for this day.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {Object.values(schedulesByGroup).map((group) => (
+              <motion.div key={group.scheduleId} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-all duration-200">
+                {/* Group Header */}
+                <div className="bg-gradient-to-r from-gray-50 to-blue-50 px-6 py-4 border-b border-gray-100">
+                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h4 className="text-lg font-bold text-gray-900">{group.machine}</h4>
+                        {/* Overall group status jika semua item memiliki status sama */}
+                        {group.items.every((item) => item.scheduleStatus === group.items[0].scheduleStatus) && <StatusBadge status={group.items[0].scheduleStatus || "New"} />}
+                      </div>
+                      <div className="flex flex-wrap gap-4 text-sm text-gray-600">
+                        <span className="flex items-center gap-1.5">
+                          <Clipboard className="w-4 h-4" />
+                          {group.items.length} item{group.items.length > 1 ? "s" : ""}
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                          <Clock className="w-4 h-4" />
+                          {group.interval}
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                          <Package className="w-4 h-4" />
+                          {group.unit}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Items List */}
+                <div className="divide-y divide-gray-100">
+                  {group.items.map((schedule, index) => (
+                    <motion.button
+                      key={`${schedule.id}-${index}`}
+                      whileHover={{
+                        backgroundColor: "rgba(239, 246, 255, 0.5)",
+                        scale: 1.005,
+                      }}
+                      whileTap={{ scale: 0.995 }}
+                      onClick={() => handleSelectAndClose(schedule)}
+                      className="w-full text-left p-6 transition-all duration-200 flex justify-between items-start gap-4"
+                    >
+                      <div className="flex-1 min-w-0">
+                        {/* Item Header */}
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <h5 className="text-base font-semibold text-gray-900 mb-1">{schedule.item}</h5>
+                            <div className="flex flex-wrap gap-2">
+                              <StatusBadge status={schedule.scheduleStatus || "New"} />
+                              {schedule.monitoringResult && schedule.monitoringResult !== "N/A" && (
+                                <span className="inline-flex items-center px-2.5 py-1 bg-purple-100 text-purple-800 rounded-lg text-xs font-medium border border-purple-200">📊 Result: {schedule.monitoringResult}</span>
+                              )}
+                            </div>
+                          </div>
+                          <MSStatusBadge status={schedule.msStatus} />
+                        </div>
+
+                        {/* Item Details */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                          {schedule.standardMin !== null && schedule.standardMax !== null && (
+                            <div className="flex items-center gap-2 text-gray-600">
+                              <span className="font-medium">Standard:</span>
+                              <span>
+                                {schedule.standardMin} - {schedule.standardMax}
+                              </span>
+                            </div>
+                          )}
+                          {schedule.unitOfMeasure && schedule.unitOfMeasure !== "N/A" && (
+                            <div className="flex items-center gap-2 text-gray-600">
+                              <span className="font-medium">Unit:</span>
+                              <span>{schedule.unitOfMeasure}</span>
+                            </div>
+                          )}
+                          {schedule.notes && schedule.notes !== "N/A" && (
+                            <div className="md:col-span-2 flex items-start gap-2 text-gray-600">
+                              <span className="font-medium mt-0.5">Notes:</span>
+                              <span className="flex-1">{schedule.notes}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Action Arrow */}
+                      <div className="flex-shrink-0">
+                        <div className="p-2 rounded-lg bg-blue-50 text-blue-600">
+                          <ChevronRight className="w-4 h-4" />
+                        </div>
+                      </div>
+                    </motion.button>
+                  ))}
+                </div>
+              </motion.div>
+            ))}
+          </div>
         )}
+
+        {/* Footer Actions */}
+        <div className="flex justify-end pt-4 border-t border-gray-100">
+          <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={onClose} className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors duration-200 font-semibold text-sm">
+            Close
+          </motion.button>
+        </div>
       </div>
     </Modal>
   );
@@ -1324,6 +1455,40 @@ const MonitoringMaintenance: React.FC = () => {
 
   const notificationsRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
+
+  const [selectedStatus, setSelectedStatus] = useState<string[]>([]);
+  const [selectedInterval, setSelectedInterval] = useState<string[]>([]);
+
+  const [showIntervalFilterDropdown, setShowIntervalFilterDropdown] = useState(false);
+
+  const [showStatusFilterDropdown, setShowStatusFilterDropdown] = useState(false);
+  const statusFilterDropdownRef = useRef<HTMLDivElement>(null);
+  const [showMachineFilterDropdown, setShowMachineFilterDropdown] = useState(false);
+  const machineFilterDropdownRef = useRef<HTMLDivElement>(null);
+  const [showUnitFilterDropdown, setShowUnitFilterDropdown] = useState(false);
+  const unitFilterDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Options untuk filter
+  const statusOptions = useMemo(
+    () => [
+      { value: "MS", label: "MS" },
+      { value: "TMS", label: "TMS" },
+      { value: "N/A", label: "N/A" },
+    ],
+    []
+  );
+
+  const intervalOptions = useMemo(
+    () => [
+      { value: "Daily", label: "Daily" },
+      { value: "Weekly", label: "Weekly" },
+      { value: "Monthly", label: "Monthly" },
+      { value: "3 Months", label: "3 Months" },
+      { value: "6 Months", label: "6 Months" },
+      { value: "1 Year", label: "1 Year" },
+    ],
+    []
+  );
 
   // Convert API schedules to RoutineSchedule format
   const routineSchedules: RoutineSchedule[] = useMemo(() => {
@@ -1619,19 +1784,15 @@ const MonitoringMaintenance: React.FC = () => {
   const uniqueMachines = useMemo(() => ["", ...new Set(records.map((r) => r.mesin))], [records]);
   const uniqueItems = useMemo(() => ["", ...new Set(records.map((r) => r.item))], [records]);
 
-  // Optimasi filteredRecords computation
   const filteredRecords = useMemo(() => {
-    // Early return jika records kosong
     if (records.length === 0) return [];
 
     let filtered = records;
 
-    // Optimasi filter berurutan dengan kondisi yang paling restrictive dulu
+    // Search filter
     if (searchTerm) {
       const lowerCaseSearchTerm = searchTerm.toLowerCase();
       filtered = filtered.filter((record) => record.mesin.toLowerCase().includes(lowerCaseSearchTerm) || record.item.toLowerCase().includes(lowerCaseSearchTerm) || record.unitWilayah.toLowerCase().includes(lowerCaseSearchTerm));
-
-      // Jika setelah search tidak ada hasil, return early
       if (filtered.length === 0) return [];
     }
 
@@ -1643,7 +1804,13 @@ const MonitoringMaintenance: React.FC = () => {
       if (filtered.length === 0) return [];
     }
 
-    // Array filters (lebih efficient dengan Set)
+    // Multi-select filters menggunakan array
+    if (selectedStatus.length > 0) {
+      const statusSet = new Set(selectedStatus);
+      filtered = filtered.filter((record) => statusSet.has(record.msStatus));
+      if (filtered.length === 0) return [];
+    }
+
     if (selectedUnit.length > 0) {
       const unitSet = new Set(selectedUnit);
       filtered = filtered.filter((record) => unitSet.has(record.unitWilayah));
@@ -1656,13 +1823,8 @@ const MonitoringMaintenance: React.FC = () => {
       if (filtered.length === 0) return [];
     }
 
-    if (selectedItem.length > 0) {
-      const itemSet = new Set(selectedItem);
-      filtered = filtered.filter((record) => itemSet.has(record.item));
-    }
-
     return filtered;
-  }, [records, filterStartDate, filterEndDate, selectedUnit, selectedMachine, selectedItem, searchTerm]);
+  }, [records, filterStartDate, filterEndDate, selectedStatus, selectedUnit, selectedMachine, searchTerm]);
 
   useEffect(() => {
     const handleResize = (): void => {
@@ -1683,7 +1845,22 @@ const MonitoringMaintenance: React.FC = () => {
       if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
         setShowProfileMenu(false);
       }
+      // Close status filter dropdown if clicked outside
+      if (statusFilterDropdownRef.current && !statusFilterDropdownRef.current.contains(event.target as Node) && !(event.target as HTMLElement).closest(".status-filter-toggle")) {
+        setShowStatusFilterDropdown(false);
+      }
+
+      // Close machine filter dropdown if clicked outside
+      if (machineFilterDropdownRef.current && !machineFilterDropdownRef.current.contains(event.target as Node) && !(event.target as HTMLElement).closest(".machine-filter-toggle")) {
+        setShowMachineFilterDropdown(false);
+      }
+
+      // Close unit filter dropdown if clicked outside
+      if (unitFilterDropdownRef.current && !unitFilterDropdownRef.current.contains(event.target as Node) && !(event.target as HTMLElement).closest(".unit-filter-toggle")) {
+        setShowUnitFilterDropdown(false);
+      }
     };
+
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
@@ -1815,8 +1992,13 @@ const MonitoringMaintenance: React.FC = () => {
     let weekDays: React.ReactNode[] = [];
     let currentWeekStartDate: Date | null = null;
 
+    // Empty cells for days before the first day of the month
     for (let i = 0; i < firstDayOfWeekOfMonth; i++) {
-      weekDays.push(<div key={`empty-pre-${i}`} className="p-3 md:p-4 text-center text-gray-400 bg-gray-50 border border-gray-200 rounded-md min-h-[80px] md:min-h-[100px] flex items-center justify-center"></div>);
+      weekDays.push(
+        <div key={`empty-pre-${i}`} className="p-3 rounded-xl bg-gray-50 border border-gray-100 min-h-[100px] flex flex-col items-center justify-center">
+          <span className="text-sm text-gray-400">-</span>
+        </div>
+      );
     }
 
     while (dayCounter <= daysInMonth) {
@@ -1832,7 +2014,7 @@ const MonitoringMaintenance: React.FC = () => {
 
       // Kelompokkan records berdasarkan scheduleId
       const schedulesByGroup = dayRecords.reduce((acc, record) => {
-        const scheduleId = String(record.scheduleId || "unknown"); // Konversi ke string
+        const scheduleId = String(record.scheduleId || "unknown");
         if (!acc[scheduleId]) {
           acc[scheduleId] = {
             scheduleId: scheduleId,
@@ -1847,72 +2029,91 @@ const MonitoringMaintenance: React.FC = () => {
 
       const scheduleGroups = Object.values(schedulesByGroup);
 
-      // ✅ HAPUS WARNA BACKGROUND - hanya gunakan border untuk hari ini
+      // Tentukan styling berdasarkan status dan apakah hari ini
       const isToday = today.toDateString() === date.toDateString();
+      const hasSchedules = scheduleGroups.length > 0;
 
-      // PERBAIKAN: Gunakan kelas border yang lebih spesifik untuk hari ini
-      let cellClasses = `p-3 md:p-4 text-center border border-gray-200 rounded-md flex flex-col justify-between relative min-h-[80px] md:min-h-[100px] bg-white`;
+      // Base classes untuk semua hari
+      let cellClasses = `p-3 rounded-xl border-2 min-h-[100px] flex flex-col transition-all duration-200 `;
 
-      // PERBAIKAN: Gunakan !important atau kelas yang lebih spesifik untuk border hari ini
+      // Styling berdasarkan status
       if (isToday) {
-        cellClasses = `p-3 md:p-4 text-center border-2 border-blue-500 rounded-md flex flex-col justify-between relative min-h-[80px] md:min-h-[100px] bg-white font-bold`;
+        cellClasses += `bg-blue-50 border-blue-200 shadow-sm `;
+      } else if (hasSchedules) {
+        // Tentukan warna berdasarkan status schedule
+        const allStatuses = scheduleGroups.flatMap((group) => group.items.map((item) => item.scheduleStatus || "New"));
+
+        if (allStatuses.includes("Done")) {
+          cellClasses += `bg-green-50 border-green-200 `;
+        } else if (allStatuses.includes("On Progress")) {
+          cellClasses += `bg-yellow-50 border-yellow-200 `;
+        } else {
+          cellClasses += `bg-blue-50 border-blue-200 `;
+        }
+      } else {
+        cellClasses += `bg-white border-gray-100 hover:border-gray-200 `;
       }
 
-      // Ambil status unik dari semua schedule groups
-      const allStatuses = scheduleGroups.flatMap((group) => group.items.map((item) => item.scheduleStatus || "New"));
-      const uniqueStatuses = Array.from(new Set(allStatuses));
+      // Hover effect
+      cellClasses += `hover:shadow-md hover:scale-[1.02] cursor-pointer `;
 
       weekDays.push(
-        <div key={dateString} className={cellClasses}>
-          <span className={`text-sm font-semibold ${isToday ? "text-blue-700" : "text-gray-800"}`}>{dayCounter}</span>
-          <div className="flex flex-col items-center justify-center mt-1 space-y-1">
-            {scheduleGroups.length > 0 && (
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="w-full text-center text-xs px-2 py-1 rounded-md overflow-hidden bg-gray-50 hover:bg-gray-100 transition-colors shadow-sm"
-                onClick={() => handleOpenDailyScheduleModal(dayRecords, dateString)}
-                title={`${scheduleGroups.length} schedule(s) with ${dayRecords.length} total items`}
-              >
-                {/* Tampilkan machines yang ada */}
-                <div className="font-semibold truncate w-full text-gray-800">
-                  {scheduleGroups[0].machine}
-                  {scheduleGroups.length > 1 && ` +${scheduleGroups.length - 1}`}
-                </div>
-
-                <div className="text-xs text-gray-500 mt-0.5">
-                  {dayRecords.length} item(s) in {scheduleGroups.length} schedule(s)
-                </div>
-
-                {/* ✅ TAMPILKAN STATUS BADGE DENGAN STRING */}
-                {uniqueStatuses.length > 0 && (
-                  <div className="flex flex-wrap gap-0.5 justify-center mt-1">
-                    {uniqueStatuses.slice(0, 2).map((status, index) => (
-                      <span key={index} className={`px-1 py-0.5 rounded text-[10px] border ${getStatusBadgeColor(status)}`}>
-                        {status}
-                      </span>
-                    ))}
-                    {uniqueStatuses.length > 2 && <span className="px-1 py-0.5 rounded text-[10px] bg-gray-100 text-gray-600 border border-gray-200">+{uniqueStatuses.length - 2}</span>}
-                  </div>
-                )}
-              </motion.button>
-            )}
+        <motion.div key={dateString} className={cellClasses} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => hasSchedules && handleOpenDailyScheduleModal(dayRecords, dateString)}>
+          {/* Date Number */}
+          <div className="flex justify-between items-start mb-2">
+            <span className={`text-sm font-semibold ${isToday ? "text-blue-600" : hasSchedules ? "text-gray-900" : "text-gray-500"}`}>{dayCounter}</span>
+            {isToday && <div className="w-2 h-2 bg-blue-500 rounded-full"></div>}
           </div>
-        </div>
+
+          {/* Schedule Content */}
+          <div className="flex-1 flex flex-col gap-1.5">
+            {scheduleGroups.slice(0, 2).map((group, index) => (
+              <div
+                key={group.scheduleId}
+                className={`px-2 py-1.5 rounded-lg text-xs font-medium ${
+                  group.items[0].scheduleStatus === "Done"
+                    ? "bg-green-100 text-green-800 border border-green-200"
+                    : group.items[0].scheduleStatus === "On Progress"
+                    ? "bg-yellow-100 text-yellow-800 border border-yellow-200"
+                    : "bg-blue-100 text-blue-800 border border-blue-200"
+                }`}
+              >
+                <div className="font-semibold truncate">{group.machine}</div>
+                <div className="text-xs opacity-75 mt-0.5">
+                  {group.items.length} item{group.items.length > 1 ? "s" : ""}
+                </div>
+              </div>
+            ))}
+
+            {scheduleGroups.length > 2 && <div className="px-2 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs font-medium text-center">+{scheduleGroups.length - 2} more</div>}
+          </div>
+        </motion.div>
       );
 
+      // Week number cell
       if (weekDays.length === 7 || dayCounter === daysInMonth) {
         while (weekDays.length < 7) {
-          weekDays.push(<div key={`empty-post-${weekDays.length}`} className="p-3 md:p-4 text-center text-gray-400 bg-gray-50 border border-gray-200 rounded-md min-h-[80px] md:min-h-[100px] flex items-center justify-center"></div>);
+          weekDays.push(
+            <div key={`empty-post-${weekDays.length}`} className="p-3 rounded-xl bg-gray-50 border border-gray-100 min-h-[100px] flex flex-col items-center justify-center">
+              <span className="text-sm text-gray-400">-</span>
+            </div>
+          );
         }
 
         const weekNum = currentWeekStartDate ? getISOWeekNumber(currentWeekStartDate) : null;
+
         calendarRows.push(
           <React.Fragment key={`week-row-${dayCounter}`}>
-            <div className="p-2 text-center font-bold text-gray-700 bg-gray-100 rounded-md border border-gray-200">{weekNum !== null ? ` ${String(weekNum).padStart(2, "0")}` : ""}</div>
+            {/* Week Number Cell */}
+            <div className="p-3 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 flex items-center justify-center">
+              <span className="text-sm font-bold text-gray-600">{weekNum !== null ? `${String(weekNum).padStart(2, "0")}` : ""}</span>
+            </div>
+
+            {/* Days of the week */}
             {weekDays}
           </React.Fragment>
         );
+
         weekDays = [];
         currentWeekStartDate = null;
       }
@@ -1942,6 +2143,42 @@ const MonitoringMaintenance: React.FC = () => {
 
     return newNotifications;
   }, [records, dummyUser.role]);
+
+  // Handler untuk Status multi-select
+  const handleStatusCheckboxChange = (statusValue: string, isChecked: boolean) => {
+    if (isChecked) {
+      setSelectedStatus((prev) => [...prev, statusValue]);
+    } else {
+      setSelectedStatus((prev) => prev.filter((value) => value !== statusValue));
+    }
+  };
+
+  // Handler untuk Machine multi-select
+  const handleMachineCheckboxChange = (machineName: string, isChecked: boolean) => {
+    if (isChecked) {
+      setSelectedMachine((prev) => [...prev, machineName]);
+    } else {
+      setSelectedMachine((prev) => prev.filter((name) => name !== machineName));
+    }
+  };
+
+  // Handler untuk Unit multi-select
+  const handleUnitCheckboxChange = (unitName: string, isChecked: boolean) => {
+    if (isChecked) {
+      setSelectedUnit((prev) => [...prev, unitName]);
+    } else {
+      setSelectedUnit((prev) => prev.filter((name) => name !== unitName));
+    }
+  };
+
+  // Handler untuk Interval multi-select
+  const handleIntervalCheckboxChange = (intervalValue: string, isChecked: boolean) => {
+    if (isChecked) {
+      setSelectedInterval((prev) => [...prev, intervalValue]);
+    } else {
+      setSelectedInterval((prev) => prev.filter((value) => value !== intervalValue));
+    }
+  };
 
   const isStep1Complete = addForm.startDate !== null && addForm.endDate !== null;
   const isStep2Complete = addForm.selectedUnits.length > 0;
@@ -2019,7 +2256,7 @@ const MonitoringMaintenance: React.FC = () => {
               <AnimatePresence mode="wait">
                 <motion.div key={viewMode} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
                   {/* Filter Section - Tampilkan selalu ketika ada data */}
-                  <div className="mb-8 bg-white rounded-2xl shadow-md p-5 border border-blue-100">
+                  <motion.div layout className="mb-8 bg-white rounded-2xl shadow-md p-5 border border-blue-100">
                     <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-4 md:space-y-0 relative">
                       <div className="flex-1 relative">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
@@ -2054,27 +2291,36 @@ const MonitoringMaintenance: React.FC = () => {
                           animate={{ opacity: 1, height: "auto" }}
                           exit={{ opacity: 0, height: 0 }}
                           transition={{ duration: 0.2 }}
-                          className="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full"
+                          className="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full"
                         >
+                          {/* Date Range Filter */}
                           <div className="flex items-center space-x-2 bg-white p-2.5 rounded-lg border border-blue-200 shadow-sm">
                             <Calendar className="text-gray-500 text-base" />
-                            <input
-                              type="date"
-                              value={filterStartDate ? filterStartDate.toISOString().split("T")[0] : ""}
-                              onChange={(e) => setFilterStartDate(e.target.value ? new Date(e.target.value) : null)}
-                              placeholder="Start Date"
+                            <DatePicker
+                              selected={filterStartDate}
+                              onChange={(date: Date | null) => setFilterStartDate(date)}
+                              selectsStart
+                              startDate={filterStartDate}
+                              endDate={filterEndDate}
+                              placeholderText="Start Date"
                               className="w-24 focus:outline-none bg-transparent text-sm text-gray-800 placeholder-gray-400"
+                              dateFormat="dd/MM/yyyy"
+                              isClearable
                               aria-label="Start Date"
                             />
                             <span className="text-gray-400">-</span>
-                            <input
-                              type="date"
-                              value={filterEndDate ? filterEndDate.toISOString().split("T")[0] : ""}
-                              onChange={(e) => setFilterEndDate(e.target.value ? new Date(e.target.value) : null)}
-                              placeholder="End Date"
+                            <DatePicker
+                              selected={filterEndDate}
+                              onChange={(date: Date | null) => setFilterEndDate(date)}
+                              selectsEnd
+                              startDate={filterStartDate}
+                              endDate={filterEndDate}
+                              minDate={filterStartDate || undefined}
+                              placeholderText="End Date"
                               className="w-24 focus:outline-none bg-transparent text-sm text-gray-800 placeholder-gray-400"
+                              dateFormat="dd/MM/yyyy"
+                              isClearable
                               aria-label="End Date"
-                              min={filterStartDate ? filterStartDate.toISOString().split("T")[0] : undefined}
                             />
                             {(filterStartDate || filterEndDate) && (
                               <motion.button
@@ -2085,7 +2331,7 @@ const MonitoringMaintenance: React.FC = () => {
                                   setFilterEndDate(null);
                                 }}
                                 className="p-1 rounded-full text-gray-400 hover:bg-gray-100 transition-colors"
-                                title="Clear Date"
+                                title="Clear Dates"
                                 aria-label="Clear date range"
                               >
                                 <X className="text-base" />
@@ -2093,96 +2339,265 @@ const MonitoringMaintenance: React.FC = () => {
                             )}
                           </div>
 
-                          <div className="relative w-full">
-                            <select
-                              value={selectedUnit.length > 0 ? selectedUnit[0] : ""}
-                              onChange={(e) => setSelectedUnit(e.target.value ? [e.target.value] : [])}
-                              className="w-full border border-blue-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white text-sm text-left transition-all duration-200 shadow-sm cursor-pointer"
+                          {/* Status Filter Dropdown */}
+                          <div ref={statusFilterDropdownRef} className="relative w-full">
+                            <button
+                              type="button"
+                              className="status-filter-toggle w-full border border-blue-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white text-sm text-left flex justify-between items-center transition-all duration-200 shadow-sm cursor-pointer"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowStatusFilterDropdown(!showStatusFilterDropdown);
+                              }}
+                              aria-expanded={showStatusFilterDropdown}
+                              aria-haspopup="true"
+                              aria-label="Filter by Status"
                             >
-                              <option value="">All Units</option>
-                              {uniqueUnits.map((unit) => (
-                                <option key={unit} value={unit}>
-                                  {unit}
-                                </option>
-                              ))}
-                            </select>
+                              <span>{selectedStatus.length > 0 ? (selectedStatus.length === statusOptions.length ? "All Status" : `Selected (${selectedStatus.length})`) : "All Status"}</span>
+                              <ChevronDown className={`transform transition-transform ${showStatusFilterDropdown ? "rotate-180" : "rotate-0"} text-gray-500 text-base`} />
+                            </button>
+                            <AnimatePresence>
+                              {showStatusFilterDropdown && (
+                                <motion.div
+                                  initial={{ opacity: 0, y: 5, height: 0 }}
+                                  animate={{ opacity: 1, y: 0, height: "auto" }}
+                                  exit={{ opacity: 0, y: 5, height: 0 }}
+                                  transition={{ duration: 0.15 }}
+                                  className="absolute top-full left-0 right-0 mt-2 bg-white border border-blue-200 rounded-lg shadow-lg z-50 max-h-56 overflow-y-auto custom-scrollbar"
+                                  role="listbox"
+                                >
+                                  <label className="flex items-center p-2.5 hover:bg-blue-50 cursor-pointer border-b border-blue-50" role="option">
+                                    <input
+                                      type="checkbox"
+                                      className="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500 transition duration-150 ease-in-out"
+                                      checked={selectedStatus.length === statusOptions.length && statusOptions.length > 0}
+                                      onChange={(e) => {
+                                        if (e.target.checked) {
+                                          setSelectedStatus(statusOptions.map((opt) => opt.value));
+                                        } else {
+                                          setSelectedStatus([]);
+                                        }
+                                      }}
+                                    />
+                                    <span className="ml-2 text-gray-800 font-semibold text-sm">Select All</span>
+                                  </label>
+                                  {statusOptions.map((option) => (
+                                    <label key={option.value} className="flex items-center p-2.5 hover:bg-blue-50 cursor-pointer" role="option">
+                                      <input
+                                        type="checkbox"
+                                        className="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500 transition duration-150 ease-in-out"
+                                        checked={selectedStatus.includes(option.value)}
+                                        onChange={(e) => handleStatusCheckboxChange(option.value, e.target.checked)}
+                                      />
+                                      <span className="ml-2 text-gray-800 text-sm">{option.label}</span>
+                                    </label>
+                                  ))}
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
                           </div>
-                          <div className="relative w-full">
-                            <select
-                              value={selectedMachine.length > 0 ? selectedMachine[0] : ""}
-                              onChange={(e) => setSelectedMachine(e.target.value ? [e.target.value] : [])}
-                              className="w-full border border-blue-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white text-sm text-left transition-all duration-200 shadow-sm cursor-pointer"
+
+                          {/* Unit Filter Dropdown */}
+                          <div ref={unitFilterDropdownRef} className="relative w-full">
+                            <button
+                              type="button"
+                              className="unit-filter-toggle w-full border border-blue-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white text-sm text-left flex justify-between items-center transition-all duration-200 shadow-sm cursor-pointer"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowUnitFilterDropdown(!showUnitFilterDropdown);
+                              }}
+                              aria-expanded={showUnitFilterDropdown}
+                              aria-haspopup="true"
+                              aria-label="Filter by Unit"
                             >
-                              <option value="">All Machines</option>
-                              {uniqueMachines.map((machine) => (
-                                <option key={machine} value={machine}>
-                                  {machine}
-                                </option>
-                              ))}
-                            </select>
+                              <span>{selectedUnit.length > 0 ? (selectedUnit.length === uniqueUnits.length - 1 ? "All Units" : `Selected (${selectedUnit.length})`) : "All Units"}</span>
+                              <ChevronDown className={`transform transition-transform ${showUnitFilterDropdown ? "rotate-180" : "rotate-0"} text-gray-500 text-base`} />
+                            </button>
+                            <AnimatePresence>
+                              {showUnitFilterDropdown && (
+                                <motion.div
+                                  initial={{ opacity: 0, y: 5, height: 0 }}
+                                  animate={{ opacity: 1, y: 0, height: "auto" }}
+                                  exit={{ opacity: 0, y: 5, height: 0 }}
+                                  transition={{ duration: 0.15 }}
+                                  className="absolute top-full left-0 right-0 mt-2 bg-white border border-blue-200 rounded-lg shadow-lg z-50 max-h-56 overflow-y-auto custom-scrollbar"
+                                  role="listbox"
+                                >
+                                  <label className="flex items-center p-2.5 hover:bg-blue-50 cursor-pointer border-b border-blue-50" role="option">
+                                    <input
+                                      type="checkbox"
+                                      className="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500 transition duration-150 ease-in-out"
+                                      checked={selectedUnit.length === uniqueUnits.length - 1 && uniqueUnits.length > 1}
+                                      onChange={(e) => {
+                                        if (e.target.checked) {
+                                          setSelectedUnit(uniqueUnits.slice(1)); // Exclude empty string
+                                        } else {
+                                          setSelectedUnit([]);
+                                        }
+                                      }}
+                                    />
+                                    <span className="ml-2 text-gray-800 font-semibold text-sm">Select All</span>
+                                  </label>
+                                  {uniqueUnits.slice(1).map((unit) => (
+                                    <label key={unit} className="flex items-center p-2.5 hover:bg-blue-50 cursor-pointer" role="option">
+                                      <input
+                                        type="checkbox"
+                                        className="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500 transition duration-150 ease-in-out"
+                                        checked={selectedUnit.includes(unit)}
+                                        onChange={(e) => handleUnitCheckboxChange(unit, e.target.checked)}
+                                      />
+                                      <span className="ml-2 text-gray-800 text-sm">{unit}</span>
+                                    </label>
+                                  ))}
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
+
+                          {/* Machine Filter Dropdown */}
+                          <div ref={machineFilterDropdownRef} className="relative w-full">
+                            <button
+                              type="button"
+                              className="machine-filter-toggle w-full border border-blue-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white text-sm text-left flex justify-between items-center transition-all duration-200 shadow-sm cursor-pointer"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowMachineFilterDropdown(!showMachineFilterDropdown);
+                              }}
+                              aria-expanded={showMachineFilterDropdown}
+                              aria-haspopup="true"
+                              aria-label="Filter by Machine"
+                            >
+                              <span>{selectedMachine.length > 0 ? (selectedMachine.length === uniqueMachines.length - 1 ? "All Machines" : `Selected (${selectedMachine.length})`) : "All Machines"}</span>
+                              <ChevronDown className={`transform transition-transform ${showMachineFilterDropdown ? "rotate-180" : "rotate-0"} text-gray-500 text-base`} />
+                            </button>
+                            <AnimatePresence>
+                              {showMachineFilterDropdown && (
+                                <motion.div
+                                  initial={{ opacity: 0, y: 5, height: 0 }}
+                                  animate={{ opacity: 1, y: 0, height: "auto" }}
+                                  exit={{ opacity: 0, y: 5, height: 0 }}
+                                  transition={{ duration: 0.15 }}
+                                  className="absolute top-full left-0 right-0 mt-2 bg-white border border-blue-200 rounded-lg shadow-lg z-50 max-h-56 overflow-y-auto custom-scrollbar"
+                                  role="listbox"
+                                >
+                                  <label className="flex items-center p-2.5 hover:bg-blue-50 cursor-pointer border-b border-blue-50" role="option">
+                                    <input
+                                      type="checkbox"
+                                      className="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500 transition duration-150 ease-in-out"
+                                      checked={selectedMachine.length === uniqueMachines.length - 1 && uniqueMachines.length > 1}
+                                      onChange={(e) => {
+                                        if (e.target.checked) {
+                                          setSelectedMachine(uniqueMachines.slice(1)); // Exclude empty string
+                                        } else {
+                                          setSelectedMachine([]);
+                                        }
+                                      }}
+                                    />
+                                    <span className="ml-2 text-gray-800 font-semibold text-sm">Select All</span>
+                                  </label>
+                                  {uniqueMachines.slice(1).map((machine) => (
+                                    <label key={machine} className="flex items-center p-2.5 hover:bg-blue-50 cursor-pointer" role="option">
+                                      <input
+                                        type="checkbox"
+                                        className="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500 transition duration-150 ease-in-out"
+                                        checked={selectedMachine.includes(machine)}
+                                        onChange={(e) => handleMachineCheckboxChange(machine, e.target.checked)}
+                                      />
+                                      <span className="ml-2 text-gray-800 text-sm">{machine}</span>
+                                    </label>
+                                  ))}
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
                           </div>
                         </motion.div>
                       )}
                     </AnimatePresence>
-                  </div>
+                  </motion.div>
 
                   {/* View Modes */}
 
                   {viewMode === "calendar" && (
-                    <div className="space-y-4">
-                      {/* LEGEND - Hanya tampil di calendar view dan di atas calendar */}
-                      <div className="bg-white rounded-2xl shadow-md p-4 border border-blue-100">
-                        <div className="flex flex-wrap gap-4 justify-center text-sm">
-                          <div className="flex items-center gap-2">
-                            <div className="w-4 h-4 bg-blue-100 border border-blue-400 rounded"></div>
-                            <span className="text-gray-700">New / Not Started</span>
+                    <div className="space-y-6">
+                      {/* Calendar Header - Modern Design */}
+                      <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+                        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                          <div className="text-center lg:text-left">
+                            <h2 className="text-2xl font-bold text-gray-900 mb-2">{currentCalendarDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</h2>
+                            <p className="text-gray-600 text-sm">Monitor your maintenance schedules and activities</p>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-4 h-4 bg-yellow-100 border border-yellow-400 rounded"></div>
-                            <span className="text-gray-700">On Progress</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-4 h-4 bg-green-100 border border-green-400 rounded"></div>
-                            <span className="text-gray-700">Done / Completed</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-4 h-4 bg-gray-100 border border-gray-300 rounded"></div>
-                            <span className="text-gray-700">No Schedule</span>
+
+                          <div className="flex items-center justify-center gap-3">
+                            <motion.button
+                              whileHover={{ scale: 1.05, backgroundColor: "rgba(59, 130, 246, 0.1)" }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={goToPreviousMonth}
+                              className="p-3 rounded-xl text-gray-600 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200 border border-gray-200"
+                              aria-label="Previous month"
+                            >
+                              <ChevronLeft size={20} />
+                            </motion.button>
+
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={goToCurrentMonth}
+                              className="px-4 py-3 bg-blue-600 text-white rounded-xl text-sm font-semibold shadow-lg hover:bg-blue-700 transition-colors duration-200"
+                            >
+                              Today
+                            </motion.button>
+
+                            <motion.button
+                              whileHover={{ scale: 1.05, backgroundColor: "rgba(59, 130, 246, 0.1)" }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={goToNextMonth}
+                              className="p-3 rounded-xl text-gray-600 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200 border border-gray-200"
+                              aria-label="Next month"
+                            >
+                              <ChevronRight size={20} />
+                            </motion.button>
                           </div>
                         </div>
                       </div>
 
-                      {/* Calendar Content */}
-                      <div className="bg-white rounded-2xl shadow-md p-6 border border-blue-100">
-                        {/* Calendar content */}
-                        <div className="flex justify-between items-center mb-4">
-                          <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={goToPreviousMonth} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
-                            <ChevronLeft size={20} />
-                          </motion.button>
-                          <h3 className="text-lg font-bold text-gray-800">{currentCalendarDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</h3>
-                          <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={goToNextMonth} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
-                            <ChevronRight size={20} />
-                          </motion.button>
-                          <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={goToCurrentMonth}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-full text-sm font-semibold shadow-md hover:bg-blue-700 transition-colors duration-200"
-                          >
-                            Today
-                          </motion.button>
+                      {/* Calendar Grid - Modern Design */}
+                      <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+                        {/* Week Days Header */}
+                        <div className="grid grid-cols-8 gap-2 mb-4">
+                          <div className="p-3 text-center">
+                            <span className="text-sm font-semibold text-gray-500 uppercase tracking-wider">WN</span>
+                          </div>
+                          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
+                            <div key={day} className="p-3 text-center">
+                              <span className="text-sm font-semibold text-gray-500 uppercase tracking-wider">{day}</span>
+                            </div>
+                          ))}
                         </div>
-                        <div className="grid grid-cols-8 gap-2 text-center text-sm font-semibold text-gray-600 mb-2">
-                          <div className="text-center font-bold">WN</div>
-                          <div>Mon</div>
-                          <div>Tue</div>
-                          <div>Wed</div>
-                          <div>Thu</div>
-                          <div>Fri</div>
-                          <div>Sat</div>
-                          <div>Sun</div>
-                        </div>
+
+                        {/* Calendar Days Grid */}
                         <div className="grid grid-cols-8 gap-2">{renderCalendarDays()}</div>
+                      </div>
+
+                      {/* Legend - Modern Design */}
+                      <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Schedule Status</h3>
+                        <div className="flex flex-wrap gap-6">
+                          <div className="flex items-center gap-3">
+                            <div className="w-4 h-4 bg-blue-100 border-2 border-blue-400 rounded-full"></div>
+                            <span className="text-sm font-medium text-gray-700">New / Not Started</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="w-4 h-4 bg-yellow-100 border-2 border-yellow-400 rounded-full"></div>
+                            <span className="text-sm font-medium text-gray-700">On Progress</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="w-4 h-4 bg-green-100 border-2 border-green-400 rounded-full"></div>
+                            <span className="text-sm font-medium text-gray-700">Done / Completed</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="w-4 h-4 bg-gray-100 border-2 border-gray-300 rounded-full"></div>
+                            <span className="text-sm font-medium text-gray-700">No Schedule</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )}

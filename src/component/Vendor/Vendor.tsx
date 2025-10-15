@@ -34,13 +34,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, classNa
   return (
     <AnimatePresence>
       {isOpen && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
-          className="fixed inset-0 backdrop-brightness-50 bg-opacity-40 flex justify-center items-center z-50 p-4"
-        >
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="fixed inset-0 backdrop-brightness-50 bg-opacity-40 flex justify-center items-center z-50 p-4">
           <motion.div
             initial={{ y: 50, opacity: 0, scale: 0.95 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
@@ -91,49 +85,147 @@ interface VendorDetailsProps {
 }
 
 const VendorDetails: React.FC<VendorDetailsProps> = ({ vendor, onClose }) => {
-  const DetailItem: React.FC<{ label: string; value: string }> = ({ label, value }) => (
-    <div className="flex flex-col">
-      <h4 className="text-sm font-medium text-gray-500 mb-1">{label}</h4>
-      <p className="w-full bg-blue-50 border border-blue-100 rounded-lg p-3 text-gray-800 text-base font-medium min-h-[44px] flex items-center">{value || "-"}</p>
+  const displayValue = (value: any): string => {
+    if (value === null || value === undefined) return "-";
+    if (typeof value === "object" && value !== null) {
+      return value.name || value.title || value.id || "-";
+    }
+    if (typeof value === "string") {
+      return value.trim() !== "" ? value.trim() : "-";
+    }
+    if (typeof value === "number") {
+      return value.toString();
+    }
+    return String(value);
+  };
+
+  const formatDate = (dateString?: string | null) => {
+    if (!dateString) return "-";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("id-ID", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  // Komponen untuk status badge (jika ada status di vendor)
+  const StatusBadge: React.FC<{ status?: string }> = ({ status }) => {
+    if (!status) return null;
+
+    const statusColors = {
+      Active: "bg-green-100 text-green-800 border-green-300",
+      Inactive: "bg-gray-100 text-gray-800 border-gray-300",
+      Pending: "bg-yellow-100 text-yellow-800 border-yellow-300",
+    };
+
+    return <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold border ${statusColors[status as keyof typeof statusColors] || statusColors.Active}`}>{status}</span>;
+  };
+
+  // Komponen Section dengan header yang lebih jelas
+  const Section: React.FC<{ title: string; children: React.ReactNode; icon?: React.ReactNode }> = ({ title, children, icon }) => (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-200">
+        <div className="flex items-center">
+          {icon && <div className="mr-3 text-blue-600">{icon}</div>}
+          <h3 className="text-lg font-bold text-gray-900">{title}</h3>
+        </div>
+      </div>
+      <div className="p-6">{children}</div>
     </div>
   );
 
-  const SectionTitle: React.FC<{ title: string }> = ({ title }) => <h3 className="text-lg font-bold text-gray-800 mb-4 pb-2 border-b border-blue-200 mt-6 first:mt-0">{title}</h3>;
+  // Komponen Detail Item yang lebih modern
+  const DetailItem: React.FC<{
+    label: string;
+    value: string;
+    icon?: React.ReactNode;
+    fullWidth?: boolean;
+    priority?: "high" | "medium" | "low";
+  }> = ({ label, value, icon, fullWidth = false, priority = "medium" }) => {
+    const priorityStyles = {
+      high: "border-l-4 border-l-blue-500 bg-blue-25",
+      medium: "border-l-2 border-l-gray-200",
+      low: "border-l border-l-gray-100",
+    };
+
+    return (
+      <div className={`${fullWidth ? "col-span-full" : ""}`}>
+        <div className={`p-4 rounded-lg ${priorityStyles[priority]} transition-all duration-200 hover:shadow-sm`}>
+          <div className="flex items-start space-x-3">
+            {icon && <div className="text-gray-400 mt-0.5 flex-shrink-0">{icon}</div>}
+            <div className="flex-1 min-w-0">
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{label}</label>
+              <p className="text-sm font-medium text-gray-900 leading-relaxed">{value}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
-    <div className="space-y-6">
-      <SectionTitle title="Vendor Information" />
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <DetailItem label="Vendor ID" value={vendor.id.toString()} />
-        <DetailItem label="Vendor Name" value={vendor.name} />
-        <DetailItem label="Contact Person" value={vendor.contact_person} />
-        <DetailItem label="Email" value={vendor.email} />
-        <DetailItem label="Telephone" value={vendor.telp} />
-        <DetailItem label="Mobile Phone" value={vendor.HP} />
+    <div className="space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar pr-2">
+      {/* Header dengan informasi utama */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-2">
+              <h2 className="text-2xl font-bold text-gray-900">{vendor.name}</h2>
+            </div>
+            <p className="text-gray-600 flex items-center gap-2">
+              <Calendar className="w-4 h-4" />
+              Vendor ID: {vendor.id} • Created: {formatDate(vendor.created_at)}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={onClose}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+            >
+              <X className="w-4 h-4 mr-2" />
+              Close
+            </motion.button>
+          </div>
+        </div>
       </div>
 
-      <SectionTitle title="Address Information" />
-      <div className="grid grid-cols-1 gap-4">
-        <DetailItem label="Address" value={vendor.address} />
-      </div>
+      {/* Basic Information */}
+      <Section title="Basic Information" icon={<UserIcon className="w-5 h-5" />}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <DetailItem label="Vendor ID" value={displayValue(vendor.id)} icon={<Clipboard className="w-4 h-4" />} priority="high" />
+          <DetailItem label="Vendor Name" value={displayValue(vendor.name)} icon={<Building className="w-4 h-4" />} priority="high" />
+          <DetailItem label="Contact Person" value={displayValue(vendor.contact_person)} icon={<UserIcon className="w-4 h-4" />} priority="high" />
+        </div>
+      </Section>
 
-      <SectionTitle title="Additional Information" />
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <DetailItem label="Created At" value={vendor.created_at ? new Date(vendor.created_at).toLocaleDateString() : "-"} />
-        <DetailItem label="Updated At" value={vendor.updated_at ? new Date(vendor.updated_at).toLocaleDateString() : "-"} />
-      </div>
+      {/* Contact Information */}
+      <Section title="Contact Information" icon={<Phone className="w-5 h-5" />}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <DetailItem label="Email" value={displayValue(vendor.email)} icon={<Mail className="w-4 h-4" />} priority="high" />
+          <DetailItem label="Telephone" value={displayValue(vendor.telp)} icon={<Phone className="w-4 h-4" />} />
+          <DetailItem label="Mobile Phone" value={displayValue(vendor.HP)} icon={<Phone className="w-4 h-4" />} />
+        </div>
+      </Section>
 
-      <div className="flex justify-end pt-6 border-t border-gray-100 mt-8">
-        <motion.button
-          type="button"
-          onClick={onClose}
-          whileHover={{ scale: 1.02, boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)" }}
-          whileTap={{ scale: 0.98 }}
-          className="inline-flex items-center px-6 py-2.5 border border-transparent text-base font-semibold rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 ease-in-out"
-        >
-          Close
-        </motion.button>
-      </div>
+      {/* Address Information */}
+      <Section title="Address Information" icon={<MapPin className="w-5 h-5" />}>
+        <div className="grid grid-cols-1 gap-4">
+          <DetailItem label="Full Address" value={displayValue(vendor.address)} icon={<MapPin className="w-4 h-4" />} fullWidth />
+        </div>
+      </Section>
+
+      {/* Additional Information */}
+      <Section title="Additional Information" icon={<Info className="w-5 h-5" />}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <DetailItem label="Created At" value={formatDate(vendor.created_at)} icon={<Calendar className="w-4 h-4" />} />
+          <DetailItem label="Updated At" value={formatDate(vendor.updated_at)} icon={<Calendar className="w-4 h-4" />} />
+        </div>
+      </Section>
     </div>
   );
 };
@@ -438,12 +530,7 @@ const VendorPage: React.FC = () => {
           {/* Stats Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
             <StatCard title="Total Vendors" value={vendor.length.toString()} change={`+${Math.floor((vendor.length / 10) * 100)}%`} icon={<Building className="w-6 h-6" />} />
-            <StatCard
-              title="Vendors with Email"
-              value={vendor.filter((v) => v.email).length.toString()}
-              change={`+${Math.floor((vendor.filter((v) => v.email).length / vendor.length) * 100)}%`}
-              icon={<Mail className="w-6 h-6" />}
-            />
+            <StatCard title="Vendors with Email" value={vendor.filter((v) => v.email).length.toString()} change={`+${Math.floor((vendor.filter((v) => v.email).length / vendor.length) * 100)}%`} icon={<Mail className="w-6 h-6" />} />
             <StatCard
               title="Vendors with Contact"
               value={vendor.filter((v) => v.contact_person).length.toString()}
@@ -564,9 +651,7 @@ const VendorPage: React.FC = () => {
           ) : filteredRecords.length === 0 ? (
             <div className="bg-white rounded-2xl shadow-md p-8 text-center border border-blue-100">
               <Info className="text-blue-500 text-4xl mx-auto mb-4" />
-              <p className="text-gray-700 text-base font-medium">
-                {debouncedSearchQuery || startDate || endDate ? "No vendors found matching your filters." : "No vendors available."}
-              </p>
+              <p className="text-gray-700 text-base font-medium">{debouncedSearchQuery || startDate || endDate ? "No vendors found matching your filters." : "No vendors available."}</p>
               {(debouncedSearchQuery || startDate || endDate) && (
                 <button
                   onClick={() => {
@@ -587,7 +672,7 @@ const VendorPage: React.FC = () => {
                   <thead className="bg-blue-50">
                     <tr>
                       <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer" onClick={() => requestSort("id")}>
-                        ID
+                        No
                         {sortConfig?.key === "id" && <span className="ml-1">{sortConfig.direction === "ascending" ? "↑" : "↓"}</span>}
                       </th>
                       <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer" onClick={() => requestSort("name")}>
@@ -603,7 +688,7 @@ const VendorPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-blue-100">
-                    {currentRecords.map((v) => (
+                    {currentRecords.map((v, index) => (
                       <motion.tr
                         key={v.id}
                         initial={{ opacity: 0, y: 5 }}
@@ -613,7 +698,7 @@ const VendorPage: React.FC = () => {
                         className="transition-colors duration-150"
                       >
                         <td className="px-5 py-3 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{v.id}</div>
+                          <div className="text-sm font-medium text-gray-900">{index + 1}</div>
                         </td>
                         <td className="px-5 py-3 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">{v.name}</div>

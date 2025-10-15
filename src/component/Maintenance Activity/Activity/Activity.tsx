@@ -236,12 +236,12 @@ const ActivityPage: React.FC = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
             <StatCard title="Total Activities" value={activity.length.toString()} change={`+${Math.floor((activity.length / 10) * 100)}%`} icon={<Activity className="w-6 h-6" />} />
-            <StatCard
+            {/* <StatCard
               title="Active Activities"
               value={activity.filter((act) => act.description && act.description.length > 0).length.toString()}
               change={`+${Math.floor((activity.filter((act) => act.description && act.description.length > 0).length / activity.length) * 100)}%`}
               icon={<Activity className="w-6 h-6" />}
-            />
+            /> */}
           </div>
 
           <motion.div layout className="mb-8 bg-white rounded-2xl shadow-md p-5 border border-blue-100">
@@ -319,14 +319,14 @@ const ActivityPage: React.FC = () => {
                 <table className="min-w-full divide-y divide-blue-100">
                   <thead className="bg-blue-50">
                     <tr>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ID</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">No</th>
                       <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Activity</th>
                       <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Description</th>
                       <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-blue-100">
-                    {filteredActivities.map((act) => (
+                    {filteredActivities.map((act, index) => (
                       <motion.tr
                         key={act.id}
                         initial={{ opacity: 0, y: 5 }}
@@ -336,7 +336,7 @@ const ActivityPage: React.FC = () => {
                         className="transition-colors duration-150"
                       >
                         <td className="px-5 py-3 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{act.id}</div>
+                          <div className="text-sm font-medium text-gray-900">{index + 1}</div>
                         </td>
                         <td className="px-5 py-3 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">{act.name}</div>

@@ -105,7 +105,7 @@ const StatCard: React.FC<{ title: string; value: string; change: string; icon: R
         </div>
         <div className="p-2 rounded-full bg-blue-50 text-blue-600 text-2xl opacity-90 transition-all duration-200">{icon}</div>
       </div>
-      <p className={`mt-3 text-xs font-semibold ${isPositive ? "text-green-600" : "text-red-600"}`}>{change} from last month</p>
+      <p className={`mt-3 text-xs font-semibold ${isPositive ? "text-green-600" : "text-green-600"}`}>{change} from last month</p>
     </motion.div>
   );
 };
@@ -261,7 +261,7 @@ const AssetDetailsForm: React.FC<AssetDetailsFormProps> = ({ asset, isEditing, o
           <DetailItem label="Last Maintenance" value={formData.lastMaintenance} icon={<Calendar className="w-4 h-4" />} />
           <DetailItem label="Next Maintenance" value={formData.nextMaintenance} icon={<Clock className="w-4 h-4" />} priority="high" />
           <DetailItem label="Work Orders" value={formData.workOrders.toString()} icon={<Clipboard className="w-4 h-4" />} />
-          <DetailItem label="Health Status" value={`${formData.health}%`} icon={<BarChart2 className="w-4 h-4" />} priority="high" />
+          <DetailItem label="Health Status" value={`${formData.health}`} icon={<BarChart2 className="w-4 h-4" />} priority="high" />
         </div>
       </Section>
 
@@ -286,7 +286,7 @@ const AssetDetailsForm: React.FC<AssetDetailsFormProps> = ({ asset, isEditing, o
             <h4 className="text-sm font-semibold text-gray-700 mb-2">Performance Metrics</h4>
             <div className="space-y-2 text-sm text-gray-600">
               <p>
-                <span className="font-medium">Health Score:</span> {formData.health}%
+                <span className="font-medium">Health Status:</span> {formData.health}
               </p>
               <p>
                 <span className="font-medium">Work Orders:</span> {formData.workOrders}
@@ -579,6 +579,56 @@ const AssetsDashboard: React.FC = () => {
     }
   };
 
+  const calculateAssetStats = () => {
+    if (dataERP.length === 0) {
+      return {
+        total: 0,
+        active: 0,
+        maintenance: 0,
+        critical: 0,
+        maintenanceDue: 0,
+        needsAttention: 0,
+      };
+    }
+
+    const total = dataERP.length;
+    const today = new Date();
+
+    // Active assets (status Aktif atau tidak null)
+    const active = dataERP.filter((asset) => asset.status === "Aktif" || asset.status !== null).length;
+
+    // Assets yang due for maintenance
+    const maintenanceDue = dataERP.filter((asset) => {
+      if (asset.nextMaintenance) {
+        const nextMaintenanceDate = new Date(asset.nextMaintenance);
+        return nextMaintenanceDate <= today;
+      }
+      return false;
+    }).length;
+
+    // Assets dengan health issues
+    const critical = dataERP.filter((asset) => asset.health === "Buruk" || asset.health === "Critical").length;
+
+    // Assets yang memerlukan perhatian (maintenance due + critical)
+    const needsAttention = maintenanceDue + critical;
+
+    return {
+      total,
+      active,
+      maintenance: maintenanceDue,
+      critical,
+      maintenanceDue,
+      needsAttention,
+    };
+  };
+
+  const assetStats = calculateAssetStats();
+
+  // Hitung persentase
+  const activePercentage = assetStats.total > 0 ? Math.round((assetStats.active / assetStats.total) * 100) : 0;
+  const maintenancePercentage = assetStats.total > 0 ? Math.round((assetStats.maintenance / assetStats.total) * 100) : 0;
+  const criticalPercentage = assetStats.total > 0 ? Math.round((assetStats.critical / assetStats.total) * 100) : 0;
+
   return (
     <div className="flex h-screen font-sans antialiased bg-blue-50 text-gray-900">
       <Sidebar />
@@ -636,10 +686,10 @@ const AssetsDashboard: React.FC = () => {
             </div>
           </motion.div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
-            <StatCard title="Total Assets" value={dataERP.length.toString()} change="+12%" icon={<Package />} />
-            <StatCard title="Active Assets" value={"N/A"} change="+5%" icon={<CheckCircle />} />
-            <StatCard title="In Maintenance" value={"N/A"} change="-2%" icon={<Wrench />} />
-            <StatCard title="Critical Issues" value={"N/A"} change="+1" icon={<AlertTriangle />} />
+            <StatCard title="Total Assets" value={assetStats.total.toString()} change={`${assetStats.total} units`} icon={<Package />} />
+            <StatCard title="Active Assets" value={assetStats.active.toString()} change={`${activePercentage}% operational`} icon={<CheckCircle />} />
+            <StatCard title="Due Maintenance" value={assetStats.maintenance.toString()} change={`${maintenancePercentage}% need service`} icon={<Wrench />} />
+            <StatCard title="Critical Issues" value={assetStats.critical.toString()} change={`${criticalPercentage}% critical`} icon={<AlertTriangle />} />
           </div>
           <motion.div layout className="mb-6 bg-white rounded-2xl shadow-md p-4 md:p-6 border border-blue-50">
             <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-4 md:space-y-0">
@@ -706,6 +756,7 @@ const AssetsDashboard: React.FC = () => {
               <table className="min-w-full divide-y divide-gray-100">
                 <thead className="bg-blue-50">
                   <tr>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">No</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Asset</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Location</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Purchase Date</th>
@@ -748,71 +799,78 @@ const AssetsDashboard: React.FC = () => {
                     </tr>
                   )}
                   {currentAssets.length > 0 &&
-                    currentAssets.map((asset) => (
-                      <motion.tr
-                        key={asset.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.2 }}
-                        whileHover={{ backgroundColor: "rgba(239, 246, 255, 1)" }}
-                        className="transition-colors duration-150"
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="ml-0">
-                              {" "}
-                              {/* Adjusted ml-4 to ml-0 for consistency with Maintenance.tsx */}
-                              <div className="text-base font-medium text-gray-900">{asset.name}</div>
-                              <div className="text-sm text-gray-600">{asset.category}</div>
+                    currentAssets.map((asset, index) => {
+                      const globalIndex = indexOfFirstAsset + index;
+
+                      return (
+                        <motion.tr
+                          key={asset.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.2 }}
+                          whileHover={{ backgroundColor: "rgba(239, 246, 255, 1)" }}
+                          className="transition-colors duration-150"
+                        >
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">{globalIndex + 1}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="ml-0">
+                                {" "}
+                                {/* Adjusted ml-4 to ml-0 for consistency with Maintenance.tsx */}
+                                <div className="text-base font-medium text-gray-900">{asset.name}</div>
+                                <div className="text-sm text-gray-600">{asset.category}</div>
+                              </div>
                             </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{asset.location}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{asset.purchaseDate}</div> {/* Corrected to purchaseDate */}
-                        </td>
-                        <td className="px-6 py-4">
-                          {" "}
-                          {/* Removed whitespace-nowrap to allow description to wrap */}
-                          <div className="text-sm text-gray-900 max-w-xs truncate">{asset.description}</div> {/* Added truncate for long descriptions */}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex items-center space-x-3">
-                            <motion.button
-                              whileHover={{ scale: 1.1, color: "#2563eb" }} // Darker blue on hover
-                              whileTap={{ scale: 0.9 }}
-                              onClick={() => navigate(`/assets/assetsdata/editasset/${asset.id}`)}
-                              className="text-yellow-600 hover:text-blue-600 transition-colors duration-200"
-                              title="Edit Asset"
-                            >
-                              <Edit className="w-5 h-5" />
-                            </motion.button>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{asset.location}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{asset.purchaseDate}</div> {/* Corrected to purchaseDate */}
+                          </td>
+                          <td className="px-6 py-4">
+                            {" "}
+                            {/* Removed whitespace-nowrap to allow description to wrap */}
+                            <div className="text-sm text-gray-900 max-w-xs truncate">{asset.description}</div> {/* Added truncate for long descriptions */}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <div className="flex items-center space-x-3">
+                              <motion.button
+                                whileHover={{ scale: 1.1, color: "#2563eb" }} // Darker blue on hover
+                                whileTap={{ scale: 0.9 }}
+                                onClick={() => navigate(`/assets/assetsdata/editasset/${asset.id}`)}
+                                className="text-yellow-600 hover:text-blue-600 transition-colors duration-200"
+                                title="Edit Asset"
+                              >
+                                <Edit className="w-5 h-5" />
+                              </motion.button>
 
-                            <motion.button
-                              whileHover={{ scale: 1.1, color: "#dc2626" }}
-                              whileTap={{ scale: 0.9 }}
-                              onClick={() => handleDeleteClick(String(asset.id), asset.name)}
-                              className="text-red-600 hover:text-red-600 transition-colors duration-200"
-                              title="Delete Asset"
-                            >
-                              <Trash2 className="w-5 h-5" />
-                            </motion.button>
+                              <motion.button
+                                whileHover={{ scale: 1.1, color: "#dc2626" }}
+                                whileTap={{ scale: 0.9 }}
+                                onClick={() => handleDeleteClick(String(asset.id), asset.name)}
+                                className="text-red-600 hover:text-red-600 transition-colors duration-200"
+                                title="Delete Asset"
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </motion.button>
 
-                            <motion.button
-                              whileHover={{ scale: 1.1, color: "#2563eb" }}
-                              whileTap={{ scale: 0.9 }}
-                              onClick={() => handleViewDetails(asset)}
-                              className="text-blue-600 hover:text-blue-600 transition-colors duration-200"
-                              title="View Details"
-                            >
-                              <Eye className="w-5 h-5" />
-                            </motion.button>
-                          </div>
-                        </td>
-                      </motion.tr>
-                    ))}
+                              <motion.button
+                                whileHover={{ scale: 1.1, color: "#2563eb" }}
+                                whileTap={{ scale: 0.9 }}
+                                onClick={() => handleViewDetails(asset)}
+                                className="text-blue-600 hover:text-blue-600 transition-colors duration-200"
+                                title="View Details"
+                              >
+                                <Eye className="w-5 h-5" />
+                              </motion.button>
+                            </div>
+                          </td>
+                        </motion.tr>
+                      );
+                    })}
                 </tbody>
               </table>
             </div>

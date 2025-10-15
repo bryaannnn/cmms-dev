@@ -313,14 +313,14 @@ const WorkGroupPage: React.FC = () => {
                 <table className="min-w-full divide-y divide-blue-100">
                   <thead className="bg-blue-50">
                     <tr>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ID</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">No</th>
                       <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Work Group</th>
                       <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Description</th>
                       <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-blue-100">
-                    {filteredWorkGroups.map((group) => (
+                    {filteredWorkGroups.map((group, index) => (
                       <motion.tr
                         key={group.id}
                         initial={{ opacity: 0, y: 5 }}
@@ -330,7 +330,7 @@ const WorkGroupPage: React.FC = () => {
                         className="transition-colors duration-150"
                       >
                         <td className="px-5 py-3 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{group.id}</div>
+                          <div className="text-sm font-medium text-gray-900">{index + 1}</div>
                         </td>
                         <td className="px-5 py-3 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">{group.name}</div>

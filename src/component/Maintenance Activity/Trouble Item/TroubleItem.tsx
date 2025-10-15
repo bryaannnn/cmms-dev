@@ -236,12 +236,12 @@ const TroubleItemPage: React.FC = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
             <StatCard title="Total Trouble Items" value={troubleItem.length.toString()} change={`+${Math.floor((troubleItem.length / 10) * 100)}%`} icon={<AlertTriangle className="w-6 h-6" />} />
-            <StatCard
+            {/* <StatCard
               title="Active Items"
               value={troubleItem.filter((item) => item.description && item.description.length > 0).length.toString()}
               change={`+${Math.floor((troubleItem.filter((item) => item.description && item.description.length > 0).length / troubleItem.length) * 100)}%`}
               icon={<AlertTriangle className="w-6 h-6" />}
-            />
+            /> */}
           </div>
 
           <motion.div layout className="mb-8 bg-white rounded-2xl shadow-md p-5 border border-blue-100">
@@ -319,14 +319,14 @@ const TroubleItemPage: React.FC = () => {
                 <table className="min-w-full divide-y divide-blue-100">
                   <thead className="bg-blue-50">
                     <tr>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ID</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">No</th>
                       <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Trouble Item</th>
                       <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Description</th>
                       <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-blue-100">
-                    {filteredTroubleItems.map((item) => (
+                    {filteredTroubleItems.map((item, index) => (
                       <motion.tr
                         key={item.id}
                         initial={{ opacity: 0, y: 5 }}
@@ -336,7 +336,7 @@ const TroubleItemPage: React.FC = () => {
                         className="transition-colors duration-150"
                       >
                         <td className="px-5 py-3 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{item.id}</div>
+                          <div className="text-sm font-medium text-gray-900">{index + 1}</div>
                         </td>
                         <td className="px-5 py-3 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">{item.name}</div>
