@@ -319,6 +319,7 @@ export interface MachineHistoryRecord extends MachineHistoryFormData {
 export interface SimpleUser {
   id: number;
   name: string;
+  email?: string;
 }
 
 export interface Head {
@@ -329,7 +330,7 @@ export interface Head {
   department: string;
   position: string;
   department_id: number;
-}
+} 
 
 // Di dalam komponen atau file terpisah
 export interface Department {
@@ -396,6 +397,26 @@ export interface ServiceType3 {
 type ServiceType2 = "Lain-lain" | "Manufacturing Support" | "Network" | "OSS" | "Project" | "QAD" | "Server" | "Software";
 type Service2 = "Server" | "Software" | "Widapro" | "Audit OFF";
 
+export interface StatusHistory {
+  id: number;
+  recordable_type: string;
+  recordable_id: number;
+  user_id: number;
+  action: string;
+  batch: number | null;
+  old_data: any;
+  new_data: any;
+  changed_at: string;
+  // Opsional properties
+  comments?: string;
+  changed_by?: string;
+  user?: {
+    id: number;
+    name: string;
+    email: string;
+  };
+}
+
 export interface WorkOrderData {
   id: number;
   work_order_no: string;
@@ -421,16 +442,18 @@ export interface WorkOrderData {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+
   requester: UserWithDepartment;
   known_by: SimpleUser;
   department: Department;
   department_name: string;
-  service_type: { id: number; group_name: string; group_description: string };
+  service_type: ServiceGroup;
   service: Service4;
   received_by: SimpleUser;
   assigned_to: SimpleUser | null;
   vendor_id?: number;
   vendor: Vendor | null;
+  status_history: StatusHistory[];
 }
 
 export interface WorkOrderFormData {
@@ -1900,8 +1923,36 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // );
 
   const getWorkOrdersIT = useCallback(async (): Promise<WorkOrderData[]> => {
-    const response = await fetchWithAuth("/ayam?includes_trashed=true");
-    return Array.isArray(response) ? response : Array.isArray(response.data) ? response.data : [];
+    try {
+      const response = await fetchWithAuth("/ayam?includes_trashed=true");
+
+      // Debug: lihat struktur response
+      console.log("Raw work orders response:", response);
+
+      // Handle berbagai kemungkinan struktur response
+      if (response && response.success === true) {
+        // Jika response memiliki properti success dan data
+        if (Array.isArray(response.data)) {
+          return response.data;
+        }
+      }
+
+      // Fallback: jika response langsung array
+      if (Array.isArray(response)) {
+        return response;
+      }
+
+      // Fallback lain: jika ada properti data yang berisi array
+      if (response && Array.isArray(response.data)) {
+        return response.data;
+      }
+
+      console.warn("Unexpected work orders response format:", response);
+      return [];
+    } catch (error) {
+      console.error("Failed to fetch work orders:", error);
+      return [];
+    }
   }, [fetchWithAuth]);
 
   const getWorkOrderById = useCallback(
@@ -3851,8 +3902,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         deleteUser,
         isAuthLoading,
         getAssetsData,
-        addAsset, 
-        editAsset, 
+        addAsset,
+        editAsset,
         deleteAsset,
         getWorkOrdersForUser,
         getAuditTrail,

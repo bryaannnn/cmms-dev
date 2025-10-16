@@ -4,6 +4,8 @@ import { useAuth, WorkOrderData } from "../../../routes/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
 import Sidebar from "../../Sidebar";
 import DOMPurify from "dompurify";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import PageHeader from "../../PageHeader";
 import {
   BarChart2,
@@ -13,12 +15,6 @@ import {
   ChevronDown,
   ChevronRight,
   Search,
-  LogOut,
-  Sun,
-  Moon,
-  Settings,
-  Bell,
-  Clipboard,
   Printer,
   AlertTriangle,
   UserIcon,
@@ -28,13 +24,25 @@ import {
   ChevronLeft,
   Users,
   BarChart3,
-  PieChart as PieChartt,
   Eye,
-  ChartPie,
+  TrendingUp,
+  AlertCircle,
+  Target,
+  Zap,
+  Activity,
+  Shield,
+  ToolCase,
+  FileText,
+  GitBranch,
+  PlayCircle,
+  PauseCircle,
+  CheckSquare,
+  XCircle,
+  Layers,
 } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Pie, Cell, PieChart } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Pie, Cell, PieChart, LineChart, Line, AreaChart, Area } from "recharts";
 
-const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8", "#82CA9D"];
+const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8", "#82CA9D", "#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4"];
 
 interface NavItemProps {
   icon: React.ReactNode;
@@ -137,7 +145,6 @@ const WorkOrderDetailModal: React.FC<{
     });
   };
 
-  // Komponen Section dengan header yang lebih jelas
   const Section: React.FC<{ title: string; children: React.ReactNode; icon?: React.ReactNode }> = ({ title, children, icon }) => (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-200">
@@ -150,7 +157,6 @@ const WorkOrderDetailModal: React.FC<{
     </div>
   );
 
-  // Komponen Detail Item yang lebih modern untuk Reports
   const DetailItem: React.FC<{
     label: string;
     value: string;
@@ -214,6 +220,335 @@ const WorkOrderDetailModal: React.FC<{
     );
   };
 
+  const StatusTimeline: React.FC<{ workOrder: WorkOrderData }> = ({ workOrder }) => {
+    const getStatusIcon = (status: string) => {
+      switch (status?.toLowerCase()) {
+        case "new":
+          return <PlayCircle className="w-4 h-4" />;
+        case "assigned":
+          return <UserIcon className="w-4 h-4" />;
+        case "in progress":
+          return <Clock className="w-4 h-4" />;
+        case "resolved":
+          return <CheckSquare className="w-4 h-4" />;
+        case "closed":
+          return <CheckCircle className="w-4 h-4" />;
+        case "cancel":
+          return <XCircle className="w-4 h-4" />;
+        case "escalated":
+          return <AlertTriangle className="w-4 h-4" />;
+        case "vendor handled":
+          return <Wrench className="w-4 h-4" />;
+        default:
+          return <Activity className="w-4 h-4" />;
+      }
+    };
+
+    const getStatusColor = (status: string) => {
+      switch (status?.toLowerCase()) {
+        case "new":
+          return "bg-blue-500";
+        case "assigned":
+          return "bg-purple-500";
+        case "in progress":
+          return "bg-yellow-500";
+        case "resolved":
+          return "bg-green-500";
+        case "closed":
+          return "bg-green-600";
+        case "cancel":
+          return "bg-red-500";
+        case "escalated":
+          return "bg-orange-500";
+        case "vendor handled":
+          return "bg-indigo-500";
+        default:
+          return "bg-gray-500";
+      }
+    };
+
+    const getStatusDescription = (status: string, data?: any) => {
+      const descriptions: Record<string, string> = {
+        new: "Work order telah dibuat dan menunggu penanganan",
+        assigned: `Telah ditugaskan kepada ${data?.assigned_to || "teknisi"}`,
+        "in progress": "Sedang dalam proses pengerjaan",
+        resolved: "Masalah telah diselesaikan",
+        closed: "Work order telah ditutup",
+        cancel: "Work order dibatalkan",
+        escalated: "Telah di-escalate ke level yang lebih tinggi",
+        "vendor handled": "Ditangani oleh vendor eksternal",
+        updated: "Work order diperbarui",
+      };
+      return descriptions[status.toLowerCase()] || `Status: ${status}`;
+    };
+
+    // Define proper types for timeline events
+    interface TimelineEvent {
+      id: string;
+      status: string;
+      date: string;
+      changed_by: string;
+      description: string;
+      duration: string;
+      isSystemEvent?: boolean;
+      isManualEvent?: boolean;
+      isStatusChange?: boolean;
+      comments?: string;
+      old_data?: any;
+      new_data?: any;
+    }
+
+    // Reconstruct timeline dengan logika yang benar
+    const reconstructTimeline = (): TimelineEvent[] => {
+      const timeline: TimelineEvent[] = [];
+
+      // 1. Creation event - selalu pertama
+      timeline.push({
+        id: "created",
+        status: "new",
+        date: workOrder.date,
+        changed_by: workOrder.requester?.name || "System",
+        description: "Work order dibuat",
+        duration: "0 days",
+        isSystemEvent: true,
+      });
+
+      // 2. Process status history dari API - URUTKAN berdasarkan changed_at
+      if (workOrder.status_history && workOrder.status_history.length > 0) {
+        // Sort status history by date secara ascending (terlama ke terbaru)
+        const sortedHistory = [...workOrder.status_history].sort((a, b) => new Date(a.changed_at).getTime() - new Date(b.changed_at).getTime());
+
+        sortedHistory.forEach((history, index) => {
+          const prevEvent = timeline[timeline.length - 1];
+          const duration = calculateDuration(prevEvent.date, history.changed_at);
+
+          // Determine actual status dari new_data atau action
+          let actualStatus = history.action;
+          let description = getStatusDescription(history.action);
+
+          // Jika action adalah "updated", cek new_data untuk status sebenarnya
+          if (history.action === "updated" && history.new_data?.handling_status) {
+            actualStatus = history.new_data.handling_status;
+            description = getStatusDescription(history.new_data.handling_status, {
+              assigned_to: workOrder.assigned_to?.name,
+            });
+          }
+
+          // Determine who changed it berdasarkan data yang ada
+          let changedBy = "System";
+
+          // Gunakan data dari API jika tersedia
+          if (history.user_id === 55) changedBy = "DevTest User 1";
+          else if (history.user_id === 41) changedBy = "Regular User QC";
+          else if (history.user_id === 57) changedBy = "DevTest User 2";
+          else if (history.user_id === 36) changedBy = "Super Admin User";
+          else if (history.user_id === 37) changedBy = "Admin User One";
+          else if (history.user_id === 40) changedBy = "Regular User IT";
+          else if (history.user_id === 42) changedBy = "Monitor";
+          else if (history.user_id === 56) changedBy = "Monitor";
+          else if (history.changed_by) changedBy = history.changed_by;
+          else changedBy = `User ${history.user_id}`;
+
+          timeline.push({
+            id: history.id.toString(),
+            status: actualStatus,
+            date: history.changed_at,
+            changed_by: changedBy,
+            description: description,
+            duration: duration,
+            comments: history.comments,
+            old_data: history.old_data,
+            new_data: history.new_data,
+            isStatusChange: true,
+          });
+        });
+      }
+
+      // 3. Manual events hanya jika benar-benar ada data yang mendukung
+      // Received by event - hanya jika ada received_by dan handling_date
+      if (workOrder.received_by?.name && workOrder.handling_date) {
+        const receivedEventExists = timeline.some((event) => event.status === "received" || (event.new_data?.received_by_id && event.new_data?.handling_status === "Resolved"));
+
+        if (!receivedEventExists) {
+          const lastEvent = timeline[timeline.length - 1];
+          const duration = calculateDuration(lastEvent.date, workOrder.handling_date);
+
+          const receivedEvent: TimelineEvent = {
+            id: "received",
+            status: "received",
+            date: workOrder.handling_date,
+            changed_by: workOrder.received_by.name,
+            description: "Diterima oleh teknisi",
+            duration: duration,
+            isManualEvent: true,
+          };
+          timeline.push(receivedEvent);
+        }
+      }
+
+      // 4. Sort final timeline by date secara ascending
+      return timeline.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    };
+
+    const calculateDuration = (startDate: string, endDate: string): string => {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const diffTime = Math.abs(end.getTime() - start.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      if (diffDays === 0) {
+        const diffHours = Math.ceil(diffTime / (1000 * 60 * 60));
+        const diffMinutes = Math.ceil(diffTime / (1000 * 60));
+
+        if (diffMinutes < 60) return `${diffMinutes} minutes`;
+        return `${diffHours} hours`;
+      }
+      return `${diffDays} day${diffDays > 1 ? "s" : ""}`;
+    };
+
+    const formatDateTime = (dateString: string) => {
+      const date = new Date(dateString);
+      return {
+        date: date.toLocaleDateString("id-ID", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        }),
+        time: date.toLocaleTimeString("id-ID", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      };
+    };
+
+    const getActionDetails = (event: TimelineEvent) => {
+      if (event.new_data?.handling_status) {
+        return `Diubah menjadi: ${event.new_data.handling_status}`;
+      }
+      if (event.new_data?.assigned_to_id) {
+        return `Ditugaskan ke teknisi`;
+      }
+      if (event.new_data?.action_taken) {
+        return `Tindakan diambil: ${event.new_data.action_taken.substring(0, 50)}...`;
+      }
+      return null;
+    };
+
+    const timeline = reconstructTimeline();
+
+    return (
+      <div className="space-y-6">
+        {timeline.map((event, index) => {
+          const datetime = formatDateTime(event.date);
+          const isLast = index === timeline.length - 1;
+          const actionDetails = getActionDetails(event);
+
+          return (
+            <div key={event.id} className="flex items-start space-x-4">
+              {/* Timeline line and dot */}
+              <div className="flex flex-col items-center">
+                <div className={`w-3 h-3 rounded-full ${getStatusColor(event.status)}`} />
+                {!isLast && <div className="w-0.5 h-16 bg-gray-300 mt-1"></div>}
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 pb-4">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center space-x-2">
+                    {getStatusIcon(event.status)}
+                    <div>
+                      <span className="font-semibold text-sm capitalize text-gray-900">{event.status}</span>
+                      <p className="text-xs text-gray-600 mt-1">{event.description}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm font-medium text-gray-900">{datetime.date}</div>
+                    <div className="text-xs text-gray-500">{datetime.time}</div>
+                  </div>
+                </div>
+
+                {/* Metadata */}
+                <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                  <div className="flex justify-between items-center text-xs">
+                    <div className="flex items-center space-x-4">
+                      <span className="text-gray-600">
+                        <strong>Changed by:</strong> {event.changed_by}
+                      </span>
+                      {event.duration && event.duration !== "0 days" && <span className="text-blue-600 font-semibold">⏱️ {event.duration}</span>}
+                    </div>
+
+                    {event.duration && event.duration !== "0 days" && index > 0 && (
+                      <div className="text-right">
+                        <span className="text-gray-500 text-xs">Duration from previous</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {actionDetails && <div className="text-xs text-gray-700 bg-white p-2 rounded border">{actionDetails}</div>}
+
+                  {/* FIXED: Proper type checking for comments */}
+                  {event.comments && (
+                    <div className="text-xs text-gray-700 bg-white p-2 rounded border">
+                      <strong>Comments:</strong> {event.comments}
+                    </div>
+                  )}
+
+                  {/* Show assignment details for assigned status */}
+                  {event.status === "assigned" && workOrder.assigned_to && (
+                    <div className="text-xs text-gray-700">
+                      <strong>Assigned to:</strong> {workOrder.assigned_to.name}
+                      {workOrder.assigned_to.email && ` (${workOrder.assigned_to.email})`}
+                    </div>
+                  )}
+
+                  {/* Show resolution details for resolved/closed status */}
+                  {(event.status === "resolved" || event.status === "closed") && workOrder.action_taken && (
+                    <div className="text-xs text-gray-700">
+                      <strong>Action taken:</strong> {workOrder.action_taken.substring(0, 100)}...
+                    </div>
+                  )}
+                </div>
+
+                {/* Total duration from start to current status */}
+                {isLast && (
+                  <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-semibold text-blue-800">Total duration from creation</span>
+                      <span className="font-bold text-blue-600 text-lg">{calculateDuration(workOrder.date, event.date)}</span>
+                    </div>
+                    <div className="text-xs text-blue-600 mt-1">
+                      Created: {formatDateTime(workOrder.date).date} • Current: {datetime.date}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Summary Card */}
+        {workOrder.handling_status === "Closed" && workOrder.handling_date && (
+          <div className="mt-6 p-4 bg-green-50 rounded-lg border border-green-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-semibold text-green-800">Work Order Completed</h4>
+                <p className="text-sm text-green-600">Total resolution time: {calculateDuration(workOrder.date, workOrder.handling_date)}</p>
+              </div>
+              <CheckCircle className="w-8 h-8 text-green-500" />
+            </div>
+            <div className="text-xs text-green-600 mt-2 grid grid-cols-2 gap-2">
+              <div>Created: {formatDateTime(workOrder.date).date}</div>
+              <div>Completed: {formatDateTime(workOrder.handling_date).date}</div>
+              <div className="col-span-2">
+                <strong>Timeline:</strong> {timeline.length} status changes
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center backdrop-brightness-50 bg-opacity-50 p-4">
       <motion.div
@@ -230,7 +565,6 @@ const WorkOrderDetailModal: React.FC<{
         </div>
 
         <div className="overflow-y-auto custom-scrollbar p-6 space-y-6 flex-grow">
-          {/* Header Information */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
               <div className="flex-1">
@@ -270,10 +604,9 @@ const WorkOrderDetailModal: React.FC<{
             </div>
           </div>
 
-          {/* General Information */}
-          <Section title="General Information" icon={<Clipboard className="w-5 h-5" />}>
+          <Section title="General Information" icon={<UserIcon className="w-5 h-5" />}>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <DetailItem label="Work Order No" value={workOrder.work_order_no || "-"} icon={<Clipboard className="w-4 h-4" />} priority="high" />
+              <DetailItem label="Work Order No" value={workOrder.work_order_no || "-"} icon={<UserIcon className="w-4 h-4" />} priority="high" />
               <DetailItem label="Date" value={formatDate(workOrder.date)} icon={<Calendar className="w-4 h-4" />} priority="high" />
               <DetailItem label="Reception Method" value={workOrder.reception_method || "-"} icon={<UserIcon className="w-4 h-4" />} />
               <DetailItem label="Requester" value={workOrder.requester?.name || "-"} icon={<UserIcon className="w-4 h-4" />} priority="high" />
@@ -282,18 +615,16 @@ const WorkOrderDetailModal: React.FC<{
             </div>
           </Section>
 
-          {/* Service Details */}
-          <Section title="Service Details" icon={<Settings className="w-5 h-5" />}>
+          <Section title="Service Details" icon={<Wrench className="w-5 h-5" />}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <DetailItem label="Service Type" value={workOrder.service_type?.group_name || "-"} icon={<Settings className="w-4 h-4" />} priority="high" />
+              <DetailItem label="Service Type" value={workOrder.service_type?.group_name || "-"} icon={<Wrench className="w-4 h-4" />} priority="high" />
               <DetailItem label="Service" value={workOrder.service?.service_name || "-"} icon={<Wrench className="w-4 h-4" />} priority="high" />
-              <DetailItem label="Asset No" value={workOrder.asset_no || "-"} icon={<Clipboard className="w-4 h-4" />} />
-              <DetailItem label="Device Info" value={workOrder.device_info || "-"} icon={<Settings className="w-4 h-4" />} />
+              <DetailItem label="Asset No" value={workOrder.asset_no || "-"} icon={<UserIcon className="w-4 h-4" />} />
+              <DetailItem label="Device Info" value={workOrder.device_info || "-"} icon={<Wrench className="w-4 h-4" />} />
               <DetailItemHTML label="Complaint" htmlContent={workOrder.complaint || ""} icon={<AlertTriangle className="w-4 h-4" />} fullWidth />
             </div>
           </Section>
 
-          {/* Handling Information */}
           <Section title="Handling Information" icon={<Clock className="w-5 h-5" />}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <DetailItem label="Status" value={workOrder.handling_status || "-"} icon={<Clock className="w-4 h-4" />} priority="high" />
@@ -301,23 +632,27 @@ const WorkOrderDetailModal: React.FC<{
               <DetailItem label="Assigned To" value={workOrder.assigned_to?.name || "-"} icon={<UserIcon className="w-4 h-4" />} priority="high" />
               <DetailItem label="Handling Date" value={formatDate(workOrder.handling_date)} icon={<Calendar className="w-4 h-4" />} />
               <DetailItemHTML label="Action Taken" htmlContent={workOrder.action_taken || ""} icon={<CheckCircle className="w-4 h-4" />} fullWidth />
-              <DetailItemHTML label="Remarks" htmlContent={workOrder.remarks || ""} icon={<Clipboard className="w-4 h-4" />} fullWidth />
+              <DetailItemHTML label="Remarks" htmlContent={workOrder.remarks || ""} icon={<UserIcon className="w-4 h-4" />} fullWidth />
             </div>
           </Section>
 
-          {/* Summary Section */}
-          <Section title="Report Summary" icon={<BarChart2 className="w-5 h-5" />}>
+          {workOrder.status_history && workOrder.status_history.length > 0 && (
+            <Section title="Work Order Timeline" icon={<GitBranch className="w-5 h-5" />}>
+              <StatusTimeline workOrder={workOrder} />
+            </Section>
+          )}
+
+          <Section title="Performance Metrics" icon={<BarChart2 className="w-5 h-5" />}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="p-4 bg-blue-25 rounded-lg border-l-4 border-l-blue-400">
-                <h4 className="text-sm font-semibold text-gray-700 mb-2">Current Status</h4>
-                <p className="text-lg font-bold text-blue-600">{workOrder.handling_status || "Unknown"}</p>
+                <h4 className="text-sm font-semibold text-gray-700 mb-2">Resolution Time</h4>
+                <p className="text-lg font-bold text-blue-600">
+                  {workOrder.handling_date && workOrder.date ? `${Math.ceil((new Date(workOrder.handling_date).getTime() - new Date(workOrder.date).getTime()) / (1000 * 60 * 60 * 24))} days` : "Ongoing"}
+                </p>
               </div>
               <div className="p-4 bg-green-25 rounded-lg border-l-4 border-l-green-400">
-                <h4 className="text-sm font-semibold text-gray-700 mb-2">Timeline</h4>
-                <p className="text-sm text-green-600">
-                  Created: {formatDate(workOrder.date)}
-                  {workOrder.handling_date && ` • Handled: ${formatDate(workOrder.handling_date)}`}
-                </p>
+                <h4 className="text-sm font-semibold text-gray-700 mb-2">Priority Level</h4>
+                <p className="text-lg font-bold text-green-600">{workOrder.service?.priority || "Not Set"}</p>
               </div>
             </div>
           </Section>
@@ -340,34 +675,30 @@ const WorkOrderDetailModal: React.FC<{
 };
 
 const ITReports: React.FC = () => {
-  const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [departmentFilter, setDepartmentFilter] = useState<string>("all");
+  const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [serviceTypeFilter, setServiceTypeFilter] = useState<string>("all");
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [ordersPerPage] = useState(5);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [showNotificationsPopup, setShowNotificationsPopup] = useState(false);
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [workOrders, setWorkOrders] = useState<WorkOrderData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrderData>();
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [timeRange, setTimeRange] = useState<"7days" | "30days" | "90days" | "all">("30days");
 
   const { user, getWorkOrdersIT, hasPermission } = useAuth();
   const navigate = useNavigate();
-  const notificationsRef = useRef<HTMLDivElement>(null);
-  const profileRef = useRef<HTMLDivElement>(null);
+  const location = useLocation();
 
-  const isWorkOrdersIT = location.pathname === "/workorders/it";
-  const isWorkOrdersTD = location.pathname === "/workorders/td";
   const isRequest = location.pathname === "/workorders/it";
-  const isApprover = location.pathname === "/workorders/it/approver";
-  const isAssignment = location.pathname === "/workorders/it/assignment";
   const isReceiver = location.pathname === "/workorders/it/receiver";
+  const isAssignment = location.pathname === "/workorders/it/assignment";
   const isReports = location.pathname === "/workorders/it/reports";
   const isKnowledgeBase = location.pathname === "/workorders/it/knowledgebase";
 
@@ -381,22 +712,6 @@ const ITReports: React.FC = () => {
 
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
-        setShowNotificationsPopup(false);
-      }
-      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
-        setShowProfileMenu(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
   }, []);
 
   const fetchWorkOrders = useCallback(async () => {
@@ -415,6 +730,621 @@ const ITReports: React.FC = () => {
   useEffect(() => {
     fetchWorkOrders();
   }, [fetchWorkOrders]);
+
+  const calculateResolutionTime = (order: WorkOrderData): number => {
+    if (!order.handling_date || !order.date) return 0;
+    const created = new Date(order.date);
+    const resolved = new Date(order.handling_date);
+    return Math.ceil((resolved.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
+  };
+
+  const getFilteredWorkOrders = useCallback(() => {
+    const now = new Date();
+    let startDate = new Date();
+
+    switch (timeRange) {
+      case "7days":
+        startDate.setDate(now.getDate() - 7);
+        break;
+      case "30days":
+        startDate.setDate(now.getDate() - 30);
+        break;
+      case "90days":
+        startDate.setDate(now.getDate() - 90);
+        break;
+      case "all":
+        startDate = new Date(0);
+        break;
+    }
+
+    return workOrders.filter((order) => {
+      const orderDate = new Date(order.date);
+      const matchesTimeRange = orderDate >= startDate;
+      const matchesSearch =
+        order.work_order_no?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        order.requester?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        order.complaint?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        order.service?.service_name?.toLowerCase().includes(searchQuery.toLowerCase());
+
+      const matchesStatus = statusFilter === "all" || order.handling_status === statusFilter;
+      const matchesDepartment = departmentFilter === "all" || order.department?.name === departmentFilter;
+      const matchesPriority = priorityFilter === "all" || order.service?.priority === priorityFilter;
+      const matchesServiceType = serviceTypeFilter === "all" || order.service_type?.group_name === serviceTypeFilter;
+
+      return matchesTimeRange && matchesSearch && matchesStatus && matchesDepartment && matchesPriority && matchesServiceType;
+    });
+  }, [workOrders, timeRange, searchQuery, statusFilter, departmentFilter, priorityFilter, serviceTypeFilter]);
+
+  const filteredWorkOrders = getFilteredWorkOrders();
+
+  const getWorkOrderAnalytics = () => {
+    const resolvedOrders = filteredWorkOrders.filter((order) => ["Resolved", "Closed"].includes(order.handling_status));
+    const activeOrders = filteredWorkOrders.filter((order) => ["New", "Assigned", "In Progress"].includes(order.handling_status));
+
+    const avgResolutionTime = resolvedOrders.length > 0 ? resolvedOrders.reduce((acc, order) => acc + calculateResolutionTime(order), 0) / resolvedOrders.length : 0;
+
+    const statusDistribution = Object.entries(
+      filteredWorkOrders.reduce((acc, order) => {
+        const status = order.handling_status || "Unknown";
+        acc[status] = (acc[status] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>)
+    ).map(([status, count]) => ({
+      status,
+      count,
+      percentage: (count / filteredWorkOrders.length) * 100,
+    }));
+
+    const priorityDistribution = Object.entries(
+      filteredWorkOrders.reduce((acc, order) => {
+        const priority = order.service?.priority || "Not Set";
+        acc[priority] = (acc[priority] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>)
+    ).map(([priority, count]) => ({
+      priority,
+      count,
+      percentage: (count / filteredWorkOrders.length) * 100,
+    }));
+
+    const departmentDistribution = Object.entries(
+      filteredWorkOrders.reduce((acc, order) => {
+        const dept = order.department?.name || "Unknown";
+        acc[dept] = (acc[dept] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>)
+    )
+      .map(([dept, count]) => ({
+        dept,
+        count,
+        percentage: (count / filteredWorkOrders.length) * 100,
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8);
+
+    const serviceTypeDistribution = Object.entries(
+      filteredWorkOrders.reduce((acc, order) => {
+        const serviceType = order.service_type?.group_name || "Unknown";
+        acc[serviceType] = (acc[serviceType] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>)
+    ).map(([serviceType, count]) => ({
+      serviceType,
+      count,
+      percentage: (count / filteredWorkOrders.length) * 100,
+    }));
+
+    const monthlyTrends = Array.from({ length: 12 }, (_, i) => {
+      const date = new Date();
+      date.setMonth(date.getMonth() - (11 - i));
+      const monthKey = date.toLocaleDateString("id-ID", { month: "short", year: "numeric" });
+
+      const monthOrders = filteredWorkOrders.filter((order) => {
+        const orderDate = new Date(order.date);
+        return orderDate.getMonth() === date.getMonth() && orderDate.getFullYear() === date.getFullYear();
+      });
+
+      const resolvedMonthOrders = monthOrders.filter((order) => ["Resolved", "Closed"].includes(order.handling_status));
+
+      return {
+        month: monthKey,
+        created: monthOrders.length,
+        resolved: resolvedMonthOrders.length,
+        resolutionRate: monthOrders.length > 0 ? (resolvedMonthOrders.length / monthOrders.length) * 100 : 0,
+      };
+    });
+
+    const statusTimingAnalysis = ["New", "Assigned", "In Progress", "Resolved", "Closed", "Cancel"].map((status) => {
+      const statusOrders = filteredWorkOrders.filter((order) => order.handling_status === status);
+      const avgTimeInStatus =
+        statusOrders.length > 0
+          ? statusOrders.reduce((acc, order) => {
+              const statusHistory = order.status_history || [];
+              const statusEntry = statusHistory.find((history) => history.action === status);
+              if (statusEntry) {
+                const statusDuration = new Date().getTime() - new Date(statusEntry.changed_at).getTime();
+                return acc + Math.ceil(statusDuration / (1000 * 60 * 60 * 24));
+              }
+              return acc;
+            }, 0) / statusOrders.length
+          : 0;
+
+      return {
+        status,
+        avgTimeInStatus: Math.round(avgTimeInStatus),
+        count: statusOrders.length,
+      };
+    });
+
+    // NEW: Service Type Performance by Timing
+    const serviceTypePerformance = Object.entries(
+      filteredWorkOrders.reduce((acc, order) => {
+        const serviceType = order.service_type?.group_name || "Unknown";
+        if (!acc[serviceType]) acc[serviceType] = [];
+        if (order.handling_date && order.date) {
+          const resolutionTime = calculateResolutionTime(order);
+          acc[serviceType].push(resolutionTime);
+        }
+        return acc;
+      }, {} as Record<string, number[]>)
+    ).map(([serviceType, times]) => ({
+      serviceType,
+      avgResolutionTime: times.length > 0 ? Math.round(times.reduce((a, b) => a + b, 0) / times.length) : 0,
+      totalRequests: times.length,
+      maxResolutionTime: times.length > 0 ? Math.max(...times) : 0,
+      minResolutionTime: times.length > 0 ? Math.min(...times) : 0,
+    }));
+
+    // NEW: Service Performance by Timing
+    const servicePerformance = Object.entries(
+      filteredWorkOrders.reduce((acc, order) => {
+        const service = order.service?.service_name || "Unknown";
+        if (!acc[service]) acc[service] = [];
+        if (order.handling_date && order.date) {
+          const resolutionTime = calculateResolutionTime(order);
+          acc[service].push(resolutionTime);
+        }
+        return acc;
+      }, {} as Record<string, number[]>)
+    ).map(([service, times]) => ({
+      service,
+      avgResolutionTime: times.length > 0 ? Math.round(times.reduce((a, b) => a + b, 0) / times.length) : 0,
+      totalRequests: times.length,
+    }));
+
+    // NEW: Priority Performance by Timing (bukan persen)
+    const priorityTimingAnalysis = ["Critical", "High", "Medium", "Low"].map((priority) => {
+      const priorityOrders = filteredWorkOrders.filter((order) => order.service?.priority === priority);
+      const resolvedPriorityOrders = priorityOrders.filter((order) => ["Resolved", "Closed"].includes(order.handling_status) && order.handling_date && order.date);
+
+      const avgResolutionTime = resolvedPriorityOrders.length > 0 ? resolvedPriorityOrders.reduce((acc, order) => acc + calculateResolutionTime(order), 0) / resolvedPriorityOrders.length : 0;
+
+      return {
+        priority,
+        avgResolutionTime: Math.round(avgResolutionTime),
+        total: priorityOrders.length,
+        resolved: resolvedPriorityOrders.length,
+      };
+    });
+
+    // NEW: Daily Trends (selain monthly)
+    const last30Days = Array.from({ length: 30 }, (_, i) => {
+      const date = new Date();
+      date.setDate(date.getDate() - (29 - i));
+      return date.toISOString().split("T")[0];
+    });
+
+    const dailyTrends = last30Days.map((date) => {
+      const dayOrders = filteredWorkOrders.filter((order) => order.date.startsWith(date));
+      const resolved = dayOrders.filter((order) => ["Resolved", "Closed"].includes(order.handling_status));
+
+      return {
+        date: new Date(date).toLocaleDateString("id-ID", { month: "short", day: "numeric" }),
+        created: dayOrders.length,
+        resolved: resolved.length,
+        backlog: dayOrders.length - resolved.length,
+      };
+    });
+
+    // NEW: Service Owner & PIC Performance
+    const serviceOwnerPerformance = Object.entries(
+      filteredWorkOrders.reduce((acc, order) => {
+        const owner = order.service?.owner?.name || "Unknown Owner";
+        if (!acc[owner]) {
+          acc[owner] = {
+            workOrders: [],
+            totalResolutionTime: 0,
+            resolvedCount: 0,
+          };
+        }
+
+        if (order.handling_date && order.date) {
+          const resolutionTime = calculateResolutionTime(order);
+          acc[owner].workOrders.push({
+            workOrderNo: order.work_order_no,
+            priority: order.service?.priority,
+            resolutionTime,
+            status: order.handling_status,
+            service: order.service?.service_name,
+          });
+          acc[owner].totalResolutionTime += resolutionTime;
+          if (["Resolved", "Closed"].includes(order.handling_status)) {
+            acc[owner].resolvedCount++;
+          }
+        }
+        return acc;
+      }, {} as Record<string, { workOrders: any[]; totalResolutionTime: number; resolvedCount: number }>)
+    ).map(([owner, data]) => ({
+      owner,
+      avgResolutionTime: data.resolvedCount > 0 ? Math.round(data.totalResolutionTime / data.resolvedCount) : 0,
+      totalWorkOrders: data.workOrders.length,
+      resolvedWorkOrders: data.resolvedCount,
+      workOrders: data.workOrders,
+    }));
+
+    // NEW: PIC/Assigned Technician Performance
+    const picPerformance = Object.entries(
+      filteredWorkOrders.reduce((acc, order) => {
+        const pic = order.assigned_to?.name || "Unassigned";
+        if (!acc[pic]) {
+          acc[pic] = {
+            workOrders: [],
+            totalResolutionTime: 0,
+            resolvedCount: 0,
+          };
+        }
+
+        if (order.handling_date && order.date) {
+          const resolutionTime = calculateResolutionTime(order);
+          acc[pic].workOrders.push({
+            workOrderNo: order.work_order_no,
+            priority: order.service?.priority,
+            resolutionTime,
+            status: order.handling_status,
+            service: order.service?.service_name,
+          });
+          acc[pic].totalResolutionTime += resolutionTime;
+          if (["Resolved", "Closed"].includes(order.handling_status)) {
+            acc[pic].resolvedCount++;
+          }
+        }
+        return acc;
+      }, {} as Record<string, { workOrders: any[]; totalResolutionTime: number; resolvedCount: number }>)
+    ).map(([pic, data]) => ({
+      pic,
+      avgResolutionTime: data.resolvedCount > 0 ? Math.round(data.totalResolutionTime / data.resolvedCount) : 0,
+      totalWorkOrders: data.workOrders.length,
+      resolvedWorkOrders: data.resolvedCount,
+      workOrders: data.workOrders,
+    }));
+
+    return {
+      total: filteredWorkOrders.length,
+      resolved: resolvedOrders.length,
+      active: activeOrders.length,
+      avgResolutionTime: Math.round(avgResolutionTime),
+      resolutionRate: filteredWorkOrders.length > 0 ? (resolvedOrders.length / filteredWorkOrders.length) * 100 : 0,
+      statusDistribution,
+      priorityDistribution,
+      departmentDistribution,
+      serviceTypeDistribution,
+      monthlyTrends,
+      statusTimingAnalysis,
+
+      // NEW ANALYTICS
+      serviceTypePerformance,
+      servicePerformance,
+      priorityTimingAnalysis,
+      dailyTrends,
+      serviceOwnerPerformance,
+      picPerformance,
+    };
+  };
+
+  const analytics = getWorkOrderAnalytics();
+
+  const kpiCards = [
+    {
+      title: "Total Work Orders",
+      value: analytics.total.toString(),
+      change: "+12%",
+      icon: <FileText />,
+    },
+    {
+      title: "Avg Resolution Time",
+      value: `${analytics.avgResolutionTime} days`,
+      change: analytics.avgResolutionTime < 5 ? "-2 days" : "+1 day",
+      icon: <Clock />,
+    },
+    {
+      title: "Service Types",
+      value: analytics.serviceTypePerformance.length.toString(),
+      change: "+3%",
+      icon: <Layers />,
+    },
+    {
+      title: "Active Technicians",
+      value: analytics.picPerformance.filter((p) => p.pic !== "Unassigned").length.toString(),
+      change: "+2%",
+      icon: <Users />,
+    },
+  ];
+
+  // Ganti fungsi handleExportReports dengan yang berikut:
+  const handleExportReports = useCallback(() => {
+    if (hasPermission("export_reports")) {
+      // Create new PDF document
+      const doc = new jsPDF();
+
+      // Add company header
+      doc.setFontSize(20);
+      doc.setTextColor(40, 40, 40);
+      doc.text("IT WORK ORDER REPORT", 105, 20, { align: "center" });
+
+      doc.setFontSize(12);
+      doc.setTextColor(100, 100, 100);
+      doc.text(`Generated on: ${new Date().toLocaleDateString("id-ID")}`, 105, 30, { align: "center" });
+      doc.text(`Time Range: ${timeRange === "7days" ? "Last 7 Days" : timeRange === "30days" ? "Last 30 Days" : timeRange === "90days" ? "Last 90 Days" : "All Time"}`, 105, 37, { align: "center" });
+
+      // Add summary statistics
+      doc.setFontSize(14);
+      doc.setTextColor(40, 40, 40);
+      doc.text("SUMMARY STATISTICS", 20, 55);
+
+      doc.setFontSize(10);
+      doc.setTextColor(80, 80, 80);
+      doc.text(`Total Work Orders: ${analytics.total}`, 20, 65);
+      doc.text(`Resolved: ${analytics.resolved}`, 20, 72);
+      doc.text(`Active: ${analytics.active}`, 20, 79);
+      doc.text(`Average Resolution Time: ${analytics.avgResolutionTime} days`, 20, 86);
+      doc.text(`Resolution Rate: ${analytics.resolutionRate.toFixed(1)}%`, 20, 93);
+
+      // Add work orders table
+      doc.setFontSize(14);
+      doc.setTextColor(40, 40, 40);
+      doc.text("WORK ORDER DETAILS", 20, 110);
+
+      // Prepare table data
+      const tableHeaders = ["WO No", "Requester", "Department", "Date", "Status", "Priority", "Service Type", "Assigned To", "Resolution Days"];
+
+      const tableData = filteredWorkOrders.map((order) => [
+        order.work_order_no || "-",
+        order.requester?.name || "-",
+        order.department?.name || "-",
+        formatDate(order.date),
+        order.handling_status || "-",
+        order.service?.priority || "Not Set",
+        order.service_type?.group_name || "-",
+        order.assigned_to?.name || "-",
+        order.handling_date ? calculateResolutionTime(order).toString() : "Ongoing",
+      ]);
+
+      // Add table
+      autoTable(doc, {
+        head: [tableHeaders],
+        body: tableData,
+        startY: 115,
+        styles: {
+          fontSize: 8,
+          cellPadding: 2,
+        },
+        headStyles: {
+          fillColor: [59, 130, 246],
+          textColor: 255,
+          fontStyle: "bold",
+        },
+        alternateRowStyles: {
+          fillColor: [240, 240, 240],
+        },
+        margin: { left: 20, right: 20 },
+      });
+
+      // Add status distribution
+      const finalY = (doc as any).lastAutoTable.finalY + 15;
+
+      if (finalY < 250) {
+        doc.setFontSize(14);
+        doc.setTextColor(40, 40, 40);
+        doc.text("STATUS DISTRIBUTION", 20, finalY);
+
+        const statusData = analytics.statusDistribution.map((status) => [status.status, status.count.toString(), `${status.percentage.toFixed(1)}%`]);
+
+        autoTable(doc, {
+          head: [["Status", "Count", "Percentage"]],
+          body: statusData,
+          startY: finalY + 5,
+          styles: {
+            fontSize: 8,
+            cellPadding: 2,
+          },
+          headStyles: {
+            fillColor: [16, 185, 129],
+            textColor: 255,
+            fontStyle: "bold",
+          },
+          margin: { left: 20, right: 20 },
+        });
+      }
+
+      // Add page numbers
+      const pageCount = doc.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text(`Page ${i} of ${pageCount}`, 105, 290, { align: "center" });
+        doc.text("Confidential - IT Department Report", 105, 295, { align: "center" });
+      }
+
+      // Save the PDF
+      doc.save(`it-workorder-report-${new Date().toISOString().split("T")[0]}.pdf`);
+    } else {
+      alert("You do not have permission to export reports.");
+    }
+  }, [hasPermission, filteredWorkOrders, analytics, timeRange]);
+
+  // Tambahkan juga fungsi untuk export PDF yang lebih detail jika diperlukan:
+  const handleExportDetailedReport = useCallback(() => {
+    if (hasPermission("export_reports")) {
+      const doc = new jsPDF();
+
+      // Cover Page
+      doc.setFillColor(59, 130, 246);
+      doc.rect(0, 0, 210, 297, "F");
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(24);
+      doc.text("IT SERVICE MANAGEMENT", 105, 100, { align: "center" });
+      doc.setFontSize(18);
+      doc.text("COMPREHENSIVE REPORT", 105, 120, { align: "center" });
+
+      doc.setFontSize(14);
+      doc.text(`Period: ${timeRange === "7days" ? "Last 7 Days" : timeRange === "30days" ? "Last 30 Days" : timeRange === "90days" ? "Last 90 Days" : "All Time"}`, 105, 150, { align: "center" });
+      doc.text(
+        `Generated: ${new Date().toLocaleDateString("id-ID", {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })}`,
+        105,
+        160,
+        { align: "center" }
+      );
+
+      doc.setFontSize(10);
+      doc.text("Confidential Business Document - For Internal Use Only", 105, 280, { align: "center" });
+
+      // Executive Summary Page
+      doc.addPage();
+
+      doc.setFillColor(59, 130, 246);
+      doc.rect(0, 0, 210, 30, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(16);
+      doc.text("EXECUTIVE SUMMARY", 105, 20, { align: "center" });
+
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(12);
+
+      const summaryY = 50;
+      doc.text("Performance Overview:", 20, summaryY);
+      doc.setFontSize(10);
+      doc.text(`• Total Work Orders Processed: ${analytics.total}`, 25, summaryY + 10);
+      doc.text(`• Successfully Resolved: ${analytics.resolved} (${analytics.resolutionRate.toFixed(1)}%)`, 25, summaryY + 17);
+      doc.text(`• Average Resolution Time: ${analytics.avgResolutionTime} days`, 25, summaryY + 24);
+      doc.text(`• Active/Pending Work Orders: ${analytics.active}`, 25, summaryY + 31);
+
+      doc.text("Key Metrics:", 20, summaryY + 50);
+      doc.text(`• Service Types Handled: ${analytics.serviceTypePerformance.length}`, 25, summaryY + 60);
+      doc.text(`• Departments Served: ${analytics.departmentDistribution.length}`, 25, summaryY + 67);
+      doc.text(`• Active Technicians: ${analytics.picPerformance.filter((p) => p.pic !== "Unassigned").length}`, 25, summaryY + 74);
+
+      // Performance Analysis Page
+      doc.addPage();
+
+      doc.setFillColor(59, 130, 246);
+      doc.rect(0, 0, 210, 30, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(16);
+      doc.text("PERFORMANCE ANALYSIS", 105, 20, { align: "center" });
+
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(12);
+      doc.text("Service Type Performance:", 20, 50);
+
+      const serviceTypeData = analytics.serviceTypePerformance.sort((a, b) => b.avgResolutionTime - a.avgResolutionTime).map((service) => [service.serviceType, service.avgResolutionTime.toString(), service.totalRequests.toString()]);
+
+      autoTable(doc, {
+        head: [["Service Type", "Avg Resolution (Days)", "Total Requests"]],
+        body: serviceTypeData,
+        startY: 60,
+        styles: { fontSize: 8 },
+        headStyles: {
+          fillColor: [16, 185, 129],
+          textColor: 255,
+          fontStyle: "bold",
+        },
+      });
+
+      // Technician Performance
+      const techY = (doc as any).lastAutoTable.finalY + 15;
+      doc.setFontSize(12);
+      doc.text("Technician Performance:", 20, techY);
+
+      const techData = analytics.picPerformance
+        .filter((tech) => tech.pic !== "Unassigned")
+        .sort((a, b) => b.totalWorkOrders - a.totalWorkOrders)
+        .map((tech) => [tech.pic, tech.avgResolutionTime.toString(), tech.totalWorkOrders.toString(), tech.resolvedWorkOrders.toString()]);
+
+      autoTable(doc, {
+        head: [["Technician", "Avg Resolution (Days)", "Total Assigned", "Resolved"]],
+        body: techData,
+        startY: techY + 5,
+        styles: { fontSize: 8 },
+        headStyles: {
+          fillColor: [245, 158, 11],
+          textColor: 255,
+          fontStyle: "bold",
+        },
+      });
+
+      // Detailed Work Orders Page
+      doc.addPage();
+
+      doc.setFillColor(59, 130, 246);
+      doc.rect(0, 0, 210, 30, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(16);
+      doc.text("DETAILED WORK ORDERS", 105, 20, { align: "center" });
+
+      const detailedHeaders = ["Work Order No", "Requester", "Department", "Date", "Status", "Priority", "Service Type", "Assigned To", "Resolution Days"];
+
+      const detailedData = filteredWorkOrders.map((order) => [
+        order.work_order_no || "-",
+        order.requester?.name || "-",
+        order.department?.name || "-",
+        formatDate(order.date),
+        order.handling_status || "-",
+        order.service?.priority || "Not Set",
+        order.service_type?.group_name || "-",
+        order.assigned_to?.name || "-",
+        order.handling_date ? calculateResolutionTime(order).toString() : "Ongoing",
+      ]);
+
+      autoTable(doc, {
+        head: [detailedHeaders],
+        body: detailedData,
+        startY: 40,
+        styles: {
+          fontSize: 6,
+          cellPadding: 1.5,
+        },
+        headStyles: {
+          fillColor: [59, 130, 246],
+          textColor: 255,
+          fontStyle: "bold",
+        },
+        alternateRowStyles: {
+          fillColor: [240, 240, 240],
+        },
+      });
+
+      // Add page numbers to all pages
+      const totalPages = doc.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text(`Page ${i} of ${totalPages}`, 105, 290, { align: "center" });
+        doc.text("Confidential IT Department Report", 105, 295, { align: "center" });
+      }
+
+      doc.save(`it-detailed-report-${new Date().toISOString().split("T")[0]}.pdf`);
+    } else {
+      alert("You do not have permission to export reports.");
+    }
+  }, [hasPermission, filteredWorkOrders, analytics, timeRange]);
 
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
@@ -443,19 +1373,6 @@ const ITReports: React.FC = () => {
     setSidebarOpen((prev) => !prev);
   };
 
-  const filteredWorkOrders = workOrders.filter((order) => {
-    const matchesSearch =
-      order.work_order_no?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.requester?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.complaint?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.service?.service_name?.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesStatus = statusFilter === "all" || order.handling_status === statusFilter;
-    const matchesDepartment = departmentFilter === "all" || order.department?.name === departmentFilter;
-
-    return matchesSearch && matchesStatus && matchesDepartment;
-  });
-
   const indexOfLastOrder = currentPage * ordersPerPage;
   const indexOfFirstOrder = indexOfLastOrder - ordersPerPage;
   const currentOrders = filteredWorkOrders.slice(indexOfFirstOrder, indexOfLastOrder);
@@ -465,91 +1382,23 @@ const ITReports: React.FC = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, statusFilter, departmentFilter]);
+  }, [searchQuery, statusFilter, departmentFilter, priorityFilter, serviceTypeFilter, timeRange]);
 
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", darkMode);
-  }, [darkMode]);
-
-  // Calculate statistics
-  const totalRequests = filteredWorkOrders.length;
-  const resolvedWorkOrders = filteredWorkOrders.filter((order) => ["resolved", "closed"].includes(order.handling_status?.toLowerCase())).length;
-
-  const openWorkOrders = filteredWorkOrders.filter((order) => !["cancel"].includes(order.handling_status?.toLowerCase())).length;
-
-  const escalatedWorkOrders = filteredWorkOrders.filter((order) => order.handling_status?.toLowerCase() === "escalated").length;
-
-  const assignedWorkOrders = filteredWorkOrders.filter((order) => order.assigned_to !== null).length;
-
-  const completionRate = totalRequests > 0 ? Math.round((resolvedWorkOrders / totalRequests) * 100) : 0;
-
-  // Calculate average resolution time
-  const avgResolutionTime =
-    filteredWorkOrders
-      .filter((order) => order.handling_date && order.date && ["resolved", "closed"].includes(order.handling_status?.toLowerCase()))
-      .reduce((acc, order) => {
-        const created = new Date(order.date);
-        const resolved = new Date(order.handling_date!); // Add ! since we filtered out nulls
-        const diffTime = Math.abs(resolved.getTime() - created.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        return acc + diffDays;
-      }, 0) / (resolvedWorkOrders || 1);
-
-  // Chart data
-  const departmentChartData = Object.entries(
-    filteredWorkOrders.reduce((acc, order) => {
-      const deptName = order.department?.name || "Unknown";
-      acc[deptName] = (acc[deptName] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>)
-  ).map(([name, value]) => ({ name, value }));
-
-  const statusChartData = Object.entries(
-    filteredWorkOrders.reduce((acc, order) => {
-      const status = order.handling_status || "Unknown";
-      acc[status] = (acc[status] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>)
-  ).map(([name, value]) => ({ name, value }));
-
-  const handleExportReports = useCallback(() => {
-    if (hasPermission("export_reports")) {
-      // Simple CSV export implementation
-      const headers = ["Work Order No", "Requester", "Department", "Date", "Status", "Assigned To", "Handling Date"];
-      const csvData = filteredWorkOrders.map((order) => [order.work_order_no, order.requester?.name || "", order.department?.name || "", order.date, order.handling_status, order.assigned_to?.name || "", order.handling_date || ""]);
-
-      const csvContent = [headers.join(","), ...csvData.map((row) => row.map((field) => `"${field}"`).join(","))].join("\n");
-
-      const blob = new Blob([csvContent], { type: "text/csv" });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `it-reports-${new Date().toISOString().split("T")[0]}.csv`;
-      link.click();
-      window.URL.revokeObjectURL(url);
-    } else {
-      alert("You do not have permission to export reports.");
-    }
-  }, [hasPermission, filteredWorkOrders]);
-
-  const handleViewDetails = (order: any) => {
+  const handleViewDetails = (order: WorkOrderData) => {
     setSelectedWorkOrder(order);
     setShowDetailModal(true);
   };
 
   const handleCloseDetailModal = () => {
     setShowDetailModal(false);
-    setSelectedWorkOrder(undefined); // Reset selected work order
+    setSelectedWorkOrder(undefined);
   };
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "-";
-
-    // Add null check and handle invalid dates
     try {
       const date = new Date(dateString);
       if (isNaN(date.getTime())) return "-";
-
       return date.toLocaleDateString("id-ID", {
         day: "2-digit",
         month: "2-digit",
@@ -586,7 +1435,14 @@ const ITReports: React.FC = () => {
       <Sidebar />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <PageHeader mainTitle="IT Work Order - Reports" mainTitleHighlight="Page" description="Manage work units and their configurations within the system." icon={<BarChart2 />} isMobile={isMobile} toggleSidebar={toggleSidebar} />
+        <PageHeader
+          mainTitle="IT Work Order - Advanced Analytics"
+          mainTitleHighlight="Dashboard"
+          description="Comprehensive performance insights and operational analytics for IT service management."
+          icon={<BarChart2 />}
+          isMobile={isMobile}
+          toggleSidebar={toggleSidebar}
+        />
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="isi style mb-6 flex space-x-6 border-b border-gray-200">
@@ -629,61 +1485,255 @@ const ITReports: React.FC = () => {
 
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">IT Work Order Reports</h1>
-              <p className="text-gray-600 mt-1">Comprehensive overview of work orders in the IT department.</p>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">IT Service Performance Analytics</h1>
+              <p className="text-gray-600 mt-1">Advanced insights and performance metrics for IT work order management</p>
             </div>
-            {hasPermission("export_reports") && (
-              <motion.button
-                onClick={handleExportReports}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="px-4 py-2 rounded-lg bg-blue-600 text-white shadow-md hover:bg-blue-700 transition-colors duration-200 flex items-center"
-              >
-                <Printer className="mr-2" /> Export Report
-              </motion.button>
-            )}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <select value={timeRange} onChange={(e) => setTimeRange(e.target.value as any)} className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                <option value="7days">Last 7 Days</option>
+                <option value="30days">Last 30 Days</option>
+                <option value="90days">Last 90 Days</option>
+                <option value="all">All Time</option>
+              </select>
+              {hasPermission("export_reports") && (
+                <>
+                  <motion.button
+                    onClick={handleExportReports}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="px-4 py-2 rounded-lg bg-blue-600 text-white shadow-md hover:bg-blue-700 transition-colors duration-200 flex items-center"
+                  >
+                    <Printer className="mr-2" /> Export Summary PDF
+                  </motion.button>
+                  <motion.button
+                    onClick={handleExportDetailedReport}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="px-4 py-2 rounded-lg bg-green-600 text-white shadow-md hover:bg-green-700 transition-colors duration-200 flex items-center"
+                  >
+                    <Printer className="mr-2" /> Export Detailed PDF
+                  </motion.button>
+                </>
+              )}
+            </div>
           </motion.div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-            <StatCard title="Total Requests" value={totalRequests.toString()} change="+10% " icon={<Clipboard />} />
-            <StatCard title="Resolved" value={resolvedWorkOrders.toString()} change="+15% " icon={<CheckCircle />} />
-            <StatCard title="Cancel" value={openWorkOrders.toString()} change="-5% " icon={<Clock />} />
-            <StatCard title="Escalated" value={escalatedWorkOrders.toString()} change="+8% " icon={<Users />} />
-            <StatCard title="Completion Rate" value={`${completionRate}%`} change={completionRate > 70 ? "+12% " : "-5% "} icon={<BarChart3 />} />
-            <StatCard title="Avg Resolution Time" value={`${Math.round(avgResolutionTime)} days`} change={avgResolutionTime < 5 ? "-2 days " : "+3 days "} icon={<Clock />} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            {kpiCards.map((card, index) => (
+              <motion.div
+                key={card.title}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                className="bg-white rounded-2xl shadow-md p-6 border border-blue-50 hover:shadow-lg transition-shadow duration-200"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500 mb-1">{card.title}</p>
+                    <p className="text-2xl font-bold text-gray-900">{card.value}</p>
+                    <p className={`mt-2 text-xs font-semibold ${card.change.startsWith("+") ? "text-green-600" : "text-red-600"}`}>{card.change} from previous period</p>
+                  </div>
+                  <div className={`p-3 rounded-full bg-blue-50 text-blue-600 text-xl`}>{card.icon}</div>
+                </div>
+              </motion.div>
+            ))}
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
             <div className="bg-white rounded-2xl shadow-md p-6 border border-blue-100">
               <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                <BarChart3 className="mr-2" /> Work Orders by Department
+                <TrendingUp className="mr-2" /> Monthly Work Order Trends
               </h3>
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={departmentChartData}>
+                <AreaChart data={analytics.monthlyTrends}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
+                  <XAxis dataKey="month" />
                   <YAxis />
                   <Tooltip />
-                  <Legend />
-                  <Bar dataKey="value" fill="#0081ff" />
-                </BarChart>
+                  <Area type="monotone" dataKey="created" stackId="1" stroke="#8884d8" fill="#8884d8" name="Created" />
+                  <Area type="monotone" dataKey="resolved" stackId="1" stroke="#82ca9d" fill="#82ca9d" name="Resolved" />
+                </AreaChart>
               </ResponsiveContainer>
             </div>
+
             <div className="bg-white rounded-2xl shadow-md p-6 border border-blue-100">
               <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                <PieChartt className="mr-2" /> Work Orders by Status
+                <AlertCircle className="mr-2" /> Status Distribution
               </h3>
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
-                  <Pie data={statusChartData} cx="50%" cy="50%" labelLine={false} label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`} outerRadius={80} fill="#8884d8" dataKey="value">
-                    {statusChartData.map((entry, index) => (
+                  <Pie data={analytics.statusDistribution} cx="50%" cy="50%" labelLine={false} label={({ status, percentage }) => `${status}: ${percentage.toFixed(1)}%`} outerRadius={80} fill="#8884d8" dataKey="count">
+                    {analytics.statusDistribution.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip />
-                  <Legend />
                 </PieChart>
               </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            {/* GANTI: Priority Performance Analysis */}
+            <div className="bg-white rounded-2xl shadow-md p-6 border border-blue-100">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <AlertCircle className="mr-2" /> Priority Resolution Time (Days)
+              </h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={analytics.priorityTimingAnalysis}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="priority" />
+                  <YAxis />
+                  <Tooltip formatter={(value) => [`${value} days`, "Avg Resolution Time"]} />
+                  <Bar dataKey="avgResolutionTime" fill="#ff7300" name="Avg Resolution (Days)" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-md p-6 border border-blue-100">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <Users className="mr-2" /> Department Distribution
+              </h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={analytics.departmentDistribution} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis type="number" />
+                  <YAxis type="category" dataKey="dept" width={100} />
+                  <Tooltip />
+                  <Bar dataKey="count" fill="#0088FE" name="Work Orders" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <div className="bg-white rounded-2xl shadow-md p-6 border border-blue-100">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <ToolCase className="mr-2" /> Status Timing Analysis
+              </h3>
+              <div className="space-y-4">
+                {analytics.statusTimingAnalysis
+                  .filter((item) => item.count > 0)
+                  .map((status, index) => (
+                    <div key={status.status} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center">
+                        <div className={`w-3 h-3 rounded-full mr-3 ${getStatusColor(status.status).split(" ")[0]}`} />
+                        <span className="font-medium text-sm capitalize">{status.status}</span>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-semibold">{status.avgTimeInStatus}d avg</div>
+                        <div className="text-xs text-gray-500">{status.count} tickets</div>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+
+            {/* GANTI: Service Type Distribution dengan Performance */}
+            <div className="bg-white rounded-2xl shadow-md p-6 border border-blue-100">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <ToolCase className="mr-2" /> Service Type Performance (Days to Resolve)
+              </h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={analytics.serviceTypePerformance.sort((a, b) => b.avgResolutionTime - a.avgResolutionTime).slice(0, 8)} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis type="number" />
+                  <YAxis type="category" dataKey="serviceType" width={120} />
+                  <Tooltip formatter={(value) => [`${value} days`, "Avg Resolution Time"]} />
+                  <Bar dataKey="avgResolutionTime" fill="#0088FE" name="Avg Days to Resolve">
+                    {analytics.serviceTypePerformance.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.avgResolutionTime > 10 ? "#FF8042" : entry.avgResolutionTime > 5 ? "#FFBB28" : "#00C49F"} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* TAMBAH: Daily Trends */}
+            <div className="bg-white rounded-2xl shadow-md p-6 border border-blue-100">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <TrendingUp className="mr-2" /> Daily Work Order Trends (30 Days)
+              </h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={analytics.dailyTrends}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Line type="monotone" dataKey="created" stroke="#8884d8" name="Created" strokeWidth={2} />
+                  <Line type="monotone" dataKey="resolved" stroke="#82ca9d" name="Resolved" strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* TAMBAH: Service Owner Performance */}
+            <div className="bg-white rounded-2xl shadow-md p-6 border border-blue-100">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <UserIcon className="mr-2" /> Service Owner Performance
+              </h3>
+              <div className="space-y-4 max-h-80 overflow-y-auto">
+                {analytics.serviceOwnerPerformance
+                  .sort((a, b) => b.totalWorkOrders - a.totalWorkOrders)
+                  .map((owner, index) => (
+                    <div key={owner.owner} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <h4 className="font-semibold text-gray-900">{owner.owner}</h4>
+                          <p className="text-sm text-gray-600">{owner.totalWorkOrders} work orders</p>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-lg font-bold text-blue-600">{owner.avgResolutionTime} days avg</div>
+                          <div className="text-sm text-gray-500">{owner.resolvedWorkOrders} resolved</div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 gap-2 text-xs">
+                        {owner.workOrders.slice(0, 3).map((wo, idx) => (
+                          <div key={idx} className="flex justify-between items-center p-2 bg-white rounded">
+                            <span className="font-medium">{wo.workOrderNo}</span>
+                            <span className={`px-2 py-1 rounded text-xs ${wo.priority === "Critical" ? "bg-red-100 text-red-800" : wo.priority === "High" ? "bg-orange-100 text-orange-800" : "bg-blue-100 text-blue-800"}`}>
+                              {wo.priority}
+                            </span>
+                            <span>{wo.resolutionTime}d</span>
+                          </div>
+                        ))}
+                        {owner.workOrders.length > 3 && <div className="text-center text-gray-500 text-xs">+{owner.workOrders.length - 3} more work orders</div>}
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+
+            {/* TAMBAH: PIC/Technician Performance */}
+            <div className="bg-white rounded-2xl shadow-md p-6 border border-blue-100">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <Users className="mr-2" /> Technician Performance
+              </h3>
+              <div className="space-y-3">
+                {analytics.picPerformance
+                  .filter((pic) => pic.pic !== "Unassigned")
+                  .sort((a, b) => b.totalWorkOrders - a.totalWorkOrders)
+                  .slice(0, 6)
+                  .map((pic, index) => (
+                    <div key={pic.pic} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center">
+                        <div className="w-3 h-3 rounded-full bg-green-500 mr-3"></div>
+                        <div>
+                          <span className="font-medium text-sm">{pic.pic}</span>
+                          <div className="text-xs text-gray-500">
+                            {pic.totalWorkOrders} orders • {pic.avgResolutionTime}d avg
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-semibold">
+                          {pic.resolvedWorkOrders}/{pic.totalWorkOrders}
+                        </div>
+                        <div className="text-xs text-gray-500">resolved</div>
+                      </div>
+                    </div>
+                  ))}
+              </div>
             </div>
           </div>
 
@@ -729,6 +1779,16 @@ const ITReports: React.FC = () => {
                   </select>
                   <ChevronDown className="absolute right-3 top-3.5 text-gray-400" size={18} />
                 </div>
+                <div className="relative w-full sm:w-auto">
+                  <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} className="w-full sm:w-48 p-2.5 border border-gray-300 rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500 pr-8 bg-white">
+                    <option value="all">All Priorities</option>
+                    <option value="Critical">Critical</option>
+                    <option value="High">High</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Low">Low</option>
+                  </select>
+                  <ChevronDown className="absolute right-3 top-3.5 text-gray-400" size={18} />
+                </div>
                 <motion.button
                   onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
                   whileHover={{ scale: 1.05 }}
@@ -742,8 +1802,18 @@ const ITReports: React.FC = () => {
             <AnimatePresence>
               {showAdvancedFilters && (
                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.3 }} className="overflow-hidden mt-4 pt-4 border-t border-gray-200">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <p className="text-gray-500 col-span-full">More filter options coming soon!</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Service Type</label>
+                      <select value={serviceTypeFilter} onChange={(e) => setServiceTypeFilter(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                        <option value="all">All Service Types</option>
+                        {Array.from(new Set(workOrders.map((order) => order.service_type?.group_name).filter(Boolean))).map((type) => (
+                          <option key={type} value={type}>
+                            {type}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 </motion.div>
               )}
@@ -751,10 +1821,10 @@ const ITReports: React.FC = () => {
           </div>
 
           <div className="bg-white rounded-2xl shadow-md p-6 border border-blue-100 overflow-x-auto">
-            <h3 className="text-xl font-semibold text-gray-800 mb-4">Detailed Work Order List</h3>
+            <h3 className="text-xl font-semibold text-gray-800 mb-4">Detailed Work Order Analytics</h3>
             {currentOrders.length === 0 ? (
               <div className="text-center py-10 text-gray-500">
-                <Wrench className="mx-auto h-12 w-12 text-gray-400" />
+                <FileText className="mx-auto h-12 w-12 text-gray-400" />
                 <p className="mt-2 text-lg">No work orders found matching your criteria.</p>
                 <p className="text-sm">Try adjusting your filters or search query.</p>
               </div>
@@ -767,9 +1837,10 @@ const ITReports: React.FC = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Requester</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Department</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Priority</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assigned To</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Handling Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Resolution Time</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                   </tr>
                 </thead>
@@ -783,10 +1854,25 @@ const ITReports: React.FC = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{order.department?.name || "-"}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{formatDate(order.date)}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
+                          <span
+                            className={`px-2 inline-flex text-xs leading-5 font-bold rounded-full ${
+                              order.service?.priority === "Critical"
+                                ? "bg-red-100 text-red-800"
+                                : order.service?.priority === "High"
+                                ? "bg-orange-100 text-orange-800"
+                                : order.service?.priority === "Medium"
+                                ? "bg-yellow-100 text-yellow-800"
+                                : "bg-green-100 text-green-800"
+                            }`}
+                          >
+                            {order.service?.priority || "Not Set"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(order.handling_status)}`}>{order.handling_status || "Unknown"}</span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{order.assigned_to?.name || "-"}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{formatDate(order.handling_date)}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{order.handling_date ? `${calculateResolutionTime(order)} days` : "Ongoing"}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <motion.button onClick={() => handleViewDetails(order)} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="text-blue-600 hover:text-blue-900 transition-colors duration-200 flex items-center">
                             <Eye className="mr-1" size={16} /> View

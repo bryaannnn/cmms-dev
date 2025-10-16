@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useAuth, WorkOrderData, Vendor } from "../../../routes/AuthContext";
+import { useAuth, WorkOrderData, Vendor, User } from "../../../routes/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
 import DOMPurify from "dompurify";
 import {
@@ -122,21 +122,26 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
   );
 };
 
-// Add the AssignModal component
 interface AssignModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAssign: (orderId: number, technicianId: string) => void;
+  onAssign: (orderId: number, userId: string) => void;
   workOrder: any;
-  technicians: any[];
+  users: any[]; // Ganti technicians menjadi users
 }
 
-const AssignModal: React.FC<AssignModalProps> = ({ isOpen, onClose, onAssign, workOrder, technicians }) => {
-  const [selectedTechnician, setSelectedTechnician] = useState<string>("");
+const AssignModal: React.FC<AssignModalProps> = ({
+  isOpen,
+  onClose,
+  onAssign,
+  workOrder,
+  users, // Ganti technicians menjadi users
+}) => {
+  const [selectedUser, setSelectedUser] = useState<string>(""); // Ganti selectedTechnician
 
   const handleAssignOrder = () => {
-    if (workOrder && selectedTechnician) {
-      onAssign(workOrder.id, selectedTechnician);
+    if (workOrder && selectedUser) {
+      onAssign(workOrder.id, selectedUser);
       onClose();
     }
   };
@@ -150,19 +155,19 @@ const AssignModal: React.FC<AssignModalProps> = ({ isOpen, onClose, onAssign, wo
           Work Order <strong>#{workOrder.work_order_no || workOrder.id}</strong> from <strong>{workOrder.requester.name}</strong> needs to be assigned.
         </p>
         <div>
-          <label htmlFor="technician-select" className="block text-sm font-medium text-gray-700 mb-1">
-            Select Technician
+          <label htmlFor="user-select" className="block text-sm font-medium text-gray-700 mb-1">
+            Select User
           </label>
           <select
-            id="technician-select"
-            value={selectedTechnician}
-            onChange={(e) => setSelectedTechnician(e.target.value)}
+            id="user-select"
+            value={selectedUser}
+            onChange={(e) => setSelectedUser(e.target.value)}
             className="mt-1 block w-full pl-3 pr-10 py-2.5 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
           >
-            <option value="">Select Technician</option>
-            {technicians.map((tech) => (
-              <option key={tech.id} value={tech.id}>
-                {tech.name} - {tech.department?.name || tech.department_name}
+            <option value="">Select User</option>
+            {users.map((user) => (
+              <option key={user.id} value={user.id}>
+                {user.name} - {user.department?.name || user.department_name} ({user.position || "No Position"})
               </option>
             ))}
           </select>
@@ -175,8 +180,8 @@ const AssignModal: React.FC<AssignModalProps> = ({ isOpen, onClose, onAssign, wo
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
             onClick={handleAssignOrder}
-            disabled={!selectedTechnician}
-            className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors duration-200 ${!selectedTechnician ? "bg-gray-300 text-gray-600 cursor-not-allowed" : "bg-blue-600 text-white hover:bg-blue-700"}`}
+            disabled={!selectedUser}
+            className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors duration-200 ${!selectedUser ? "bg-gray-300 text-gray-600 cursor-not-allowed" : "bg-blue-600 text-white hover:bg-blue-700"}`}
           >
             Assign
           </motion.button>
@@ -212,7 +217,7 @@ const ITReceiver: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [technicians, setTechnicians] = useState<any[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
   const [showAssignModal, setShowAssignModal] = useState(false);
 
   const navigate = useNavigate();
@@ -253,14 +258,14 @@ const ITReceiver: React.FC = () => {
     }
   }, [getWorkOrdersIT, user?.id]);
 
+  // Ganti fungsi fetchTechnicians yang ada dengan ini:
   const fetchTechnicians = useCallback(async () => {
     try {
       const users = await getUsers();
-      // Filter users who are technicians (you might need to adjust this logic based on your user roles)
-      const techUsers = users.filter((user) => user.roles?.includes("technician") || user.department?.name?.toLowerCase().includes("it") || user.position?.toLowerCase().includes("technician"));
-      setTechnicians(techUsers);
+      // Hapus filter untuk technician, ambil semua user
+      setAllUsers(users);
     } catch (err) {
-      console.error("Failed to fetch technicians:", err);
+      console.error("Failed to fetch users:", err);
     }
   }, [getUsers]);
 
@@ -1171,7 +1176,7 @@ const ITReceiver: React.FC = () => {
           }}
           onAssign={handleAssignOrder}
           workOrder={selectedWorkOrder}
-          technicians={technicians}
+          users={allUsers}
         />
       )}
     </div>

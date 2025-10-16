@@ -71,6 +71,7 @@ interface WorkOrderFormDataLocal {
   action_taken: string | null;
   handling_status: string;
   remarks: string | null;
+  assigned_to_id?: number | null;
 }
 
 const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
@@ -126,10 +127,11 @@ const AddWorkOrderFormIT: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Fungsi untuk menampilkan pilihan attachment
-  const handleAttachmentClick = () => {
-    setShowAttachmentOptions(true);
-  };
+  const handleAttachmentClick = (e: React.MouseEvent) => {
+  e.preventDefault(); // Tambahkan ini
+  e.stopPropagation(); // Dan ini untuk extra safety
+  setShowAttachmentOptions(true);
+};
 
   // Fungsi untuk memilih file
   // Fungsi untuk memilih file (simplified version)
@@ -223,6 +225,7 @@ const AddWorkOrderFormIT: React.FC = () => {
     action_taken: null,
     handling_status: "New",
     remarks: null,
+    assigned_to_id: null,
   };
 
   const [formData, setFormData] = useState<WorkOrderFormDataLocal>(initialFormData);
@@ -593,14 +596,7 @@ const AddWorkOrderFormIT: React.FC = () => {
       <Sidebar />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <PageHeader
-          mainTitle="Work Unit"
-          mainTitleHighlight="Page"
-          description="Manage work units and their configurations within the system."
-          icon={<Clipboard/>}
-          isMobile={isMobile}
-          toggleSidebar={toggleSidebar}
-        />
+        <PageHeader mainTitle="Work Unit" mainTitleHighlight="Page" description="Manage work units and their configurations within the system." icon={<Clipboard />} isMobile={isMobile} toggleSidebar={toggleSidebar} />
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
@@ -844,8 +840,11 @@ const AddWorkOrderFormIT: React.FC = () => {
                   Attachment (Optional)
                 </label>
 
-                {/* Tombol untuk memilih jenis attachment */}
-                <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-200 border-dashed rounded-lg cursor-pointer hover:border-blue-400 transition-all duration-200" onClick={handleAttachmentClick}>
+                <button
+                  type="button"
+                  className="mt-1 w-full flex justify-center px-6 pt-5 pb-6 border-2 border-gray-200 border-dashed rounded-lg cursor-pointer hover:border-blue-400 transition-all duration-200 bg-transparent"
+                  onClick={handleAttachmentClick}
+                >
                   <div className="space-y-1 text-center">
                     <Paperclip className="mx-auto h-12 w-12 text-gray-400" />
                     <div className="flex text-sm text-gray-600 justify-center">
@@ -853,7 +852,7 @@ const AddWorkOrderFormIT: React.FC = () => {
                     </div>
                     <p className="text-xs text-gray-500">PNG, JPG, GIF, PDF up to 10MB</p>
                   </div>
-                </div>
+                </button>
 
                 {/* Modal pilihan attachment */}
                 <AnimatePresence>

@@ -34,7 +34,12 @@ import {
   Phone,
   MapPin,
   Paperclip,
-  ExternalLink
+  ExternalLink,
+  PlayCircle,
+  CheckSquare,
+  XCircle,
+  GitBranch,
+  Activity,
 } from "lucide-react";
 
 interface Department {
@@ -596,6 +601,336 @@ const ITRequest2: React.FC = () => {
       );
     };
 
+    // Komponen StatusTimeline - SAMA PERSIS seperti di Reports.tsx
+    const StatusTimeline: React.FC<{ order: WorkOrderData }> = ({ order }) => {
+      const getStatusIcon = (status: string) => {
+        switch (status?.toLowerCase()) {
+          case "new":
+            return <PlayCircle className="w-4 h-4" />;
+          case "assigned":
+            return <UserIcon className="w-4 h-4" />;
+          case "in progress":
+            return <Clock className="w-4 h-4" />;
+          case "resolved":
+            return <CheckSquare className="w-4 h-4" />;
+          case "closed":
+            return <CheckCircle className="w-4 h-4" />;
+          case "cancel":
+            return <XCircle className="w-4 h-4" />;
+          case "escalated":
+            return <AlertTriangle className="w-4 h-4" />;
+          case "vendor handled":
+            return <Wrench className="w-4 h-4" />;
+          default:
+            return <Activity className="w-4 h-4" />;
+        }
+      };
+
+      const getStatusColor = (status: string) => {
+        switch (status?.toLowerCase()) {
+          case "new":
+            return "bg-blue-500";
+          case "assigned":
+            return "bg-purple-500";
+          case "in progress":
+            return "bg-yellow-500";
+          case "resolved":
+            return "bg-green-500";
+          case "closed":
+            return "bg-green-600";
+          case "cancel":
+            return "bg-red-500";
+          case "escalated":
+            return "bg-orange-500";
+          case "vendor handled":
+            return "bg-indigo-500";
+          default:
+            return "bg-gray-500";
+        }
+      };
+
+      const getStatusDescription = (status: string, data?: any) => {
+        const descriptions: Record<string, string> = {
+          new: "Work order telah dibuat dan menunggu penanganan",
+          assigned: `Telah ditugaskan kepada ${data?.assigned_to || "teknisi"}`,
+          "in progress": "Sedang dalam proses pengerjaan",
+          resolved: "Masalah telah diselesaikan",
+          closed: "Work order telah ditutup",
+          cancel: "Work order dibatalkan",
+          escalated: "Telah di-escalate ke level yang lebih tinggi",
+          "vendor handled": "Ditangani oleh vendor eksternal",
+          updated: "Work order diperbarui",
+        };
+        return descriptions[status.toLowerCase()] || `Status: ${status}`;
+      };
+
+      // Define proper types for timeline events
+      interface TimelineEvent {
+        id: string;
+        status: string;
+        date: string;
+        changed_by: string;
+        description: string;
+        duration: string;
+        isSystemEvent?: boolean;
+        isManualEvent?: boolean;
+        isStatusChange?: boolean;
+        comments?: string;
+        old_data?: any;
+        new_data?: any;
+      }
+
+      // Reconstruct timeline dengan logika yang benar
+      const reconstructTimeline = (): TimelineEvent[] => {
+        const timeline: TimelineEvent[] = [];
+
+        // 1. Creation event - selalu pertama
+        timeline.push({
+          id: "created",
+          status: "new",
+          date: order.date,
+          changed_by: order.requester?.name || "System",
+          description: "Work order dibuat",
+          duration: "0 days",
+          isSystemEvent: true,
+        });
+
+        // 2. Process status history dari API - URUTKAN berdasarkan changed_at
+        if (order.status_history && order.status_history.length > 0) {
+          // Sort status history by date secara ascending (terlama ke terbaru)
+          const sortedHistory = [...order.status_history].sort((a, b) => new Date(a.changed_at).getTime() - new Date(b.changed_at).getTime());
+
+          sortedHistory.forEach((history, index) => {
+            const prevEvent = timeline[timeline.length - 1];
+            const duration = calculateDuration(prevEvent.date, history.changed_at);
+
+            // Determine actual status dari new_data atau action
+            let actualStatus = history.action;
+            let description = getStatusDescription(history.action);
+
+            // Jika action adalah "updated", cek new_data untuk status sebenarnya
+            if (history.action === "updated" && history.new_data?.handling_status) {
+              actualStatus = history.new_data.handling_status;
+              description = getStatusDescription(history.new_data.handling_status, {
+                assigned_to: order.assigned_to?.name,
+              });
+            }
+
+            // Determine who changed it berdasarkan data yang ada
+            let changedBy = "System";
+
+            // Gunakan data dari API jika tersedia
+            if (history.user_id === 55) changedBy = "DevTest User 1";
+            else if (history.user_id === 41) changedBy = "Regular User QC";
+            else if (history.user_id === 57) changedBy = "DevTest User 2";
+            else if (history.user_id === 36) changedBy = "Super Admin User";
+            else if (history.user_id === 37) changedBy = "Admin User One";
+            else if (history.user_id === 40) changedBy = "Regular User IT";
+            else if (history.user_id === 42) changedBy = "Monitor";
+            else if (history.user_id === 56) changedBy = "Monitor";
+            else if (history.changed_by) changedBy = history.changed_by;
+            else changedBy = `User ${history.user_id}`;
+
+            timeline.push({
+              id: history.id.toString(),
+              status: actualStatus,
+              date: history.changed_at,
+              changed_by: changedBy,
+              description: description,
+              duration: duration,
+              comments: history.comments,
+              old_data: history.old_data,
+              new_data: history.new_data,
+              isStatusChange: true,
+            });
+          });
+        }
+
+        // 3. Manual events hanya jika benar-benar ada data yang mendukung
+        // Received by event - hanya jika ada received_by dan handling_date
+        if (order.received_by?.name && order.handling_date) {
+          const receivedEventExists = timeline.some((event) => event.status === "received" || (event.new_data?.received_by_id && event.new_data?.handling_status === "Resolved"));
+
+          if (!receivedEventExists) {
+            const lastEvent = timeline[timeline.length - 1];
+            const duration = calculateDuration(lastEvent.date, order.handling_date);
+
+            const receivedEvent: TimelineEvent = {
+              id: "received",
+              status: "received",
+              date: order.handling_date,
+              changed_by: order.received_by.name,
+              description: "Diterima oleh teknisi",
+              duration: duration,
+              isManualEvent: true,
+            };
+            timeline.push(receivedEvent);
+          }
+        }
+
+        // 4. Sort final timeline by date secara ascending
+        return timeline.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      };
+
+      const calculateDuration = (startDate: string, endDate: string): string => {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        const diffTime = Math.abs(end.getTime() - start.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 0) {
+          const diffHours = Math.ceil(diffTime / (1000 * 60 * 60));
+          const diffMinutes = Math.ceil(diffTime / (1000 * 60));
+
+          if (diffMinutes < 60) return `${diffMinutes} minutes`;
+          return `${diffHours} hours`;
+        }
+        return `${diffDays} day${diffDays > 1 ? "s" : ""}`;
+      };
+
+      const formatDateTime = (dateString: string) => {
+        const date = new Date(dateString);
+        return {
+          date: date.toLocaleDateString("id-ID", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+          }),
+          time: date.toLocaleTimeString("id-ID", {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+        };
+      };
+
+      const getActionDetails = (event: TimelineEvent) => {
+        if (event.new_data?.handling_status) {
+          return `Diubah menjadi: ${event.new_data.handling_status}`;
+        }
+        if (event.new_data?.assigned_to_id) {
+          return `Ditugaskan ke teknisi`;
+        }
+        if (event.new_data?.action_taken) {
+          return `Tindakan diambil: ${event.new_data.action_taken.substring(0, 50)}...`;
+        }
+        return null;
+      };
+
+      const timeline = reconstructTimeline();
+
+      return (
+        <div className="space-y-6">
+          {timeline.map((event, index) => {
+            const datetime = formatDateTime(event.date);
+            const isLast = index === timeline.length - 1;
+            const actionDetails = getActionDetails(event);
+
+            return (
+              <div key={event.id} className="flex items-start space-x-4">
+                {/* Timeline line and dot */}
+                <div className="flex flex-col items-center">
+                  <div className={`w-3 h-3 rounded-full ${getStatusColor(event.status)}`} />
+                  {!isLast && <div className="w-0.5 h-16 bg-gray-300 mt-1"></div>}
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 pb-4">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center space-x-2">
+                      {getStatusIcon(event.status)}
+                      <div>
+                        <span className="font-semibold text-sm capitalize text-gray-900">{event.status}</span>
+                        <p className="text-xs text-gray-600 mt-1">{event.description}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-medium text-gray-900">{datetime.date}</div>
+                      <div className="text-xs text-gray-500">{datetime.time}</div>
+                    </div>
+                  </div>
+
+                  {/* Metadata */}
+                  <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                    <div className="flex justify-between items-center text-xs">
+                      <div className="flex items-center space-x-4">
+                        <span className="text-gray-600">
+                          <strong>Changed by:</strong> {event.changed_by}
+                        </span>
+                        {event.duration && event.duration !== "0 days" && <span className="text-blue-600 font-semibold">⏱️ {event.duration}</span>}
+                      </div>
+
+                      {event.duration && event.duration !== "0 days" && index > 0 && (
+                        <div className="text-right">
+                          <span className="text-gray-500 text-xs">Duration from previous</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {actionDetails && <div className="text-xs text-gray-700 bg-white p-2 rounded border">{actionDetails}</div>}
+
+                    {/* FIXED: Proper type checking for comments */}
+                    {event.comments && (
+                      <div className="text-xs text-gray-700 bg-white p-2 rounded border">
+                        <strong>Comments:</strong> {event.comments}
+                      </div>
+                    )}
+
+                    {/* Show assignment details for assigned status */}
+                    {event.status === "assigned" && order.assigned_to && (
+                      <div className="text-xs text-gray-700">
+                        <strong>Assigned to:</strong> {order.assigned_to.name}
+                        {order.assigned_to.email && ` (${order.assigned_to.email})`}
+                      </div>
+                    )}
+
+                    {/* Show resolution details for resolved/closed status */}
+                    {(event.status === "resolved" || event.status === "closed") && order.action_taken && (
+                      <div className="text-xs text-gray-700">
+                        <strong>Action taken:</strong> {order.action_taken.substring(0, 100)}...
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Total duration from start to current status */}
+                  {isLast && (
+                    <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="font-semibold text-blue-800">Total duration from creation</span>
+                        <span className="font-bold text-blue-600 text-lg">{calculateDuration(order.date, event.date)}</span>
+                      </div>
+                      <div className="text-xs text-blue-600 mt-1">
+                        Created: {formatDateTime(order.date).date} • Current: {datetime.date}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Summary Card */}
+          {order.handling_status === "Closed" && order.handling_date && (
+            <div className="mt-6 p-4 bg-green-50 rounded-lg border border-green-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-semibold text-green-800">Work Order Completed</h4>
+                  <p className="text-sm text-green-600">Total resolution time: {calculateDuration(order.date, order.handling_date)}</p>
+                </div>
+                <CheckCircle className="w-8 h-8 text-green-500" />
+              </div>
+              <div className="text-xs text-green-600 mt-2 grid grid-cols-2 gap-2">
+                <div>Created: {formatDateTime(order.date).date}</div>
+                <div>Completed: {formatDateTime(order.handling_date).date}</div>
+                <div className="col-span-2">
+                  <strong>Timeline:</strong> {timeline.length} status changes
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    };
+
     return (
       <div className="space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar pr-2">
         {/* Header dengan informasi utama */}
@@ -668,6 +1003,13 @@ const ITRequest2: React.FC = () => {
             <DetailItemHTML label="Remarks" htmlContent={order.remarks || ""} icon={<Clipboard className="w-4 h-4" />} fullWidth />
           </div>
         </Section>
+
+        {/*  TIMELINE */}
+        {order.status_history && order.status_history.length > 0 && (
+          <Section title="Work Order Timeline" icon={<GitBranch className="w-5 h-5" />}>
+            <StatusTimeline order={order} />
+          </Section>
+        )}
 
         {/* Vendor Details */}
         {order.vendor && (
@@ -883,22 +1225,22 @@ const ITRequest2: React.FC = () => {
             </div>
           </motion.div>
 
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="bg-white rounded-2xl shadow-md overflow-hidden border border-blue-50">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-100">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="bg-white rounded-2xl shadow-md overflow-hidden border border-blue-100">
+            <div className="overflow-x-auto custom-scrollbar">
+              <table className="min-w-full divide-y divide-blue-100">
                 <thead className="bg-blue-50">
                   <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">No</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Date</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Device Information</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">No Asset</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Service Type</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Ticket Status</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Assigned To</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">No</th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Date</th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Device Information</th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">No Asset</th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Service Type</th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Ticket Status</th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Assigned To</th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-100">
+                <tbody className="bg-white divide-y divide-blue-100">
                   {currentOrders.length > 0 ? (
                     currentOrders.map((order) => {
                       const assignedToName = getAssignedToName(order);
@@ -907,70 +1249,72 @@ const ITRequest2: React.FC = () => {
                       return (
                         <motion.tr
                           key={order.id}
-                          initial={{ opacity: 0, y: 10 }}
+                          initial={{ opacity: 0, y: 5 }}
                           animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.2 }}
-                          whileHover={{ backgroundColor: "rgba(239, 246, 255, 1)" }}
+                          transition={{ duration: 0.15 }}
+                          whileHover={{ backgroundColor: "rgba(239, 246, 255, 0.5)" }}
                           className="transition-colors duration-150"
                         >
                           <td
-                            className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 cursor-pointer hover:text-blue-600 hover:underline transition-colors duration-200"
+                            className="px-5 py-3 whitespace-nowrap text-sm font-medium text-gray-900 cursor-pointer hover:text-blue-600 hover:underline transition-colors duration-200"
                             onClick={() => openWorkOrderDetails(order.id)}
                             title="Click to view details"
                           >
                             {order.work_order_no || "-"}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{new Date(order.date).toLocaleDateString()}</td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-5 py-3 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">{new Date(order.date).toLocaleDateString()}</div>
+                          </td>
+                          <td className="px-5 py-3">
                             <div className="text-sm font-medium text-gray-900">{order.device_info}</div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-5 py-3 whitespace-nowrap">
                             <div className="text-sm font-medium text-gray-900">{order.asset_no}</div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-5 py-3 whitespace-nowrap">
                             <div className="text-sm font-medium text-gray-900">{order.service_type.group_name || "N/A"}</div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full ${getStatusColor(order.handling_status)} shadow-sm`}>{order.handling_status}</span>
+                          <td className="px-5 py-3 whitespace-nowrap">
+                            <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-bold rounded-full shadow-sm ${getStatusColor(order.handling_status)}`}>{order.handling_status}</span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-5 py-3 whitespace-nowrap">
                             <div className="flex items-center">
                               <span className={`text-sm font-medium ${assignmentType === "vendor" ? "text-purple-600" : assignmentType === "user" ? "text-blue-600" : "text-gray-500"}`}>{assignedToName}</span>
                               {assignmentType === "vendor" && <span className="ml-2 px-1.5 py-0.5 text-xs bg-purple-100 text-purple-800 rounded-full">Vendor</span>}
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium flex items-center space-x-2">
+                          <td className="px-5 py-3 whitespace-nowrap text-sm font-medium space-x-1.5">
                             {/* View button always available */}
                             <motion.button
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.9 }}
                               onClick={() => openWorkOrderDetails(order.id)}
-                              className="text-blue-600 hover:text-blue-800 transition-colors duration-200 flex items-center space-x-1"
+                              className="text-blue-600 hover:text-blue-800 transition-colors duration-200 p-1 rounded-full hover:bg-blue-50"
                               title="View Details"
                             >
-                              <Eye className="text-lg" />
+                              <Eye className="text-base" />
                             </motion.button>
 
                             {/* Untuk status "New" - Tampilkan Edit dan Cancel */}
                             {order.handling_status === "New" && (
                               <>
                                 <motion.button
-                                  whileHover={{ scale: 1.05 }}
-                                  whileTap={{ scale: 0.95 }}
+                                  whileHover={{ scale: 1.1 }}
+                                  whileTap={{ scale: 0.9 }}
                                   onClick={() => navigate(`/workorders/it/editworkorder/${order.id}`)}
-                                  className="text-gray-600 hover:text-gray-800 transition-colors duration-200 flex items-center space-x-1"
+                                  className="text-gray-600 hover:text-gray-800 transition-colors duration-200 p-1 rounded-full hover:bg-gray-50"
                                   title="Edit Work Order"
                                 >
-                                  <Edit className="text-lg" />
+                                  <Edit className="text-base" />
                                 </motion.button>
                                 <motion.button
-                                  whileHover={{ scale: 1.05 }}
-                                  whileTap={{ scale: 0.95 }}
+                                  whileHover={{ scale: 1.1 }}
+                                  whileTap={{ scale: 0.9 }}
                                   onClick={() => handleCancelClick(order.id)}
-                                  className="text-red-600 hover:text-red-800 transition-colors duration-200 flex items-center space-x-1"
+                                  className="text-red-600 hover:text-red-800 transition-colors duration-200 p-1 rounded-full hover:bg-red-50"
                                   title="Cancel Work Order"
                                 >
-                                  <X className="text-lg" />
+                                  <X className="text-base" />
                                 </motion.button>
                               </>
                             )}
@@ -978,15 +1322,15 @@ const ITRequest2: React.FC = () => {
                             {/* Untuk status "Resolved" - Tampilkan Complete saja */}
                             {order.handling_status === "Resolved" && (
                               <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
                                 onClick={(e) => {
                                   handleCompleteClick(order.id);
                                 }}
-                                className="text-green-600 hover:text-green-800 transition-colors duration-200 flex items-center space-x-1"
+                                className="text-green-600 hover:text-green-800 transition-colors duration-200 p-1 rounded-full hover:bg-green-50"
                                 title="Mark as Closed"
                               >
-                                <CheckCircle className="text-lg" />
+                                <CheckCircle className="text-base" />
                               </motion.button>
                             )}
                           </td>
@@ -995,7 +1339,7 @@ const ITRequest2: React.FC = () => {
                     })
                   ) : (
                     <tr>
-                      <td colSpan={8} className="px-6 py-10 text-center text-gray-600 text-lg">
+                      <td colSpan={8} className="px-5 py-8 text-center text-gray-600 text-base">
                         No IT work order requests found matching your criteria.
                       </td>
                     </tr>
@@ -1006,40 +1350,43 @@ const ITRequest2: React.FC = () => {
           </motion.div>
 
           {filteredWorkOrders.length > ordersPerPage && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="mt-8 flex flex-col sm:flex-row sm:items-center sm:justify-between">
-              <div className="text-sm text-gray-600 mb-4 sm:mb-0">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="mt-8 flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
+              <div className="text-sm text-gray-600">
                 Showing <span className="font-semibold">{indexOfFirstOrder + 1}</span> to <span className="font-semibold">{Math.min(indexOfLastOrder, filteredWorkOrders.length)}</span> of{" "}
                 <span className="font-semibold">{filteredWorkOrders.length}</span> results
               </div>
               <div className="flex space-x-2">
                 <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
                   onClick={() => paginate(currentPage - 1)}
                   disabled={currentPage === 1}
-                  className="px-4 py-2 border border-gray-200 rounded-lg bg-white text-gray-700 hover:bg-blue-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                  className="px-4 py-2 border border-blue-200 rounded-md bg-white text-gray-700 hover:bg-blue-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm font-medium text-sm"
+                  aria-label="Previous page"
                 >
                   Previous
                 </motion.button>
                 {Array.from({ length: totalPages }, (_, i) => (
                   <motion.button
                     key={i + 1}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
                     onClick={() => paginate(i + 1)}
-                    className={`px-4 py-2 rounded-lg transition-colors duration-200 shadow-sm
-                          ${currentPage === i + 1 ? "bg-blue-600 text-white shadow-md" : "bg-white text-gray-700 hover:bg-blue-50 border border-gray-200"}
-                        `}
+                    className={`px-3.5 py-2 rounded-md transition-colors duration-200 shadow-sm font-medium text-sm
+            ${currentPage === i + 1 ? "bg-blue-600 text-white shadow-md" : "bg-white text-gray-700 hover:bg-blue-50 border border-blue-200"}
+          `}
+                    aria-label={`Go to page ${i + 1}`}
                   >
                     {i + 1}
                   </motion.button>
                 ))}
                 <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
                   onClick={() => paginate(currentPage + 1)}
                   disabled={currentPage === totalPages}
-                  className="px-4 py-2 border border-gray-200 rounded-lg bg-white text-gray-700 hover:bg-blue-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                  className="px-4 py-2 border border-blue-200 rounded-md bg-white text-gray-700 hover:bg-blue-50 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm font-medium text-sm"
+                  aria-label="Next page"
                 >
                   Next
                 </motion.button>
@@ -1067,7 +1414,8 @@ const ITRequest2: React.FC = () => {
                   <X size={24} />
                 </motion.button>
               </div>
-              <div className="overflow-y-auto max-h-[70vh]">
+
+              <div className="overflow-y-auto max-h-[80vh]">
                 <WorkOrderDetails
                   order={selectedWorkOrder}
                   onClose={() => {
