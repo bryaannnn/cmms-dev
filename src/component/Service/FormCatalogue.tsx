@@ -143,7 +143,7 @@ const FormServiceCatalogue: React.FC = () => {
               <p className="text-gray-600 mt-1">Add a new service to the catalogue</p>
             </div>
             <motion.button
-              onClick={() => navigate("/servicecatalogue")}
+              onClick={() => navigate("/services/servicecatalogues")}
               whileHover={{ scale: 1.05, boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)" }}
               whileTap={{ scale: 0.95 }}
               className="flex items-center space-x-2 bg-white border border-gray-200 text-gray-800 px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md"

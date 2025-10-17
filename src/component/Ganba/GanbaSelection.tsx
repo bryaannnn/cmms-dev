@@ -12,6 +12,7 @@ import {
   User as UserIcon,
   Settings,
   LogOut,
+  Users,
   Clipboard, // For header title icon
   ChevronDown,
 } from "lucide-react";
@@ -19,7 +20,7 @@ import PageHeader from "../PageHeader";
 import Sidebar from "../../component/Sidebar"; // Assuming Sidebar is in ../../component/Sidebar
 import { useAuth } from "../../routes/AuthContext"; // Import useAuth for user context
 
-const WorkOrdersSelection: React.FC = () => {
+const GanbaSelection: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth(); // Get user for profile display
 
@@ -85,50 +86,60 @@ const WorkOrdersSelection: React.FC = () => {
 
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header section */}
-        <PageHeader
-          mainTitle="Select Work Order"
-          mainTitleHighlight="Page"
-          description="Manage work units and their configurations within the system."
-          icon={<Clipboard />}
-          isMobile={isMobile}
-          toggleSidebar={toggleSidebar}
-        />
+        <PageHeader mainTitle="Select Ganba Menu" mainTitleHighlight="Page" description="Manage work units and their configurations within the system." icon={<Clipboard />} isMobile={isMobile} toggleSidebar={toggleSidebar} />
 
         {/* Main content area */}
         <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-6 text-center">
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Select Work Order Department</h1>
-            <p className="text-gray-600 mt-2">Choose the department you wish to manage work orders for.</p>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Select Ganba Menu</h1>
+            <p className="text-gray-600 mt-2">Choose the menu you wish to manage other for ganba action.</p>
           </motion.div>
 
           <div className="flex flex-col md:flex-row justify-center items-center gap-6 max-w-4xl mx-auto py-8">
-            {/* IT Work Orders Card */}
+            {/* SO Configuration */}
             <motion.div
               className="w-full md:w-1/2 bg-white rounded-2xl shadow-xl p-8 border border-blue-100 cursor-pointer flex flex-col items-center text-center transition-all duration-300 hover:scale-105 hover:shadow-2xl"
               whileHover={{ y: -5 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => handleCardClick("/workorders/it")}
+              onClick={() => handleCardClick("/ganba/soconfiguration")}
             >
-              <Computer size={64} className="text-blue-600 mb-4" />
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">IT Work Orders</h3>
-              <p className="text-gray-700 mb-4">Manage and track IT-related maintenance and service requests.</p>
+              <Users size={64} className="text-blue-600 mb-4" />
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">SO Configuration</h3>
+              <p className="text-gray-700 mb-4">Manage structure organization templates.</p>
               <span className="text-blue-600 font-semibold flex items-center">
-                Go to IT Work Orders <ChevronRight size={18} className="ml-1" />
+                Go to SO Configuration <ChevronRight size={18} className="ml-1" />
               </span>
             </motion.div>
 
-            {/* TD Work Orders Card */}
+            {/* Daily Activity */}
             <motion.div
               className="w-full md:w-1/2 bg-white rounded-2xl shadow-xl p-8 border border-green-100 cursor-pointer flex flex-col items-center text-center transition-all duration-300 hover:scale-105 hover:shadow-2xl"
               whileHover={{ y: -5 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => handleCardClick("/workorders/td")}
+              onClick={() => handleCardClick("/ganba/dailyactivity")}
             >
               <Hammer size={64} className="text-green-600 mb-4" />
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">TD Work Orders</h3>
-              <p className="text-gray-700 mb-4">Handle technical department maintenance, repairs, and tasks.</p>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">Daily Activity</h3>
+              <p className="text-gray-700 mb-4">Handle report daily tasks.</p>
               <span className="text-green-600 font-semibold flex items-center">
-                Go to TD Work Orders <ChevronRight size={18} className="ml-1" />
+                Go to Daily Activity
+                <ChevronRight size={18} className="ml-1" />
+              </span>
+            </motion.div>
+
+            {/* Area 5S */}
+            <motion.div
+              className="w-full md:w-1/2 bg-white rounded-2xl shadow-xl p-8 border border-green-100 cursor-pointer flex flex-col items-center text-center transition-all duration-300 hover:scale-105 hover:shadow-2xl"
+              whileHover={{ y: -5 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => handleCardClick("/ganba/ganbaarea")}
+            >
+              <Hammer size={64} className="text-green-600 mb-4" />
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">Ganba Area</h3>
+              <p className="text-gray-700 mb-4">Handle Area for 5S.</p>
+              <span className="text-green-600 font-semibold flex items-center">
+                Go to Ganba Area
+                <ChevronRight size={18} className="ml-1" />
               </span>
             </motion.div>
           </div>
@@ -138,4 +149,4 @@ const WorkOrdersSelection: React.FC = () => {
   );
 };
 
-export default WorkOrdersSelection;
+export default GanbaSelection;

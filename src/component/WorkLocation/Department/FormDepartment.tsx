@@ -96,10 +96,10 @@ const FormDepartment: React.FC = () => {
       };
 
       await addDepartment(payload);
-      setSuccess("Service Catalogue created successfully!");
+      setSuccess("Department created successfully!");
       setShowSuccessModal(true);
     } catch (err: any) {
-      setError(err.message || "Failed to create Service Catalogue");
+      setError(err.message || "Failed to create Department");
     } finally {
       setLoading(false);
     }
@@ -206,7 +206,7 @@ const FormDepartment: React.FC = () => {
               whileTap={{ scale: 0.95 }}
               className="flex items-center space-x-2 bg-white border border-gray-200 text-gray-800 px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md"
             >
-              <ArrowLeft className="text-lg" /> Back to Catalogue
+              <ArrowLeft className="text-lg" /> Back to Department Management
             </motion.button>
           </motion.div>
 
@@ -223,7 +223,7 @@ const FormDepartment: React.FC = () => {
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-                <h2 className="text-lg font-semibold text-gray-800 mb-4">Service Information</h2>
+                <h2 className="text-lg font-semibold text-gray-800 mb-4">Department Information</h2>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
@@ -288,7 +288,7 @@ const FormDepartment: React.FC = () => {
                     </>
                   ) : (
                     <>
-                      <Save className="mr-2 h-5 w-5" /> Save Service
+                      <Save className="mr-2 h-5 w-5" /> Save Department
                     </>
                   )}
                 </motion.button>
@@ -308,7 +308,7 @@ const FormDepartment: React.FC = () => {
             onClick={handleCloseSuccessModal}
             className="mt-6 px-6 py-3 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
           >
-            Back to Service Catalogue
+            Back to Department
           </motion.button>
         </div>
       </Modal>

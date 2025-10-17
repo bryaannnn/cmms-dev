@@ -135,6 +135,9 @@ const Sidebar: React.FC = () => {
             <nav ref={scrollContainerRef} className="flex-1 p-3 space-y-1.5 overflow-y-auto sidebar-nav">
               {hasPermission("1") && <NavItem icon={<Home />} text="Dashboard" to="/dashboard" expanded={sidebarOpen} />}
 
+              {sidebarOpen && <h3 className="text-xs font-semibold uppercase text-gray-400 px-4 pt-4 pb-1 tracking-wider">5S</h3>}
+              {hasPermission("7") && <NavItem icon={<Clipboard />} text="Ganba" to="/ganba" expanded={sidebarOpen} />}
+
               {sidebarOpen && <h3 className="text-xs font-semibold uppercase text-gray-400 px-4 pt-4 pb-1 tracking-wider">System</h3>}
               {hasPermission("23") && <NavItem icon={<ListCheck />} text="Audit Trail" to="/audittrail" expanded={sidebarOpen} />}
               {hasPermission("23") && <NavItem icon={<History />} text="Backup & Restore" to="/backupandrestore" expanded={sidebarOpen} />}

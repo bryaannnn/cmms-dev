@@ -98,6 +98,9 @@ import FormWorkArea from "./component/WorkLocation/WorkArea/FormWorkArea";
 import WorkAreaPage from "./component/WorkLocation/WorkArea/WorkArea";
 import FormAsset from "./component/Assets/FormAssets";
 import EditAsset from "./component/Assets/EditAssets";
+import GanbaSelection from "./component/Ganba/GanbaSelection";
+import SOTemplate from "./component/Ganba/Template SO/SoTemplate";
+import SOConfiguration from "./component/Ganba/Template SO/SoConfiguration";
 
 function App() {
   return (
@@ -123,6 +126,13 @@ function App() {
 
         <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}>
           <Route path="/audittrail" element={<AuditTrail />} />
+        </Route>
+
+        <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}>
+          <Route path="/ganba" element={<GanbaSelection />} />
+          <Route path="/ganba/soconfiguration" element={<SOTemplate/>} />
+          <Route path="/ganba/soconfigurat" element={<SOConfiguration/>} />
+
         </Route>
 
         <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}>
