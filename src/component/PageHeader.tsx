@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../routes/AuthContext";
 
-import { ChevronRight, Bell, ChevronDown, User as UserIcon, Settings, LogOut, Sun, Moon, AlertTriangle, Calendar, Home } from "lucide-react";
+import { ChevronRight, Bell, ChevronDown, Settings, LogOut, Sun, Moon, AlertTriangle, Calendar, Home } from "lucide-react";
 
 // Interface for notification items
 interface NotificationItem {
@@ -33,12 +33,12 @@ const notifications: NotificationItem[] = [
   },
 ];
 
-// Props interface for the PageHeader component
+// Define proper interface for the icon prop
 interface PageHeaderProps {
   mainTitle: string;
   mainTitleHighlight: string;
   description: string;
-  icon: React.ReactElement<React.SVGProps<SVGSVGElement>>;
+  icon: React.ReactElement<{ className?: string }>;
   isMobile: boolean;
   toggleSidebar: () => void;
 }
@@ -182,7 +182,15 @@ const PageHeader: React.FC<PageHeaderProps> = ({ mainTitle, mainTitleHighlight, 
   };
 
   const breadcrumbs = generateBreadcrumbs();
-  const existingIconClassName = icon.props.className || "";
+
+  // Safe icon rendering with proper TypeScript handling
+  const renderIcon = () => {
+    const iconProps = {
+      className: `text-blue-600 ${icon.props.className || ""}`,
+    };
+
+    return React.cloneElement(icon, iconProps);
+  };
 
   return (
     <>
@@ -190,16 +198,26 @@ const PageHeader: React.FC<PageHeaderProps> = ({ mainTitle, mainTitleHighlight, 
       <header className="bg-white border-b border-gray-100 p-4 flex items-center justify-between shadow-sm sticky top-0 z-30">
         {/* Left section: Sidebar toggle, icon, and page title */}
         <div className="flex items-center space-x-4">
-          {/* Mobile sidebar toggle button */}
-          {isMobile && (
-            <motion.button onClick={toggleSidebar} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200">
+          {/* Desktop sidebar toggle button - hidden on mobile */}
+          {/* {!isMobile && (
+            <motion.button 
+              onClick={toggleSidebar} 
+              whileHover={{ scale: 1.05 }} 
+              whileTap={{ scale: 0.95 }} 
+              className="p-2 rounded-full text-gray-600 hover:bg-blue-50 transition-colors duration-200"
+            >
               <ChevronRight className="text-xl" />
             </motion.button>
-          )}
+          )} */}
+
           {/* Page icon */}
-          {React.cloneElement(icon, { className: `text-xl text-blue-600 ${existingIconClassName}` })}
-          {/* Main page title */}
-          <h2 className="text-lg md:text-xl font-bold text-gray-900">{mainTitle}</h2>
+          <div className="text-blue-600 text-xl">{renderIcon()}</div>
+
+          {/* Page title and description */}
+          <div className="flex flex-col">
+            <h2 className="text-lg md:text-xl font-bold text-gray-900">{mainTitle}</h2>
+            {/* {!isMobile && description && <p className="text-sm text-gray-600 mt-0.5">{description}</p>} */}
+          </div>
         </div>
 
         {/* Right section: Dark mode toggle, notifications, and user profile */}
@@ -287,8 +305,8 @@ const PageHeader: React.FC<PageHeaderProps> = ({ mainTitle, mainTitleHighlight, 
                 alt="User Avatar"
                 className="w-8 h-8 rounded-full border border-blue-200 object-cover"
               />
-              {/* User name */}
-              <span className="font-medium text-gray-900 text-sm hidden sm:inline">{user?.name}</span>
+              {/* User name - hidden on mobile */}
+              {!isMobile && <span className="font-medium text-gray-900 text-sm">{user?.name}</span>}
               {/* Dropdown arrow */}
               <ChevronDown className="text-gray-500 text-base" />
             </motion.button>
@@ -304,7 +322,7 @@ const PageHeader: React.FC<PageHeaderProps> = ({ mainTitle, mainTitleHighlight, 
                   className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-40 border border-gray-100"
                 >
                   <div className="px-4 py-2 text-xs text-gray-500 border-b border-gray-100">Signed in as</div>
-                  <div className="px-4 py-2 font-semibold text-gray-800 border-b border-gray-100">{user?.name || "Guest User"}</div>
+                  <div className="px-4 py-2 font-semibold text-gray-800 border-b border-gray-100 truncate">{user?.name || "Guest User"}</div>
 
                   <button
                     onClick={() => {
@@ -319,6 +337,7 @@ const PageHeader: React.FC<PageHeaderProps> = ({ mainTitle, mainTitleHighlight, 
                   <button
                     onClick={() => {
                       navigate("/logout");
+                      setShowProfileMenu(false);
                     }}
                     className="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full text-left"
                   >
@@ -348,6 +367,13 @@ const PageHeader: React.FC<PageHeaderProps> = ({ mainTitle, mainTitleHighlight, 
             </div>
           ))}
         </div>
+
+        {/* Mobile-only description */}
+        {/* {isMobile && description && (
+          <p className="text-sm text-gray-600 mt-2">
+            {description}
+          </p>
+        )} */}
       </div>
     </>
   );

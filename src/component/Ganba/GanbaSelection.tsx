@@ -109,7 +109,7 @@ const GanbaSelection: React.FC = () => {
               <span className="text-blue-600 font-semibold flex items-center">
                 Go to SO Configuration <ChevronRight size={18} className="ml-1" />
               </span>
-            </motion.div>
+            </motion.div> 
 
             {/* Daily Activity */}
             <motion.div

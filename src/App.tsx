@@ -100,7 +100,8 @@ import FormAsset from "./component/Assets/FormAssets";
 import EditAsset from "./component/Assets/EditAssets";
 import GanbaSelection from "./component/Ganba/GanbaSelection";
 import SOTemplate from "./component/Ganba/Template SO/SoTemplate";
-import SOConfiguration from "./component/Ganba/Template SO/SoConfiguration";
+import OrganizationStructure from "./component/Ganba/Template SO/SOConfigurationDummy.tsx";
+import DailyActivity from "./component/Ganba/Daily Activity/DailyActivityDummy";
 
 function App() {
   return (
@@ -117,6 +118,9 @@ function App() {
 
         <Route path="/monitoringmaintenance/detailmonitoringmaintenanceD" element={<DetailDummy />} />
 
+        <Route path="/dummy" element={<OrganizationStructure />} />
+        <Route path="/dummyTodo" element={<DailyActivity />} />
+
         {/* Protected Routes */}
         {/* Dashboard */}
         <Route element={<ProtectedRoute />}>
@@ -130,9 +134,8 @@ function App() {
 
         <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}>
           <Route path="/ganba" element={<GanbaSelection />} />
-          <Route path="/ganba/soconfiguration" element={<SOTemplate/>} />
-          <Route path="/ganba/soconfigurat" element={<SOConfiguration/>} />
-
+          <Route path="/ganba/soconfiguration" element={<SOTemplate />} />
+          {/* <Route path="/ganba/soconfigurat" element={<SOConfiguration/>} /> */}
         </Route>
 
         <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}>
