@@ -37,7 +37,13 @@ interface ServiceCatalogueResponse {
     id: number;
     service_name: string;
     service_description: string;
-    service_type: number;
+    service_group: {
+      id: number;
+      group_name: string;
+      group_description: string;
+      created_at: string | null;
+      updated_at: string | null;
+    };
     priority: "Low" | "Medium" | "High" | "Critical";
     service_owner: number;
     sla: string;
@@ -46,6 +52,16 @@ interface ServiceCatalogueResponse {
     created_at: string;
     updated_at: string;
   };
+}
+
+interface FormDataState {
+  service_name: string;
+  service_description: string;
+  service_group: number | null; // Changed from null to number | null
+  priority: "Low" | "Medium" | "High" | "Critical";
+  service_owner: string;
+  sla: number;
+  impact: string;
 }
 
 const FormEditServiceCatalogue: React.FC = () => {
@@ -70,11 +86,11 @@ const FormEditServiceCatalogue: React.FC = () => {
   const [serviceGroups, setServiceGroups] = useState<ServiceGroup[]>([]);
   const [users, setUsers] = useState<User[]>([]);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormDataState>({
     service_name: "",
     service_description: "",
-    service_type: "",
-    priority: "Low" as "Low" | "Medium" | "High" | "Critical",
+    service_group: null, // Can be null initially
+    priority: "Low",
     service_owner: "",
     sla: 24,
     impact: "",
@@ -82,20 +98,24 @@ const FormEditServiceCatalogue: React.FC = () => {
 
   const fetchData = useCallback(async () => {
     try {
-      const [serviceResponse, groups, userList] = await Promise.all([fetchWithAuth(`/service-catalogues/${id}`), getServiceGroups(0), getUsers()]);
+      const [serviceResponse, groups, userList] = await Promise.all([
+        fetchWithAuth(`/service-catalogues/${id}`),
+        getServiceGroups(0), // Hapus parameter 0
+        getUsers(),
+      ]);
 
-      // Handle response format
       const serviceData = (serviceResponse as ServiceCatalogueResponse).data || serviceResponse;
 
       setServiceGroups(groups);
       setUsers(userList);
 
-      // Populate form with existing data
       if (serviceData) {
+        console.log("Service Data from API:", serviceData); // Debug log
+
         setFormData({
           service_name: serviceData.service_name || "",
           service_description: serviceData.service_description || "",
-          service_type: String(serviceData.service_type || ""),
+          service_group: serviceData.service_group?.id || null, // Ambil ID dari service_group object
           priority: serviceData.priority || "Low",
           service_owner: String(serviceData.service_owner || ""),
           sla: serviceData.sla ? parseFloat(serviceData.sla) : 24,
@@ -103,6 +123,7 @@ const FormEditServiceCatalogue: React.FC = () => {
         });
       }
     } catch (err: any) {
+      console.error("Error fetching service data:", err); // Debug log
       setError(err.message || "Failed to load service data");
     } finally {
       setInitialLoading(false);
@@ -116,20 +137,25 @@ const FormEditServiceCatalogue: React.FC = () => {
   }, [id, fetchData]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
+  const { name, value } = e.target;
 
-    setFormData((prev) => ({
-      ...prev,
-      [name]: name === "sla" ? Number(value) : value,
-    }));
-  };
+  setFormData((prev) => ({
+    ...prev,
+    [name]: name === "sla" 
+      ? Number(value) 
+      : name === "service_group" 
+        ? (value === "" ? null : Number(value)) // Konversi ke number atau null
+        : value,
+  }));
+};
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
-    if (!formData.service_name || !formData.service_type || !formData.priority || !formData.service_owner || !formData.sla) {
+    // Check if service_group is not null
+    if (!formData.service_name || formData.service_group === null || !formData.priority || !formData.service_owner || !formData.sla) {
       setError("Please fill all required fields");
       setLoading(false);
       return;
@@ -139,7 +165,7 @@ const FormEditServiceCatalogue: React.FC = () => {
       const payload = {
         service_name: formData.service_name,
         service_description: formData.service_description,
-        service_type: Number(formData.service_type),
+        service_group: formData.service_group, // Now it's guaranteed to be number
         priority: formData.priority,
         service_owner: Number(formData.service_owner),
         sla: formData.sla,
@@ -234,13 +260,13 @@ const FormEditServiceCatalogue: React.FC = () => {
                   </div>
 
                   <div>
-                    <label htmlFor="service_type" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="service_group" className="block text-sm font-medium text-gray-700 mb-1">
                       Service Type <span className="text-red-500">*</span>
                     </label>
                     <select
-                      name="service_type"
-                      id="service_type"
-                      value={formData.service_type}
+                      name="service_group"
+                      id="service_group"
+                      value={formData.service_group || ""}
                       onChange={handleChange}
                       className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
                       required

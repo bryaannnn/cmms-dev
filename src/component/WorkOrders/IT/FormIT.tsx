@@ -33,10 +33,10 @@ interface WorkOrderFormDataLocal {
   requester_id: number;
   known_by_id: number | null;
   department_id: number;
-  service_type_id: string;
-  service_group_id?: number;
-  service_catalogue_id?: number;
-  service_id: string;
+  service_type_id?: string;
+  service_group_id: number | null;
+  service_catalogue_id: number | null;
+  service_id?: string;
   asset_no: string;
   device_info: string;
   complaint: string;
@@ -175,8 +175,8 @@ const AddWorkOrderFormIT: React.FC = () => {
     requester_id: user?.id ? parseInt(user.id) : 0,
     known_by_id: user?.department?.head_id || null,
     department_id: user?.department_id || 0,
-    service_type_id: "",
-    service_id: "",
+    service_group_id: null,
+    service_catalogue_id: null,
     asset_no: "",
     device_info: "",
     complaint: "",
@@ -197,11 +197,18 @@ const AddWorkOrderFormIT: React.FC = () => {
     const fetchData = async () => {
       try {
         const data = await getServiceGroups(user?.id ? parseInt(user.id) : 0);
-        const mapped = data.map((g) => ({
+
+        // Debug: Lihat struktur data yang diterima
+        console.log("Raw service groups data:", data);
+
+        // Pastikan mapping sesuai dengan struktur response
+        const mapped = data.map((g: any) => ({
           id: Number(g.id),
-          name: g.group_name ?? "",
-          description: g.group_description ?? undefined,
+          name: g.group_name || g.name || "",
+          description: g.group_description || g.description || undefined,
         }));
+
+        console.log("Mapped service groups:", mapped);
         setFilteredServiceGroups(mapped);
 
         const departmentsResponse = await getDepartment();
@@ -212,6 +219,7 @@ const AddWorkOrderFormIT: React.FC = () => {
 
         if (user && user.id) {
           const servicesData = await getServices(parseInt(user.id));
+          console.log("Services data:", servicesData); // Debug services
           setServiceList(servicesData);
         }
       } catch (err) {
@@ -251,13 +259,17 @@ const AddWorkOrderFormIT: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (formData.service_type_id && serviceList.length > 0) {
-      const filtered = serviceList.filter((service) => String(service.id) === formData.service_type_id);
+    if (formData.service_group_id !== null && serviceList.length > 0) {
+      const filtered = serviceList.filter((service) => {
+        // Pastikan service.group ada dan bandingkan ID-nya
+        return service.service_group && service.service_group.id === formData.service_group_id;
+      });
       setFilteredServices(filtered);
+      console.log("Filtered services for group", formData.service_group_id, ":", filtered);
     } else {
       setFilteredServices([]);
     }
-  }, [formData.service_type_id, serviceList]);
+  }, [formData.service_group_id, serviceList]);
 
   useEffect(() => {
     localStorage.setItem("sidebarOpen", JSON.stringify(sidebarOpen));
@@ -329,14 +341,42 @@ const AddWorkOrderFormIT: React.FC = () => {
     setIsLoading(true);
     setError(null);
 
-    const dataToSend: WorkOrderFormDataLocal = {
+    // Validasi
+    if (!formData.service_group_id) {
+      setError("Service Type is required");
+      setIsLoading(false);
+      return;
+    }
+
+    if (!formData.service_catalogue_id) {
+      setError("Service is required");
+      setIsLoading(false);
+      return;
+    }
+
+    // Pastikan service yang dipilih sesuai dengan service group
+    const selectedService = filteredServices.find((service) => service.id === formData.service_catalogue_id);
+
+    if (!selectedService) {
+      setError("Selected service is not available for the chosen service type");
+      setIsLoading(false);
+      return;
+    }
+
+    const dataToSend = {
       ...formData,
-      service_group_id: Number(formData.service_type_id),
-      service_catalogue_id: Number(formData.service_id),
+      service_group_id: formData.service_group_id,
+      service_catalogue_id: formData.service_catalogue_id,
     };
 
+    console.log("Submitting data:", dataToSend); // Debug
+
     try {
-      await addWorkOrderIT(dataToSend);
+      const result = await addWorkOrderIT(dataToSend);
+      setSuccessMessage({
+        message: "Work Order created successfully!",
+        work_order: result.work_order || result,
+      });
       setShowSuccessModal(true);
     } catch (err: any) {
       setError(err.message || "Gagal menyimpan work order. Silakan coba lagi.");
@@ -347,17 +387,21 @@ const AddWorkOrderFormIT: React.FC = () => {
   };
 
   const handleServiceGroupChange = (selectedOption: OptionType | null) => {
+    const serviceGroupId = selectedOption ? parseInt(selectedOption.value) : null;
+
     setFormData((prev) => ({
       ...prev,
-      service_type_id: selectedOption ? selectedOption.value : "",
-      service_id: "",
+      service_group_id: serviceGroupId,
+      service_catalogue_id: null, // Reset service ketika group berubah
     }));
   };
 
   const handleServiceCatalogueChange = (selectedOption: OptionType | null) => {
+    const serviceCatalogueId = selectedOption ? parseInt(selectedOption.value) : null;
+
     setFormData((prev) => ({
       ...prev,
-      service_id: selectedOption ? selectedOption.value : "",
+      service_catalogue_id: serviceCatalogueId,
     }));
   };
 
@@ -666,21 +710,21 @@ const AddWorkOrderFormIT: React.FC = () => {
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label htmlFor="service_type_id" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="service_group_id" className="block text-sm font-medium text-gray-700 mb-1">
                       Service Type <span className="text-red-500">*</span>
                     </label>
                     <Select
-                      id="service_type_id"
-                      name="service_type_id"
+                      id="service_group_id"
+                      name="service_group_id"
                       options={filteredServiceGroups.map((group) => ({
                         value: String(group.id),
                         label: group.name,
                       }))}
                       value={
-                        formData.service_type_id
+                        formData.service_group_id !== null
                           ? {
-                              value: formData.service_type_id,
-                              label: filteredServiceGroups.find((g) => String(g.id) === formData.service_type_id)?.name || "",
+                              value: String(formData.service_group_id),
+                              label: filteredServiceGroups.find((g) => g.id === formData.service_group_id)?.name || "",
                             }
                           : null
                       }
@@ -692,34 +736,36 @@ const AddWorkOrderFormIT: React.FC = () => {
                   </div>
 
                   <div>
-                    <label htmlFor="service_id" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="service_catalogue_id" className="block text-sm font-medium text-gray-700 mb-1">
                       Service <span className="text-red-500">*</span>
                     </label>
                     <Select
-                      id="service_id"
-                      name="service_id"
+                      id="service_catalogue_id"
+                      name="service_catalogue_id"
                       options={filteredServices.map((service) => ({
                         value: String(service.id),
                         label: service.service_name,
                       }))}
                       value={
-                        formData.service_id
+                        formData.service_catalogue_id !== null
                           ? {
-                              value: formData.service_id,
-                              label: filteredServices.find((s) => String(s.id) === formData.service_id)?.service_name || "",
+                              value: String(formData.service_catalogue_id),
+                              label: filteredServices.find((s) => s.id === formData.service_catalogue_id)?.service_name || "",
                             }
                           : null
                       }
                       onChange={handleServiceCatalogueChange}
-                      placeholder="Select Service"
+                      placeholder={formData.service_group_id !== null ? (filteredServices.length === 0 ? "No services available for selected type" : "Select Service") : "Please select Service Type first"}
                       styles={customSelectStyles}
+                      isDisabled={formData.service_group_id === null || filteredServices.length === 0}
+                      required
                     />
 
-                    {filteredServices.length === 0 && formData.service_type_id && <p className="text-sm text-yellow-500 mt-1">No services available for selected type</p>}
+                    {filteredServices.length === 0 && formData.service_group_id && <p className="text-sm text-yellow-500 mt-1">No services available for selected type</p>}
                   </div>
                   <div>
                     <label htmlFor="asset_no" className="block text-sm font-medium text-gray-700 mb-1">
-                      No. Asset <span className="text-red-500">*</span>
+                      No. Asset {/* Hapus <span className="text-red-500">*</span> */}
                     </label>
                     <CreatableSelect<OptionType>
                       name="asset_no"
@@ -734,7 +780,8 @@ const AddWorkOrderFormIT: React.FC = () => {
                       }}
                       placeholder="Type or select Asset No."
                       styles={customSelectStyles}
-                      required
+                      isClearable // Tambahkan ini agar user bisa clear field
+                      required={false} // Tambahkan ini untuk disable HTML5 validation
                     />
                   </div>
                 </div>

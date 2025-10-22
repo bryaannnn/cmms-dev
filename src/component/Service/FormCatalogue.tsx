@@ -54,7 +54,7 @@ const FormServiceCatalogue: React.FC = () => {
   const [formData, setFormData] = useState({
     service_name: "",
     service_description: "",
-    service_type: "",
+    service_group: "",
     priority: "Low" as "Low" | "Medium" | "High" | "Critical",
     service_owner: "",
     sla: 24,
@@ -62,15 +62,27 @@ const FormServiceCatalogue: React.FC = () => {
   });
 
   const fetchData = useCallback(async () => {
-    try {
-      const [groups, userList] = await Promise.all([getServiceGroups(0), getUsers()]);
+  try {
+    const [groups, userList] = await Promise.all([getServiceGroups(0), getUsers()]);
 
-      setServiceGroups(groups);
-      setUsers(userList);
-    } catch (err: any) {
-      setError(err.message || "Failed to load form data");
-    }
-  }, [getServiceGroups, getUsers]);
+    // Filter users berdasarkan department IT
+    const itUsers = userList.filter(user => {
+      const departmentName = user.department?.name?.toLowerCase() || 
+                            user.department?.name?.toLowerCase() || 
+                            '';
+      return (
+        departmentName.includes('information and technology') && 
+        departmentName.includes('technology') ||
+        departmentName === 'it'
+      );
+    });
+
+    setServiceGroups(groups);
+    setUsers(itUsers);
+  } catch (err: any) {
+    setError(err.message || "Failed to load form data");
+  }
+}, [getServiceGroups, getUsers]);
 
   useEffect(() => {
     fetchData();
@@ -90,7 +102,7 @@ const FormServiceCatalogue: React.FC = () => {
     setLoading(true);
     setError(null);
 
-    if (!formData.service_name || !formData.service_type || !formData.priority || !formData.service_owner || !formData.sla) {
+    if (!formData.service_name || !formData.service_group || !formData.priority || !formData.service_owner || !formData.sla) {
       setError("Please fill all required fields");
       setLoading(false);
       return;
@@ -100,7 +112,7 @@ const FormServiceCatalogue: React.FC = () => {
       const payload = {
         service_name: formData.service_name,
         service_description: formData.service_description,
-        service_type: Number(formData.service_type),
+        service_group: Number(formData.service_group),
         priority: formData.priority,
         service_owner: Number(formData.service_owner),
         sla: formData.sla,
@@ -119,7 +131,7 @@ const FormServiceCatalogue: React.FC = () => {
 
   const handleCloseSuccessModal = () => {
     setShowSuccessModal(false);
-    navigate("/servicecatalogue");
+    navigate("/services/servicecatalogues");
   };
 
   return (
@@ -184,13 +196,13 @@ const FormServiceCatalogue: React.FC = () => {
                   </div>
 
                   <div>
-                    <label htmlFor="service_type" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="service_group" className="block text-sm font-medium text-gray-700 mb-1">
                       Service Type <span className="text-red-500">*</span>
                     </label>
                     <select
-                      name="service_type"
-                      id="service_type"
-                      value={formData.service_type}
+                      name="service_group"
+                      id="service_group"
+                      value={formData.service_group}
                       onChange={handleChange}
                       className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
                       required
@@ -293,7 +305,7 @@ const FormServiceCatalogue: React.FC = () => {
               <div className="flex justify-end gap-4 pt-6 border-t border-gray-100 mt-8">
                 <motion.button
                   type="button"
-                  onClick={() => navigate("/servicecatalogue")}
+                  onClick={() => navigate("/services/servicecatalogues")}
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
                   className="px-6 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"

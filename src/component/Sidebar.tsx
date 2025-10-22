@@ -191,7 +191,7 @@ const Sidebar: React.FC = () => {
 
               <div className="pt-4">
                 <h3 className="text-xs font-semibold uppercase text-gray-400 px-2 pb-2 tracking-wider">5S</h3>
-                {hasPermission("7") && <NavItem icon={<Clipboard />} text="Ganba" to="/ganba" expanded={true} onNavigate={handleMobileNavigate} />}
+                {hasPermission("7") && <NavItem icon={<Clipboard />} text="Genba" to="/genba" expanded={true} onNavigate={handleMobileNavigate} />}
               </div>
 
               <div className="pt-4">
@@ -281,7 +281,7 @@ const Sidebar: React.FC = () => {
                 {hasPermission("1") && <NavItem icon={<Home />} text="Dashboard" to="/dashboard" expanded={sidebarOpen} />}
 
                 {sidebarOpen && <h3 className="text-xs font-semibold uppercase text-gray-400 px-4 pt-4 pb-1 tracking-wider">5S</h3>}
-                {hasPermission("7") && <NavItem icon={<Clipboard />} text="Ganba" to="/ganba" expanded={sidebarOpen} />}
+                {hasPermission("7") && <NavItem icon={<Clipboard />} text="Genba" to="/genba" expanded={sidebarOpen} />}
 
                 {sidebarOpen && <h3 className="text-xs font-semibold uppercase text-gray-400 px-4 pt-4 pb-1 tracking-wider">System</h3>}
                 {hasPermission("23") && <NavItem icon={<ListCheck />} text="Audit Trail" to="/audittrail" expanded={sidebarOpen} />}

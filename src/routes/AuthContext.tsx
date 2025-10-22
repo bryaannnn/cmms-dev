@@ -139,10 +139,14 @@ interface Head2 {
 export interface User {
   id: string;
   name: string;
+  nip?: string;
   nik: string;
   email: string;
   roleId?: string | null;
-  roles?: string[];
+  role: {
+    id: number;
+    name: string;
+  };
   customPermissions?: string[];
   permissions?: PermissionName[];
   department: Department | null;
@@ -330,7 +334,7 @@ export interface Head {
   department: string;
   position: string;
   department_id: number;
-} 
+}
 
 // Di dalam komponen atau file terpisah
 export interface Department {
@@ -358,13 +362,33 @@ export interface ServiceCatalogue {
   id: number;
   service_name: string;
   service_description: string;
-  service_type: number;
+  service_group: {
+    id: number;
+    group_name: string;
+    group_description: string;
+    created_at: string | null;
+    updated_at: string | null;
+  };
   priority: string;
   service_owner: number;
-  sla: number;
+  sla: string;
   impact: string;
+  pic?: any;
   created_at: string;
   updated_at: string;
+  owner?: {
+    id: number;
+    name: string;
+    nik: string;
+    email: string;
+    avatar: string;
+    position: string | null;
+    email_verified_at: string | null;
+    created_at: string;
+    updated_at: string;
+    department_id: number;
+  };
+  pic_user?: any;
 }
 
 export interface Service4 {
@@ -465,7 +489,7 @@ export interface WorkOrderFormData {
   requester_id: number;
   known_by_id: number | null;
   department_id: number;
-  service_type_id: number; // ✅ ini yang dikirim
+  service_group_id: number; // ✅ ini yang dikirim
   service_id: number; // ✅ ini yang dikirim
   asset_no: string;
   device_info: string;
@@ -497,8 +521,8 @@ export interface WorkOrderFormDataLocal {
   department_id: number;
   service_type_id?: string;
   service_id?: string;
-  service_group_id?: number;
-  service_catalogue_id?: number;
+  service_group_id?: number | null;
+  service_catalogue_id?: number | null;
   asset_no: string;
   device_info: string;
   complaint: string;
@@ -1081,6 +1105,58 @@ export interface WorkArea {
   work_area: string;
 }
 
+// Genba Auth
+// Tambahkan interface berikut di bagian interface yang sesuai
+
+export interface GenbaRole {
+  id: number;
+  name: string;
+  description: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GenbaSOBridge {
+  id: number;
+  genba_so_id: number;
+  genba_role_id: number;
+  user_id: number;
+  created_at: string;
+  updated_at: string;
+  role: GenbaRole;
+  user: User;
+}
+
+export interface GenbaSO {
+  id: number;
+  name: string;
+  effective_date: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  bridges: GenbaSOBridge[];
+}
+
+export interface CreateGenbaSOPayload {
+  name: string;
+  effective_date: string;
+  is_active?: boolean;
+  bridges: {
+    genba_role_id: number;
+    user_ids: number[];
+  }[];
+}
+
+export interface UpdateGenbaSOPayload {
+  name?: string;
+  effective_date?: string;
+  is_active?: boolean;
+  bridges?: {
+    genba_role_id: number;
+    user_ids: number[];
+  }[];
+}
+
 // monitoring maintenance stop
 
 interface EditingUser extends User {
@@ -1128,7 +1204,7 @@ interface AuthContextType {
   token: string | null;
   isAuthenticated: boolean;
   login: (nik: string, password: string) => Promise<void>;
-  register: (name: string, email: string, nik: string, password: string, department?: string, position?: string, roleId?: string, customPermissions?: string[]) => Promise<any>;
+  register: (name: string, email: string, nik: string, password: string, department_id?: string, roleId?: string, customPermissions?: string[]) => Promise<any>;
   logout: () => Promise<void>;
   isLoggingOut: boolean;
   fetchWithAuth: (url: string, options?: RequestInit) => Promise<any>;
@@ -1172,8 +1248,8 @@ interface AuthContextType {
   // getService: (id: number) => Promise<Service>;S
   getServices: (id: number) => Promise<ServiceCatalogue[]>;
   getServicesByOwner: (service_owner: number) => Promise<ServiceCatalogue[]>;
-  addServiceCatalogue: (data: { service_name: string; service_description: string; service_type: number; priority: string; service_owner: number; sla: number; impact: string }) => Promise<ServiceCatalogue>;
-  updateServiceCatalogue: (id: string | number, data: { service_name: string; service_description: string; service_type: number; priority: string; service_owner: number; sla: number; impact: string }) => Promise<ServiceCatalogue>;
+  addServiceCatalogue: (data: { service_name: string; service_description: string; service_group: number; priority: string; service_owner: number; sla: number; impact: string }) => Promise<ServiceCatalogue>;
+  updateServiceCatalogue: (id: string | number, data: { service_name: string; service_description: string; service_group: number; priority: string; service_owner: number; sla: number; impact: string }) => Promise<ServiceCatalogue>;
   deleteServiceCatalogue: (id: string | number) => Promise<void>;
   getServiceGroups: (id: number) => Promise<ServiceGroup[]>;
   getServiceGroup: (id: string | number) => Promise<ServiceGroup>;
@@ -1259,6 +1335,15 @@ interface AuthContextType {
   addWorkArea: (data: { work_area: string }) => Promise<WorkArea>;
   updateWorkArea: (id: string | number, data: { work_area: string }) => Promise<WorkArea>;
   deleteWorkArea: (id: string | number) => Promise<void>;
+
+  // Di dalam AuthContextType interface, tambahkan fungsi-fungsi berikut:
+  getGenbaRoles: () => Promise<GenbaRole[]>;
+  getGenbaSOs: () => Promise<GenbaSO[]>;
+  getGenbaSOById: (id: string | number) => Promise<GenbaSO>;
+  createGenbaSO: (data: CreateGenbaSOPayload) => Promise<GenbaSO>;
+  updateGenbaSO: (id: string | number, data: UpdateGenbaSOPayload) => Promise<GenbaSO>;
+  deleteGenbaSO: (id: string | number) => Promise<void>;
+  setGenbaSOActive: (id: string | number) => Promise<GenbaSO>;
 }
 
 const projectEnvVariables = getProjectEnvVariables();
@@ -1286,13 +1371,12 @@ const mapApiToUser = (apiUser: any): User => {
     nik: apiUser.nik,
     email: apiUser.email,
     roleId: apiUser.role_id ? String(apiUser.role_id) : null, // Perhatikan field name
-    roles: apiUser.roles || [],
+    role: apiUser.role,
     customPermissions: apiUser.customPermissions || [],
     permissions: apiUser.permissions || apiUser.allPermissions || [],
     department: department,
     department_id: apiUser.department_id || apiUser.department?.id || null,
     department_name: apiUser.department?.name || null,
-    position: apiUser.position,
   };
 };
 
@@ -1726,7 +1810,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     loadInitialData();
   }, [token, initializeAuthState, getAllMasterData, logout]);
 
-  const register = async (name: string, email: string, nik: string, password: string, department?: string, position?: string, roleId?: string, customPermissions?: string[]) => {
+  const register = async (name: string, email: string, nik: string, password: string, department_id?: string, roleId?: string, customPermissions?: string[]) => {
     const response = await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}/register?includes_trashed=true`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1735,8 +1819,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         nik,
         email,
         password,
-        department,
-        position,
+        department_id,
         role_id: roleId || null,
         customPermissions: customPermissions ? customPermissions.map(Number) : [],
       }),
@@ -2021,7 +2104,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       const response = await fetchWithAuth("/users?includes_trashed=true");
 
-      // Handle different response formats
+      // Handle response format dari backend { success, message, data }
       let usersData;
       if (response && response.success !== undefined) {
         usersData = response.data || [];
@@ -2238,18 +2321,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     async (id: number): Promise<ServiceCatalogue[]> => {
       try {
         const responseData = await fetchWithAuth("/service-catalogues?includes_trashed=true");
-        return responseData.data.map((service: any) => ({
-          id: service.id,
-          service_name: service.service_name,
-          service_description: service.service_description,
-          service_type: service.service_type,
-          priority: service.priority,
-          service_owner: service.service_owner,
-          sla: service.sla,
-          impact: service.impact,
-          created_at: service.created_at,
-          updated_at: service.updated_at,
-        }));
+
+        console.log("Raw services response:", responseData); // Debug
+
+        // Handle response structure yang benar
+        let servicesData;
+        if (responseData && responseData.data && Array.isArray(responseData.data)) {
+          servicesData = responseData.data; // Ambil dari responseData.data
+        } else if (Array.isArray(responseData)) {
+          servicesData = responseData;
+        } else {
+          console.warn("Unexpected services response format:", responseData);
+          servicesData = [];
+        }
+
+        console.log("Processed services data:", servicesData); // Debug
+        return servicesData;
       } catch (error) {
         console.error("Failed to fetch services:", error);
         return [];
@@ -2272,9 +2359,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   );
 
   const addServiceCatalogue = useCallback(
-    async (data: { service_name: string; service_description: string; service_type: number; priority: string; service_owner: number; sla: number; impact: string }): Promise<ServiceCatalogue> => {
+    async (data: { service_name: string; service_description: string; service_group: number; priority: string; service_owner: number; sla: number; impact: string }): Promise<ServiceCatalogue> => {
       try {
-        const response = await fetchWithAuth("/service-catalogues?includes_trashed=true", {
+        const response = await fetchWithAuth("/service-catalogues", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data),
@@ -2286,7 +2373,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           id: responseData.id,
           service_name: responseData.service_name,
           service_description: responseData.service_description,
-          service_type: responseData.service_type,
+          service_group: responseData.service_group,
           priority: responseData.priority,
           service_owner: responseData.service_owner,
           sla: responseData.sla,
@@ -2308,7 +2395,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       data: {
         service_name: string;
         service_description: string;
-        service_type: number;
+        service_group: number;
         priority: string;
         service_owner: number;
         sla: number;
@@ -2328,7 +2415,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           id: responseData.id,
           service_name: responseData.service_name,
           service_description: responseData.service_description,
-          service_type: responseData.service_type,
+          service_group: responseData.service_group,
           priority: responseData.priority,
           service_owner: responseData.service_owner,
           sla: responseData.sla,
@@ -3851,6 +3938,80 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     [fetchWithAuth]
   );
 
+  // Tambahkan fungsi-fungsi berikut di dalam AuthProvider:
+
+  const getGenbaRoles = useCallback(async (): Promise<GenbaRole[]> => {
+    try {
+      const response = await fetchWithAuth("/genba-roles?includes_trashed=true");
+      return response.data || response;
+    } catch (error) {
+      console.error("Failed to fetch genba roles:", error);
+      return [];
+    }
+  }, [fetchWithAuth]);
+
+  const getGenbaSOs = useCallback(async (): Promise<GenbaSO[]> => {
+    try {
+      const response = await fetchWithAuth("/genba-sos?includes_trashed=true");
+      return response.data || response;
+    } catch (error) {
+      console.error("Failed to fetch genba SOs:", error);
+      return [];
+    }
+  }, [fetchWithAuth]);
+
+  const getGenbaSOById = useCallback(
+    async (id: string | number): Promise<GenbaSO> => {
+      const response = await fetchWithAuth(`/genba-sos/${id}?includes_trashed=true`);
+      return response.data || response;
+    },
+    [fetchWithAuth]
+  );
+
+  const createGenbaSO = useCallback(
+    async (data: CreateGenbaSOPayload): Promise<GenbaSO> => {
+      const response = await fetchWithAuth("/genba-sos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      return response.data || response;
+    },
+    [fetchWithAuth]
+  );
+
+  const updateGenbaSO = useCallback(
+    async (id: string | number, data: UpdateGenbaSOPayload): Promise<GenbaSO> => {
+      const response = await fetchWithAuth(`/genba-sos/${id}?includes_trashed=true`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      return response.data || response;
+    },
+    [fetchWithAuth]
+  );
+
+  const deleteGenbaSO = useCallback(
+    async (id: string | number): Promise<void> => {
+      await fetchWithAuth(`/genba-sos/${id}?includes_trashed=true`, {
+        method: "DELETE",
+      });
+    },
+    [fetchWithAuth]
+  );
+
+  const setGenbaSOActive = useCallback(
+    async (id: string | number): Promise<GenbaSO> => {
+      const response = await fetchWithAuth(`/genba-sos/${id}/activate?includes_trashed=true`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+      });
+      return response.data || response;
+    },
+    [fetchWithAuth]
+  );
+
   return (
     <AuthContext.Provider
       value={{
@@ -3978,6 +4139,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         addWorkArea,
         updateWorkArea,
         deleteWorkArea,
+        getGenbaRoles,
+        getGenbaSOs,
+        getGenbaSOById,
+        createGenbaSO,
+        updateGenbaSO,
+        deleteGenbaSO,
+        setGenbaSOActive,
       }}
     >
       {children}

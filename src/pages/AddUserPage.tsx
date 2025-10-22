@@ -23,8 +23,11 @@ interface Role {
 }
 
 interface Department {
-  id: string;
+  id: number;
   name: string;
+  head_id?: number | null;
+  created_at?: string;
+  updated_at?: string;
 }
 
 const permissionCategories = ["Dashboard", "Assets", "Work Orders", "Machine History", "Inventory", "Reports", "Team", "Settings", "Permissions", "Users"];
@@ -68,7 +71,7 @@ const permissions: Permission[] = [
 
 const AddUserPage: React.FC = () => {
   const navigate = useNavigate();
-  const { user, register, getRoles, hasPermission } = useAuth();
+  const { user, register, getRoles, hasPermission, getDepartment } = useAuth();
   const [darkMode, setDarkMode] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -92,8 +95,7 @@ const AddUserPage: React.FC = () => {
     email: "",
     roleId: "",
     customPermissions: [] as string[],
-    department: "",
-    position: "",
+    department_id: "",
     password: "",
     confirmPassword: "",
   });
@@ -101,22 +103,11 @@ const AddUserPage: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Check for 'manage_users' permission
-        // if (!hasPermission("manage_users")) {
-        //   navigate("/unauthorized"); // Redirect if not authorized
-        //   return;
-        // }
-
         const fetchedRoles = await getRoles();
         setRoles(fetchedRoles);
 
-        const fetchedDepartments = [
-          { id: "1", name: "IT" },
-          { id: "2", name: "HR" },
-          { id: "3", name: "Finance" },
-          { id: "4", name: "Operations" },
-          { id: "5", name: "Maintenance" },
-        ];
+        // Ambil departments dari AuthContext
+        const fetchedDepartments = await getDepartment();
         setDepartments(fetchedDepartments);
       } catch (error) {
         console.error("Failed to fetch data:", error);
@@ -124,7 +115,7 @@ const AddUserPage: React.FC = () => {
     };
 
     fetchData();
-  }, [getRoles, hasPermission, navigate]);
+  }, [getRoles, getDepartment, navigate]);
 
   const permissionsByCategory = permissionCategories.reduce<Record<string, Permission[]>>((acc, category) => {
     acc[category] = permissions.filter((p) => p.category === category);
@@ -160,7 +151,7 @@ const AddUserPage: React.FC = () => {
     if (!newUser.password) newErrors.password = "Password is required";
     else if (newUser.password.length < 6) newErrors.password = "Password must be at least 6 characters";
     if (newUser.password !== newUser.confirmPassword) newErrors.confirmPassword = "Passwords do not match";
-    if (!newUser.department) newErrors.department = "Department is required";
+    if (!newUser.department_id) newErrors.department = "Department is required";
     if (!newUser.roleId) newErrors.roleId = "Role is required";
 
     setErrors(newErrors);
@@ -174,15 +165,53 @@ const AddUserPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validasi form
     if (!validate()) return;
+
+    // Siapkan payload untuk debugging
+    const submitPayload = {
+      name: newUser.name,
+      nik: newUser.nik,
+      email: newUser.email,
+      password: newUser.password,
+      confirmPassword: newUser.confirmPassword,
+      department: newUser.department_id,
+      roleId: newUser.roleId,
+      customPermissions: newUser.customPermissions,
+      customPermissionsCount: newUser.customPermissions.length,
+    };
+
+    // Log payload untuk debugging
+    console.log("🔄 Submit Payload:", JSON.stringify(submitPayload, null, 2));
+    console.log("📊 Payload Details:", {
+      hasName: !!newUser.name,
+      hasNIK: !!newUser.nik,
+      hasEmail: !!newUser.email,
+      hasPassword: !!newUser.password,
+      passwordsMatch: newUser.password === newUser.confirmPassword,
+      hasDepartment: !!newUser.department_id,
+      hasRole: !!newUser.roleId,
+      customPermissionsSelected: newUser.customPermissions.length,
+    });
 
     setIsSubmitting(true);
     try {
-      await register(newUser.name, newUser.email, newUser.nik, newUser.password, newUser.department, newUser.position, newUser.roleId, newUser.customPermissions);
+      console.log("🚀 Starting user registration...");
+
+      await register(newUser.name, newUser.email, newUser.nik, newUser.password, newUser.department_id, newUser.roleId, newUser.customPermissions);
+
+      console.log("✅ User created successfully");
 
       navigate("/permissions", { state: { success: "User created successfully" } });
     } catch (error: any) {
-      console.error("Failed to create user:", error);
+      console.error("❌ Failed to create user:", error);
+      console.error("🔍 Error details:", {
+        message: error.message,
+        stack: error.stack,
+        payload: submitPayload,
+      });
+
       setErrors({
         form: error.message || "Failed to create user. Please try again.",
       });
@@ -292,8 +321,8 @@ const AddUserPage: React.FC = () => {
                 <div>
                   <label className={`block text-sm font-medium ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Department*</label>
                   <select
-                    name="department"
-                    value={newUser.department}
+                    name="department_id"
+                    value={newUser.department_id}
                     onChange={handleInputChange}
                     className={`mt-1 block w-full border ${
                       darkMode ? "bg-gray-700 border-gray-600 text-gray-100" : "border-gray-200 bg-white text-gray-900"
@@ -301,25 +330,12 @@ const AddUserPage: React.FC = () => {
                   >
                     <option value="">Select Department</option>
                     {departments.map((dept) => (
-                      <option key={dept.id} value={dept.name}>
+                      <option key={dept.id} value={dept.id}>
                         {dept.name}
                       </option>
                     ))}
                   </select>
-                  {errors.department && <p className="mt-1 text-sm text-red-600">{errors.department}</p>}
-                </div>
-                <div>
-                  <label className={`block text-sm font-medium ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Position</label>
-                  <input
-                    type="text"
-                    name="position"
-                    value={newUser.position}
-                    onChange={handleInputChange}
-                    className={`mt-1 block w-full border ${
-                      darkMode ? "bg-gray-700 border-gray-600 text-gray-100" : "border-gray-200 bg-white text-gray-900"
-                    } rounded-lg shadow-sm p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200`}
-                    placeholder="Enter position"
-                  />
+                  {errors.department_id && <p className="mt-1 text-sm text-red-600">{errors.department_id}</p>}
                 </div>
                 <div>
                   <label className={`block text-sm font-medium ${darkMode ? "text-gray-300" : "text-gray-700"}`}>Password*</label>

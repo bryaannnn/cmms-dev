@@ -109,8 +109,8 @@ const EditReceiver: React.FC = () => {
     requester_id: user?.id ? parseInt(user.id) : 0,
     known_by_id: user?.department?.head_id || null,
     department_id: user?.department_id || 0,
-    service_type_id: "",
-    service_id: "",
+    service_group_id: null,
+    service_catalogue_id: null,
     asset_no: "",
     device_info: "",
     complaint: "",
@@ -168,8 +168,8 @@ const EditReceiver: React.FC = () => {
           requester_id: workOrderData.requester_id,
           known_by_id: workOrderData.known_by_id,
           department_id: workOrderData.department_id,
-          service_type_id: String(workOrderData.service_group_id || ""),
-          service_id: String(workOrderData.service_catalogue_id || ""),
+          service_group_id: workOrderData.service_group_id ,
+          service_catalogue_id: workOrderData.service_catalogue_id,
           asset_no: workOrderData.asset_no,
           device_info: workOrderData.device_info,
           complaint: workOrderData.complaint,
@@ -267,13 +267,13 @@ const EditReceiver: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (formData.service_type_id && serviceList.length > 0) {
-      const filtered = serviceList.filter((service) => String(service.service_type) === formData.service_type_id);
+    if (formData.service_group_id && serviceList.length > 0) {
+      const filtered = serviceList.filter((service) => service.service_group.id === formData.service_group_id);
       setFilteredServices(filtered);
     } else {
       setFilteredServices([]);
     }
-  }, [formData.service_type_id, serviceList]);
+  }, [formData.service_group_id, serviceList]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", darkMode);
@@ -467,12 +467,12 @@ const EditReceiver: React.FC = () => {
   };
 
   const getServiceTypeName = () => {
-    const serviceType = serviceGroupsList.find((g) => String(g.id) === formData.service_type_id);
+    const serviceType = serviceGroupsList.find((g) => g.id === formData.service_group_id);
     return serviceType?.name || "Unknown";
   };
 
   const getServiceName = () => {
-    const service = serviceList.find((s) => String(s.id) === formData.service_id);
+    const service = serviceList.find((s) => s.id === formData.service_catalogue_id);
     return service?.service_name || "Unknown";
   };
 

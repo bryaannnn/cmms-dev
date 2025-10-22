@@ -35,8 +35,8 @@ interface WorkOrderFormDataLocal {
   known_by_id: number | null;
   department_id: number;
   service_type_id?: string;
-  service_group_id?: number;
-  service_catalogue_id?: number;
+  service_group_id: number | null;
+  service_catalogue_id: number | null;
   service_id?: string;
   asset_no: string;
   device_info: string;
@@ -105,8 +105,8 @@ const EditWorkOrderFormIT: React.FC = () => {
     requester_id: user?.id ? parseInt(user.id) : 0,
     known_by_id: user?.department?.head_id || null,
     department_id: user?.department_id || 0,
-    service_type_id: "",
-    service_id: "",
+    service_group_id: null,
+    service_catalogue_id: null,
     asset_no: "",
     device_info: "",
     complaint: "",
@@ -142,8 +142,8 @@ const EditWorkOrderFormIT: React.FC = () => {
           requester_id: workOrderData.requester_id,
           known_by_id: workOrderData.known_by_id,
           department_id: workOrderData.department_id,
-          service_type_id: String(workOrderData.service_group_id || ""), // PERBAIKAN
-          service_id: String(workOrderData.service_catalogue_id || ""), // PERBAIKAN
+          service_group_id: workOrderData.service_group_id, // PERBAIKAN
+          service_catalogue_id: workOrderData.service_catalogue_id, // PERBAIKAN
           asset_no: workOrderData.asset_no,
           device_info: workOrderData.device_info,
           complaint: workOrderData.complaint,
@@ -242,13 +242,13 @@ const EditWorkOrderFormIT: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (formData.service_type_id && serviceList.length > 0) {
-      const filtered = serviceList.filter((service) => String(service.service_type) === formData.service_type_id);
+    if (formData.service_group_id && serviceList.length > 0) {
+      const filtered = serviceList.filter((service) => service.service_group.id === formData.service_group_id);
       setFilteredServices(filtered);
     } else {
       setFilteredServices([]);
     }
-  }, [formData.service_type_id, serviceList]);
+  }, [formData.service_group_id, serviceList]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", darkMode);
@@ -345,8 +345,8 @@ const EditWorkOrderFormIT: React.FC = () => {
       requester_id: formData.requester_id,
       known_by_id: formData.known_by_id,
       department_id: formData.department_id,
-      service_group_id: Number(formData.service_type_id), // PERBAIKAN
-      service_catalogue_id: Number(formData.service_id), // PERBAIKAN
+      service_group_id: formData.service_group_id, // PERBAIKAN
+      service_catalogue_id: formData.service_catalogue_id, // PERBAIKAN
       asset_no: formData.asset_no,
       device_info: formData.device_info,
       complaint: formData.complaint,
@@ -369,17 +369,21 @@ const EditWorkOrderFormIT: React.FC = () => {
   };
 
   const handleServiceGroupChange = (selectedOption: OptionType | null) => {
+    const serviceGroupId = selectedOption ? parseInt(selectedOption.value) : null;
+
     setFormData((prev) => ({
       ...prev,
-      service_type_id: selectedOption ? selectedOption.value : "",
-      service_id: "",
+      service_group_id: serviceGroupId,
+      service_catalogue_id: null, // Reset service ketika group berubah
     }));
   };
 
   const handleServiceCatalogueChange = (selectedOption: OptionType | null) => {
+    const serviceCatalogueId = selectedOption ? parseInt(selectedOption.value) : null;
+
     setFormData((prev) => ({
       ...prev,
-      service_id: selectedOption ? selectedOption.value : "",
+      service_catalogue_id: serviceCatalogueId,
     }));
   };
 
@@ -553,14 +557,7 @@ const EditWorkOrderFormIT: React.FC = () => {
       <Sidebar />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <PageHeader
-          mainTitle="Edit Work Order"
-          mainTitleHighlight="Page"
-          description="Manage work units and their configurations within the system."
-          icon={<Clipboard />}
-          isMobile={isMobile}
-          toggleSidebar={toggleSidebar}
-        />
+        <PageHeader mainTitle="Edit Work Order" mainTitleHighlight="Page" description="Manage work units and their configurations within the system." icon={<Clipboard />} isMobile={isMobile} toggleSidebar={toggleSidebar} />
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
@@ -687,21 +684,21 @@ const EditWorkOrderFormIT: React.FC = () => {
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label htmlFor="service_type_id" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="service_group_id" className="block text-sm font-medium text-gray-700 mb-1">
                       Service Type <span className="text-red-500">*</span>
                     </label>
                     <Select
-                      id="service_type_id"
-                      name="service_type_id"
-                      options={serviceGroupsList.map((group) => ({
+                      id="service_group_id"
+                      name="service_group_id"
+                      options={filteredServiceGroups.map((group) => ({
                         value: String(group.id),
                         label: group.name,
                       }))}
                       value={
-                        formData.service_type_id
+                        formData.service_group_id !== null
                           ? {
-                              value: formData.service_type_id,
-                              label: serviceGroupsList.find((g) => String(g.id) === formData.service_type_id)?.name || "",
+                              value: String(formData.service_group_id),
+                              label: filteredServiceGroups.find((g) => g.id === formData.service_group_id)?.name || "",
                             }
                           : null
                       }
@@ -713,34 +710,36 @@ const EditWorkOrderFormIT: React.FC = () => {
                   </div>
 
                   <div>
-                    <label htmlFor="service_id" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="service_catalogue_id" className="block text-sm font-medium text-gray-700 mb-1">
                       Service <span className="text-red-500">*</span>
                     </label>
                     <Select
-                      id="service_id"
-                      name="service_id"
+                      id="service_catalogue_id"
+                      name="service_catalogue_id"
                       options={filteredServices.map((service) => ({
                         value: String(service.id),
                         label: service.service_name,
                       }))}
                       value={
-                        formData.service_id
+                        formData.service_catalogue_id !== null
                           ? {
-                              value: formData.service_id,
-                              label: filteredServices.find((s) => String(s.id) === formData.service_id)?.service_name || "",
+                              value: String(formData.service_catalogue_id),
+                              label: filteredServices.find((s) => s.id === formData.service_catalogue_id)?.service_name || "",
                             }
                           : null
                       }
                       onChange={handleServiceCatalogueChange}
-                      placeholder="Select Service"
+                      placeholder={formData.service_group_id !== null ? (filteredServices.length === 0 ? "No services available for selected type" : "Select Service") : "Please select Service Type first"}
                       styles={customSelectStyles}
+                      isDisabled={formData.service_group_id === null || filteredServices.length === 0}
+                      required
                     />
 
-                    {filteredServices.length === 0 && formData.service_type_id && <p className="text-sm text-yellow-500 mt-1">No services available for selected type</p>}
+                    {filteredServices.length === 0 && formData.service_group_id && <p className="text-sm text-yellow-500 mt-1">No services available for selected type</p>}
                   </div>
                   <div>
                     <label htmlFor="asset_no" className="block text-sm font-medium text-gray-700 mb-1">
-                      No. Asset <span className="text-red-500">*</span>
+                      No. Asset {/* Hapus <span className="text-red-500">*</span> */}
                     </label>
                     <CreatableSelect<OptionType>
                       name="asset_no"
@@ -755,7 +754,8 @@ const EditWorkOrderFormIT: React.FC = () => {
                       }}
                       placeholder="Type or select Asset No."
                       styles={customSelectStyles}
-                      required
+                      isClearable // Tambahkan ini agar user bisa clear field
+                      required={false} // Tambahkan ini untuk disable HTML5 validation
                     />
                   </div>
                 </div>

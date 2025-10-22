@@ -86,13 +86,13 @@ const GanbaSelection: React.FC = () => {
 
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header section */}
-        <PageHeader mainTitle="Select Ganba Menu" mainTitleHighlight="Page" description="Manage work units and their configurations within the system." icon={<Clipboard />} isMobile={isMobile} toggleSidebar={toggleSidebar} />
+        <PageHeader mainTitle="Select Genba Menu" mainTitleHighlight="Page" description="Manage work units and their configurations within the system." icon={<Clipboard />} isMobile={isMobile} toggleSidebar={toggleSidebar} />
 
         {/* Main content area */}
         <main className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-gray-50">
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-6 text-center">
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Select Ganba Menu</h1>
-            <p className="text-gray-600 mt-2">Choose the menu you wish to manage other for ganba action.</p>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Select Genba Menu</h1>
+            <p className="text-gray-600 mt-2">Choose the menu you wish to manage other for genba action.</p>
           </motion.div>
 
           <div className="flex flex-col md:flex-row justify-center items-center gap-6 max-w-4xl mx-auto py-8">
@@ -101,7 +101,7 @@ const GanbaSelection: React.FC = () => {
               className="w-full md:w-1/2 bg-white rounded-2xl shadow-xl p-8 border border-blue-100 cursor-pointer flex flex-col items-center text-center transition-all duration-300 hover:scale-105 hover:shadow-2xl"
               whileHover={{ y: -5 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => handleCardClick("/ganba/soconfiguration")}
+              onClick={() => handleCardClick("/genba/soconfiguration")}
             >
               <Users size={64} className="text-blue-600 mb-4" />
               <h3 className="text-2xl font-bold text-gray-900 mb-2">SO Configuration</h3>
@@ -109,20 +109,20 @@ const GanbaSelection: React.FC = () => {
               <span className="text-blue-600 font-semibold flex items-center">
                 Go to SO Configuration <ChevronRight size={18} className="ml-1" />
               </span>
-            </motion.div> 
+            </motion.div>
 
             {/* Daily Activity */}
             <motion.div
               className="w-full md:w-1/2 bg-white rounded-2xl shadow-xl p-8 border border-green-100 cursor-pointer flex flex-col items-center text-center transition-all duration-300 hover:scale-105 hover:shadow-2xl"
               whileHover={{ y: -5 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => handleCardClick("/ganba/dailyactivity")}
+              onClick={() => handleCardClick("/genba/genbaaction")}
             >
               <Hammer size={64} className="text-green-600 mb-4" />
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">Daily Activity</h3>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">Genba Action</h3>
               <p className="text-gray-700 mb-4">Handle report daily tasks.</p>
               <span className="text-green-600 font-semibold flex items-center">
-                Go to Daily Activity
+                Go to Genba Action
                 <ChevronRight size={18} className="ml-1" />
               </span>
             </motion.div>
@@ -132,13 +132,13 @@ const GanbaSelection: React.FC = () => {
               className="w-full md:w-1/2 bg-white rounded-2xl shadow-xl p-8 border border-green-100 cursor-pointer flex flex-col items-center text-center transition-all duration-300 hover:scale-105 hover:shadow-2xl"
               whileHover={{ y: -5 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => handleCardClick("/ganba/ganbaarea")}
+              onClick={() => handleCardClick("/genba/genbaarea")}
             >
               <Hammer size={64} className="text-green-600 mb-4" />
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">Ganba Area</h3>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">Genba Area</h3>
               <p className="text-gray-700 mb-4">Handle Area for 5S.</p>
               <span className="text-green-600 font-semibold flex items-center">
-                Go to Ganba Area
+                Go to Genba Area
                 <ChevronRight size={18} className="ml-1" />
               </span>
             </motion.div>

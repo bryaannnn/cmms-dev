@@ -17,14 +17,14 @@ const Logout = () => {
   const [currentGreeting] = useState(greetings[0]);
   const [isTransitioning, setIsTransitioning] = useState(false);
 
-  // Karena ini adalah Logout, kita bisa membuat animasi transisi satu kali saja
   useEffect(() => {
     setIsMounted(true);
 
     // Simulasi transisi header/greeting (walau tidak berganti-ganti)
-    let timeoutId: number;
+    let timeoutId: number; // Gunakan number untuk browser
     setIsTransitioning(true);
-    timeoutId = setTimeout(() => {
+    timeoutId = window.setTimeout(() => {
+      // Gunakan window.setTimeout
       setIsTransitioning(false);
     }, 500);
 
@@ -32,7 +32,6 @@ const Logout = () => {
       clearTimeout(timeoutId);
     };
   }, []);
-
   // Objek style dasar untuk elemen h1 (sama persis dengan LoginForm.tsx)
   const baseStyle: React.CSSProperties = {
     fontSize: "3rem",

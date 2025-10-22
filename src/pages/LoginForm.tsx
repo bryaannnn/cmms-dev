@@ -23,15 +23,14 @@ const LoginForm: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Timer untuk animasi mount komponen
     setIsMounted(true);
 
-    // Perbaikan: Tambahkan tipe data number untuk timeoutId agar tidak ada error TypeScript
+    // Gunakan window.setTimeout untuk mendapatkan tipe number
     let timeoutId: number;
 
     const intervalId = setInterval(() => {
       setIsTransitioning(true);
-      timeoutId = setTimeout(() => {
+      timeoutId = window.setTimeout(() => {
         setGreeting((current) => {
           const currentIndex = greetings.indexOf(current);
           const nextIndex = (currentIndex + 1) % greetings.length;

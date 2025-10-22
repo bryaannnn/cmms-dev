@@ -1234,7 +1234,7 @@ const ITRequest2: React.FC = () => {
                     <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Date</th>
                     <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Device Information</th>
                     <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">No Asset</th>
-                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Service Type</th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Service Name</th>
                     <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Ticket Status</th>
                     <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Assigned To</th>
                     <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
@@ -1269,7 +1269,7 @@ const ITRequest2: React.FC = () => {
                             <div className="text-sm font-medium text-gray-900">{order.device_info}</div>
                           </td>
                           <td className="px-5 py-3 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">{order.asset_no}</div>
+                            <div className="text-sm font-medium text-gray-900">{order.asset_no || "-"}</div>
                           </td>
                           <td className="px-5 py-3 whitespace-nowrap">
                             <div className="text-sm font-medium text-gray-900">{order.service_type.group_name || "N/A"}</div>

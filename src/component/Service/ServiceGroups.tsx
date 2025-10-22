@@ -56,6 +56,7 @@ const ServiceGroup: React.FC = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
+  const [recordToDelete, setRecordToDelete] = useState<number | null>(null);
   const [isMobile] = useState(window.innerWidth < 768);
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     const stored = localStorage.getItem("sidebarOpen");
@@ -64,7 +65,7 @@ const ServiceGroup: React.FC = () => {
 
   const navigate = useNavigate();
 
-  const { getServiceGroups, getServiceGroup, hasPermission } = useAuth();
+  const { getServiceGroups, getServiceGroup, hasPermission, deleteServiceGroup } = useAuth();
 
   const toggleSidebar = () => {
     const newState = !sidebarOpen;
@@ -167,34 +168,20 @@ const ServiceGroup: React.FC = () => {
   };
 
   const confirmDelete = (id: number) => {
-    if (!hasPermission("manage_users")) {
-      setError("You don't have permission to delete service groups");
-      return;
-    }
-
     setDeletingId(id);
     setShowDeleteConfirm(true);
     setError(null);
   };
 
-  const handleDelete = async () => {
-    if (deletingId === null) return;
-
-    setSaving(true);
-    setError(null);
-
+  const handleDelete = async (id: number) => {
     try {
-      // In a real implementation, you would call your API here
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      setGroups((prev) => prev.filter((g) => g.id !== deletingId));
+      await deleteServiceGroup(id); 
+      setGroups(groups.filter((g) => g.id !== id));
       setShowDeleteConfirm(false);
-      setDeletingId(null);
-    } catch (err) {
-      setError("Failed to delete service group");
-      console.error("Error deleting service group:", err);
-    } finally {
-      setSaving(false);
+      setDeletingId(null); 
+    } catch (error) {
+      console.error("Failed to delete Service Group:", error);
+      setError("Failed to delete service group. Please try again.");
     }
   };
 
@@ -218,7 +205,7 @@ const ServiceGroup: React.FC = () => {
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                onClick={() => navigate("/service/servicegroups/addservicegroup")}
+                onClick={() => navigate("/services/servicegroups/addservicegroup")}
                 className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md font-semibold text-sm"
               >
                 <Plus className="text-base" />
@@ -280,7 +267,7 @@ const ServiceGroup: React.FC = () => {
                             <motion.button
                               whileHover={{ scale: 1.1 }}
                               whileTap={{ scale: 0.9 }}
-                              onClick={() => navigate(`/service/servicegroups/editservicegroup/${g.id}`)}
+                              onClick={() => navigate(`/services/servicegroups/editservicegroup/${g.id}`)}
                               className="text-yellow-600 hover:text-yellow-800 transition-colors duration-200 p-1 rounded-full hover:bg-yellow-50"
                               title="Edit"
                             >
@@ -379,7 +366,7 @@ const ServiceGroup: React.FC = () => {
             <motion.button
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
-              onClick={handleDelete}
+              onClick={() => deletingId && handleDelete(deletingId)}
               disabled={saving}
               className="px-5 py-2.5 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200 font-semibold text-sm"
             >

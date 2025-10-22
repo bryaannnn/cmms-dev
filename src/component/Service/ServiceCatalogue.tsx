@@ -25,7 +25,13 @@ interface ServiceCatalogue {
   id: number;
   service_name: string;
   service_description: string;
-  service_type: number;
+  service_group: {
+    id: number;
+    group_name: string;
+    group_description: string;
+    created_at: string | null;
+    updated_at: string | null;
+  };
   priority: PriorityType;
   service_owner: number;
   sla: number;
@@ -191,7 +197,7 @@ const ServiceCataloguePage: React.FC = () => {
       id: api.id ?? 0,
       service_name: api.service_name ?? api.name ?? "",
       service_description: api.service_description ?? api.description ?? "",
-      service_type: Number(api.service_type ?? api.service_type ?? 0),
+      service_group: api.service_group ?? api.service_group ?? 0,
       priority: (api.priority as PriorityType) ?? "Low",
       service_owner: Number(api.service_owner ?? api.service_owner ?? api.owner ?? 0),
       sla: Number(api.sla ?? api.sla ?? 0),
@@ -385,7 +391,7 @@ const ServiceCataloguePage: React.FC = () => {
       list = list.filter((s) => s.service_name.toLowerCase().includes(q) || (s.service_description || "").toLowerCase().includes(q));
     }
     if (groupFilter) {
-      list = list.filter((s) => String(s.service_type) === String(groupFilter));
+      list = list.filter((s) => String(s.service_group.id) === String(groupFilter));
     }
     if (priorityFilter) {
       list = list.filter((s) => s.priority === priorityFilter);
@@ -425,7 +431,7 @@ const ServiceCataloguePage: React.FC = () => {
   const Form: React.FC = () => {
     const [serviceName, setServiceName] = useState(editingService?.service_name || "");
     const [description, setDescription] = useState(editingService?.service_description || "");
-    const [groupId, setGroupId] = useState<number | "">((editingService?.service_type as number) || "");
+    const [groupId, setGroupId] = useState<number | "">((editingService?.service_group.id as number) || "");
     const [priority, setPriority] = useState<PriorityType>(editingService?.priority || "Low");
     const [ownerId, setOwnerId] = useState<number | "">((editingService?.service_owner as number) || (users[0] ? users[0].id : ""));
     const [slaHours, setSlaHours] = useState<number>(editingService?.sla || 24);
@@ -670,7 +676,7 @@ const ServiceCataloguePage: React.FC = () => {
     const ownerName = users.find((u) => u.id === Number(service.service_owner))?.name ?? String(service.service_owner);
 
     // Get service group name
-    const groupName = groups.find((g) => String(g.id) === String(service.service_type))?.group_name ?? (groups.find((g) => String(g.id) === String(service.service_type)) as any)?.name ?? String(service.service_type);
+    const groupName = groups.find((g) => String(g.id) === String(service.service_group.id))?.group_name ?? (groups.find((g) => String(g.id) === String(service.service_group.id)) as any)?.name ?? String(service.service_group.id);
 
     return (
       <div className="space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar pr-2">
@@ -911,7 +917,7 @@ const ServiceCataloguePage: React.FC = () => {
                     <tbody className="bg-white divide-y divide-gray-100">
                       {currentRecords.map((s, idx) => {
                         const ownerName = users.find((u) => u.id === Number(s.service_owner))?.name ?? String(s.service_owner);
-                        const groupName = groups.find((g) => String(g.id) === String(s.service_type))?.group_name ?? (groups.find((g) => String(g.id) === String(s.service_type)) as any)?.name ?? String(s.service_type);
+                        const groupName = groups.find((g) => String(g.id) === String(s.service_group.id))?.group_name ?? (groups.find((g) => String(g.id) === String(s.service_group.id)) as any)?.name ?? String(s.service_group.id);
                         return (
                           <motion.tr
                             key={s.id}

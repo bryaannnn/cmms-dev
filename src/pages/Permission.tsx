@@ -69,6 +69,7 @@ interface User {
   department?: Department | null;
   department_id: number | null;
   rolePermissions?: string[];
+  role?: { id: number; name: string };
 }
 
 interface NavItemProps {
@@ -190,6 +191,12 @@ const PermissionsPage: React.FC = () => {
           nik: user.nik,
           email: user.email,
           roleId: user.role_id ? String(user.role_id) : null, // Perhatikan field name
+          role: user.role
+            ? {
+                id: user.role.id,
+                name: user.role.name,
+              }
+            : undefined,
           customPermissions: user.customPermissions || [],
           department: user.department || null,
           department_id: user.department_id || null,
@@ -660,7 +667,7 @@ const PermissionsPage: React.FC = () => {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{userItem.nik}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{userItem.email}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{userItem.department?.name || "-"}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{getRoleName(userItem.roleId)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{userItem.role?.name || getRoleName(userItem.roleId)}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                             {userItem.roleId === "3" ? (
                               <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">All permissions</span>

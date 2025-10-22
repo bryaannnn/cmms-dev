@@ -4,7 +4,7 @@ import { FolderPlus, List, FileText, X, Loader, AlertTriangle, Users } from "luc
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../../Sidebar";
 import PageHeader from "../../PageHeader";
-import { useAuth } from "../../../routes/AuthContext";
+import { useAuth, GenbaSO } from "../../../routes/AuthContext";
 
 interface ModalProps {
   isOpen: boolean;
@@ -33,24 +33,30 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
 
 const SOTemplate: React.FC = () => {
   const navigate = useNavigate();
-  const { getApprovalTemplates, createApprovalTemplate, deleteApprovalTemplate, setApprovalTemplateActive } = useAuth();
+  const { getGenbaSOs, createGenbaSO, deleteGenbaSO, setGenbaSOActive } = useAuth();
 
   const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
     const stored = localStorage.getItem("sidebarOpen");
     return JSON.parse(stored || "false");
   });
+
   const toggleSidebar = (): void => {
     localStorage.setItem("sidebarOpen", JSON.stringify(!sidebarOpen));
     setSidebarOpen((prev) => !prev);
   };
+
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState("");
-  const [templates, setTemplates] = useState<any[]>([]);
+  const [templates, setTemplates] = useState<GenbaSO[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<{ type: "activate" | "delete"; templateId: number; templateName: string } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{
+    type: "activate" | "delete";
+    templateId: number;
+    templateName: string;
+  } | null>(null);
 
   const showConfirmation = (type: "activate" | "delete", templateId: number, templateName: string) => {
     setConfirmAction({ type, templateId, templateName });
@@ -64,7 +70,7 @@ const SOTemplate: React.FC = () => {
       setLoading(true);
 
       if (confirmAction.type === "activate") {
-        await setApprovalTemplateActive(confirmAction.templateId);
+        await setGenbaSOActive(confirmAction.templateId);
         setTemplates((prev) =>
           prev.map((t) => ({
             ...t,
@@ -72,7 +78,7 @@ const SOTemplate: React.FC = () => {
           }))
         );
       } else if (confirmAction.type === "delete") {
-        await deleteApprovalTemplate(confirmAction.templateId);
+        await deleteGenbaSO(confirmAction.templateId);
         await loadTemplates();
       }
 
@@ -94,7 +100,7 @@ const SOTemplate: React.FC = () => {
   const loadTemplates = async () => {
     try {
       setLoading(true);
-      const templatesData = await getApprovalTemplates();
+      const templatesData = await getGenbaSOs();
       setTemplates(templatesData || []);
     } catch (err) {
       setError("Failed to load structure organization templates");
@@ -112,9 +118,11 @@ const SOTemplate: React.FC = () => {
 
     try {
       setLoading(true);
-      const newTemplate = await createApprovalTemplate({
+      const newTemplate = await createGenbaSO({
         name: newTemplateName,
+        effective_date: new Date().toISOString().split("T")[0],
         is_active: false,
+        bridges: [],
       });
 
       setTemplates((prev) => [...prev, newTemplate]);
@@ -129,8 +137,8 @@ const SOTemplate: React.FC = () => {
     }
   };
 
-  const handleConfigureTemplate = (template: any) => {
-    navigate(`/ganba/soconfiguration/configure/${template.id}`);
+  const handleConfigureTemplate = (template: GenbaSO) => {
+    navigate(`/genba/soconfiguration/configure/${template.id}`);
   };
 
   return (
@@ -179,7 +187,8 @@ const SOTemplate: React.FC = () => {
                         </h3>
                         <div className="mt-2 flex items-center space-x-2">
                           <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${template.is_active ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}>{template.is_active ? "Active" : "Inactive"}</span>
-                          <span className="text-xs text-gray-500">Created: {new Date().toLocaleDateString()}</span>
+                          <span className="text-xs text-gray-500">Effective: {new Date(template.effective_date).toLocaleDateString()}</span>
+                          <span className="text-xs text-gray-500">Roles: {template.bridges.length}</span>
                         </div>
                       </div>
                       <div className="flex space-x-2">

@@ -101,7 +101,7 @@ const FormEditServiceGroup: React.FC = () => {
   }, [getServiceGroup, idParam]);
 
   const handleBack = () => {
-    navigate("/servicegroups");
+    navigate("/services/servicegroups");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -129,7 +129,7 @@ const FormEditServiceGroup: React.FC = () => {
 
   const handleCloseSuccess = () => {
     setShowSuccessModal(false);
-    navigate("/servicegroups");
+    navigate("/services/servicegroups");
   };
 
   return (
@@ -201,7 +201,7 @@ const FormEditServiceGroup: React.FC = () => {
                       type="button"
                       whileHover={{ scale: 1.03 }}
                       whileTap={{ scale: 0.97 }}
-                      onClick={() => navigate("/servicegroups")}
+                      onClick={() => navigate("/services/servicegroups")}
                       className="px-5 py-2.5 border border-gray-300 rounded-md hover:bg-gray-100 text-gray-700 transition-colors duration-200 font-semibold text-sm"
                     >
                       Cancel

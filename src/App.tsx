@@ -102,6 +102,11 @@ import GanbaSelection from "./component/Ganba/GanbaSelection";
 import SOTemplate from "./component/Ganba/Template SO/SoTemplate";
 import OrganizationStructure from "./component/Ganba/Template SO/SOConfigurationDummy.tsx";
 import DailyActivity from "./component/Ganba/Daily Activity/DailyActivityDummy";
+import GenbaAction from "./component/Ganba/Daily Activity/DailyActivityDummy";
+import GenbaArea from "./component/Ganba/Genba Area/GenbaArea";
+import FormGenbaArea from "./component/Ganba/Genba Area/FormGenbaArea";
+import EditFormGenbaArea from "./component/Ganba/Genba Area/EditFormGanbaArea";
+import SOConfigure from "./component/Ganba/Template SO/SoConfiguration";
 
 function App() {
   return (
@@ -118,8 +123,7 @@ function App() {
 
         <Route path="/monitoringmaintenance/detailmonitoringmaintenanceD" element={<DetailDummy />} />
 
-        <Route path="/dummy" element={<OrganizationStructure />} />
-        <Route path="/dummyTodo" element={<DailyActivity />} />
+        <Route path="dummy" element={<OrganizationStructure />} />
 
         {/* Protected Routes */}
         {/* Dashboard */}
@@ -133,8 +137,13 @@ function App() {
         </Route>
 
         <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}>
-          <Route path="/ganba" element={<GanbaSelection />} />
-          <Route path="/ganba/soconfiguration" element={<SOTemplate />} />
+          <Route path="/genba" element={<GanbaSelection />} />
+          <Route path="/genba/soconfiguration" element={<SOTemplate />} />
+          <Route path="/genba/soconfiguration/configure/:id" element={<SOConfigure />} />
+          <Route path="/genba/genbaaction" element={<GenbaAction />} />
+          <Route path="/genba/genbaarea" element={<GenbaArea />} />
+          <Route path="/genba/genbaarea/addgenbaarea" element={<FormGenbaArea />} />
+          <Route path="/genba/genbaarea/editgenbaarea/:id" element={<EditFormGenbaArea />} />
           {/* <Route path="/ganba/soconfigurat" element={<SOConfiguration/>} /> */}
         </Route>
 

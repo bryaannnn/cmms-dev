@@ -415,7 +415,7 @@ const DashboardDummy: React.FC = () => {
             transition={{ duration: 0.4 }}
             className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-2xl p-6 text-white mb-6 shadow-lg hover:shadow-xl transition-all duration-300"
           >
-            <h1 className="text-2xl md:text-3xl font-bold mb-2">Welcome back, {user?.name || user?.roles?.[0]}!</h1>
+            <h1 className="text-2xl md:text-3xl font-bold mb-2">Welcome back, {user?.name || user?.role.name}!</h1>
             <p className="opacity-90 text-sm">Here's what's happening with your sales today</p>
           </motion.div>
 

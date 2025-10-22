@@ -63,7 +63,7 @@ const FormServiceGroup: React.FC = () => {
   const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
 
   const handleBack = () => {
-    navigate("/servicegroups");
+    navigate("/services/servicegroups");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -90,7 +90,7 @@ const FormServiceGroup: React.FC = () => {
 
   const handleCloseSuccess = () => {
     setShowSuccessModal(false);
-    navigate("/servicegroups");
+    navigate("/services/servicegroups");
   };
 
   return (
@@ -113,7 +113,7 @@ const FormServiceGroup: React.FC = () => {
               <p className="text-gray-600 mt-1">Add a new service group to categorize services.</p>
             </div>
             <motion.button
-              onClick={() => navigate("/servicegroups")}
+              onClick={() => navigate("/services/servicegroups")}
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
               className="flex items-center space-x-2 bg-white border border-gray-200 text-gray-800 px-5 py-2.5 rounded-lg transition-all duration-200 ease-in-out shadow-md"
@@ -163,7 +163,7 @@ const FormServiceGroup: React.FC = () => {
                   type="button"
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
-                  onClick={() => navigate("/servicegroups")}
+                  onClick={() => navigate("/services/servicegroups")}
                   className="px-5 py-2.5 border border-gray-300 rounded-md hover:bg-gray-100 text-gray-700 transition-colors duration-200 font-semibold text-sm"
                 >
                   Cancel
