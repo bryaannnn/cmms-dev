@@ -308,12 +308,15 @@ const EditWorkOrderFormIT: React.FC = () => {
     }));
   };
 
+  // Perbaiki handleFileChange:
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setSelectedFile(e.target.files[0]);
+      const file = e.target.files[0];
+      setSelectedFile(file);
+      // Jangan simpan di formData, kita kirim file asli
       setFormData((prev) => ({
         ...prev,
-        attachment: e.target.files![0].name,
+        attachment: null,
       }));
     } else {
       setSelectedFile(null);
@@ -345,16 +348,17 @@ const EditWorkOrderFormIT: React.FC = () => {
       requester_id: formData.requester_id,
       known_by_id: formData.known_by_id,
       department_id: formData.department_id,
-      service_group_id: formData.service_group_id, // PERBAIKAN
-      service_catalogue_id: formData.service_catalogue_id, // PERBAIKAN
+      service_group_id: formData.service_group_id,
+      service_catalogue_id: formData.service_catalogue_id,
       asset_no: formData.asset_no,
       device_info: formData.device_info,
       complaint: formData.complaint,
-      attachment: formData.attachment,
+      attachment: formData.attachment, // Untuk attachment existing
     };
 
     try {
-      await updateWorkOrderIT(dataToSend);
+      // Kirim dengan file baru jika ada
+      await updateWorkOrderIT(dataToSend, selectedFile);
       setSuccessMessage({
         message: "Work Order berhasil diperbarui!",
         work_order: { work_order_no: `WO-IT-${formData.id}` },

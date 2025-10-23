@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import Sidebar from "../../Sidebar";
 import DOMPurify from "dompurify";
+import { getProjectEnvVariables } from "../../../shared/projectEnvVariables";
 import { useAuth, WorkOrderData, Vendor } from "../../../routes/AuthContext";
 import PageHeader from "../../PageHeader";
 import {
@@ -125,6 +126,8 @@ const ITRequest2: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const projectEnvVariables = getProjectEnvVariables();
 
   const [lastMonthWorkOrders, setLastMonthWorkOrders] = useState<WorkOrderData[]>([]);
 
@@ -959,7 +962,6 @@ const ITRequest2: React.FC = () => {
             </div>
           </div>
         </div>
-
         {/* General Information */}
         <Section title="General Information" icon={<UserIcon className="w-5 h-5" />}>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -970,7 +972,6 @@ const ITRequest2: React.FC = () => {
             <DetailItem label="Known By" value={displayValue(order.known_by?.name)} icon={<Eye className="w-4 h-4" />} />
           </div>
         </Section>
-
         {/* Service Details */}
         <Section title="Service Details" icon={<Wrench className="w-5 h-5" />}>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -979,7 +980,6 @@ const ITRequest2: React.FC = () => {
             <DetailItem label="No Asset" value={displayValue(order.asset_no)} icon={<Clipboard className="w-4 h-4" />} />
           </div>
         </Section>
-
         {/* Device & Complaint */}
         <Section title="Device & Complaint" icon={<AlertTriangle className="w-5 h-5" />}>
           <div className="grid grid-cols-1 gap-4">
@@ -987,7 +987,6 @@ const ITRequest2: React.FC = () => {
             <DetailItemHTML label="Complaint Details" htmlContent={order.complaint || ""} icon={<AlertTriangle className="w-4 h-4" />} fullWidth />
           </div>
         </Section>
-
         {/* Handling Information */}
         <Section title="Handling Information" icon={<Clock className="w-5 h-5" />}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1003,14 +1002,12 @@ const ITRequest2: React.FC = () => {
             <DetailItemHTML label="Remarks" htmlContent={order.remarks || ""} icon={<Clipboard className="w-4 h-4" />} fullWidth />
           </div>
         </Section>
-
         {/*  TIMELINE */}
         {order.status_history && order.status_history.length > 0 && (
           <Section title="Work Order Timeline" icon={<GitBranch className="w-5 h-5" />}>
             <StatusTimeline order={order} />
           </Section>
         )}
-
         {/* Vendor Details */}
         {order.vendor && (
           <Section title="Vendor Details" icon={<UserIcon className="w-5 h-5" />}>
@@ -1024,17 +1021,43 @@ const ITRequest2: React.FC = () => {
             </div>
           </Section>
         )}
-
         {/* Attachment */}
         {order.attachment && (
           <Section title="Attachment" icon={<Paperclip className="w-5 h-5" />}>
-            <div className="flex items-center space-x-3 p-4 bg-blue-25 rounded-lg border-l-4 border-l-blue-400">
-              <Paperclip className="w-5 h-5 text-blue-600 flex-shrink-0" />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-900 mb-1">Document Attachment</p>
-                <a href={order.attachment} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-blue-600 hover:text-blue-800 font-medium text-sm transition-colors duration-200">
+            <div className="space-y-4">
+              {/* Preview Gambar */}
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <p className="text-sm font-medium text-gray-700 mb-3">Preview Attachment:</p>
+                <div className="flex justify-center">
+                  <img
+                    src={`${projectEnvVariables.envVariables.VITE_BACKEND_API_URL}${order.attachment}`}
+                    alt="Work order attachment"
+                    className="max-w-full max-h-64 rounded-lg shadow-md object-contain"
+                    onError={(e) => {
+                      // Jika bukan gambar, sembunyikan preview
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Link Download */}
+              <div className="flex items-center justify-between p-3 bg-blue-25 rounded-lg border-l-4 border-l-blue-400">
+                <div className="flex items-center space-x-3">
+                  <Paperclip className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">Attachment File</p>
+                    <p className="text-xs text-gray-500">Click to download or view full size</p>
+                  </div>
+                </div>
+                <a
+                  href={`${projectEnvVariables.envVariables.VITE_BACKEND_API_URL}${order.attachment}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 text-sm font-medium"
+                >
                   <ExternalLink className="w-4 h-4 mr-1" />
-                  View Attachment
+                  Open Full Size
                 </a>
               </div>
             </div>

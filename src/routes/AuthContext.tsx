@@ -519,10 +519,8 @@ export interface WorkOrderFormDataLocal {
   requester_id: number;
   known_by_id: number | null;
   department_id: number;
-  service_type_id?: string;
-  service_id?: string;
-  service_group_id?: number | null;
-  service_catalogue_id?: number | null;
+  service_group_id: number | null;
+  service_catalogue_id: number | null;
   asset_no: string;
   device_info: string;
   complaint: string;
@@ -1108,6 +1106,24 @@ export interface WorkArea {
 // Genba Auth
 // Tambahkan interface berikut di bagian interface yang sesuai
 
+export interface GenbaWorkAreas {
+  id: number;
+  name: string;
+  department_id: number;
+  pic_user_id: number;
+  created_at: string | null;
+}
+
+export interface GenbaSO {
+  id: number;
+  name: string;
+  effective_date: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  bridges: GenbaSOBridge[];
+}
+
 export interface GenbaRole {
   id: number;
   name: string;
@@ -1125,16 +1141,6 @@ export interface GenbaSOBridge {
   updated_at: string;
   role: GenbaRole;
   user: User;
-}
-
-export interface GenbaSO {
-  id: number;
-  name: string;
-  effective_date: string;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-  bridges: GenbaSOBridge[];
 }
 
 export interface CreateGenbaSOPayload {
@@ -1217,8 +1223,8 @@ interface AuthContextType {
   masterData: AllMasterData | null;
   isMasterDataLoading: boolean;
   getWorkOrdersIT: () => Promise<WorkOrderData[]>;
-  addWorkOrderIT: (data: WorkOrderFormDataLocal) => Promise<any>;
-  updateWorkOrderIT: (data: WorkOrderFormDataLocal) => Promise<any>;
+  addWorkOrderIT: (data: WorkOrderFormDataLocal, file?: File | null) => Promise<any>;
+  updateWorkOrderIT: (data: WorkOrderFormDataLocal, file?: File | null) => Promise<any>;
   deleteWorkOrder: (id: number) => Promise<any>;
   getWorkOrdersForUser: (userId: string) => Promise<WorkOrderData[]>;
   getWorkOrderById: (id: string | number) => Promise<WorkOrderData>;
@@ -1490,9 +1496,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
 
         const headers = new Headers(options.headers || {});
-        if (headers.get("Content-Type")?.includes("application/json") || !headers.has("Content-Type")) {
-          headers.set("Content-Type", "application/json");
+        if (!(options.body instanceof FormData)) {
+          // Hanya set Content-Type untuk non-FormData
+          if (headers.get("Content-Type")?.includes("application/json") || !headers.has("Content-Type")) {
+            headers.set("Content-Type", "application/json");
+          }
         }
+
         headers.set("Authorization", `Bearer ${tokenToUse}`);
 
         const response = await fetch(`${projectEnvVariables.envVariables.VITE_REACT_API_URL}${url}`, {
@@ -1943,67 +1953,44 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     });
   };
 
+  // Di AuthContext.tsx, tambahkan fungsi:
+  const getAttachmentUrl = (attachmentPath: string | null): string | null => {
+    if (!attachmentPath) return null;
+
+    if (attachmentPath.startsWith("http")) {
+      return attachmentPath;
+    } else {
+      // Sesuaikan dengan base URL Anda
+      return `${projectEnvVariables.envVariables.VITE_BACKEND_API_URL}${attachmentPath}`;
+    }
+  };
+
+  // Di AuthContext.tsx - perbaiki fungsi addWorkOrderIT
   const addWorkOrderIT = useCallback(
-    async (data: WorkOrderFormDataLocal) => {
-      const responseData = await fetchWithAuth("/ayam?includes_trashed=true", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+    async (data: WorkOrderFormDataLocal, file?: File | null): Promise<any> => {
+      const formData = new FormData();
+
+      // Append semua field data
+      Object.keys(data).forEach((key) => {
+        const value = data[key as keyof WorkOrderFormDataLocal];
+        if (value !== null && value !== undefined) {
+          formData.append(key, String(value));
+        }
       });
-      return responseData;
+
+      // Append file jika ada
+      if (file) {
+        formData.append("attachment", file);
+      }
+
+      const response = await fetchWithAuth("/ayam?includes_trashed=true", {
+        method: "POST",
+        body: formData, // Tidak perlu headers Content-Type, browser akan set otomatis
+      });
+      return response;
     },
     [fetchWithAuth]
   );
-
-  // Located in AuthContext.tsx
-  // Di AuthContext.tsx - perbaiki addWorkOrderIT
-  // const addWorkOrderIT = useCallback(
-  //   async (data: WorkOrderFormData | FormData, file?: File | null): Promise<WorkOrderData> => {
-  //     // Handle jika data sudah berupa FormData (dari caller lain)
-  //     if (data instanceof FormData) {
-  //       // Jika sudah FormData, langsung kirim
-  //       const response = await fetchWithAuth("/ayam", {
-  //         method: "POST",
-  //         body: data,
-  //       });
-  //       return response.work_order || response;
-  //     }
-
-  //     // Handle WorkOrderFormData (dari FormIT.tsx)
-  //     const formDataToSend = new FormData();
-
-  //     // Append semua field data dengan konversi number yang benar
-  //     // Di AuthContext.tsx - dalam addWorkOrderIT
-  //     Object.entries(data).forEach(([key, value]) => {
-  //       if (value !== null && value !== undefined) {
-  //         // Ensure service IDs are properly formatted numbers
-  //         if (key === "service_type_id" || key === "service_id") {
-  //           const numValue = Number(value);
-  //           if (!isNaN(numValue)) {
-  //             formDataToSend.append(key, numValue.toString());
-  //           } else {
-  //             console.error(`Invalid ${key}:`, value);
-  //           }
-  //         } else {
-  //           formDataToSend.append(key, String(value));
-  //         }
-  //       }
-  //     });
-
-  //     // Append file jika ada
-  //     if (file) {
-  //       formDataToSend.append("attachment", file);
-  //     }
-
-  //     const response = await fetchWithAuth("/ayam", {
-  //       method: "POST",
-  //       body: formDataToSend,
-  //     });
-
-  //     return response.work_order || response;
-  //   },
-  //   [fetchWithAuth]
-  // );
 
   const getWorkOrdersIT = useCallback(async (): Promise<WorkOrderData[]> => {
     try {
@@ -2052,17 +2039,38 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     [fetchWithAuth]
   );
 
+  // Di AuthContext.tsx - perbaiki fungsi updateWorkOrderIT
   const updateWorkOrderIT = useCallback(
-    async (data: WorkOrderFormDataLocal): Promise<WorkOrderData> => {
+    async (data: WorkOrderFormDataLocal, file?: File | null): Promise<any> => {
       if (!data.id) {
         throw new Error("Work order ID is required for update.");
       }
-      const responseData = await fetchWithAuth(`/ayam/${data.id}?includes_trashed=true`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+
+      const formData = new FormData();
+
+      // Tambahkan _method: PUT untuk override method
+      formData.append("_method", "PUT");
+
+      // Append semua field data
+      Object.keys(data).forEach((key) => {
+        const value = data[key as keyof WorkOrderFormDataLocal];
+        if (value !== null && value !== undefined) {
+          // Untuk field number, konversi ke string
+          formData.append(key, String(value));
+        }
       });
-      return responseData.data;
+
+      // Append file jika ada
+      if (file) {
+        formData.append("attachment", file);
+      }
+
+      // Gunakan method POST dengan _method=PUT dalam formData
+      const response = await fetchWithAuth(`/ayam/${data.id}?includes_trashed=true`, {
+        method: "POST", // Gunakan POST karena kita pakai _method override
+        body: formData, // Tidak perlu headers Content-Type, browser akan set otomatis
+      });
+      return response;
     },
     [fetchWithAuth]
   );
@@ -3872,7 +3880,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   );
 
   const getWorkArea = useCallback(async (): Promise<WorkArea[]> => {
-    try {
+    try { 
       const response = await fetchWithAuth("/workarea?includes_trashed=true");
       return response.data || response;
     } catch (error) {
@@ -4011,6 +4019,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     },
     [fetchWithAuth]
   );
+
+  const getGenbaWorkArea = useCallback(async (): Promise<GenbaWorkAreas[]> => {
+    try {
+      const response = await fetchWithAuth("/genba-work-areas?includes_trashed=true");
+      return response.data || response;
+    } catch (error) {
+      console.error("Failed to fetch genba SOs:", error);
+      return [];
+    }
+  }, [fetchWithAuth]);
+
+
 
   return (
     <AuthContext.Provider

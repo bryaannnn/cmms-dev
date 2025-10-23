@@ -4,22 +4,17 @@ import Select from "react-select";
 import { motion, AnimatePresence } from "framer-motion";
 import PageHeader from "../../../component/PageHeader";
 import Sidebar from "../../../component/Sidebar";
+import { useAuth } from "../../../routes/AuthContext";
 import { X, Save, Trash2, Hourglass, ArrowLeft, MapPin, Building, User, Upload, CheckCircle } from "lucide-react";
 
 interface Department {
-  id: string;
+  id: number;
   name: string;
-}
-
-interface User {
-  id: string;
-  name: string;
-  department: string;
 }
 
 interface AreaFormData {
+  work_area: string;
   department: string;
-  nama: string;
   penanggungJawab: string;
   layoutRuangan: File | null;
   existingLayout?: string;
@@ -51,6 +46,8 @@ const Modal: React.FC<{
 const EditFormGenbaArea: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { getWorkAreaById, updateWorkArea, user, getUsers, getDepartment } = useAuth();
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
     const stored = localStorage.getItem("sidebarOpen");
     return stored ? JSON.parse(stored) : false;
@@ -61,68 +58,60 @@ const EditFormGenbaArea: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [users, setUsers] = useState<any[]>([]);
 
   const [formData, setFormData] = useState<AreaFormData>({
+    work_area: "",
     department: "",
-    nama: "",
     penanggungJawab: "",
     layoutRuangan: null,
     existingLayout: "",
   });
 
-  // Sample data - in real app, this would come from API
-  const departments: Department[] = [
-    { id: "1", name: "Produksi" },
-    { id: "2", name: "Gudang" },
-    { id: "3", name: "Administrasi" },
-    { id: "4", name: "Engineering" },
-    { id: "5", name: "Quality" },
-  ];
-
-  const users: User[] = [
-    { id: "1", name: "Budi Santoso", department: "Produksi" },
-    { id: "2", name: "Siti Rahayu", department: "Gudang" },
-    { id: "3", name: "Ari Wibowo", department: "Administrasi" },
-    { id: "4", name: "Hendra Gunawan", department: "Engineering" },
-    { id: "5", name: "Fitri Handayani", department: "Quality" },
-  ];
-
-  // Sample area data - in real app, this would come from API based on ID
-  const sampleArea = {
-    id: "1",
-    nama: "Area Produksi Line A",
-    department: "1",
-    penanggungJawab: "1",
-    layoutRuangan: "/api/placeholder/400/300",
+  const loadDepartments = async () => {
+    try {
+      const departmentsData = await getDepartment();
+      setDepartments(departmentsData);
+    } catch (error) {
+      console.error("Failed to load departments:", error);
+    }
   };
 
   useEffect(() => {
-    // Simulate loading area data
-    const loadAreaData = async () => {
-      setLoading(true);
-      try {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-
-        if (id === sampleArea.id) {
-          setFormData({
-            department: sampleArea.department,
-            nama: sampleArea.nama,
-            penanggungJawab: sampleArea.penanggungJawab,
-            layoutRuangan: null,
-            existingLayout: sampleArea.layoutRuangan,
-          });
-        } else {
-          setError("Area not found");
-        }
-      } catch (err) {
-        setError("Failed to load area data");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     loadAreaData();
+    loadUsers();
+    loadDepartments();
   }, [id]);
+
+  const loadAreaData = async () => {
+    if (!id) return;
+
+    setLoading(true);
+    try {
+      const areaData = await getWorkAreaById(parseInt(id));
+
+      setFormData({
+        work_area: areaData.work_area,
+        department: "Produksi",
+        penanggungJawab: user?.id?.toString() || "",
+        layoutRuangan: null,
+        existingLayout: "/api/placeholder/400/300",
+      });
+    } catch (err) {
+      setError("Area not found");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadUsers = async () => {
+    try {
+      const usersData = await getUsers();
+      setUsers(usersData);
+    } catch (error) {
+      console.error("Failed to load users:", error);
+    }
+  };
 
   const toggleSidebar = () => {
     localStorage.setItem("sidebarOpen", JSON.stringify(!sidebarOpen));
@@ -131,16 +120,13 @@ const EditFormGenbaArea: React.FC = () => {
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | { value: string; label: string } | null, name?: string) => {
     if (e && typeof e === "object" && "value" in e && name) {
-      // For react-select
       setFormData((prev) => ({
         ...prev,
         [name]: e.value,
       }));
     } else if (e && "target" in e) {
-      // For native input/textarea
       const { name, value } = e.target;
 
-      // Handle file input
       if (name === "layoutRuangan") {
         const fileInput = e.target as HTMLInputElement;
         const selectedFile = fileInput.files?.[0] || null;
@@ -160,20 +146,22 @@ const EditFormGenbaArea: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!id) return;
+
     setSubmitting(true);
     setError(null);
     setSuccess(null);
 
-    // Validation
-    if (!formData.department || !formData.nama || !formData.penanggungJawab) {
+    if (!formData.work_area || !formData.department || !formData.penanggungJawab) {
       setError("Please fill in all required fields");
       setSubmitting(false);
       return;
     }
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      await updateWorkArea(parseInt(id), {
+        work_area: formData.work_area,
+      });
 
       setSuccess("Area berhasil diperbarui!");
       setShowSuccessModal(true);
@@ -186,16 +174,11 @@ const EditFormGenbaArea: React.FC = () => {
   };
 
   const handleClear = useCallback(() => {
-    setFormData({
-      department: sampleArea.department,
-      nama: sampleArea.nama,
-      penanggungJawab: sampleArea.penanggungJawab,
-      layoutRuangan: null,
-      existingLayout: sampleArea.layoutRuangan,
-    });
+    if (!id) return;
+    loadAreaData();
     setError(null);
     setSuccess(null);
-  }, []);
+  }, [id]);
 
   const handleCloseSuccessModal = useCallback(() => {
     setShowSuccessModal(false);
@@ -213,7 +196,7 @@ const EditFormGenbaArea: React.FC = () => {
       },
       borderRadius: "0.5rem",
       backgroundColor: "#FFFFFF",
-      padding: "0 0.5rem",  
+      padding: "0 0.5rem",
       transition: "all 0.15s ease-in-out",
     }),
     valueContainer: (provided: any) => ({
@@ -303,21 +286,25 @@ const EditFormGenbaArea: React.FC = () => {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Department Selection */}
               <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
                 <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                   <Building className="mr-2 text-blue-500" /> Department Information
                 </h2>
                 <div className="grid grid-cols-1 gap-6">
                   <div>
-                    <label htmlFor="department" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="department_id" className="block text-sm font-medium text-gray-700 mb-1">
                       Department <span className="text-red-500">*</span>
                     </label>
                     <Select
-                      name="department"
-                      id="department"
-                      options={departments.map((dept) => ({ value: dept.id, label: dept.name }))}
-                      value={departments.map((dept) => ({ value: dept.id, label: dept.name })).find((option) => option.value === formData.department)}
+                      name="department_id"
+                      id="department_id"
+                      options={departments.map((dept) => ({ value: dept.name, label: dept.name }))}
+                      value={departments
+                        .map((dept) => ({
+                          value: dept.id.toString(),
+                          label: dept.name,
+                        }))
+                        .find((option) => option.value === formData.department)}
                       onChange={(selectedOption) => handleChange(selectedOption, "department")}
                       placeholder="Select Department"
                       styles={customSelectStyles}
@@ -327,21 +314,20 @@ const EditFormGenbaArea: React.FC = () => {
                 </div>
               </div>
 
-              {/* Area Details */}
               <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
                 <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                   <MapPin className="mr-2 text-green-500" /> Area Details
                 </h2>
                 <div className="grid grid-cols-1 gap-6">
                   <div>
-                    <label htmlFor="nama" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="work_area" className="block text-sm font-medium text-gray-700 mb-1">
                       Nama Area <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
-                      name="nama"
-                      id="nama"
-                      value={formData.nama}
+                      name="work_area"
+                      id="work_area"
+                      value={formData.work_area}
                       onChange={handleChange}
                       className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
                       placeholder="e.g., Area Produksi Line A"
@@ -366,7 +352,6 @@ const EditFormGenbaArea: React.FC = () => {
                 </div>
               </div>
 
-              {/* Layout Ruangan */}
               <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
                 <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                   <Upload className="mr-2 text-purple-500" /> Layout Ruangan
@@ -415,7 +400,6 @@ const EditFormGenbaArea: React.FC = () => {
                 </div>
               </div>
 
-              {/* Form Actions */}
               <div className="flex flex-col sm:flex-row justify-end gap-4 pt-6 border-t border-gray-100 mt-8">
                 <motion.button
                   type="button"
@@ -450,11 +434,10 @@ const EditFormGenbaArea: React.FC = () => {
         </main>
       </div>
 
-      {/* Success Modal */}
       <Modal isOpen={showSuccessModal} onClose={handleCloseSuccessModal} title="Success!">
         <div className="flex flex-col items-center justify-center py-4">
           <CheckCircle className="text-green-500 text-6xl mb-4" />
-          <p className="text-lg font-medium text-gray-800 text-center">Genba area has been created successfully!</p>
+          <p className="text-lg font-medium text-gray-800 text-center">Genba area has been updated successfully!</p>
           <motion.button
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}

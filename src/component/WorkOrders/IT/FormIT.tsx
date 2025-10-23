@@ -33,10 +33,8 @@ interface WorkOrderFormDataLocal {
   requester_id: number;
   known_by_id: number | null;
   department_id: number;
-  service_type_id?: string;
   service_group_id: number | null;
   service_catalogue_id: number | null;
-  service_id?: string;
   asset_no: string;
   device_info: string;
   complaint: string;
@@ -110,9 +108,10 @@ const AddWorkOrderFormIT: React.FC = () => {
       if (target.files && target.files.length > 0) {
         const file = target.files[0];
         setSelectedFile(file);
+        // Jangan simpan nama file di formData, kita kirim file asli
         setFormData((prev) => ({
           ...prev,
-          attachment: file.name,
+          attachment: null,
         }));
       }
       setShowAttachmentOptions(false);
@@ -136,6 +135,8 @@ const AddWorkOrderFormIT: React.FC = () => {
     }
   };
 
+  // Ganti bagian handleCapturePhoto di FormIT.tsx:
+
   const handleCapturePhoto = () => {
     if (videoRef.current && canvasRef.current) {
       const canvas = canvasRef.current;
@@ -145,12 +146,25 @@ const AddWorkOrderFormIT: React.FC = () => {
         canvas.height = videoRef.current.videoHeight;
         context.drawImage(videoRef.current, 0, 0);
 
+        // Konversi canvas ke data URL
         const imageDataURL = canvas.toDataURL("image/jpeg", 0.8);
 
+        // Simpan data URL untuk preview
         setFormData((prev) => ({
           ...prev,
           attachment: imageDataURL,
         }));
+
+        // Buat file object sederhana untuk upload
+        const file = {
+          name: `photo-${Date.now()}.jpg`,
+          type: "image/jpeg",
+          size: imageDataURL.length,
+          lastModified: Date.now(),
+          data: imageDataURL, // Simpan data URL untuk diupload
+        } as any;
+
+        setSelectedFile(file);
 
         if (cameraStream) {
           cameraStream.getTracks().forEach((track) => track.stop());
@@ -372,7 +386,7 @@ const AddWorkOrderFormIT: React.FC = () => {
     console.log("Submitting data:", dataToSend); // Debug
 
     try {
-      const result = await addWorkOrderIT(dataToSend);
+      const result = await addWorkOrderIT(dataToSend, selectedFile);
       setSuccessMessage({
         message: "Work Order created successfully!",
         work_order: result.work_order || result,
@@ -540,16 +554,34 @@ const AddWorkOrderFormIT: React.FC = () => {
   }> = ({ selectedFile, attachment, onRemove }) => {
     if (!selectedFile && !attachment) return null;
 
+    // Fungsi untuk mendapatkan URL preview
+    const getPreviewUrl = (): string | null => {
+      if (selectedFile && selectedFile.type.startsWith("image/")) {
+        return URL.createObjectURL(selectedFile);
+      }
+      if (attachment && attachment.startsWith("data:image")) {
+        return attachment;
+      }
+      if (attachment && attachment.startsWith("blob:")) {
+        return attachment;
+      }
+      return null;
+    };
+
+    const previewUrl = getPreviewUrl();
+    const isImage = previewUrl !== null;
+    const fileName = selectedFile ? selectedFile.name : attachment || "Attachment";
+
     return (
       <div className="mt-4 p-4 border border-gray-200 rounded-xl bg-white shadow-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <div className={`p-3 rounded-lg ${selectedFile ? "bg-blue-50" : "bg-purple-50"}`}>{selectedFile ? <File className="h-6 w-6 text-blue-600" /> : <Camera className="h-6 w-6 text-purple-600" />}</div>
+            <div className={`p-3 rounded-lg ${selectedFile ? "bg-blue-50" : "bg-purple-50"}`}>{isImage ? <Camera className="h-6 w-6 text-green-600" /> : <File className="h-6 w-6 text-blue-600" />}</div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-gray-900 truncate">{selectedFile ? selectedFile.name : "Photo from camera"}</p>
+              <p className="text-sm font-semibold text-gray-900 truncate">{fileName}</p>
               <div className="flex items-center space-x-4 mt-1">
-                <p className="text-xs text-gray-500">{selectedFile ? `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB` : "JPEG Image"}</p>
-                <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full">Ready to upload</span>
+                <p className="text-xs text-gray-500">{selectedFile ? `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB` : "Existing file"}</p>
+                <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full">{selectedFile ? "Ready to upload" : "Attached"}</span>
               </div>
             </div>
           </div>
@@ -565,12 +597,12 @@ const AddWorkOrderFormIT: React.FC = () => {
           </motion.button>
         </div>
 
-        {/* Preview untuk gambar dari kamera */}
-        {attachment && attachment.startsWith("data:image") && (
+        {/* Preview untuk gambar */}
+        {isImage && previewUrl && (
           <div className="mt-3 pt-3 border-t border-gray-100">
             <p className="text-xs text-gray-500 mb-2">Preview:</p>
             <div className="flex justify-center">
-              <img src={attachment} alt="Captured" className="h-32 w-32 object-cover rounded-lg border shadow-sm" />
+              <img src={previewUrl} alt="Preview" className="h-32 w-32 object-cover rounded-lg border shadow-sm" />
             </div>
           </div>
         )}

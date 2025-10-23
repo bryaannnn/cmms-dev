@@ -1,9 +1,7 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import React, { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import DatePicker from "react-datepicker";
-import QRCode from "qrcode";
-import { Plus, Upload, ChevronUp, AlertTriangle, X, CheckCircle, Filter, ChevronLeft, ChevronDown, ChevronRight, Search, Edit, Eye, Trash2, Download, Share2, QrCode, MapPin, Users, Building } from "lucide-react";
+import { Plus, Filter, ChevronDown, Search, Edit, QrCode, Trash2, MapPin, Building, Users, CheckCircle, X, AlertTriangle, Download, Share2 } from "lucide-react";
 import Sidebar from "../../../component/Sidebar";
 import PageHeader from "../../../component/PageHeader";
 import { useAuth } from "../../../routes/AuthContext";
@@ -20,17 +18,10 @@ interface Area {
 }
 
 interface Department {
-  id: string;
+  id: number;
   name: string;
 }
 
-interface User {
-  id: string;
-  name: string;
-  department: string;
-}
-
-// Modal component
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -66,7 +57,6 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, classNa
   );
 };
 
-// QR Modal Component
 interface QRModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -88,6 +78,7 @@ const QRModal: React.FC<QRModalProps> = ({ isOpen, onClose, area, onDownload, on
     if (!area) return;
 
     try {
+      const QRCode = await import("qrcode");
       const qrData = JSON.stringify({
         type: "genba_area",
         areaId: area.id,
@@ -138,14 +129,12 @@ const QRModal: React.FC<QRModalProps> = ({ isOpen, onClose, area, onDownload, on
         });
         onShare();
       } else {
-        // Fallback: copy to clipboard or show download
         await navigator.clipboard.writeText(`Area: ${area?.nama}\nDepartment: ${area?.department}\nPenanggung Jawab: ${area?.penanggungJawab}`);
         alert("Informasi area telah disalin ke clipboard!");
         onShare();
       }
     } catch (error) {
       console.error("Error sharing:", error);
-      // Fallback to download
       handleDownload();
     }
   };
@@ -198,7 +187,6 @@ const QRModal: React.FC<QRModalProps> = ({ isOpen, onClose, area, onDownload, on
   );
 };
 
-// Confirm Modal
 const ConfirmModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
@@ -228,7 +216,7 @@ const ConfirmModal: React.FC<{
 
 const GenbaArea: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation();
+  const { getWorkArea, deleteWorkArea, user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
     const stored = localStorage.getItem("sidebarOpen");
     return stored ? JSON.parse(stored) : false;
@@ -246,61 +234,41 @@ const GenbaArea: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
 
-  // Sample data - in real app, this would come from API
   const departments: Department[] = [
-    { id: "1", name: "Produksi" },
-    { id: "2", name: "Gudang" },
-    { id: "3", name: "Administrasi" },
-    { id: "4", name: "Engineering" },
-    { id: "5", name: "Quality" },
-  ];
-
-  const users: User[] = [
-    { id: "1", name: "Budi Santoso", department: "Produksi" },
-    { id: "2", name: "Siti Rahayu", department: "Gudang" },
-    { id: "3", name: "Ari Wibowo", department: "Administrasi" },
-    { id: "4", name: "Hendra Gunawan", department: "Engineering" },
-    { id: "5", name: "Fitri Handayani", department: "Quality" },
+    { id: 1, name: "Produksi" },
+    { id: 2, name: "Gudang" },
+    { id: 3, name: "Administrasi" },
+    { id: 4, name: "Engineering" },
+    { id: 5, name: "Quality" },
   ];
 
   useEffect(() => {
-    // Load sample data
-    const sampleAreas: Area[] = [
-      {
-        id: "1",
-        nama: "Area Produksi Line A",
-        department: "Produksi",
-        penanggungJawab: "Budi Santoso",
-        pengawas: "Ahmad Wijaya",
-        layoutRuangan: "/api/placeholder/400/300",
-        createdAt: "2024-01-15",
-        updatedAt: "2024-01-15",
-      },
-      {
-        id: "2",
-        nama: "Area Gudang Bahan Baku",
-        department: "Gudang",
-        penanggungJawab: "Siti Rahayu",
-        pengawas: "Dewi Sartika",
-        layoutRuangan: "/api/placeholder/400/300",
-        createdAt: "2024-01-10",
-        updatedAt: "2024-01-10",
-      },
-      {
-        id: "3",
-        nama: "Area Kantor HRD",
-        department: "Administrasi",
-        penanggungJawab: "Ari Wibowo",
-        pengawas: "Maya Sari",
-        layoutRuangan: "/api/placeholder/400/300",
-        createdAt: "2024-01-08",
-        updatedAt: "2024-01-08",
-      },
-    ];
-
-    setAreas(sampleAreas);
-    setLoading(false);
+    loadAreas();
   }, []);
+
+  const loadAreas = async () => {
+    try {
+      setLoading(true);
+      const workAreas = await getWorkArea();
+
+      const formattedAreas: Area[] = workAreas.map((area) => ({
+        id: area.id.toString(),
+        nama: area.work_area,
+        department: "Produksi",
+        penanggungJawab: user?.name || "Unknown",
+        pengawas: "Supervisor",
+        layoutRuangan: "/api/placeholder/400/300",
+        createdAt: new Date().toISOString().split("T")[0],
+        updatedAt: new Date().toISOString().split("T")[0],
+      }));
+
+      setAreas(formattedAreas);
+    } catch (error) {
+      console.error("Failed to load areas:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     const handleResize = () => {
@@ -319,7 +287,6 @@ const GenbaArea: React.FC = () => {
     setSidebarOpen((prev) => !prev);
   };
 
-  // Filter areas based on search and department filter
   const filteredAreas = useMemo(() => {
     return areas.filter((area) => {
       const matchesSearch = area.nama.toLowerCase().includes(searchQuery.toLowerCase()) || area.department.toLowerCase().includes(searchQuery.toLowerCase()) || area.penanggungJawab.toLowerCase().includes(searchQuery.toLowerCase());
@@ -330,7 +297,6 @@ const GenbaArea: React.FC = () => {
     });
   }, [areas, searchQuery, departmentFilter]);
 
-  // Pagination
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentAreas = filteredAreas.slice(indexOfFirstItem, indexOfLastItem);
@@ -338,10 +304,15 @@ const GenbaArea: React.FC = () => {
 
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
-  const handleDelete = (id: string) => {
-    setAreas((prev) => prev.filter((area) => area.id !== id));
-    setShowDeleteConfirm(false);
-    setAreaToDelete(null);
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteWorkArea(parseInt(id));
+      setAreas((prev) => prev.filter((area) => area.id !== id));
+      setShowDeleteConfirm(false);
+      setAreaToDelete(null);
+    } catch (error) {
+      console.error("Failed to delete area:", error);
+    }
   };
 
   const handleQRCode = (area: Area) => {
@@ -423,7 +394,6 @@ const GenbaArea: React.FC = () => {
             </div>
           </motion.div>
 
-          {/* Statistics Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
             <StatCard title="Total Areas" value={areas.length.toString()} change="+12%" icon={<MapPin />} />
             <StatCard title="Active Departments" value={new Set(areas.map((a) => a.department)).size.toString()} change="+2" icon={<Building />} />
@@ -431,7 +401,6 @@ const GenbaArea: React.FC = () => {
             <StatCard title="This Month" value="3" change="+1" icon={<CheckCircle />} />
           </div>
 
-          {/* Search and Filters */}
           <motion.div layout className="mb-8 bg-white rounded-2xl shadow-md p-5 border border-blue-100">
             <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-4 md:space-y-0">
               <div className="flex-1 relative">
@@ -477,7 +446,6 @@ const GenbaArea: React.FC = () => {
             </AnimatePresence>
           </motion.div>
 
-          {/* Areas Table */}
           {loading ? (
             <div className="bg-white rounded-2xl shadow-md p-8 text-center border border-blue-100">
               <div className="animate-spin rounded-full h-14 w-14 border-t-4 border-b-4 border-blue-500 mx-auto mb-5"></div>
@@ -572,7 +540,6 @@ const GenbaArea: React.FC = () => {
             </motion.div>
           )}
 
-          {/* Pagination */}
           {filteredAreas.length > itemsPerPage && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="mt-8 flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
               <div className="text-sm text-gray-600">
@@ -617,10 +584,8 @@ const GenbaArea: React.FC = () => {
         </main>
       </div>
 
-      {/* QR Modal */}
       <QRModal isOpen={showQRModal} onClose={() => setShowQRModal(false)} area={selectedArea} onDownload={() => console.log("QR Downloaded")} onShare={() => console.log("QR Shared")} />
 
-      {/* Delete Confirmation Modal */}
       <ConfirmModal
         isOpen={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}

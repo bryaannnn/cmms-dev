@@ -1285,7 +1285,7 @@ const GenbaAction: React.FC = () => {
                         <Trash2 size={20} />
                         Hapus Semua
                       </button>
-                    )}
+                    )}  
                   </div>
 
                   <p className="text-xs text-gray-500 mt-2">* Photo Gallery Not Allowed - Hanya foto dari kamera yang diperbolehkan</p>
