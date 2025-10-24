@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import Sidebar from "../../Sidebar";
-import { X, Clock, CheckCircle, ToolCase, ArrowLeft, Save, Trash2, Hourglass, ListPlus, Paperclip, Sun, Moon, Settings, Bell, User as UserIcon, ChevronDown, ChevronRight, ChevronLeft, LogOut, AlertTriangle, Clipboard } from "lucide-react";
+import { X, Clock, CheckCircle, ToolCase, ArrowLeft, Save, Trash2, Hourglass, Camera, File, ListPlus, Paperclip, Sun, Moon, Settings, Bell, User as UserIcon, ChevronDown, ChevronRight, ChevronLeft, LogOut, AlertTriangle, Clipboard } from "lucide-react";
 import Select from "react-select";
 import CreatableSelect from "react-select/creatable";
 import { useAuth, User as AuthUser, Department, WorkOrderFormData, ServiceCatalogue } from "../../../routes/AuthContext";
@@ -93,6 +93,11 @@ const EditWorkOrderFormIT: React.FC = () => {
 
   const notificationsRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
+
+  const [showAttachmentOptions, setShowAttachmentOptions] = useState(false);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const [filteredServices, setFilteredServices] = useState<ServiceCatalogue[]>([]);
   const [filteredServiceGroups, setFilteredServiceGroups] = useState<ServiceGroup[]>([]);
@@ -475,6 +480,152 @@ const EditWorkOrderFormIT: React.FC = () => {
     },
   ];
 
+  const FilePreview: React.FC<{
+    selectedFile: File | null;
+    attachment: string | null;
+    onRemove: () => void;
+  }> = ({ selectedFile, attachment, onRemove }) => {
+    if (!selectedFile && !attachment) return null;
+
+    const getPreviewUrl = (): string | null => {
+      if (selectedFile && selectedFile.type.startsWith("image/")) {
+        return URL.createObjectURL(selectedFile);
+      }
+      if (attachment && attachment.startsWith("data:image")) {
+        return attachment;
+      }
+      if (attachment && attachment.startsWith("blob:")) {
+        return attachment;
+      }
+      return null;
+    };
+
+    const previewUrl = getPreviewUrl();
+    const isImage = previewUrl !== null;
+    const fileName = selectedFile ? selectedFile.name : "Existing attachment";
+
+    return (
+      <div className="mt-4 p-4 border border-gray-200 rounded-xl bg-white shadow-sm">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className={`p-3 rounded-lg ${selectedFile ? "bg-blue-50" : "bg-purple-50"}`}>{isImage ? <Camera className="h-6 w-6 text-green-600" /> : <File className="h-6 w-6 text-blue-600" />}</div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-gray-900 truncate">{fileName}</p>
+              <div className="flex items-center space-x-4 mt-1">
+                <p className="text-xs text-gray-500">{selectedFile ? `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB` : "Existing file"}</p>
+                <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full">{selectedFile ? "Ready to upload" : "Attached"}</span>
+              </div>
+            </div>
+          </div>
+          <motion.button
+            type="button"
+            onClick={onRemove}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors duration-200"
+            title="Remove attachment"
+          >
+            <X size={18} />
+          </motion.button>
+        </div>
+
+        {isImage && previewUrl && (
+          <div className="mt-3 pt-3 border-t border-gray-100">
+            <p className="text-xs text-gray-500 mb-2">Preview:</p>
+            <div className="flex justify-center">
+              <img src={previewUrl} alt="Preview" className="h-32 w-32 object-cover rounded-lg border shadow-sm" />
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const handleAttachmentClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowAttachmentOptions(true);
+  };
+
+  const handleSelectFile = () => {
+    const fileInput = document.createElement("input");
+    fileInput.type = "file";
+    fileInput.accept = "image/*, .pdf, .doc, .docx, .xls, .xlsx";
+
+    fileInput.onchange = (e) => {
+      const target = e.target as HTMLInputElement;
+      if (target.files && target.files.length > 0) {
+        const file = target.files[0];
+        setSelectedFile(file);
+        setFormData((prev) => ({
+          ...prev,
+          attachment: null,
+        }));
+      }
+      setShowAttachmentOptions(false);
+    };
+
+    fileInput.click();
+  };
+
+  const handleOpenCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+      });
+      setCameraStream(stream);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err) {
+      console.error("Error accessing camera:", err);
+      alert("Tidak dapat mengakses kamera. Pastikan izin kamera telah diberikan.");
+    }
+  };
+
+  const handleCapturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const context = canvas.getContext("2d");
+      if (context) {
+        canvas.width = videoRef.current.videoWidth;
+        canvas.height = videoRef.current.videoHeight;
+        context.drawImage(videoRef.current, 0, 0);
+
+        const imageDataURL = canvas.toDataURL("image/jpeg", 0.8);
+
+        setFormData((prev) => ({
+          ...prev,
+          attachment: imageDataURL,
+        }));
+
+        const file = {
+          name: `photo-${Date.now()}.jpg`,
+          type: "image/jpeg",
+          size: imageDataURL.length,
+          lastModified: Date.now(),
+          data: imageDataURL,
+        } as any;
+
+        setSelectedFile(file);
+
+        if (cameraStream) {
+          cameraStream.getTracks().forEach((track) => track.stop());
+          setCameraStream(null);
+        }
+      }
+      setShowAttachmentOptions(false);
+    }
+  };
+
+  const handleCloseCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach((track) => track.stop());
+      setCameraStream(null);
+    }
+    setShowAttachmentOptions(false);
+  };
+
   const handleRequesterChange = useCallback(
     (selectedOption: OptionType | null) => {
       if (!selectedOption) return;
@@ -803,46 +954,132 @@ const EditWorkOrderFormIT: React.FC = () => {
                 </div>
               </div>
 
-              <div className="mt-6 pt-6 border-t border-gray-100">
-                <label htmlFor="attachment" className="block text-sm font-medium text-gray-700 mb-1">
-                  Attachment (Optional)
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <label className="block text-sm font-semibold text-gray-700 mb-3">
+                  Attachment <span className="text-gray-400 font-normal">(Optional)</span>
                 </label>
-                <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-200 border-dashed rounded-lg cursor-pointer hover:border-blue-400 transition-all duration-200">
-                  <div className="space-y-1 text-center">
-                    <Paperclip className="mx-auto h-12 w-12 text-gray-400" />
-                    <div className="flex text-sm text-gray-600">
-                      <label
-                        htmlFor="file-upload"
-                        className="relative cursor-pointer rounded-md bg-white font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2"
-                      >
-                        <span>Upload a file</span>
-                        <input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleFileChange} />
-                      </label>
-                      <p className="pl-1">or drag and drop</p>
+
+                {!selectedFile && !formData.attachment ? (
+                  <motion.button
+                    type="button"
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.99 }}
+                    className="w-full p-8 border-2 border-dashed border-gray-300 rounded-xl bg-white hover:border-blue-400 hover:bg-blue-50/50 transition-all duration-300 group"
+                    onClick={handleAttachmentClick}
+                  >
+                    <div className="space-y-3 text-center">
+                      <div className="mx-auto w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+                        <Paperclip className="h-6 w-6 text-gray-400 group-hover:text-blue-500" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">Click to select attachment</p>
+                        <p className="text-xs text-gray-500 mt-1">PNG, JPG, GIF, PDF up to 10MB</p>
+                      </div>
                     </div>
-                    <p className="text-xs text-gray-500">PNG, JPG, GIF, PDF up to 10MB</p>
-                  </div>
-                </div>
-                {selectedFile && (
-                  <ul className="mt-3 border border-gray-200 rounded-md divide-y divide-gray-200">
-                    <li key={selectedFile.name} className="flex items-center justify-between py-2 pl-3 pr-4 text-sm">
-                      <div className="flex w-0 flex-1 items-center">
-                        <Paperclip className="h-5 w-5 flex-shrink-0 text-gray-400" aria-hidden="true" />
-                        <span className="ml-2 w-0 flex-1 truncate">{selectedFile.name}</span>
+                  </motion.button>
+                ) : (
+                  <div className="w-full p-6 border-2 border-blue-200 border-dashed rounded-xl bg-blue-50/30">
+                    <div className="text-center">
+                      <div className="mx-auto w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mb-3">
+                        <Paperclip className="h-5 w-5 text-blue-600" />
                       </div>
-                      <div className="ml-4 flex-shrink-0">
-                        <motion.button type="button" onClick={handleRemoveFile} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="font-medium text-red-600 hover:text-red-900 transition-colors duration-200">
-                          Remove
-                        </motion.button>
-                      </div>
-                    </li>
-                  </ul>
-                )}
-                {formData.attachment && !selectedFile && (
-                  <div className="mt-3">
-                    <p className="text-sm text-gray-600">Current attachment: {getAttachmentFilename()}</p>
+                      <p className="text-sm font-medium text-blue-900">{selectedFile ? `File selected: ${selectedFile.name}` : "Existing attachment"}</p>
+                      <p className="text-xs text-blue-600 mt-1">{selectedFile ? "File ready for upload. Click to change." : "Existing file attached. Click to change."}</p>
+                    </div>
                   </div>
                 )}
+
+                <FilePreview selectedFile={selectedFile} attachment={formData.attachment} onRemove={handleRemoveFile} />
+
+                <AnimatePresence>
+                  {showAttachmentOptions && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="fixed inset-0 z-50 flex items-center justify-center backdrop-brightness-50 p-4"
+                      onClick={() => setShowAttachmentOptions(false)}
+                    >
+                      <motion.div
+                        initial={{ scale: 0.95, y: 20 }}
+                        animate={{ scale: 1, y: 0 }}
+                        exit={{ scale: 0.95, y: 20 }}
+                        className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-auto overflow-hidden"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="flex justify-between items-center p-6 border-b border-gray-100">
+                          <h3 className="text-lg font-semibold text-gray-900">Select Attachment</h3>
+                          <button type="button" onClick={() => setShowAttachmentOptions(false)} className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100">
+                            <X size={20} />
+                          </button>
+                        </div>
+
+                        {!cameraStream ? (
+                          <div className="p-6 space-y-4">
+                            <motion.button
+                              type="button"
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              onClick={handleSelectFile}
+                              className="w-full p-4 border-2 border-dashed border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50/50 transition-all duration-200 flex items-center space-x-4"
+                            >
+                              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                                <File className="h-6 w-6 text-blue-600" />
+                              </div>
+                              <div className="text-left">
+                                <div className="font-medium text-gray-900">Select File</div>
+                                <div className="text-sm text-gray-500">From your device</div>
+                              </div>
+                            </motion.button>
+
+                            <motion.button
+                              type="button"
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              onClick={handleOpenCamera}
+                              className="w-full p-4 border-2 border-dashed border-gray-200 rounded-xl hover:border-purple-300 hover:bg-purple-50/50 transition-all duration-200 flex items-center space-x-4"
+                            >
+                              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                                <Camera className="h-6 w-6 text-purple-600" />
+                              </div>
+                              <div className="text-left">
+                                <div className="font-medium text-gray-900">Take Photo</div>
+                                <div className="text-sm text-gray-500">Use camera</div>
+                              </div>
+                            </motion.button>
+                          </div>
+                        ) : (
+                          <div className="p-6 space-y-4">
+                            <div className="relative bg-black rounded-lg overflow-hidden">
+                              <video ref={videoRef} autoPlay playsInline className="w-full h-64 object-cover" />
+                              <canvas ref={canvasRef} className="hidden" />
+                            </div>
+                            <div className="flex gap-3">
+                              <motion.button
+                                type="button"
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={handleCapturePhoto}
+                                className="flex-1 bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                              >
+                                Take Photo
+                              </motion.button>
+                              <motion.button
+                                type="button"
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={handleCloseCamera}
+                                className="flex-1 bg-gray-200 text-gray-700 py-3 px-4 rounded-lg font-medium hover:bg-gray-300 transition-colors"
+                              >
+                                Cancel
+                              </motion.button>
+                            </div>
+                          </div>
+                        )}
+                      </motion.div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
               <div className="flex flex-col sm:flex-row justify-end gap-4 pt-6 border-t border-gray-100 mt-8">

@@ -1112,6 +1112,40 @@ export interface GenbaWorkAreas {
   department_id: number;
   pic_user_id: number;
   created_at: string | null;
+  attachment: string | null;
+  qrcode_path: string | null;
+  qr_code_base64: string;
+  updated_at: string | null;
+  department: {
+    id: number;
+    name: string;
+    head_id: number;
+    created_at: string | null;
+    updated_at: string | null;
+  };
+  pic: {
+    id: number;
+    name: string;
+    email: string;
+  };
+}
+
+export interface LayoutInterface {
+  path: string;
+}
+
+export interface CreateGenbaAreasPayload {
+  name: string;
+  department_id: number;
+  pic_user_id: number;
+  attachment: LayoutInterface | null;
+}
+
+export interface UpdateGenbaAreasPayload {
+  name: string;
+  department_id: number;
+  pic_user_id: number;
+  attachment?: LayoutInterface | File | null;
 }
 
 export interface GenbaSO {
@@ -1346,9 +1380,13 @@ interface AuthContextType {
   getGenbaRoles: () => Promise<GenbaRole[]>;
   getGenbaSOs: () => Promise<GenbaSO[]>;
   getGenbaSOById: (id: string | number) => Promise<GenbaSO>;
+  getGenbaAreas: () => Promise<GenbaWorkAreas[]>;
   createGenbaSO: (data: CreateGenbaSOPayload) => Promise<GenbaSO>;
+  createGenbaAreas: (data: CreateGenbaAreasPayload, file?: File | null) => Promise<any>;
   updateGenbaSO: (id: string | number, data: UpdateGenbaSOPayload) => Promise<GenbaSO>;
+  updateGenbaAreas: (id: string | number, data: UpdateGenbaAreasPayload, file?: File | null) => Promise<GenbaWorkAreas>;
   deleteGenbaSO: (id: string | number) => Promise<void>;
+  deleteGenbaAreas: (id: string | number) => Promise<void>;
   setGenbaSOActive: (id: string | number) => Promise<GenbaSO>;
 }
 
@@ -3880,7 +3918,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   );
 
   const getWorkArea = useCallback(async (): Promise<WorkArea[]> => {
-    try { 
+    try {
       const response = await fetchWithAuth("/workarea?includes_trashed=true");
       return response.data || response;
     } catch (error) {
@@ -4020,7 +4058,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     [fetchWithAuth]
   );
 
-  const getGenbaWorkArea = useCallback(async (): Promise<GenbaWorkAreas[]> => {
+  const getGenbaAreas = useCallback(async (): Promise<GenbaWorkAreas[]> => {
     try {
       const response = await fetchWithAuth("/genba-work-areas?includes_trashed=true");
       return response.data || response;
@@ -4030,7 +4068,83 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [fetchWithAuth]);
 
+  const createGenbaAreas = useCallback(
+    async (data: CreateGenbaAreasPayload, file?: File | null): Promise<any> => {
+      const formData = new FormData();
 
+      // Append basic data
+      formData.append("name", data.name);
+      formData.append("department_id", data.department_id.toString());
+      formData.append("pic_user_id", data.pic_user_id.toString());
+
+      // Append single file jika ada
+      if (file) {
+        formData.append("attachment", file); // Hanya satu file
+      }
+
+      console.log("Creating genba area with data:", {
+        name: data.name,
+        department_id: data.department_id,
+        pic_user_id: data.pic_user_id,
+        hasFile: !!file,
+      });
+
+      try {
+        const response = await fetchWithAuth("/genba-work-areas", {
+          method: "POST",
+          body: formData,
+        });
+
+        return response;
+      } catch (error) {
+        console.error("Error creating genba area:", error);
+        throw error;
+      }
+    },
+    [fetchWithAuth]
+  );
+
+  // Di AuthContext.tsx - perbaiki fungsi updateGenbaAreas
+  const updateGenbaAreas = useCallback(
+    async (id: string | number, data: UpdateGenbaAreasPayload, file?: File | null): Promise<GenbaWorkAreas> => {
+      const formData = new FormData();
+
+      // Append basic data
+      formData.append("name", data.name);
+      formData.append("department_id", data.department_id.toString());
+      formData.append("pic_user_id", data.pic_user_id.toString());
+      formData.append("_method", "PUT");
+
+      // Append file jika ada
+      if (file) {
+        formData.append("attachment", file);
+      }
+
+      console.log("Updating genba area:", {
+        id,
+        name: data.name,
+        department_id: data.department_id,
+        pic_user_id: data.pic_user_id,
+        hasFile: !!file,
+      });
+
+      const response = await fetchWithAuth(`/genba-work-areas/${id}`, {
+        method: "POST",
+        body: formData,
+      });
+      return response.data || response;
+    },
+    [fetchWithAuth]
+  );
+
+  const deleteGenbaAreas = useCallback(
+    async (id: string | number): Promise<void> => {
+      await fetchWithAuth(`/genba-work-areas/${id}?includes_trashed=true`, {
+        method: "DELETE",
+      });
+    },
+    [fetchWithAuth]
+  );
 
   return (
     <AuthContext.Provider
@@ -4161,9 +4275,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         deleteWorkArea,
         getGenbaRoles,
         getGenbaSOs,
+        getGenbaAreas,
         getGenbaSOById,
         createGenbaSO,
+        createGenbaAreas,
         updateGenbaSO,
+        updateGenbaAreas,
+        deleteGenbaAreas,
         deleteGenbaSO,
         setGenbaSOActive,
       }}

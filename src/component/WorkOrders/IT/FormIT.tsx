@@ -78,6 +78,7 @@ const AddWorkOrderFormIT: React.FC = () => {
     const stored = localStorage.getItem("sidebarOpen");
     return stored ? JSON.parse(stored) : false;
   });
+  
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<{ message: string; work_order?: any } | null>(null);

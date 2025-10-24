@@ -1030,7 +1030,7 @@ const ITRequest2: React.FC = () => {
                 <p className="text-sm font-medium text-gray-700 mb-3">Preview Attachment:</p>
                 <div className="flex justify-center">
                   <img
-                    src={`${projectEnvVariables.envVariables.VITE_BACKEND_API_URL}${order.attachment}`}
+                    src={`${projectEnvVariables.envVariables.VITE_BACKEND_API_URL}$ {order.attachment}`}
                     alt="Work order attachment"
                     className="max-w-full max-h-64 rounded-lg shadow-md object-contain"
                     onError={(e) => {

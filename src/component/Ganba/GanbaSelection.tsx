@@ -15,6 +15,8 @@ import {
   Users,
   Clipboard, // For header title icon
   ChevronDown,
+  MapPin,
+  Building,
 } from "lucide-react";
 import PageHeader from "../PageHeader";
 import Sidebar from "../../component/Sidebar"; // Assuming Sidebar is in ../../component/Sidebar
@@ -104,26 +106,10 @@ const GanbaSelection: React.FC = () => {
               onClick={() => handleCardClick("/genba/soconfiguration")}
             >
               <Users size={64} className="text-blue-600 mb-4" />
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">SO Configuration</h3>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">Organization Structure of 5S</h3>
               <p className="text-gray-700 mb-4">Manage structure organization templates.</p>
               <span className="text-blue-600 font-semibold flex items-center">
                 Go to SO Configuration <ChevronRight size={18} className="ml-1" />
-              </span>
-            </motion.div>
-
-            {/* Daily Activity */}
-            <motion.div
-              className="w-full md:w-1/2 bg-white rounded-2xl shadow-xl p-8 border border-green-100 cursor-pointer flex flex-col items-center text-center transition-all duration-300 hover:scale-105 hover:shadow-2xl"
-              whileHover={{ y: -5 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => handleCardClick("/genba/genbaaction")}
-            >
-              <Hammer size={64} className="text-green-600 mb-4" />
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">Genba Action</h3>
-              <p className="text-gray-700 mb-4">Handle report daily tasks.</p>
-              <span className="text-green-600 font-semibold flex items-center">
-                Go to Genba Action
-                <ChevronRight size={18} className="ml-1" />
               </span>
             </motion.div>
 
@@ -134,11 +120,27 @@ const GanbaSelection: React.FC = () => {
               whileTap={{ scale: 0.98 }}
               onClick={() => handleCardClick("/genba/genbaarea")}
             >
-              <Hammer size={64} className="text-green-600 mb-4" />
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">Genba Area</h3>
+              <Building size={64} className="text-green-600 mb-4" />
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">Genba Work Area</h3>
               <p className="text-gray-700 mb-4">Handle Area for 5S.</p>
               <span className="text-green-600 font-semibold flex items-center">
-                Go to Genba Area
+                Go to Genba Work Area
+                <ChevronRight size={18} className="ml-1" />
+              </span>
+            </motion.div>
+
+            {/* Daily Activity */}
+            <motion.div
+              className="w-full md:w-1/2 bg-white rounded-2xl shadow-xl p-8 border border-green-100 cursor-pointer flex flex-col items-center text-center transition-all duration-300 hover:scale-105 hover:shadow-2xl"
+              whileHover={{ y: -5 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => handleCardClick("/genba/genbaaction")}
+            >
+              <Clipboard size={64} className="text-green-600 mb-4" />
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">Work Area Reporting</h3>
+              <p className="text-gray-700 mb-4">Handle report daily tasks.</p>
+              <span className="text-green-600 font-semibold flex items-center">
+                Go to Work Area Reporting
                 <ChevronRight size={18} className="ml-1" />
               </span>
             </motion.div>

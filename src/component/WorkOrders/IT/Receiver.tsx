@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth, WorkOrderData, Vendor, User } from "../../../routes/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
+import { getProjectEnvVariables } from "../../../shared/projectEnvVariables";
 import DOMPurify from "dompurify";
 import {
   Plus,
@@ -208,6 +209,7 @@ const ITReceiver: React.FC = () => {
   const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrderData | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [ordersPerPage] = useState(5);
+  const projectEnvVariables = getProjectEnvVariables();
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [showNotificationsPopup, setShowNotificationsPopup] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -811,13 +813,40 @@ const ITReceiver: React.FC = () => {
         {/* Attachment */}
         {order.attachment && (
           <Section title="Attachment" icon={<Paperclip className="w-5 h-5" />}>
-            <div className="flex items-center space-x-3 p-4 bg-blue-25 rounded-lg border-l-4 border-l-blue-400">
-              <Paperclip className="w-5 h-5 text-blue-600 flex-shrink-0" />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-900 mb-1">Supporting Document</p>
-                <a href={order.attachment} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-blue-600 hover:text-blue-800 font-medium text-sm transition-colors duration-200">
+            <div className="space-y-4">
+              {/* Preview Gambar */}
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <p className="text-sm font-medium text-gray-700 mb-3">Preview Attachment:</p>
+                <div className="flex justify-center">
+                  <img
+                    src={`${projectEnvVariables.envVariables.VITE_BACKEND_API_URL}$ {order.attachment}`}
+                    alt="Work order attachment"
+                    className="max-w-full max-h-64 rounded-lg shadow-md object-contain"
+                    onError={(e) => {
+                      // Jika bukan gambar, sembunyikan preview
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Link Download */}
+              <div className="flex items-center justify-between p-3 bg-blue-25 rounded-lg border-l-4 border-l-blue-400">
+                <div className="flex items-center space-x-3">
+                  <Paperclip className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">Attachment File</p>
+                    <p className="text-xs text-gray-500">Click to download or view full size</p>
+                  </div>
+                </div>
+                <a
+                  href={`${projectEnvVariables.envVariables.VITE_BACKEND_API_URL}${order.attachment}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 text-sm font-medium"
+                >
                   <ExternalLink className="w-4 h-4 mr-1" />
-                  View Attachment
+                  Open Full Size
                 </a>
               </div>
             </div>

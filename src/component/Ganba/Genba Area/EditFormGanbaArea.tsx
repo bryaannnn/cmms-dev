@@ -1,23 +1,18 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Select from "react-select";
 import { motion, AnimatePresence } from "framer-motion";
 import PageHeader from "../../../component/PageHeader";
 import Sidebar from "../../../component/Sidebar";
-import { useAuth } from "../../../routes/AuthContext";
-import { X, Save, Trash2, Hourglass, ArrowLeft, MapPin, Building, User, Upload, CheckCircle } from "lucide-react";
-
-interface Department {
-  id: number;
-  name: string;
-}
+import { useAuth, GenbaWorkAreas, User, Department, LayoutInterface } from "../../../routes/AuthContext";
+import { X, Save, Trash2, Hourglass, ArrowLeft, MapPin, Building, User as UserIcon, Upload, CheckCircle, Image, Camera, File, Paperclip } from "lucide-react";
 
 interface AreaFormData {
-  work_area: string;
-  department: string;
-  penanggungJawab: string;
-  layoutRuangan: File | null;
-  existingLayout?: string;
+  name: string;
+  department_id: string;
+  pic_user_id: string;
+  attachment: File | null;
+  existingLayouts: string[];
 }
 
 const Modal: React.FC<{
@@ -46,7 +41,7 @@ const Modal: React.FC<{
 const EditFormGenbaArea: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getWorkAreaById, updateWorkArea, user, getUsers, getDepartment } = useAuth();
+  const { getGenbaAreas, updateGenbaAreas, getUsers, getDepartment } = useAuth();
   const [departments, setDepartments] = useState<Department[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
     const stored = localStorage.getItem("sidebarOpen");
@@ -58,15 +53,72 @@ const EditFormGenbaArea: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
+
+  // Attachment states
+  const [showAttachmentOptions, setShowAttachmentOptions] = useState(false);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const [formData, setFormData] = useState<AreaFormData>({
-    work_area: "",
-    department: "",
-    penanggungJawab: "",
-    layoutRuangan: null,
-    existingLayout: "",
+    name: "",
+    department_id: "",
+    pic_user_id: "",
+    attachment: null,
+    existingLayouts: [],
   });
+
+  useEffect(() => {
+    if (id) {
+      loadAreaData();
+    }
+    loadUsers();
+    loadDepartments();
+  }, [id]);
+
+  useEffect(() => {
+    if (formData.department_id && users.length > 0) {
+      const filtered = users.filter((user) => user.department_id?.toString() === formData.department_id);
+      setFilteredUsers(filtered);
+
+      // Reset pic_user_id if current selection is not in filtered list
+      if (formData.pic_user_id && !filtered.some((user) => user.id.toString() === formData.pic_user_id)) {
+        setFormData((prev) => ({ ...prev, pic_user_id: "" }));
+      }
+    } else {
+      setFilteredUsers([]);
+      setFormData((prev) => ({ ...prev, pic_user_id: "" }));
+    }
+  }, [formData.department_id, users]);
+
+  const loadAreaData = async () => {
+    if (!id) return;
+
+    setLoading(true);
+    try {
+      const genbaAreas = await getGenbaAreas();
+      const areaData = genbaAreas.find((area) => area.id.toString() === id);
+
+      if (!areaData) {
+        setError("Area not found");
+        return;
+      }
+
+      setFormData({
+        name: areaData.name,
+        department_id: areaData.department_id?.toString() || "",
+        pic_user_id: areaData.pic_user_id?.toString() || "",
+        attachment: null, // Reset ke null saat load data
+        existingLayouts: areaData.attachment ? [areaData.attachment] : [],
+      });
+    } catch (err) {
+      setError("Failed to load area data");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const loadDepartments = async () => {
     try {
@@ -74,33 +126,6 @@ const EditFormGenbaArea: React.FC = () => {
       setDepartments(departmentsData);
     } catch (error) {
       console.error("Failed to load departments:", error);
-    }
-  };
-
-  useEffect(() => {
-    loadAreaData();
-    loadUsers();
-    loadDepartments();
-  }, [id]);
-
-  const loadAreaData = async () => {
-    if (!id) return;
-
-    setLoading(true);
-    try {
-      const areaData = await getWorkAreaById(parseInt(id));
-
-      setFormData({
-        work_area: areaData.work_area,
-        department: "Produksi",
-        penanggungJawab: user?.id?.toString() || "",
-        layoutRuangan: null,
-        existingLayout: "/api/placeholder/400/300",
-      });
-    } catch (err) {
-      setError("Area not found");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -126,50 +151,151 @@ const EditFormGenbaArea: React.FC = () => {
       }));
     } else if (e && "target" in e) {
       const { name, value } = e.target;
-
-      if (name === "layoutRuangan") {
-        const fileInput = e.target as HTMLInputElement;
-        const selectedFile = fileInput.files?.[0] || null;
-
-        setFormData((prev) => ({
-          ...prev,
-          layoutRuangan: selectedFile,
-        }));
-      } else {
-        setFormData((prev) => ({
-          ...prev,
-          [name]: value,
-        }));
-      }
+      setFormData((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
     }
   }, []);
 
+  // Attachment handlers
+  const handleAttachmentClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowAttachmentOptions(true);
+  };
+
+  const handleSelectFile = () => {
+    const fileInput = document.createElement("input");
+    fileInput.type = "file";
+    fileInput.accept = "image/*, .pdf, .doc, .docx, .xls, .xlsx";
+    fileInput.multiple = false; // Nonaktifkan multiple selection
+
+    fileInput.onchange = (e) => {
+      const target = e.target as HTMLInputElement;
+      if (target.files && target.files.length > 0) {
+        const selectedFile = target.files[0]; // Ambil file pertama saja
+        setFormData((prev) => ({
+          ...prev,
+          attachment: selectedFile,
+        }));
+      }
+      setShowAttachmentOptions(false);
+    };
+
+    fileInput.click();
+  };
+
+  const handleOpenCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+      });
+      setCameraStream(stream);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err) {
+      console.error("Error accessing camera:", err);
+      alert("Tidak dapat mengakses kamera. Pastikan izin kamera telah diberikan.");
+    }
+  };
+
+  // Ganti fungsi helper dengan pendekatan yang lebih aman
+  const createFileFromBlob = (blob: Blob, fileName: string): File => {
+    // Create file dengan cara yang lebih kompatibel
+    const file = Object.assign(new Blob([blob], { type: "image/jpeg" }), {
+      name: fileName,
+      lastModified: Date.now(),
+    }) as File;
+    return file;
+  };
+
+  const handleCapturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const context = canvas.getContext("2d");
+      if (context) {
+        canvas.width = videoRef.current.videoWidth;
+        canvas.height = videoRef.current.videoHeight;
+        context.drawImage(videoRef.current, 0, 0);
+
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              const file = createFileFromBlob(blob, `photo-${Date.now()}.jpg`);
+
+              setFormData((prev) => ({
+                ...prev,
+                attachment: file, // Set single file
+              }));
+            }
+          },
+          "image/jpeg",
+          0.8
+        );
+
+        if (cameraStream) {
+          cameraStream.getTracks().forEach((track) => track.stop());
+          setCameraStream(null);
+        }
+      }
+      setShowAttachmentOptions(false);
+    }
+  };
+
+  const handleCloseCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach((track) => track.stop());
+      setCameraStream(null);
+    }
+    setShowAttachmentOptions(false);
+  };
+
+  const removeAttachment = () => {
+    setFormData((prev) => ({
+      ...prev,
+      attachment: null,
+    }));
+  };
+
+  const removeExistingLayout = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      existingLayouts: prev.existingLayouts.filter((_, i) => i !== index),
+    }));
+  };
+
+  // Di EditFormGanbaArea.tsx - perbaiki handleSubmit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!id) return;
-
-    setSubmitting(true);
+    setLoading(true);
     setError(null);
-    setSuccess(null);
 
-    if (!formData.work_area || !formData.department || !formData.penanggungJawab) {
+    if (!formData.name || !formData.department_id || !formData.pic_user_id) {
       setError("Please fill in all required fields");
-      setSubmitting(false);
+      setLoading(false);
       return;
     }
 
     try {
-      await updateWorkArea(parseInt(id), {
-        work_area: formData.work_area,
-      });
+      await updateGenbaAreas(
+        id!,
+        {
+          name: formData.name,
+          department_id: parseInt(formData.department_id),
+          pic_user_id: parseInt(formData.pic_user_id),
+        },
+        formData.attachment // Kirim single file (bukan array)
+      );
 
-      setSuccess("Area berhasil diperbarui!");
+      setSuccess("Area berhasil diupdate!");
       setShowSuccessModal(true);
     } catch (err: any) {
-      setError(err.message || "Gagal memperbarui area. Silakan coba lagi.");
-      console.error("Submission error:", err);
+      console.error("Update error:", err);
+      setError(err.message || "Gagal mengupdate area. Silakan coba lagi.");
     } finally {
-      setSubmitting(false);
+      setLoading(false);
     }
   };
 
@@ -184,6 +310,73 @@ const EditFormGenbaArea: React.FC = () => {
     setShowSuccessModal(false);
     navigate("/genba/genbaarea");
   }, [navigate]);
+
+  const FilePreview: React.FC<{
+    attachment: File | null; // Ubah parameter
+    existingLayouts: string[];
+    onRemoveAttachment: () => void; // Tidak perlu index
+    onRemoveExisting: (index: number) => void;
+  }> = ({ attachment, existingLayouts, onRemoveAttachment, onRemoveExisting }) => {
+    const allItems = [
+      ...existingLayouts.map((layout, index) => ({
+        type: "existing" as const,
+        index,
+        name: `Existing Layout ${index + 1}`,
+        url: layout,
+      })),
+      ...(attachment
+        ? [
+            {
+              type: "new" as const,
+              index: 0,
+              name: attachment.name,
+              file: attachment,
+            },
+          ]
+        : []),
+    ];
+
+    if (allItems.length === 0) return null;
+
+    return (
+      <div className="mt-4 space-y-3">
+        <p className="text-sm font-medium text-gray-700">Attachments:</p>
+        {allItems.map((item) => {
+          const isImage = item.type === "existing" ? item.url.startsWith("data:image") || item.url.match(/\.(jpg|jpeg|png|gif)$/i) : item.file.type.startsWith("image/");
+
+          return (
+            <div key={`${item.type}-${item.index}`} className={`flex items-center justify-between p-4 rounded-lg border ${item.type === "existing" ? "bg-blue-50 border-blue-200" : "bg-green-50 border-green-200"}`}>
+              <div className="flex items-center space-x-3 flex-1">
+                {isImage ? <Image className="w-8 h-8 text-blue-600" /> : <File className="w-8 h-8 text-blue-600" />}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">{item.name}</p>
+                  <p className="text-xs text-gray-500">{item.type === "existing" ? "Existing file" : `${(item.file.size / 1024 / 1024).toFixed(2)} MB`}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => (item.type === "existing" ? onRemoveExisting(item.index) : onRemoveAttachment())}
+                className="text-red-600 hover:text-red-800 transition-colors p-1 rounded-lg hover:bg-red-50"
+                title="Remove attachment"
+              >
+                <X size={16} />
+              </button>
+
+              {/* Image Preview */}
+              {isImage && (
+                <div className="mt-3 pt-3 border-t border-gray-200 w-full">
+                  <p className="text-xs text-gray-500 mb-2">Preview:</p>
+                  <div className="flex justify-center">
+                    <img src={item.type === "existing" ? item.url : URL.createObjectURL(item.file)} alt="Preview" className="h-24 w-24 object-cover rounded-lg border shadow-sm" />
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
   const customSelectStyles = {
     control: (provided: any, state: any) => ({
@@ -298,14 +491,9 @@ const EditFormGenbaArea: React.FC = () => {
                     <Select
                       name="department_id"
                       id="department_id"
-                      options={departments.map((dept) => ({ value: dept.name, label: dept.name }))}
-                      value={departments
-                        .map((dept) => ({
-                          value: dept.id.toString(),
-                          label: dept.name,
-                        }))
-                        .find((option) => option.value === formData.department)}
-                      onChange={(selectedOption) => handleChange(selectedOption, "department")}
+                      options={departments.map((dept) => ({ value: dept.id.toString(), label: dept.name }))}
+                      value={departments.map((dept) => ({ value: dept.id.toString(), label: dept.name })).find((option) => option.value === formData.department_id)}
+                      onChange={(selectedOption) => handleChange(selectedOption, "department_id")}
                       placeholder="Select Department"
                       styles={customSelectStyles}
                       required
@@ -320,14 +508,14 @@ const EditFormGenbaArea: React.FC = () => {
                 </h2>
                 <div className="grid grid-cols-1 gap-6">
                   <div>
-                    <label htmlFor="work_area" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
                       Nama Area <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
-                      name="work_area"
-                      id="work_area"
-                      value={formData.work_area}
+                      name="name"
+                      id="name"
+                      value={formData.name}
                       onChange={handleChange}
                       className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
                       placeholder="e.g., Area Produksi Line A"
@@ -335,19 +523,21 @@ const EditFormGenbaArea: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label htmlFor="penanggungJawab" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="pic_user_id" className="block text-sm font-medium text-gray-700 mb-1">
                       Penanggung Jawab Area <span className="text-red-500">*</span>
                     </label>
                     <Select
-                      name="penanggungJawab"
-                      id="penanggungJawab"
-                      options={users.map((user) => ({ value: user.id, label: user.name }))}
-                      value={users.map((user) => ({ value: user.id, label: user.name })).find((option) => option.value === formData.penanggungJawab)}
-                      onChange={(selectedOption) => handleChange(selectedOption, "penanggungJawab")}
-                      placeholder="Select Penanggung Jawab"
+                      name="pic_user_id"
+                      id="pic_user_id"
+                      options={filteredUsers.map((user) => ({ value: user.id.toString(), label: user.name }))}
+                      value={filteredUsers.map((user) => ({ value: user.id.toString(), label: user.name })).find((option) => option.value === formData.pic_user_id)}
+                      onChange={(selectedOption) => handleChange(selectedOption, "pic_user_id")}
+                      placeholder={formData.department_id ? "Select Penanggung Jawab" : "Please select department first"}
                       styles={customSelectStyles}
+                      isDisabled={!formData.department_id}
                       required
                     />
+                    {!formData.department_id && <p className="text-sm text-yellow-500 mt-1">Please select a department first</p>}
                   </div>
                 </div>
               </div>
@@ -358,44 +548,129 @@ const EditFormGenbaArea: React.FC = () => {
                 </h2>
                 <div className="grid grid-cols-1 gap-6">
                   <div>
-                    <label htmlFor="layoutRuangan" className="block text-sm font-medium text-gray-700 mb-1">
-                      Upload Layout Ruangan
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      Layout Attachments <span className="text-gray-400 font-normal">(Optional, Multiple files allowed)</span>
                     </label>
-
-                    {formData.existingLayout && !formData.layoutRuangan && (
-                      <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                        <p className="text-sm text-blue-800 mb-2">Current layout:</p>
-                        <div className="flex items-center space-x-3">
-                          <img src={formData.existingLayout} alt="Current layout" className="w-20 h-20 object-cover rounded-lg border border-gray-200" />
-                          <div className="flex-1">
-                            <p className="text-sm font-medium text-gray-900">Existing Layout</p>
-                            <p className="text-xs text-gray-600">Click upload to replace current layout</p>
+                    
+                    {formData.existingLayouts.length === 0 && !formData.attachment ? (
+                      <motion.button
+                        type="button"
+                        whileHover={{ scale: 1.01 }}
+                        whileTap={{ scale: 0.99 }}
+                        className="w-full p-8 border-2 border-dashed border-gray-300 rounded-xl bg-white hover:border-blue-400 hover:bg-blue-50/50 transition-all duration-300 group"
+                        onClick={handleAttachmentClick}
+                      >
+                        <div className="space-y-3 text-center">
+                          <div className="mx-auto w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+                            <Paperclip className="h-6 w-6 text-gray-400 group-hover:text-blue-500" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">Click to select attachment</p>
+                            <p className="text-xs text-gray-500 mt-1">PNG, JPG, GIF, PDF up to 10MB</p>
                           </div>
                         </div>
-                      </div>
-                    )}
-
-                    <div className="flex items-center justify-center w-full">
-                      <label htmlFor="layoutRuangan" className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
-                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                          <Upload className="w-8 h-8 mb-3 text-gray-400" />
-                          <p className="mb-2 text-sm text-gray-500">
-                            <span className="font-semibold">Click to upload</span> or drag and drop
-                          </p>
-                          <p className="text-xs text-gray-500">PNG, JPG, PDF (MAX. 10MB)</p>
+                      </motion.button>
+                    ) : (
+                      <div className="w-full p-6 border-2 border-blue-200 border-dashed rounded-xl bg-blue-50/30">
+                        <div className="text-center">
+                          <div className="mx-auto w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mb-3">
+                            <Paperclip className="h-5 w-5 text-blue-600" />
+                          </div>
+                          <p className="text-sm font-medium text-blue-900">{formData.existingLayouts.length + (formData.attachment ? 1 : 0)} file(s) attached</p>
+                          <p className="text-xs text-blue-600 mt-1">Click to change attachment.</p>
                         </div>
-                        <input id="layoutRuangan" name="layoutRuangan" type="file" className="hidden" accept=".png,.jpg,.jpeg,.pdf" onChange={handleChange} />
-                      </label>
-                    </div>
-
-                    {formData.layoutRuangan && (
-                      <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
-                        <p className="text-sm text-green-800 flex items-center">
-                          <CheckCircle className="w-4 h-4 mr-2" />
-                          New file selected: {formData.layoutRuangan.name}
-                        </p>
                       </div>
                     )}
+                    <FilePreview attachment={formData.attachment} existingLayouts={formData.existingLayouts} onRemoveAttachment={removeAttachment} onRemoveExisting={removeExistingLayout} />
+                    <AnimatePresence>
+                      {showAttachmentOptions && (
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="fixed inset-0 z-50 flex items-center justify-center backdrop-brightness-50 p-4"
+                          onClick={() => setShowAttachmentOptions(false)}
+                        >
+                          <motion.div
+                            initial={{ scale: 0.95, y: 20 }}
+                            animate={{ scale: 1, y: 0 }}
+                            exit={{ scale: 0.95, y: 20 }}
+                            className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-auto overflow-hidden"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="flex justify-between items-center p-6 border-b border-gray-100">
+                              <h3 className="text-lg font-semibold text-gray-900">Select Attachment</h3>
+                              <button type="button" onClick={() => setShowAttachmentOptions(false)} className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100">
+                                <X size={20} />
+                              </button>
+                            </div>
+
+                            {!cameraStream ? (
+                              <div className="p-6 space-y-4">
+                                <motion.button
+                                  type="button"
+                                  whileHover={{ scale: 1.02 }}
+                                  whileTap={{ scale: 0.98 }}
+                                  onClick={handleSelectFile}
+                                  className="w-full p-4 border-2 border-dashed border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50/50 transition-all duration-200 flex items-center space-x-4"
+                                >
+                                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                                    <File className="h-6 w-6 text-blue-600" />
+                                  </div>
+                                  <div className="text-left">
+                                    <div className="font-medium text-gray-900">Select Files</div>
+                                    <div className="text-sm text-gray-500">From your device (Multiple)</div>
+                                  </div>
+                                </motion.button>
+
+                                <motion.button
+                                  type="button"
+                                  whileHover={{ scale: 1.02 }}
+                                  whileTap={{ scale: 0.98 }}
+                                  onClick={handleOpenCamera}
+                                  className="w-full p-4 border-2 border-dashed border-gray-200 rounded-xl hover:border-purple-300 hover:bg-purple-50/50 transition-all duration-200 flex items-center space-x-4"
+                                >
+                                  <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                                    <Camera className="h-6 w-6 text-purple-600" />
+                                  </div>
+                                  <div className="text-left">
+                                    <div className="font-medium text-gray-900">Take Photo</div>
+                                    <div className="text-sm text-gray-500">Use camera</div>
+                                  </div>
+                                </motion.button>
+                              </div>
+                            ) : (
+                              <div className="p-6 space-y-4">
+                                <div className="relative bg-black rounded-lg overflow-hidden">
+                                  <video ref={videoRef} autoPlay playsInline className="w-full h-64 object-cover" />
+                                  <canvas ref={canvasRef} className="hidden" />
+                                </div>
+                                <div className="flex gap-3">
+                                  <motion.button
+                                    type="button"
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={handleCapturePhoto}
+                                    className="flex-1 bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                                  >
+                                    Take Photo
+                                  </motion.button>
+                                  <motion.button
+                                    type="button"
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={handleCloseCamera}
+                                    className="flex-1 bg-gray-200 text-gray-700 py-3 px-4 rounded-lg font-medium hover:bg-gray-300 transition-colors"
+                                  >
+                                    Cancel
+                                  </motion.button>
+                                </div>
+                              </div>
+                            )}
+                          </motion.div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 </div>
               </div>

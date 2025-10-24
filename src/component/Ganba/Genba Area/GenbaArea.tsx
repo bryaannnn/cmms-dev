@@ -4,23 +4,30 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Filter, ChevronDown, Search, Edit, QrCode, Trash2, MapPin, Building, Users, CheckCircle, X, AlertTriangle, Download, Share2 } from "lucide-react";
 import Sidebar from "../../../component/Sidebar";
 import PageHeader from "../../../component/PageHeader";
-import { useAuth } from "../../../routes/AuthContext";
+import { useAuth, GenbaWorkAreas, Department } from "../../../routes/AuthContext";
 
-interface Area {
-  id: string;
-  nama: string;
-  department: string;
-  penanggungJawab: string;
-  pengawas: string;
-  layoutRuangan: string;
-  createdAt: string;
-  updatedAt: string;
-}
+const StatCard: React.FC<{ title: string; value: string; change: string; icon: React.ReactNode }> = ({ title, value, change, icon }) => {
+  const isPositive = change.startsWith("+");
 
-interface Department {
-  id: number;
-  name: string;
-}
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
+      whileHover={{ y: -5, boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)", scale: 1.01 }}
+      className="bg-white rounded-2xl shadow-md p-6 border border-blue-50 cursor-pointer overflow-hidden transform transition-transform duration-200"
+    >
+      <div className="flex items-center justify-between z-10 relative">
+        <div>
+          <p className="text-sm font-medium text-gray-500 mb-1">{title}</p>
+          <p className="text-3xl font-bold text-gray-900">{value}</p>
+        </div>
+        <div className="p-2 rounded-full bg-blue-50 text-blue-600 text-2xl opacity-90 transition-all duration-200">{icon}</div>
+      </div>
+      <p className={`mt-3 text-xs font-semibold ${isPositive ? "text-green-600" : "text-red-600"}`}>{change} from last month</p>
+    </motion.div>
+  );
+};
 
 interface ModalProps {
   isOpen: boolean;
@@ -60,76 +67,39 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, classNa
 interface QRModalProps {
   isOpen: boolean;
   onClose: () => void;
-  area: Area | null;
+  area: GenbaWorkAreas | null;
   onDownload: () => void;
   onShare: () => void;
 }
 
 const QRModal: React.FC<QRModalProps> = ({ isOpen, onClose, area, onDownload, onShare }) => {
-  const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
-
-  useEffect(() => {
-    if (area && isOpen) {
-      generateQRCode();
-    }
-  }, [area, isOpen]);
-
-  const generateQRCode = async () => {
-    if (!area) return;
-
-    try {
-      const QRCode = await import("qrcode");
-      const qrData = JSON.stringify({
-        type: "genba_area",
-        areaId: area.id,
-        areaName: area.nama,
-        department: area.department,
-        penanggungJawab: area.penanggungJawab,
-        layoutUrl: area.layoutRuangan,
-        timestamp: new Date().toISOString(),
-      });
-
-      const url = await QRCode.toDataURL(qrData, {
-        width: 300,
-        margin: 2,
-        color: {
-          dark: "#1E40AF",
-          light: "#FFFFFF",
-        },
-      });
-      setQrCodeUrl(url);
-    } catch (error) {
-      console.error("Error generating QR code:", error);
-    }
-  };
-
   const handleDownload = () => {
-    if (!qrCodeUrl) return;
+    if (!area?.qr_code_base64) return;
 
     const link = document.createElement("a");
-    link.download = `QR_${area?.nama.replace(/\s+/g, "_")}_${Date.now()}.png`;
-    link.href = qrCodeUrl;
+    link.download = `QR_${area?.name.replace(/\s+/g, "_")}_${Date.now()}.png`;
+    link.href = area.qr_code_base64;
     link.click();
     onDownload();
   };
 
   const handleShare = async () => {
-    if (!qrCodeUrl) return;
+    if (!area?.qr_code_base64) return;
 
     try {
       if (navigator.share) {
-        const response = await fetch(qrCodeUrl);
+        const response = await fetch(area.qr_code_base64);
         const blob = await response.blob();
-        const file = new File([blob], `QR_${area?.nama}.png`, { type: "image/png" });
+        const file = new File([blob], `QR_${area?.name}.png`, { type: "image/png" });
 
         await navigator.share({
-          title: `QR Code Area - ${area?.nama}`,
-          text: `QR Code untuk area ${area?.nama}, Department: ${area?.department}`,
+          title: `QR Code Area - ${area?.name}`,
+          text: `QR Code untuk area ${area?.name}, Department: ${area?.department.name}`,
           files: [file],
         });
         onShare();
       } else {
-        await navigator.clipboard.writeText(`Area: ${area?.nama}\nDepartment: ${area?.department}\nPenanggung Jawab: ${area?.penanggungJawab}`);
+        await navigator.clipboard.writeText(`Area: ${area?.name}\nDepartment: ${area?.department.name}\nPenanggung Jawab: ${area?.pic.name}`);
         alert("Informasi area telah disalin ke clipboard!");
         onShare();
       }
@@ -143,8 +113,8 @@ const QRModal: React.FC<QRModalProps> = ({ isOpen, onClose, area, onDownload, on
     <Modal isOpen={isOpen} onClose={onClose} title="QR Code Area" maxWidth="max-w-md">
       <div className="text-center space-y-6">
         <div className="bg-blue-50 rounded-2xl p-6">
-          {qrCodeUrl ? (
-            <img src={qrCodeUrl} alt="QR Code" className="w-64 h-64 mx-auto rounded-lg shadow-md" />
+          {area?.qr_code_base64 ? (
+            <img src={area.qr_code_base64} alt="QR Code" className="w-64 h-64 mx-auto rounded-lg shadow-md" />
           ) : (
             <div className="w-64 h-64 mx-auto flex items-center justify-center bg-gray-100 rounded-lg">
               <QrCode className="text-gray-400 w-16 h-16" />
@@ -157,15 +127,15 @@ const QRModal: React.FC<QRModalProps> = ({ isOpen, onClose, area, onDownload, on
           <div className="space-y-2 text-sm text-gray-600">
             <div className="flex justify-between">
               <span>Nama Area:</span>
-              <span className="font-medium text-gray-900">{area?.nama}</span>
+              <span className="font-medium text-gray-900">{area?.name}</span>
             </div>
             <div className="flex justify-between">
               <span>Department:</span>
-              <span className="font-medium text-gray-900">{area?.department}</span>
+              <span className="font-medium text-gray-900">{area?.department.name}</span>
             </div>
             <div className="flex justify-between">
               <span>Penanggung Jawab:</span>
-              <span className="font-medium text-gray-900">{area?.penanggungJawab}</span>
+              <span className="font-medium text-gray-900">{area?.pic.name}</span>
             </div>
           </div>
         </div>
@@ -216,13 +186,13 @@ const ConfirmModal: React.FC<{
 
 const GenbaArea: React.FC = () => {
   const navigate = useNavigate();
-  const { getWorkArea, deleteWorkArea, user } = useAuth();
+  const { getGenbaAreas, deleteGenbaAreas, getUsers, getDepartment } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
     const stored = localStorage.getItem("sidebarOpen");
     return stored ? JSON.parse(stored) : false;
   });
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [areas, setAreas] = useState<Area[]>([]);
+  const [areas, setAreas] = useState<GenbaWorkAreas[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState<string[]>([]);
@@ -230,43 +200,45 @@ const GenbaArea: React.FC = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [areaToDelete, setAreaToDelete] = useState<string | null>(null);
   const [showQRModal, setShowQRModal] = useState(false);
-  const [selectedArea, setSelectedArea] = useState<Area | null>(null);
+  const [selectedArea, setSelectedArea] = useState<GenbaWorkAreas | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
-
-  const departments: Department[] = [
-    { id: 1, name: "Produksi" },
-    { id: 2, name: "Gudang" },
-    { id: 3, name: "Administrasi" },
-    { id: 4, name: "Engineering" },
-    { id: 5, name: "Quality" },
-  ];
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
 
   useEffect(() => {
     loadAreas();
+    loadDepartments();
+    loadUsers();
   }, []);
 
   const loadAreas = async () => {
     try {
       setLoading(true);
-      const workAreas = await getWorkArea();
-
-      const formattedAreas: Area[] = workAreas.map((area) => ({
-        id: area.id.toString(),
-        nama: area.work_area,
-        department: "Produksi",
-        penanggungJawab: user?.name || "Unknown",
-        pengawas: "Supervisor",
-        layoutRuangan: "/api/placeholder/400/300",
-        createdAt: new Date().toISOString().split("T")[0],
-        updatedAt: new Date().toISOString().split("T")[0],
-      }));
-
-      setAreas(formattedAreas);
+      const genbaAreas = await getGenbaAreas();
+      setAreas(genbaAreas);
     } catch (error) {
       console.error("Failed to load areas:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadDepartments = async () => {
+    try {
+      const departmentsData = await getDepartment();
+      setDepartments(departmentsData);
+    } catch (error) {
+      console.error("Failed to load departments:", error);
+    }
+  };
+
+  const loadUsers = async () => {
+    try {
+      const usersData = await getUsers();
+      setUsers(usersData);
+    } catch (error) {
+      console.error("Failed to load users:", error);
     }
   };
 
@@ -289,9 +261,9 @@ const GenbaArea: React.FC = () => {
 
   const filteredAreas = useMemo(() => {
     return areas.filter((area) => {
-      const matchesSearch = area.nama.toLowerCase().includes(searchQuery.toLowerCase()) || area.department.toLowerCase().includes(searchQuery.toLowerCase()) || area.penanggungJawab.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesSearch = area.name.toLowerCase().includes(searchQuery.toLowerCase()) || area.department.name.toLowerCase().includes(searchQuery.toLowerCase()) || area.pic.name.toLowerCase().includes(searchQuery.toLowerCase());
 
-      const matchesDepartment = departmentFilter.length === 0 || departmentFilter.includes(area.department);
+      const matchesDepartment = departmentFilter.length === 0 || departmentFilter.includes(area.department.name);
 
       return matchesSearch && matchesDepartment;
     });
@@ -306,8 +278,8 @@ const GenbaArea: React.FC = () => {
 
   const handleDelete = async (id: string) => {
     try {
-      await deleteWorkArea(parseInt(id));
-      setAreas((prev) => prev.filter((area) => area.id !== id));
+      await deleteGenbaAreas(parseInt(id));
+      setAreas((prev) => prev.filter((area) => area.id.toString() !== id));
       setShowDeleteConfirm(false);
       setAreaToDelete(null);
     } catch (error) {
@@ -315,7 +287,7 @@ const GenbaArea: React.FC = () => {
     }
   };
 
-  const handleQRCode = (area: Area) => {
+  const handleQRCode = (area: GenbaWorkAreas) => {
     setSelectedArea(area);
     setShowQRModal(true);
   };
@@ -329,29 +301,6 @@ const GenbaArea: React.FC = () => {
     setSearchQuery("");
     setDepartmentFilter([]);
     setCurrentPage(1);
-  };
-
-  const StatCard: React.FC<{ title: string; value: string; change: string; icon: React.ReactNode }> = ({ title, value, change, icon }) => {
-    const isPositive = change.startsWith("+");
-
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
-        whileHover={{ y: -5, boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)", scale: 1.01 }}
-        className="bg-white rounded-2xl shadow-md p-6 border border-blue-50 cursor-pointer overflow-hidden transform transition-transform duration-200"
-      >
-        <div className="flex items-center justify-between z-10 relative">
-          <div>
-            <p className="text-sm font-medium text-gray-500 mb-1">{title}</p>
-            <p className="text-3xl font-bold text-gray-900">{value}</p>
-          </div>
-          <div className="p-2 rounded-full bg-blue-50 text-blue-600 text-2xl opacity-90 transition-all duration-200">{icon}</div>
-        </div>
-        <p className={`mt-3 text-xs font-semibold ${isPositive ? "text-green-600" : "text-red-600"}`}>{change} from last month</p>
-      </motion.div>
-    );
   };
 
   return (
@@ -396,8 +345,8 @@ const GenbaArea: React.FC = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
             <StatCard title="Total Areas" value={areas.length.toString()} change="+12%" icon={<MapPin />} />
-            <StatCard title="Active Departments" value={new Set(areas.map((a) => a.department)).size.toString()} change="+2" icon={<Building />} />
-            <StatCard title="Assigned PIC" value={new Set(areas.map((a) => a.penanggungJawab)).size.toString()} change="+5" icon={<Users />} />
+            <StatCard title="Active Departments" value={new Set(areas.map((a) => a.department.name)).size.toString()} change="+2" icon={<Building />} />
+            <StatCard title="Assigned PIC" value={new Set(areas.map((a) => a.pic.name)).size.toString()} change="+5" icon={<Users />} />
             <StatCard title="This Month" value="3" change="+1" icon={<CheckCircle />} />
           </div>
 
@@ -470,8 +419,6 @@ const GenbaArea: React.FC = () => {
                       <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Area Name</th>
                       <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Department</th>
                       <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Penanggung Jawab</th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Pengawas</th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Created Date</th>
                       <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
@@ -486,19 +433,13 @@ const GenbaArea: React.FC = () => {
                         className="transition-colors duration-150"
                       >
                         <td className="px-5 py-3">
-                          <div className="text-sm font-medium text-gray-900">{area.nama}</div>
+                          <div className="text-sm font-medium text-gray-900">{area.name}</div>
                         </td>
                         <td className="px-5 py-3">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{area.department}</span>
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{area.department.name}</span>
                         </td>
                         <td className="px-5 py-3">
-                          <div className="text-sm text-gray-900">{area.penanggungJawab}</div>
-                        </td>
-                        <td className="px-5 py-3">
-                          <div className="text-sm text-gray-900">{area.pengawas}</div>
-                        </td>
-                        <td className="px-5 py-3 whitespace-nowrap">
-                          <div className="text-sm text-gray-500">{area.createdAt}</div>
+                          <div className="text-sm text-gray-900">{area.pic.name}</div>
                         </td>
                         <td className="px-5 py-3 whitespace-nowrap text-sm font-medium space-x-1.5">
                           <motion.button
@@ -523,7 +464,7 @@ const GenbaArea: React.FC = () => {
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}
                             onClick={() => {
-                              setAreaToDelete(area.id);
+                              setAreaToDelete(area.id.toString());
                               setShowDeleteConfirm(true);
                             }}
                             className="text-red-600 hover:text-red-800 transition-colors duration-200 p-1 rounded-full hover:bg-red-50"
