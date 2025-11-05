@@ -12,7 +12,7 @@ interface AreaFormData {
   department_id: string;
   pic_user_id: string;
   attachment: File | null;
-  existingLayouts: string[];
+  existingLayouts: LayoutInterface[];
 }
 
 const Modal: React.FC<{
@@ -106,12 +106,34 @@ const EditFormGenbaArea: React.FC = () => {
         return;
       }
 
+      // Handle parsing attachment data
+      let existingLayouts: LayoutInterface[] = [];
+
+      if (areaData.attachment) {
+        if (typeof areaData.attachment === "string") {
+          try {
+            // Parse JSON string menjadi array of LayoutInterface
+            const parsed = JSON.parse(areaData.attachment);
+            existingLayouts = Array.isArray(parsed) ? parsed : [parsed];
+          } catch (error) {
+            console.error("Error parsing attachment JSON:", error);
+            // Jika parsing gagal, anggap sebagai single layout object
+            existingLayouts = [{ path: areaData.attachment, filename: "Layout Area" }];
+          }
+        } else if (Array.isArray(areaData.attachment)) {
+          existingLayouts = areaData.attachment;
+        } else {
+          // Jika berupa single object
+          existingLayouts = [areaData.attachment];
+        }
+      }
+
       setFormData({
         name: areaData.name,
         department_id: areaData.department_id?.toString() || "",
         pic_user_id: areaData.pic_user_id?.toString() || "",
-        attachment: null, // Reset ke null saat load data
-        existingLayouts: areaData.attachment ? [areaData.attachment] : [],
+        attachment: null,
+        existingLayouts: existingLayouts, // Sekarang bertipe LayoutInterface[]
       });
     } catch (err) {
       setError("Failed to load area data");
@@ -312,17 +334,27 @@ const EditFormGenbaArea: React.FC = () => {
   }, [navigate]);
 
   const FilePreview: React.FC<{
-    attachment: File | null; // Ubah parameter
-    existingLayouts: string[];
-    onRemoveAttachment: () => void; // Tidak perlu index
+    attachment: File | null;
+    existingLayouts: LayoutInterface[]; // Ubah dari string[] ke LayoutInterface[]
+    onRemoveAttachment: () => void;
     onRemoveExisting: (index: number) => void;
   }> = ({ attachment, existingLayouts, onRemoveAttachment, onRemoveExisting }) => {
+    // Fungsi untuk mendapatkan URL lengkap dari path
+    const getAttachmentFullUrl = (path: string): string => {
+      if (path.startsWith("http")) {
+        return path;
+      } else {
+        const baseUrl = import.meta.env.VITE_BACKEND_API_URL || "http://localhost:8000";
+        return `${baseUrl}${path.startsWith("/") ? "" : "/"}${path}`;
+      }
+    };
+
     const allItems = [
       ...existingLayouts.map((layout, index) => ({
         type: "existing" as const,
         index,
-        name: `Existing Layout ${index + 1}`,
-        url: layout,
+        name: layout.filename || `Layout ${index + 1}`,
+        url: getAttachmentFullUrl(layout.path),
       })),
       ...(attachment
         ? [
@@ -551,7 +583,7 @@ const EditFormGenbaArea: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-3">
                       Layout Attachments <span className="text-gray-400 font-normal">(Optional, Multiple files allowed)</span>
                     </label>
-                    
+
                     {formData.existingLayouts.length === 0 && !formData.attachment ? (
                       <motion.button
                         type="button"

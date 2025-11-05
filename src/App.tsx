@@ -107,6 +107,7 @@ import GenbaArea from "./component/Ganba/Genba Area/GenbaArea";
 import FormGenbaArea from "./component/Ganba/Genba Area/FormGenbaArea";
 import EditFormGenbaArea from "./component/Ganba/Genba Area/EditFormGanbaArea";
 import SOConfigure from "./component/Ganba/Template SO/SoConfiguration";
+import GenbaActivity from "./component/Ganba/Daily Activity/GenbaActivity";
 
 function App() {
   return (
@@ -140,7 +141,7 @@ function App() {
           <Route path="/genba" element={<GanbaSelection />} />
           <Route path="/genba/soconfiguration" element={<SOTemplate />} />
           <Route path="/genba/soconfiguration/configure/:id" element={<SOConfigure />} />
-          <Route path="/genba/genbaaction" element={<GenbaAction />} />
+          <Route path="/genba/genbaaction" element={<GenbaActivity />} />
           <Route path="/genba/genbaarea" element={<GenbaArea />} />
           <Route path="/genba/genbaarea/addgenbaarea" element={<FormGenbaArea />} />
           <Route path="/genba/genbaarea/editgenbaarea/:id" element={<EditFormGenbaArea />} />

@@ -72,90 +72,7 @@ interface QRModalProps {
   onShare: () => void;
 }
 
-const QRModal: React.FC<QRModalProps> = ({ isOpen, onClose, area, onDownload, onShare }) => {
-  const handleDownload = () => {
-    if (!area?.qr_code_base64) return;
 
-    const link = document.createElement("a");
-    link.download = `QR_${area?.name.replace(/\s+/g, "_")}_${Date.now()}.png`;
-    link.href = area.qr_code_base64;
-    link.click();
-    onDownload();
-  };
-
-  const handleShare = async () => {
-    if (!area?.qr_code_base64) return;
-
-    try {
-      if (navigator.share) {
-        const response = await fetch(area.qr_code_base64);
-        const blob = await response.blob();
-        const file = new File([blob], `QR_${area?.name}.png`, { type: "image/png" });
-
-        await navigator.share({
-          title: `QR Code Area - ${area?.name}`,
-          text: `QR Code untuk area ${area?.name}, Department: ${area?.department.name}`,
-          files: [file],
-        });
-        onShare();
-      } else {
-        await navigator.clipboard.writeText(`Area: ${area?.name}\nDepartment: ${area?.department.name}\nPenanggung Jawab: ${area?.pic.name}`);
-        alert("Informasi area telah disalin ke clipboard!");
-        onShare();
-      }
-    } catch (error) {
-      console.error("Error sharing:", error);
-      handleDownload();
-    }
-  };
-
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} title="QR Code Area" maxWidth="max-w-md">
-      <div className="text-center space-y-6">
-        <div className="bg-blue-50 rounded-2xl p-6">
-          {area?.qr_code_base64 ? (
-            <img src={area.qr_code_base64} alt="QR Code" className="w-64 h-64 mx-auto rounded-lg shadow-md" />
-          ) : (
-            <div className="w-64 h-64 mx-auto flex items-center justify-center bg-gray-100 rounded-lg">
-              <QrCode className="text-gray-400 w-16 h-16" />
-            </div>
-          )}
-        </div>
-
-        <div className="text-left bg-white rounded-lg p-4 border border-gray-200">
-          <h4 className="font-semibold text-gray-900 mb-2">Informasi Area</h4>
-          <div className="space-y-2 text-sm text-gray-600">
-            <div className="flex justify-between">
-              <span>Nama Area:</span>
-              <span className="font-medium text-gray-900">{area?.name}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Department:</span>
-              <span className="font-medium text-gray-900">{area?.department.name}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Penanggung Jawab:</span>
-              <span className="font-medium text-gray-900">{area?.pic.name}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex gap-3 justify-center">
-          <motion.button onClick={handleDownload} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
-            <Download size={16} />
-            Download QR
-          </motion.button>
-          <motion.button onClick={handleShare} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium">
-            <Share2 size={16} />
-            Share
-          </motion.button>
-        </div>
-
-        <p className="text-xs text-gray-500">QR code berisi informasi lengkap area kerja untuk keperluan 5S dan maintenance</p>
-      </div>
-    </Modal>
-  );
-};
 
 const ConfirmModal: React.FC<{
   isOpen: boolean;
@@ -205,6 +122,174 @@ const GenbaArea: React.FC = () => {
   const [itemsPerPage] = useState(10);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [users, setUsers] = useState<any[]>([]);
+
+ const QRModal: React.FC<QRModalProps> = ({ isOpen, onClose, area, onDownload, onShare }) => {
+  const handleDownload = () => {
+    if (!area?.qr_code_base64) return;
+
+    const link = document.createElement("a");
+    link.download = `QR_${area?.name.replace(/\s+/g, "_")}_${Date.now()}.png`;
+    link.href = area.qr_code_base64;
+    link.click();
+    onDownload();
+  };
+
+  const handleShare = async () => {
+    if (!area?.qr_code_base64) return;
+
+    try {
+      if (navigator.share) {
+        const response = await fetch(area.qr_code_base64);
+        const blob = await response.blob();
+        const file = new File([blob], `QR_${area?.name}.png`, { type: "image/png" });
+
+        await navigator.share({
+          title: `QR Code Area - ${area?.name}`,
+          text: `QR Code untuk area ${area?.name}, Department: ${area?.department.name}`,
+          files: [file],
+        });
+        onShare();
+      } else {
+        await navigator.clipboard.writeText(`Area: ${area?.name}\nDepartment: ${area?.department.name}\nPenanggung Jawab: ${area?.pic.name}`);
+        alert("Informasi area telah disalin ke clipboard!");
+        onShare();
+      }
+    } catch (error) {
+      console.error("Error sharing:", error);
+      handleDownload();
+    }
+  };
+
+  // Fungsi untuk mendapatkan URL attachment yang benar
+  const getAttachmentFullUrl = (attachmentPath: string | null): string | null => {
+    if (!attachmentPath) return null;
+
+    if (attachmentPath.startsWith("http")) {
+      return attachmentPath;
+    } else {
+      // Gunakan base URL dari environment variables atau fallback
+      const baseUrl = import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:8000';
+      return `${baseUrl}${attachmentPath.startsWith('/') ? '' : '/'}${attachmentPath}`;
+    }
+  };
+
+  // Fungsi untuk menampilkan attachment
+  const renderAttachments = () => {
+    if (!area?.attachment || (Array.isArray(area.attachment) && area.attachment.length === 0)) {
+      return null;
+    }
+
+    let attachments: Array<{ path: string; filename: string }> = [];
+
+    // Handle berbagai format attachment
+    if (typeof area.attachment === 'string') {
+      try {
+        // Coba parse jika berupa JSON string
+        const parsed = JSON.parse(area.attachment);
+        attachments = Array.isArray(parsed) ? parsed : [parsed];
+      } catch (error) {
+        console.error('Error parsing attachment JSON:', error);
+        // Jika gagal parse, anggap sebagai single path string
+        attachments = [{ path: area.attachment, filename: 'Layout Area' }];
+      }
+    } else if (Array.isArray(area.attachment)) {
+      attachments = area.attachment;
+    } else {
+      // Jika berupa object single
+      attachments = [area.attachment];
+    }
+
+    return (
+      <div className="mt-4">
+        <h4 className="font-semibold text-gray-900 mb-3">Layout Area</h4>
+        <div className="grid grid-cols-1 gap-3">
+          {attachments.map((attachment, index) => {
+            const imageUrl = getAttachmentFullUrl(attachment.path);
+            if (!imageUrl) return null;
+
+            return (
+              <div key={index} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                <img 
+                  src={imageUrl} 
+                  alt={attachment.filename || `Layout ${index + 1}`}
+                  className="w-full h-auto max-h-48 object-contain rounded-md"
+                  onError={(e) => {
+                    // Fallback jika gambar gagal dimuat
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                  }}
+                />
+                <p className="text-xs text-gray-500 mt-2 text-center truncate">
+                  {attachment.filename || `Layout ${index + 1}`}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="QR Code Area" maxWidth="max-w-md">
+      <div className="text-center space-y-6">
+        <div className="bg-blue-50 rounded-2xl p-6">
+          {area?.qr_code_base64 ? (
+            <img src={area.qr_code_base64} alt="QR Code" className="w-64 h-64 mx-auto rounded-lg shadow-md" />
+          ) : (
+            <div className="w-64 h-64 mx-auto flex items-center justify-center bg-gray-100 rounded-lg">
+              <QrCode className="text-gray-400 w-16 h-16" />
+            </div>
+          )}
+        </div>
+
+        <div className="text-left bg-white rounded-lg p-4 border border-gray-200">
+          <h4 className="font-semibold text-gray-900 mb-2">Informasi Area</h4>
+          <div className="space-y-2 text-sm text-gray-600">
+            <div className="flex justify-between">
+              <span>Nama Area:</span>
+              <span className="font-medium text-gray-900">{area?.name}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Department:</span>
+              <span className="font-medium text-gray-900">{area?.department.name}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Penanggung Jawab:</span>
+              <span className="font-medium text-gray-900">{area?.pic.name}</span>
+            </div>
+          </div>
+
+          {/* Menampilkan attachment gambar */}
+          {renderAttachments()}
+        </div>
+
+        <div className="flex gap-3 justify-center">
+          <motion.button 
+            onClick={handleDownload} 
+            whileHover={{ scale: 1.05 }} 
+            whileTap={{ scale: 0.95 }} 
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+          >
+            <Download size={16} />
+            Download QR
+          </motion.button>
+          <motion.button 
+            onClick={handleShare} 
+            whileHover={{ scale: 1.05 }} 
+            whileTap={{ scale: 0.95 }} 
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+          >
+            <Share2 size={16} />
+            Share
+          </motion.button>
+        </div>
+
+        <p className="text-xs text-gray-500">QR code berisi informasi lengkap area kerja untuk keperluan 5S dan maintenance</p>
+      </div>
+    </Modal>
+  );
+};
 
   useEffect(() => {
     loadAreas();

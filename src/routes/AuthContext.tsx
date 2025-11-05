@@ -1106,13 +1106,123 @@ export interface WorkArea {
 // Genba Auth
 // Tambahkan interface berikut di bagian interface yang sesuai
 
+export interface CreateGenbaActivityPayload {
+  date: string;
+  genba_work_area_id: number;
+  keterangan: string;
+  attachments?: File[];
+}
+
+export interface GenbaActivityResponse {
+  success: boolean;
+  data: GenbaActivity;
+}
+
+export interface GenbaActivity {
+  id: number;
+  reporter_user_id: number;
+  genba_role_id: number;
+  date: string;
+  genba_work_area_id: number;
+  pic_area_user_id: number;
+  keterangan: string;
+  status: string;
+  created_at: string | null;
+  updated_at: string | null;
+  reporter: {
+    id: number;
+    name: string;
+    nik: string;
+    email: string;
+    avatar: string;
+    position: string;
+    email_verified_at: string | null;
+    created_at: string | null;
+    updated_at: string | null;
+    department_id: number | null;
+    department: {
+      id: number;
+      name: string;
+      head_id: number;
+      created_at: string | null;
+      updated_at: string | null;
+    };
+  };
+  work_area: {
+    id: number;
+    name: string;
+    department_id: number;
+    pic_user_id: number;
+    attachments: LayoutInterface[] | null;
+    qrcode_path: string | null;
+    qr_code_base64: string;
+    created_at: string | null;
+    updated_at: string | null;
+    department: {
+      id: number;
+      name: string;
+      head_id: number;
+      created_at: string | null;
+      updated_at: string | null;
+    };
+    pic: {
+      id: number;
+      name: string;
+      nik: string;
+      email: string;
+      avatar: string;
+      position: string;
+      email_verified_at: string | null;
+      created_at: string | null;
+      updated_at: string | null;
+      department_id: number;
+    };
+  };
+  committee_role: {
+    id: number;
+    name: string;
+    description: string | null;
+    created_at: string | null;
+    updated_at: string | null;
+    current_committee_users: {
+      id: number;
+      genba_so_id: number;
+      genba_role_id: number;
+      user_id: number;
+      created_at: string | null;
+      updated_at: string | null;
+      user: {
+        id: number;
+        name: string;
+        nik: string;
+        email: string;
+        avatar: string;
+        position: string | null;
+        email_verified_at: string | null;
+        created_at: string | null;
+        updated_at: string | null;
+        department_id: number;
+      };
+    } | null;
+  };
+  details: {
+    id: number;
+    genba_activity_id: number;
+    file_path: string;
+    file_name: string;
+    notes: string | null;
+    created_at: string;
+    updated_at: string;
+  }[];
+}
+
 export interface GenbaWorkAreas {
   id: number;
   name: string;
   department_id: number;
   pic_user_id: number;
   created_at: string | null;
-  attachment: string | null;
+  attachment: LayoutInterface[] | null;
   qrcode_path: string | null;
   qr_code_base64: string;
   updated_at: string | null;
@@ -1132,6 +1242,7 @@ export interface GenbaWorkAreas {
 
 export interface LayoutInterface {
   path: string;
+  filename: string;
 }
 
 export interface CreateGenbaAreasPayload {
@@ -1388,6 +1499,11 @@ interface AuthContextType {
   deleteGenbaSO: (id: string | number) => Promise<void>;
   deleteGenbaAreas: (id: string | number) => Promise<void>;
   setGenbaSOActive: (id: string | number) => Promise<GenbaSO>;
+  getGenbaActivities: () => Promise<GenbaActivity[]>;
+  getGenbaActivityById: (id: string | number) => Promise<GenbaActivity>;
+  createGenbaActivity: (data: CreateGenbaActivityPayload, files?: File[]) => Promise<GenbaActivityResponse>;
+  updateGenbaActivity: (id: string | number, data: Partial<CreateGenbaActivityPayload>, files?: File[]) => Promise<GenbaActivityResponse>;
+  deleteGenbaActivity: (id: string | number) => Promise<void>;
 }
 
 const projectEnvVariables = getProjectEnvVariables();
@@ -4146,6 +4262,104 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     [fetchWithAuth]
   );
 
+  // Di dalam AuthProvider, tambahkan fungsi-fungsi berikut:
+
+  const getGenbaActivities = useCallback(async (): Promise<GenbaActivity[]> => {
+    try {
+      const response = await fetchWithAuth("/genba-activities?includes_trashed=true");
+      return response.data || response;
+    } catch (error) {
+      console.error("Failed to fetch genba activities:", error);
+      return [];
+    }
+  }, [fetchWithAuth]);
+
+  const getGenbaActivityById = useCallback(
+    async (id: string | number): Promise<GenbaActivity> => {
+      const response = await fetchWithAuth(`/genba-activities/${id}?includes_trashed=true`);
+      return response.data || response;
+    },
+    [fetchWithAuth]
+  );
+
+  const createGenbaActivity = useCallback(
+    async (data: CreateGenbaActivityPayload, files?: File[]): Promise<GenbaActivityResponse> => {
+      const formData = new FormData();
+
+      // Append basic data
+      formData.append("date", data.date);
+      formData.append("genba_work_area_id", data.genba_work_area_id.toString());
+      formData.append("keterangan", data.keterangan);
+
+      // Append files jika ada
+      if (files && files.length > 0) {
+        files.forEach((file) => {
+          formData.append("attachments[]", file);
+        });
+      }
+
+      console.log("Creating genba activity with data:", {
+        date: data.date,
+        genba_work_area_id: data.genba_work_area_id,
+        keterangan: data.keterangan,
+        fileCount: files?.length || 0,
+      });
+
+      const response = await fetchWithAuth("/genba-activities", {
+        method: "POST",
+        body: formData,
+      });
+
+      return response;
+    },
+    [fetchWithAuth]
+  );
+
+  const updateGenbaActivity = useCallback(
+    async (id: string | number, data: Partial<CreateGenbaActivityPayload>, files?: File[]): Promise<GenbaActivityResponse> => {
+      const formData = new FormData();
+
+      // Append basic data
+      if (data.date) formData.append("date", data.date);
+      if (data.genba_work_area_id) formData.append("genba_work_area_id", data.genba_work_area_id.toString());
+      if (data.keterangan) formData.append("keterangan", data.keterangan);
+
+      formData.append("_method", "PUT");
+
+      // Append files jika ada
+      if (files && files.length > 0) {
+        files.forEach((file) => {
+          formData.append("attachments[]", file);
+        });
+      }
+
+      console.log("Updating genba activity:", {
+        id,
+        date: data.date,
+        genba_work_area_id: data.genba_work_area_id,
+        keterangan: data.keterangan,
+        fileCount: files?.length || 0,
+      });
+
+      const response = await fetchWithAuth(`/genba-activities/${id}`, {
+        method: "POST",
+        body: formData,
+      });
+
+      return response;
+    },
+    [fetchWithAuth]
+  );
+
+  const deleteGenbaActivity = useCallback(
+    async (id: string | number): Promise<void> => {
+      await fetchWithAuth(`/genba-activities/${id}?includes_trashed=true`, {
+        method: "DELETE",
+      });
+    },
+    [fetchWithAuth]
+  );
+
   return (
     <AuthContext.Provider
       value={{
@@ -4284,6 +4498,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         deleteGenbaAreas,
         deleteGenbaSO,
         setGenbaSOActive,
+        getGenbaActivities,
+        getGenbaActivityById,
+        createGenbaActivity,
+        updateGenbaActivity,
+        deleteGenbaActivity,
       }}
     >
       {children}
