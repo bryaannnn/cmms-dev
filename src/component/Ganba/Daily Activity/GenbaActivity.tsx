@@ -13,10 +13,10 @@ interface UserRole {
   level: number;
 }
 
-const GenbaActivity: React.FC = () => {
+const GenbaActivitys: React.FC = () => {
   const navigate = useNavigate();
   const projectEnvVariables = getProjectEnvVariables();
-  const { user, getGenbaActivities, getGenbaAreas, createGenbaActivity, updateGenbaActivity, deleteGenbaActivity, getUsers, getDepartment, hasPermission } = useAuth();
+  const { user, getGenbaActivities, getGenbaAreas, createGenbaActivity, updateGenbaActivity, deleteGenbaActivity, getUsers, fetchUser, getDepartment, hasPermission } = useAuth();
 
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
     const stored = localStorage.getItem("sidebarOpen");
@@ -55,7 +55,7 @@ const GenbaActivity: React.FC = () => {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        const [areasData, usersData, departmentsData, activitiesData] = await Promise.all([getGenbaAreas(), getUsers(), getDepartment(), getGenbaActivities()]);
+        const [areasData, usersData, , departmentsData, activitiesData] = await Promise.all([getGenbaAreas(), getUsers(), fetchUser(), getDepartment(), getGenbaActivities()]);
 
         setAreas(areasData);
         setAllUsers(usersData);
@@ -283,31 +283,42 @@ const GenbaActivity: React.FC = () => {
     }
   };
 
-  const getStatusBadge = (status: string): React.JSX.Element => {
-    const styles = {
-      completed: "bg-green-100 text-green-800",
-      pending: "bg-yellow-100 text-yellow-800",
-      rejected: "bg-red-100 text-red-800",
-    };
+  const getStatusBadge = (date: Date, activities: GenbaActivity[]): React.JSX.Element => {
+    const today = new Date();
+    const dateStr = date.toLocaleDateString("id-ID");
 
-    const labels = {
-      completed: "Selesai",
-      pending: "Menunggu",
-      rejected: "Ditolak",
-    };
+    // cek apakah ada data di tanggal tsb
+    const hasReport = activities.some((activity) => new Date(activity.date).toLocaleDateString("id-ID") === dateStr);
 
-    return <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[status as keyof typeof styles]}`}>{labels[status as keyof typeof labels]}</span>;
+    const isToday = date.toDateString() === today.toDateString();
+    const isPast = date < today && !isToday;
+
+    if (hasReport) {
+      return <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">Sudah Lapor</span>;
+    } else if (isToday) {
+      return <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-medium">Belum Lapor</span>;
+    } else if (isPast) {
+      return <span className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">Tidak Lapor</span>;
+    } else {
+      // jika tanggal belum datang (masa depan bulan depan)
+      return <span className="px-2 py-1 bg-gray-50 text-gray-400 rounded-full text-xs font-medium">-</span>;
+    }
   };
 
   const getTodaysStatus = (nik: string): React.JSX.Element => {
-    const today = formatDate(new Date());
-    const todaysActivity = activities.find((activity) => activity.reporter?.nik === nik && new Date(activity.date).toLocaleDateString("id-ID") === today);
+    const today = new Date();
+    const todayStr = today.toLocaleDateString("id-ID");
 
-    if (todaysActivity) {
-      return getStatusBadge(todaysActivity.status);
+    // cek apakah user ini sudah punya laporan hari ini
+    const hasReportToday = activities.some((activity) => activity.reporter?.nik === nik && new Date(activity.date).toLocaleDateString("id-ID") === todayStr);
+
+    if (hasReportToday) {
+      // Sudah lapor
+      return <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">Sudah Lapor</span>;
+    } else {
+      // Belum lapor hari ini
+      return <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-medium">Belum Lapor</span>;
     }
-
-    return <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-medium">Belum Lapor</span>;
   };
 
   const getFotoUrl = (filePath: string): string => {
@@ -430,7 +441,7 @@ const GenbaActivity: React.FC = () => {
           </div>
         </div>
 
-        {/* Table View */}
+        {/* Table View - REPLACE existing table with this */}
         <div className="overflow-x-auto mb-6">
           <table className="w-full">
             <thead>
@@ -443,40 +454,68 @@ const GenbaActivity: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {employeeActivities.length > 0 ? (
-                employeeActivities.map((activity) => (
-                  <tr key={activity.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 text-sm">{new Date(activity.date).toLocaleDateString("id-ID")}</td>
-                    <td className="py-3 text-sm font-medium">{activity.work_area?.name || "-"}</td>
-                    <td className="py-3 text-sm">{activity.keterangan || "-"}</td>
-                    <td className="py-3">{getStatusBadge(activity.status)}</td>
-                    <td className="py-3">
-                      {activity.details && activity.details.length > 0 ? (
-                        <div className="flex flex-wrap gap-2">
-                          {activity.details.map((detail, index) => (
-                            <div key={index} className="relative group">
-                              <img
-                                src={getFotoUrl(detail.file_path)}
-                                alt={`Attachment ${index + 1}`}
-                                className="w-12 h-12 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity"
-                                onClick={() => window.open(getFotoUrl(detail.file_path), "_blank")}
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-gray-400 text-sm">Tidak ada</span>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={5} className="py-4 text-center text-gray-500">
-                    Tidak ada laporan
-                  </td>
-                </tr>
-              )}
+              {(() => {
+                // helper: generate dates from 1 .. endDay
+                const now = new Date();
+                const year = selectedYear;
+                const month = selectedMonth;
+                const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
+                const endDay = year === now.getFullYear() && month === now.getMonth() ? now.getDate() : lastDayOfMonth;
+
+                const rows = [];
+                for (let d = endDay; d >= 1; d--) {
+                  const rowDate = new Date(year, month, d);
+                  const rowDateStr = rowDate.toLocaleDateString("id-ID");
+
+                  // lihat apakah ada activity di tanggal ini untuk employee
+                  const activityForDate = employeeActivities.find((a) => new Date(a.date).toLocaleDateString("id-ID") === rowDateStr);
+
+                  const isToday = rowDate.toDateString() === new Date().toDateString();
+                  const isPast = rowDate < new Date() && !isToday;
+
+                  // status logic:
+                  // - ada activity -> Sudah Lapor (hijau)
+                  // - tidak ada activity && isToday -> Belum Lapor (abu-abu)
+                  // - tidak ada activity && isPast -> Tidak Lapor (merah)
+                  let statusElement: React.JSX.Element;
+                  if (activityForDate) {
+                    statusElement = <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">Sudah Lapor</span>;
+                  } else if (isToday) {
+                    statusElement = <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-medium">Belum Lapor</span>;
+                  } else {
+                    statusElement = <span className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">Tidak Lapor</span>;
+                  }
+
+                  rows.push(
+                    <tr key={rowDateStr} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="py-3 text-sm">{rowDate.toLocaleDateString("id-ID")}</td>
+                      <td className="py-3 text-sm font-medium">{activityForDate?.work_area?.name || "-"}</td>
+                      <td className="py-3 text-sm">{activityForDate?.keterangan || "-"}</td>
+                      <td className="py-3">{getStatusBadge(new Date(rowDate), employeeActivities)}</td>
+                      <td className="py-3">
+                        {activityForDate?.details && activityForDate.details.length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {activityForDate.details.map((detail, index) => (
+                              <div key={index} className="relative group">
+                                <img
+                                  src={getFotoUrl(detail.file_path)}
+                                  alt={`Attachment ${index + 1}`}
+                                  className="w-12 h-12 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity"
+                                  onClick={() => window.open(getFotoUrl(detail.file_path), "_blank")}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 text-sm">Tidak ada Laporan</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                }
+
+                return rows;
+              })()}
             </tbody>
           </table>
         </div>
@@ -500,6 +539,8 @@ const GenbaActivity: React.FC = () => {
   };
 
   const renderKaryawanView = (): React.JSX.Element => {
+    const userAreas = areas.filter((area) => area.pic_user_id.toString() === user?.id?.toString());
+    const years = [2023, 2024, 2025];
     const calendarDays = getCalendarDays();
 
     return (
@@ -669,6 +710,46 @@ const GenbaActivity: React.FC = () => {
                 )}
               </div>
             </div>
+          </div>
+        </motion.div>
+
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-2xl shadow-md p-6 border border-blue-100">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 space-y-4 md:space-y-0">
+            <h3 className="text-lg font-bold text-gray-900">Score Overview Area Bertanggung Jawab</h3>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            {userAreas.map((area) => {
+              const areaActivities = activities.filter((a) => a.work_area?.name === area.name && new Date(a.created_at || "").getMonth() === selectedMonth);
+              const totalDays = new Date(selectedYear, selectedMonth + 1, 0).getDate();
+              const uniqueDays = new Set(areaActivities.map((a) => new Date(a.date).toLocaleDateString("id-ID"))).size;
+              const score = totalDays > 0 ? (uniqueDays / totalDays) * 100 : 0;
+
+              return (
+                <div key={area.id} className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow">
+                  <div className="flex justify-between items-start mb-3">
+                    <h4 className="font-semibold text-gray-900">{area.name}</h4>
+                    {/* <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">{area.department?.name || "Unknown"}</span> */}
+                  </div>
+
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-2xl font-bold text-blue-600">{Math.min(score, 100).toFixed(0)}%</span>
+                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                      <BarChart3 size={20} className="text-blue-600" />
+                    </div>
+                  </div>
+
+                  <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+                    <div className="bg-green-500 h-2 rounded-full transition-all duration-500" style={{ width: `${Math.min(score, 100)}%` }}></div>
+                  </div>
+
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>{uniqueDays} hari aktif</span>
+                    <span>{Math.round(score)}% tercover</span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </motion.div>
       </>
@@ -890,7 +971,7 @@ const GenbaActivity: React.FC = () => {
                   <th className="text-left py-3 text-sm font-medium text-gray-500">Aksi</th>
                 </tr>
               </thead>
-              
+
               <tbody>
                 {filteredEmployees.map((employee) => {
                   const monthlyScore = getEmployeeMonthlyScore(employee.nik, selectedMonth, selectedYear);
@@ -1237,7 +1318,7 @@ const GenbaActivity: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Komite 5S</label>
-                  <input type="text" value={`Komite5s ${user?.department?.name || "Department"}`} disabled className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-600" />
+                  <input type="text" value={`Komite5s ${user?.email || "Karyawan"}`} disabled className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-600" />
                 </div>
 
                 <div>
@@ -1346,4 +1427,4 @@ const GenbaActivity: React.FC = () => {
   );
 };
 
-export default GenbaActivity;
+export default GenbaActivitys;

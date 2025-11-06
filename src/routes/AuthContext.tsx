@@ -1238,6 +1238,7 @@ export interface GenbaWorkAreas {
     name: string;
     email: string;
   };
+  daily_reports: boolean;
 }
 
 export interface LayoutInterface {
@@ -1246,14 +1247,14 @@ export interface LayoutInterface {
 }
 
 export interface CreateGenbaAreasPayload {
-  name: string;
+  name: string[];
   department_id: number;
   pic_user_id: number;
   attachment: LayoutInterface | null;
 }
 
 export interface UpdateGenbaAreasPayload {
-  name: string;
+  name: string[];
   department_id: number;
   pic_user_id: number;
   attachment?: LayoutInterface | File | null;
@@ -4188,8 +4189,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     async (data: CreateGenbaAreasPayload, file?: File | null): Promise<any> => {
       const formData = new FormData();
 
-      // Append basic data
-      formData.append("name", data.name);
+      if (Array.isArray(data.name)) {
+        formData.append("name", JSON.stringify(data.name)); // ubah array ke string JSON
+      } else {
+        formData.append("name", data.name);
+      }
+
       formData.append("department_id", data.department_id.toString());
       formData.append("pic_user_id", data.pic_user_id.toString());
 
@@ -4199,7 +4204,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       console.log("Creating genba area with data:", {
-        name: data.name,
+        work_areas: data.name,
         department_id: data.department_id,
         pic_user_id: data.pic_user_id,
         hasFile: !!file,
@@ -4226,7 +4231,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const formData = new FormData();
 
       // Append basic data
-      formData.append("name", data.name);
+      if (Array.isArray(data.name)) {
+        formData.append("name", JSON.stringify(data.name)); // ubah array ke string JSON
+      } else {
+        formData.append("name", data.name);
+      }
+
       formData.append("department_id", data.department_id.toString());
       formData.append("pic_user_id", data.pic_user_id.toString());
       formData.append("_method", "PUT");
@@ -4238,7 +4248,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       console.log("Updating genba area:", {
         id,
-        name: data.name,
+        work_areas: data.name,
         department_id: data.department_id,
         pic_user_id: data.pic_user_id,
         hasFile: !!file,
