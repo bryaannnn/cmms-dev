@@ -5,7 +5,7 @@ import { Camera, MapPin, User as User1, Calendar, ChevronLeft, ChevronRight, X, 
 import Sidebar from "../../../component/Sidebar";
 import { getProjectEnvVariables } from "../../../shared/projectEnvVariables";
 import PageHeader from "../../../component/PageHeader";
-import { useAuth, User as AuthUser, Department, GenbaWorkAreas, GenbaActivity, User } from "../../../routes/AuthContext";
+import { useAuth, User as AuthUser, Department, GenbaWorkAreas, GenbaActivity, User, GenbaSO } from "../../../routes/AuthContext";
 
 interface UserRole {
   id: string;
@@ -16,7 +16,7 @@ interface UserRole {
 const GenbaActivitys: React.FC = () => {
   const navigate = useNavigate();
   const projectEnvVariables = getProjectEnvVariables();
-  const { user, getGenbaActivities, getGenbaAreas, createGenbaActivity, updateGenbaActivity, deleteGenbaActivity, getUsers, fetchUser, getDepartment, hasPermission } = useAuth();
+  const { user, getGenbaActivities, getGenbaAreas, createGenbaActivity, updateGenbaActivity, deleteGenbaActivity, getUsers, fetchUser, getDepartment, hasPermission, getGenbaSOs } = useAuth();
 
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
     const stored = localStorage.getItem("sidebarOpen");
@@ -34,33 +34,66 @@ const GenbaActivitys: React.FC = () => {
   const [keterangan, setKeterangan] = useState("");
   const [fotoLampiran, setFotoLampiran] = useState<string[]>([]);
   const [cameraOpen, setCameraOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<"karyawan" | "komite" | "penanggungjawab" | "management">("management");
+  const [viewMode, setViewMode] = useState<"karyawan" | "komite" | "management">("karyawan");
   const [detailView, setDetailView] = useState<{ type: "karyawan"; data: User } | null>(null);
   const [selectedDepartment, setSelectedDepartment] = useState<string>("");
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [genbaSOs, setGenbaSOs] = useState<GenbaSO[]>([]);
+  const [userRoles, setUserRoles] = useState<UserRole[]>([]);
+  const [selectedAreaFilter, setSelectedAreaFilter] = useState<string>("");
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-
-  const userRoles: UserRole[] = [
-    { id: "karyawan", name: "Karyawan", level: 1 },
-    { id: "komite", name: "Komite Department", level: 2 },
-    { id: "penanggungjawab", name: "Penanggung Jawab Area", level: 3 },
-    { id: "management", name: "Management", level: 4 },
-  ];
 
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        const [areasData, usersData, , departmentsData, activitiesData] = await Promise.all([getGenbaAreas(), getUsers(), fetchUser(), getDepartment(), getGenbaActivities()]);
+        const [areasData, usersData, , departmentsData, activitiesData, genbaSOsData] = await Promise.all([getGenbaAreas(), getUsers(), fetchUser(), getDepartment(), getGenbaActivities(), getGenbaSOs()]);
 
         setAreas(areasData);
         setAllUsers(usersData);
         setDepartments(departmentsData);
         setActivities(activitiesData);
+        setGenbaSOs(genbaSOsData);
+
+        const activeSO = genbaSOsData.find((so) => so.is_active);
+        if (activeSO && user) {
+          const userBridges = activeSO.bridges.filter((bridge) => bridge.user.id.toString() === user.id.toString());
+
+          const roles: UserRole[] = [{ id: "karyawan", name: "Karyawan", level: 1 }];
+
+          userBridges.forEach((bridge) => {
+            const roleName = bridge.role.name.toLowerCase();
+
+            // Semua role adalah karyawan
+            if (!roles.find((r) => r.id === "karyawan")) {
+              roles.push({ id: "karyawan", name: "Karyawan", level: 1 });
+            }
+
+            if (roleName === "komite 5s department" && !roles.find((r) => r.id === "komite")) {
+              roles.push({ id: "komite", name: "Komite 5S Department", level: 2 });
+            }
+
+            if ((roleName === "koordinator 5s department" || roleName === "koordinator 5s") && !roles.find((r) => r.id === "management")) {
+              roles.push({ id: "management", name: "Koordinator 5S / Department", level: 3 });
+            }
+
+            if (roleName === "penanggung jawab 5s" && !roles.find((r) => r.id === "management")) {
+              roles.push({ id: "management", name: "Penanggung Jawab 5S", level: 3 });
+            }
+          });
+
+          setUserRoles(roles);
+
+          if (roles.length > 1) {
+            setViewMode(roles[1].id as "karyawan" | "komite" | "management");
+          }
+        } else {
+          setUserRoles([{ id: "karyawan", name: "Karyawan", level: 1 }]);
+        }
       } catch (error) {
         console.error("Error loading data:", error);
         alert("Gagal memuat data. Silakan refresh halaman.");
@@ -70,7 +103,7 @@ const GenbaActivitys: React.FC = () => {
     };
 
     loadData();
-  }, [getGenbaAreas, getUsers, getDepartment, getGenbaActivities]);
+  }, [getGenbaAreas, getUsers, getDepartment, getGenbaActivities, getGenbaSOs, fetchUser]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -101,21 +134,35 @@ const GenbaActivitys: React.FC = () => {
     return areas.find((area) => area.id.toString() === selectedArea);
   };
 
+  const getUserAreas = (): GenbaWorkAreas[] => {
+    return areas.filter((area) => area.pic_user_id.toString() === user?.id?.toString());
+  };
+
+  const handleMonthChange = (offset: number) => {
+    const newDate = new Date(selectedYear, selectedMonth + offset, 1);
+    setSelectedMonth(newDate.getMonth());
+    setSelectedYear(newDate.getFullYear());
+    setCurrentDate(newDate);
+  };
+
   const getFilteredActivities = (): GenbaActivity[] => {
     let filtered = activities;
 
     if (viewMode === "komite" && user?.department) {
       filtered = filtered.filter((activity) => activity.work_area?.department?.name === user.department?.name);
-    } else if (viewMode === "penanggungjawab") {
-      const userAreas = areas.filter((area) => area.pic_user_id.toString() === user?.id?.toString());
-      filtered = filtered.filter((activity) => userAreas.some((area) => area.name === activity.work_area?.name));
     } else if (viewMode === "karyawan") {
       filtered = filtered.filter((activity) => activity.reporter?.nik === user?.nik);
     }
 
-    if (selectedDepartment) {
-      filtered = filtered.filter((activity) => activity.work_area?.department?.name === selectedDepartment);
+    if (selectedArea) {
+      filtered = filtered.filter((activity) => activity.work_area?.id.toString() === selectedArea);
     }
+
+    // filter by month/year
+    filtered = filtered.filter((activity) => {
+      const date = new Date(activity.date);
+      return date.getMonth() === selectedMonth && date.getFullYear() === selectedYear;
+    });
 
     if (searchTerm) {
       filtered = filtered.filter(
@@ -153,8 +200,10 @@ const GenbaActivitys: React.FC = () => {
   };
 
   const getCurrentMonthScore = (): number => {
-    const now = new Date();
-    return getMonthlyScore(now.getMonth(), now.getFullYear());
+    const filtered = getFilteredActivities();
+    const totalDays = new Date(selectedYear, selectedMonth + 1, 0).getDate();
+    const uniqueDays = new Set(filtered.map((a) => new Date(a.date).toLocaleDateString("id-ID"))).size;
+    return Math.min((uniqueDays / totalDays) * 100, 100);
   };
 
   const getEmployeeMonthlyScore = (nik: string, month: number, year: number): number => {
@@ -170,6 +219,19 @@ const GenbaActivitys: React.FC = () => {
     return Math.min(score, 100);
   };
 
+  const getAreaMonthlyScore = (areaId: number, month: number, year: number): number => {
+    const areaActivities = activities.filter((activity) => {
+      const activityDate = new Date(activity.created_at || "");
+      return activity.genba_work_area_id === areaId && activityDate.getMonth() === month && activityDate.getFullYear() === year;
+    });
+
+    const totalDays = new Date(year, month + 1, 0).getDate();
+    const uniqueDays = new Set(areaActivities.map((activity) => new Date(activity.date).toLocaleDateString("id-ID"))).size;
+
+    const score = totalDays > 0 ? (uniqueDays / totalDays) * 100 : 0;
+    return Math.min(score, 100);
+  };
+
   const getCalendarDays = (targetDate?: Date) => {
     const date = targetDate || currentDate;
     const year = date.getFullYear();
@@ -177,7 +239,7 @@ const GenbaActivitys: React.FC = () => {
     const lastDay = new Date(year, month + 1, 0);
     const daysInMonth = lastDay.getDate();
 
-    const filteredActivities = getFilteredActivities();
+    const filteredActivities = getFilteredActivities().filter((activity) => !selectedAreaFilter || activity.genba_work_area_id.toString() === selectedAreaFilter);
 
     const days = [];
     for (let i = 1; i <= daysInMonth; i++) {
@@ -287,7 +349,6 @@ const GenbaActivitys: React.FC = () => {
     const today = new Date();
     const dateStr = date.toLocaleDateString("id-ID");
 
-    // cek apakah ada data di tanggal tsb
     const hasReport = activities.some((activity) => new Date(activity.date).toLocaleDateString("id-ID") === dateStr);
 
     const isToday = date.toDateString() === today.toDateString();
@@ -300,7 +361,6 @@ const GenbaActivitys: React.FC = () => {
     } else if (isPast) {
       return <span className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">Tidak Lapor</span>;
     } else {
-      // jika tanggal belum datang (masa depan bulan depan)
       return <span className="px-2 py-1 bg-gray-50 text-gray-400 rounded-full text-xs font-medium">-</span>;
     }
   };
@@ -309,14 +369,11 @@ const GenbaActivitys: React.FC = () => {
     const today = new Date();
     const todayStr = today.toLocaleDateString("id-ID");
 
-    // cek apakah user ini sudah punya laporan hari ini
     const hasReportToday = activities.some((activity) => activity.reporter?.nik === nik && new Date(activity.date).toLocaleDateString("id-ID") === todayStr);
 
     if (hasReportToday) {
-      // Sudah lapor
       return <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">Sudah Lapor</span>;
     } else {
-      // Belum lapor hari ini
       return <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-medium">Belum Lapor</span>;
     }
   };
@@ -539,20 +596,38 @@ const GenbaActivitys: React.FC = () => {
   };
 
   const renderKaryawanView = (): React.JSX.Element => {
-    const userAreas = areas.filter((area) => area.pic_user_id.toString() === user?.id?.toString());
-    const years = [2023, 2024, 2025];
+    const handleMonthChange = (offset: number) => {
+      const newDate = new Date(selectedYear, selectedMonth + offset, 1);
+      setSelectedYear(newDate.getFullYear());
+      setSelectedMonth(newDate.getMonth());
+      setCurrentDate(newDate);
+    };
+
+    const userAreas = getUserAreas();
     const calendarDays = getCalendarDays();
+    const currentArea = getCurrentArea();
 
     return (
       <>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-6 bg-white rounded-2xl shadow-md p-6 border border-blue-100">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 space-y-4 md:space-y-0">
             <h3 className="text-lg font-bold text-gray-900">{currentDate.toLocaleDateString("id-ID", { month: "long", year: "numeric" })}</h3>
             <div className="flex gap-2">
-              <button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))} className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center hover:shadow-md transition-shadow">
+              {userAreas.length > 1 && (
+                <select value={selectedArea} onChange={(e) => setSelectedArea(e.target.value)} className="px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  {userAreas.map((area) => (
+                    <option key={area.id} value={area.id.toString()}>
+                      {area.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              <button onClick={() => handleMonthChange(-1)} className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center hover:shadow-md transition-shadow">
                 <ChevronLeft size={16} className="text-gray-700" />
               </button>
-              <button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))} className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center hover:shadow-md transition-shadow">
+
+              <button onClick={() => handleMonthChange(1)} className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center hover:shadow-md transition-shadow">
                 <ChevronRight size={16} className="text-gray-700" />
               </button>
             </div>
@@ -644,7 +719,7 @@ const GenbaActivitys: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">Area Bertanggung Jawab</p>
-                <p className="text-lg font-bold text-gray-900">{areas.filter((area) => area.pic_user_id.toString() === user?.id?.toString()).length} Area</p>
+                <p className="text-lg font-bold text-gray-900">{userAreas.length} Area</p>
               </div>
               <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
                 <MapPin className="text-purple-600" size={24} />
@@ -653,7 +728,6 @@ const GenbaActivitys: React.FC = () => {
           </motion.div>
         </div>
 
-        {/* Profile Section */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="bg-white rounded-2xl shadow-md p-6 border border-blue-100 mb-6">
           <div className="flex flex-col md:flex-row gap-6">
             <div className="flex-1">
@@ -729,7 +803,6 @@ const GenbaActivitys: React.FC = () => {
                 <div key={area.id} className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow">
                   <div className="flex justify-between items-start mb-3">
                     <h4 className="font-semibold text-gray-900">{area.name}</h4>
-                    {/* <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">{area.department?.name || "Unknown"}</span> */}
                   </div>
 
                   <div className="flex justify-between items-center mb-2">
@@ -847,141 +920,6 @@ const GenbaActivitys: React.FC = () => {
                       <td className="py-3 text-sm font-medium">{employee.name}</td>
                       <td className="py-3 text-sm">{employee.nik}</td>
                       <td className="py-3 text-sm">{employee.department?.name}</td>
-                      <td className="py-3">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold">{monthlyScore.toFixed(0)}%</span>
-                          <div className="w-20 bg-gray-200 rounded-full h-2">
-                            <div className={`h-2 rounded-full ${monthlyScore >= 80 ? "bg-green-500" : monthlyScore >= 60 ? "bg-yellow-500" : "bg-red-500"}`} style={{ width: `${monthlyScore}%` }}></div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-3">{getTodaysStatus(employee.nik)}</td>
-                      <td className="py-3 text-sm">{employeeActivities.length}</td>
-                      <td className="py-3">
-                        <button onClick={() => setDetailView({ type: "karyawan", data: employee })} className="text-blue-600 hover:text-blue-800 text-sm font-medium">
-                          Lihat Detail
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </motion.div>
-      </div>
-    );
-  };
-
-  const renderPenanggungJawabView = (): React.JSX.Element => {
-    const years = [2023, 2024, 2025];
-    const userAreas = areas.filter((area) => area.pic_user_id.toString() === user?.id?.toString());
-    const uniqueEmployees = getUniqueEmployees().filter((emp) => userAreas.some((area) => area.department?.name === emp.department?.name));
-    const filteredEmployees = uniqueEmployees.filter((employee: User) => employee.name.toLowerCase().includes(searchTerm.toLowerCase()) || employee.nik.includes(searchTerm));
-
-    if (detailView && detailView.type === "karyawan") {
-      return renderEmployeeDetail(detailView.data);
-    }
-
-    return (
-      <div className="space-y-6">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-2xl shadow-md p-6 border border-blue-100">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 space-y-4 md:space-y-0">
-            <h3 className="text-lg font-bold text-gray-900">Score Overview Area Bertanggung Jawab</h3>
-            <div className="flex gap-3">
-              <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))} className="px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                {years.map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))}
-              </select>
-              <select value={selectedMonth} onChange={(e) => setSelectedMonth(Number(e.target.value))} className="px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                {Array.from({ length: 12 }, (_, i) => (
-                  <option key={i} value={i}>
-                    {new Date(2024, i).toLocaleDateString("id-ID", { month: "long" })}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-            {userAreas.map((area) => {
-              const areaActivities = activities.filter((a) => a.work_area?.name === area.name && new Date(a.created_at || "").getMonth() === selectedMonth);
-              const totalDays = new Date(selectedYear, selectedMonth + 1, 0).getDate();
-              const uniqueDays = new Set(areaActivities.map((a) => new Date(a.date).toLocaleDateString("id-ID"))).size;
-              const score = totalDays > 0 ? (uniqueDays / totalDays) * 100 : 0;
-
-              return (
-                <div key={area.id} className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow">
-                  <div className="flex justify-between items-start mb-3">
-                    <h4 className="font-semibold text-gray-900">{area.name}</h4>
-                    <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">{area.department?.name || "Unknown"}</span>
-                  </div>
-
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-2xl font-bold text-blue-600">{Math.min(score, 100).toFixed(0)}%</span>
-                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                      <BarChart3 size={20} className="text-blue-600" />
-                    </div>
-                  </div>
-
-                  <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
-                    <div className="bg-green-500 h-2 rounded-full transition-all duration-500" style={{ width: `${Math.min(score, 100)}%` }}></div>
-                  </div>
-
-                  <div className="flex justify-between text-xs text-gray-500">
-                    <span>{uniqueDays} hari aktif</span>
-                    <span>{Math.round(score)}% tercover</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-white rounded-2xl shadow-md p-6 border border-blue-100">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 space-y-4 md:space-y-0">
-            <h3 className="text-lg font-bold text-gray-900">Laporan Per Karyawan</h3>
-            <div className="flex gap-3">
-              <div className="relative">
-                <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Cari karyawan..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 text-sm font-medium text-gray-500">Nama</th>
-                  <th className="text-left py-3 text-sm font-medium text-gray-500">NIK</th>
-                  <th className="text-left py-3 text-sm font-medium text-gray-500">Department</th>
-                  <th className="text-left py-3 text-sm font-medium text-gray-500">Score Bulan Ini</th>
-                  <th className="text-left py-3 text-sm font-medium text-gray-500">Status Hari Ini</th>
-                  <th className="text-left py-3 text-sm font-medium text-gray-500">Total Laporan</th>
-                  <th className="text-left py-3 text-sm font-medium text-gray-500">Aksi</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {filteredEmployees.map((employee) => {
-                  const monthlyScore = getEmployeeMonthlyScore(employee.nik, selectedMonth, selectedYear);
-                  const employeeActivities = activities.filter((a) => a.reporter?.nik === employee.nik);
-
-                  return (
-                    <tr key={employee.nik} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="py-3 text-sm font-medium">{employee.name}</td>
-                      <td className="py-3 text-sm">{employee.nik}</td>
-                      <td className="py-3 text-sm">{employee.department?.name || "-"}</td>
                       <td className="py-3">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-semibold">{monthlyScore.toFixed(0)}%</span>
@@ -1205,12 +1143,10 @@ const GenbaActivitys: React.FC = () => {
         return renderKaryawanView();
       case "komite":
         return renderKomiteView();
-      case "penanggungjawab":
-        return renderPenanggungJawabView();
       case "management":
         return renderManagementView();
       default:
-        return renderManagementView();
+        return renderKaryawanView();
     }
   };
 
@@ -1224,9 +1160,7 @@ const GenbaActivitys: React.FC = () => {
         <PageHeader
           mainTitle="Genba Activity"
           mainTitleHighlight="Management"
-          description={`Laporan ${
-            viewMode === "karyawan" ? "harian penanggung jawab area kerja" : viewMode === "komite" ? "department untuk komite 5S" : viewMode === "penanggungjawab" ? "overview area bertanggung jawab" : "executive dashboard management"
-          }`}
+          description={`Laporan ${viewMode === "karyawan" ? "harian penanggung jawab area kerja" : viewMode === "komite" ? "department untuk komite 5S" : "executive dashboard management"}`}
           icon={<Calendar />}
           isMobile={isMobile}
           toggleSidebar={toggleSidebar}
@@ -1237,7 +1171,7 @@ const GenbaActivitys: React.FC = () => {
             <div className="mb-4">
               <button onClick={() => setDetailView(null)} className="flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium">
                 <ArrowLeft size={16} />
-                Kembali ke {viewMode === "komite" ? "Komite" : viewMode === "penanggungjawab" ? "PJ Area" : "Management"}
+                Kembali ke {viewMode === "komite" ? "Komite" : viewMode === "management" ? "Management" : "Karyawan"}
               </button>
             </div>
           )}
@@ -1252,31 +1186,28 @@ const GenbaActivitys: React.FC = () => {
                   ? "Effortlessly track, manage, and complete your daily tasks and activities to optimize productivity."
                   : viewMode === "komite"
                   ? "Monitor and manage 5S activities across your department with comprehensive reporting."
-                  : viewMode === "penanggungjawab"
-                  ? "Oversee area performance and compliance with monthly score tracking."
                   : "Executive overview of all 5S activities across departments and areas."}
               </p>
             </div>
 
-            {!detailView && (
+            {!detailView && userRoles.length > 1 && (
               <div className="flex items-center gap-3">
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 px-4 py-2">
                   <span className="text-sm font-medium text-gray-700">{userRoles.find((role) => role.id === viewMode)?.name}</span>
                 </div>
 
                 <div className="flex gap-2">
-                  <button onClick={() => setViewMode("karyawan")} className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors">
-                    Karyawan
-                  </button>
-                  <button onClick={() => setViewMode("komite")} className="px-3 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors">
-                    Komite
-                  </button>
-                  <button onClick={() => setViewMode("penanggungjawab")} className="px-3 py-2 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700 transition-colors">
-                    PJ Area
-                  </button>
-                  <button onClick={() => setViewMode("management")} className="px-3 py-2 bg-orange-600 text-white rounded-lg text-sm hover:bg-orange-700 transition-colors">
-                    Management
-                  </button>
+                  {userRoles.map((role) => (
+                    <button
+                      key={role.id}
+                      onClick={() => setViewMode(role.id as "karyawan" | "komite" | "management")}
+                      className={`px-3 py-2 rounded-lg text-sm transition-colors ${
+                        viewMode === role.id ? (role.id === "karyawan" ? "bg-blue-600 text-white" : role.id === "komite" ? "bg-green-600 text-white" : "bg-orange-600 text-white") : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                      }`}
+                    >
+                      {role.name}
+                    </button>
+                  ))}
                 </div>
               </div>
             )}
@@ -1330,7 +1261,7 @@ const GenbaActivitys: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Area *</label>
                   <select value={selectedArea} onChange={(e) => setSelectedArea(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                     <option value="">Pilih Area Kerja ...</option>
-                    {areas.map((area) => (
+                    {getUserAreas().map((area) => (
                       <option key={area.id} value={area.id.toString()}>
                         {area.name}
                       </option>

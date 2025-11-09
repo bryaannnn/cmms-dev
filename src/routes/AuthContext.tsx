@@ -1238,7 +1238,7 @@ export interface GenbaWorkAreas {
     name: string;
     email: string;
   };
-  daily_reports: boolean;
+  is_default: boolean;
 }
 
 export interface LayoutInterface {
@@ -1246,17 +1246,24 @@ export interface LayoutInterface {
   filename: string;
 }
 
+export interface WorkAreas {
+  name: string;
+  attachment: File | null;
+  is_default: boolean;
+}
+
 export interface CreateGenbaAreasPayload {
-  name: string[];
+  work_areas: WorkAreas[];
   department_id: number;
   pic_user_id: number;
   attachment: LayoutInterface | null;
 }
 
 export interface UpdateGenbaAreasPayload {
-  name: string[];
+  name: string;
   department_id: number;
   pic_user_id: number;
+  is_default: boolean;
   attachment?: LayoutInterface | File | null;
 }
 
@@ -1494,9 +1501,9 @@ interface AuthContextType {
   getGenbaSOById: (id: string | number) => Promise<GenbaSO>;
   getGenbaAreas: () => Promise<GenbaWorkAreas[]>;
   createGenbaSO: (data: CreateGenbaSOPayload) => Promise<GenbaSO>;
-  createGenbaAreas: (data: CreateGenbaAreasPayload, file?: File | null) => Promise<any>;
+  createGenbaAreas: (data: CreateGenbaAreasPayload, attachment?: File[]) => Promise<any>;
   updateGenbaSO: (id: string | number, data: UpdateGenbaSOPayload) => Promise<GenbaSO>;
-  updateGenbaAreas: (id: string | number, data: UpdateGenbaAreasPayload, file?: File | null) => Promise<GenbaWorkAreas>;
+  updateGenbaAreas: (id: string | number, data: UpdateGenbaAreasPayload, files: File | null) => Promise<GenbaWorkAreas>;
   deleteGenbaSO: (id: string | number) => Promise<void>;
   deleteGenbaAreas: (id: string | number) => Promise<void>;
   setGenbaSOActive: (id: string | number) => Promise<GenbaSO>;
@@ -4186,28 +4193,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [fetchWithAuth]);
 
   const createGenbaAreas = useCallback(
-    async (data: CreateGenbaAreasPayload, file?: File | null): Promise<any> => {
+    async (data: CreateGenbaAreasPayload, attachment?: File[]): Promise<any> => {
       const formData = new FormData();
-
-      if (Array.isArray(data.name)) {
-        formData.append("name", JSON.stringify(data.name)); // ubah array ke string JSON
-      } else {
-        formData.append("name", data.name);
-      }
 
       formData.append("department_id", data.department_id.toString());
       formData.append("pic_user_id", data.pic_user_id.toString());
 
-      // Append single file jika ada
-      if (file) {
-        formData.append("attachment", file); // Hanya satu file
-      }
-
-      console.log("Creating genba area with data:", {
-        work_areas: data.name,
-        department_id: data.department_id,
-        pic_user_id: data.pic_user_id,
-        hasFile: !!file,
+      data.work_areas.forEach((area, index) => {
+        formData.append(`work_areas[${index}][name]`, area.name);
+        if (area.attachment) {
+          formData.append(`work_areas[${index}][attachment]`, area.attachment);
+        }
+        if (area.is_default) {
+          formData.append("is_default", area.is_default ? "1" : "0");
+        }
       });
 
       try {
@@ -4232,12 +4231,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       // Append basic data
       if (Array.isArray(data.name)) {
-        formData.append("name", JSON.stringify(data.name)); // ubah array ke string JSON
+        formData.append("name", JSON.stringify(data.name));
       } else {
         formData.append("name", data.name);
       }
 
       formData.append("department_id", data.department_id.toString());
+      formData.append("is_default", data.is_default ? "1" : "0"); // kirim boolean sebagai string
       formData.append("pic_user_id", data.pic_user_id.toString());
       formData.append("_method", "PUT");
 
@@ -4245,14 +4245,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (file) {
         formData.append("attachment", file);
       }
-
-      console.log("Updating genba area:", {
-        id,
-        work_areas: data.name,
-        department_id: data.department_id,
-        pic_user_id: data.pic_user_id,
-        hasFile: !!file,
-      });
 
       const response = await fetchWithAuth(`/genba-work-areas/${id}`, {
         method: "POST",

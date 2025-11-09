@@ -8,10 +8,11 @@ import { useAuth, GenbaWorkAreas, User, Department, LayoutInterface } from "../.
 import { X, Save, Trash2, Hourglass, ArrowLeft, MapPin, Building, User as UserIcon, Upload, CheckCircle, Image, Camera, File, Paperclip } from "lucide-react";
 
 interface AreaFormData {
-  name: string[];
+  name: string;
   department_id: string;
   pic_user_id: string;
   attachment: File | null;
+  is_default: boolean;
   existingLayouts: LayoutInterface[];
 }
 
@@ -40,7 +41,6 @@ const Modal: React.FC<{
 
 const EditFormGenbaArea: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const areaInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const { getGenbaAreas, updateGenbaAreas, getUsers, getDepartment } = useAuth();
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -64,9 +64,10 @@ const EditFormGenbaArea: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const [formData, setFormData] = useState<AreaFormData>({
-    name: [],
+    name: "",
     department_id: "",
     pic_user_id: "",
+    is_default: false,
     attachment: null,
     existingLayouts: [],
   });
@@ -130,10 +131,11 @@ const EditFormGenbaArea: React.FC = () => {
       }
 
       setFormData({
-        name: Array.isArray(areaData.name) ? areaData.name : [areaData.name],
+        name: areaData.name,
         department_id: areaData.department_id?.toString() || "",
-        pic_user_id: areaData.pic_user_id?.toString() || "",
+        pic_user_id: areaData.pic?.id?.toString() || "",
         attachment: null,
+        is_default: areaData.is_default,
         existingLayouts: existingLayouts, // Sekarang bertipe LayoutInterface[]
       });
     } catch (err) {
@@ -307,6 +309,7 @@ const EditFormGenbaArea: React.FC = () => {
         {
           name: formData.name,
           department_id: parseInt(formData.department_id),
+          is_default: formData.is_default,
           pic_user_id: parseInt(formData.pic_user_id),
         },
         formData.attachment // Kirim single file (bukan array)
@@ -540,52 +543,20 @@ const EditFormGenbaArea: React.FC = () => {
                   <MapPin className="mr-2 text-green-500" /> Area Details
                 </h2>
                 <div className="grid grid-cols-1 gap-6">
-                  {/* Nama Area */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Nama Area *</label>
-                    <div className="flex flex-wrap items-center gap-2 p-2 border border-gray-300 rounded-lg bg-white focus-within:ring-1 focus-within:ring-blue-500 focus-within:border-blue-500" onClick={() => areaInputRef.current?.focus()}>
-                      {formData.name.map((area, index) => (
-                        <span key={index} className="flex items-center bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
-                          {area}
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setFormData((prev) => ({
-                                ...prev,
-                                name: prev.name.filter((_, i) => i !== index),
-                              }))
-                            }
-                            className="ml-2 text-blue-600 hover:text-red-600"
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ))}
-
-                      <input
-                        type="text"
-                        ref={areaInputRef}
-                        className="flex-1 min-w-[120px] border-none outline-none focus:ring-0 text-sm text-gray-700"
-                        placeholder="Ketik nama area dan tekan Enter..."
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && e.currentTarget.value.trim() !== "") {
-                            e.preventDefault();
-                            const newArea = e.currentTarget.value.trim();
-                            setFormData((prev) => ({
-                              ...prev,
-                              name: [...prev.name, newArea],
-                            }));
-                            e.currentTarget.value = "";
-                          } else if (e.key === "Backspace" && e.currentTarget.value === "") {
-                            // Hapus area terakhir jika backspace saat input kosong
-                            setFormData((prev) => ({
-                              ...prev,
-                              name: prev.name.slice(0, -1),
-                            }));
-                          }
-                        }}
-                      />
-                    </div>
+                    <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                      Nama Area <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="name"
+                      id="name"
+                      value={formData.name}
+                      onChange={handleChange}
+                      className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700"
+                      placeholder="e.g., Area Produksi Line A"
+                      required
+                    />
                   </div>
                   <div>
                     <label htmlFor="pic_user_id" className="block text-sm font-medium text-gray-700 mb-1">
@@ -595,7 +566,7 @@ const EditFormGenbaArea: React.FC = () => {
                       name="pic_user_id"
                       id="pic_user_id"
                       options={filteredUsers.map((user) => ({ value: user.id.toString(), label: user.name }))}
-                      value={filteredUsers.map((user) => ({ value: user.id.toString(), label: user.name })).find((option) => option.value === formData.pic_user_id)}
+                      value={filteredUsers.map((pic) => ({ value: pic.id.toString(), label: pic.name })).find((option) => option.value === formData.pic_user_id)}
                       onChange={(selectedOption) => handleChange(selectedOption, "pic_user_id")}
                       placeholder={formData.department_id ? "Select Penanggung Jawab" : "Please select department first"}
                       styles={customSelectStyles}
@@ -603,6 +574,23 @@ const EditFormGenbaArea: React.FC = () => {
                       required
                     />
                     {!formData.department_id && <p className="text-sm text-yellow-500 mt-1">Please select a department first</p>}
+                  </div>
+
+                  <div>
+                    <label className="flex items-center space-x-3 text-sm font-medium text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={formData.is_default}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            is_default: e.target.checked,
+                          }))
+                        }
+                        className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <span>Daily Reports (jadikan area default)</span>
+                    </label>
                   </div>
                 </div>
               </div>

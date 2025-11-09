@@ -7,11 +7,16 @@ import Sidebar from "../../../component/Sidebar";
 import { useAuth, User, Department, LayoutInterface } from "../../../routes/AuthContext";
 import { X, Save, Trash2, Hourglass, ArrowLeft, MapPin, Building, Upload, CheckCircle, Image, Camera, File, Paperclip } from "lucide-react";
 
+interface WorkAreaItem {
+  name: string;
+  attachment: File | null;
+  is_default: boolean;
+}
+
 interface AreaFormData {
-  name: string[];
+  work_areas: WorkAreaItem[];
   department_id: string;
   pic_user_id: string;
-  attachment: File | null;
 }
 
 const Modal: React.FC<{
@@ -55,17 +60,16 @@ const FormGenbaArea: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
 
-  // Attachment states
-  const [showAttachmentOptions, setShowAttachmentOptions] = useState(false);
+  // Attachment states per area
+  const [showAttachmentOptions, setShowAttachmentOptions] = useState<number | null>(null);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const [formData, setFormData] = useState<AreaFormData>({
-    name: [],
+    work_areas: [],
     department_id: "",
     pic_user_id: "",
-    attachment: null,
   });
 
   useEffect(() => {
@@ -78,7 +82,6 @@ const FormGenbaArea: React.FC = () => {
       const filtered = users.filter((user) => user.department_id?.toString() === formData.department_id);
       setFilteredUsers(filtered);
 
-      // Reset pic_user_id if current selection is not in filtered list
       if (formData.pic_user_id && !filtered.some((user) => user.id.toString() === formData.pic_user_id)) {
         setFormData((prev) => ({ ...prev, pic_user_id: "" }));
       }
@@ -126,35 +129,56 @@ const FormGenbaArea: React.FC = () => {
     }
   }, []);
 
-  // Attachment handlers
-  const handleAttachmentClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setShowAttachmentOptions(true);
+  // Add new work area
+  const addWorkArea = () => {
+    setFormData((prev) => ({
+      ...prev,
+      work_areas: [...prev.work_areas, { name: "", attachment: null, is_default: false }],
+    }));
   };
 
-  const handleSelectFile = () => {
+  // Update work area name
+  const updateWorkAreaName = (index: number, name: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      work_areas: prev.work_areas.map((area, i) => (i === index ? { ...area, name } : area)),
+    }));
+  };
+
+  // Remove work area
+  const removeWorkArea = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      work_areas: prev.work_areas.filter((_, i) => i !== index),
+    }));
+  };
+
+  // Attachment handlers per area
+  const handleAttachmentClick = (index: number) => {
+    setShowAttachmentOptions(index);
+  };
+
+  const handleSelectFile = (index: number) => {
     const fileInput = document.createElement("input");
     fileInput.type = "file";
     fileInput.accept = "image/*, .pdf, .doc, .docx, .xls, .xlsx";
-    fileInput.multiple = false; // Nonaktifkan multiple selection
 
     fileInput.onchange = (e) => {
       const target = e.target as HTMLInputElement;
       if (target.files && target.files.length > 0) {
-        const selectedFile = target.files[0]; // Ambil file pertama saja
+        const selectedFile = target.files[0];
         setFormData((prev) => ({
           ...prev,
-          attachment: selectedFile,
+          work_areas: prev.work_areas.map((area, i) => (i === index ? { ...area, attachment: selectedFile } : area)),
         }));
       }
-      setShowAttachmentOptions(false);
+      setShowAttachmentOptions(null);
     };
 
     fileInput.click();
   };
 
-  const handleOpenCamera = async () => {
+  const handleOpenCamera = async (index: number) => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "environment" },
@@ -163,15 +187,15 @@ const FormGenbaArea: React.FC = () => {
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
+      // Store the index for when we capture the photo
+      setShowAttachmentOptions(index);
     } catch (err) {
       console.error("Error accessing camera:", err);
       alert("Tidak dapat mengakses kamera. Pastikan izin kamera telah diberikan.");
     }
   };
 
-  // Ganti fungsi helper dengan pendekatan yang lebih aman
   const createFileFromBlob = (blob: Blob, fileName: string): File => {
-    // Create file dengan cara yang lebih kompatibel
     const file = Object.assign(new Blob([blob], { type: "image/jpeg" }), {
       name: fileName,
       lastModified: Date.now(),
@@ -179,9 +203,8 @@ const FormGenbaArea: React.FC = () => {
     return file;
   };
 
-  // Handle capture photo - single file
   const handleCapturePhoto = () => {
-    if (videoRef.current && canvasRef.current) {
+    if (videoRef.current && canvasRef.current && showAttachmentOptions !== null) {
       const canvas = canvasRef.current;
       const context = canvas.getContext("2d");
       if (context) {
@@ -193,10 +216,11 @@ const FormGenbaArea: React.FC = () => {
           (blob) => {
             if (blob) {
               const file = createFileFromBlob(blob, `photo-${Date.now()}.jpg`);
+              const index = showAttachmentOptions;
 
               setFormData((prev) => ({
                 ...prev,
-                attachment: file, // Set single file
+                work_areas: prev.work_areas.map((area, i) => (i === index ? { ...area, attachment: file } : area)),
               }));
             }
           },
@@ -209,7 +233,7 @@ const FormGenbaArea: React.FC = () => {
           setCameraStream(null);
         }
       }
-      setShowAttachmentOptions(false);
+      setShowAttachmentOptions(null);
     }
   };
 
@@ -218,14 +242,13 @@ const FormGenbaArea: React.FC = () => {
       cameraStream.getTracks().forEach((track) => track.stop());
       setCameraStream(null);
     }
-    setShowAttachmentOptions(false);
+    setShowAttachmentOptions(null);
   };
 
-  // Remove attachment untuk single file
-  const removeAttachment = () => {
+  const removeAttachment = (index: number) => {
     setFormData((prev) => ({
       ...prev,
-      attachment: null,
+      work_areas: prev.work_areas.map((area, i) => (i === index ? { ...area, attachment: null } : area)),
     }));
   };
 
@@ -235,35 +258,41 @@ const FormGenbaArea: React.FC = () => {
     setError(null);
     setSuccess(null);
 
-    if (!formData.name || !formData.department_id || !formData.pic_user_id) {
+    // Validation
+    if (!formData.department_id || !formData.pic_user_id) {
       setError("Please fill in all required fields");
       setLoading(false);
       return;
     }
 
+    if (formData.work_areas.length === 0) {
+      setError("Please add at least one work area");
+      setLoading(false);
+      return;
+    }
+
+    // Check if all work areas have names
+    const hasEmptyNames = formData.work_areas.some((area) => !area.name.trim());
+    if (hasEmptyNames) {
+      setError("All work areas must have a name");
+      setLoading(false);
+      return;
+    }
+
     try {
-      // Kirim dengan attachment sebagai null (sesuai interface yang sudah diperbaiki)
-      await createGenbaAreas(
-        {
-          name: formData.name,
-          department_id: parseInt(formData.department_id),
-          pic_user_id: parseInt(formData.pic_user_id),
-          attachment: null, // Sekarang bisa null
-        },
-        formData.attachment // Kirim file sebagai parameter kedua
-      );
+      await createGenbaAreas({
+        work_areas: formData.work_areas,
+        department_id: parseInt(formData.department_id),
+        pic_user_id: parseInt(formData.pic_user_id),
+        attachment: null,
+      });
 
       setSuccess("Area berhasil dibuat!");
       setShowSuccessModal(true);
       handleClear();
     } catch (err: any) {
       console.error("Full submission error:", err);
-
-      if (err.message?.includes("302") || err.message?.includes("redirect")) {
-        setError("Session expired. Please login again.");
-      } else {
-        setError(err.message || "Gagal membuat area. Silakan coba lagi.");
-      }
+      setError(err.message || "Gagal membuat area. Silakan coba lagi.");
     } finally {
       setLoading(false);
     }
@@ -271,10 +300,9 @@ const FormGenbaArea: React.FC = () => {
 
   const handleClear = useCallback(() => {
     setFormData({
-      name: [],
+      work_areas: [],
       department_id: "",
       pic_user_id: "",
-      attachment: null,
     });
     setError(null);
     setSuccess(null);
@@ -286,39 +314,23 @@ const FormGenbaArea: React.FC = () => {
   }, [navigate]);
 
   const FilePreview: React.FC<{
-    attachment: File | null; // Ubah parameter
-    onRemove: () => void; // Tidak perlu index
-  }> = ({ attachment, onRemove }) => {
-    if (!attachment) return null;
+    file: File | null;
+    onRemove: () => void;
+  }> = ({ file, onRemove }) => {
+    if (!file) return null;
 
-    const isImage = attachment.type.startsWith("image/");
-    const previewUrl = isImage ? URL.createObjectURL(attachment) : null;
+    const isImage = file.type.startsWith("image/");
+    const previewUrl = isImage ? URL.createObjectURL(file) : null;
 
     return (
-      <div className="mt-4 space-y-3">
-        <p className="text-sm font-medium text-gray-700">Selected file:</p>
-        <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <div className="flex items-center space-x-3">
-            {isImage ? <Image className="w-8 h-8 text-blue-600" /> : <File className="w-8 h-8 text-blue-600" />}
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">{attachment.name}</p>
-              <p className="text-xs text-gray-500">{(attachment.size / 1024 / 1024).toFixed(2)} MB</p>
-            </div>
-          </div>
-          <button type="button" onClick={onRemove} className="text-red-600 hover:text-red-800 transition-colors p-1 rounded-lg hover:bg-red-50" title="Remove attachment">
-            <X size={16} />
-          </button>
-
-          {/* Image Preview */}
-          {isImage && previewUrl && (
-            <div className="mt-3 pt-3 border-t border-blue-200 w-full">
-              <p className="text-xs text-gray-500 mb-2">Preview:</p>
-              <div className="flex justify-center">
-                <img src={previewUrl} alt="Preview" className="h-24 w-24 object-cover rounded-lg border shadow-sm" />
-              </div>
-            </div>
-          )}
+      <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200 mt-2">
+        <div className="flex items-center space-x-3">
+          {isImage ? <Image className="w-6 h-6 text-blue-600" /> : <File className="w-6 h-6 text-blue-600" />}
+          <p className="text-sm text-gray-800">{file.name}</p>
         </div>
+        <button type="button" onClick={onRemove} className="text-red-600 hover:text-red-800 p-1 rounded-lg hover:bg-red-50">
+          <X size={16} />
+        </button>
       </div>
     );
   };
@@ -438,57 +450,114 @@ const FormGenbaArea: React.FC = () => {
 
               <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
                 <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                  <MapPin className="mr-2 text-green-500" /> Area Details
+                  <MapPin className="mr-2 text-green-500" /> Work Areas
+                </h2>
+
+                {/* Add Area Button */}
+                <div className="mb-6">
+                  <motion.button
+                    type="button"
+                    onClick={addWorkArea}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <span>+ Add Work Area</span>
+                  </motion.button>
+                  <p className="text-sm text-gray-500 mt-2">Each work area can have its own layout attachment</p>
+                </div>
+
+                {/* Work Areas List */}
+                <div className="space-y-6">
+                  {formData.work_areas.map((area, index) => (
+                    <div key={index} className="p-4 border border-gray-200 rounded-lg bg-gray-50">
+                      <div className="flex justify-between items-start mb-4">
+                        <h3 className="font-medium text-gray-800">Work Area {index + 1}</h3>
+                        <button type="button" onClick={() => removeWorkArea(index)} className="text-red-600 hover:text-red-800 p-1 rounded-lg hover:bg-red-50">
+                          <X size={16} />
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-4">
+                        {/* Area Name */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Area Name <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={area.name}
+                            onChange={(e) => updateWorkAreaName(index, e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="Enter area name"
+                            required
+                          />
+                        </div>
+
+                        <div className="mt-4">
+                          <label className="flex items-center space-x-3 text-sm font-medium text-gray-700">
+                            <input
+                              type="checkbox"
+                              checked={area.is_default}
+                              onChange={(e) =>
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  is_default: e.target.checked,
+                                }))
+                              }
+                              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            />
+                            <span>Daily Reports (jadikan area default)</span>
+                          </label>
+                        </div>
+
+                        {/* Layout Attachment */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Layout Attachment <span className="text-gray-400 font-normal">(Optional)</span>
+                          </label>
+
+                          {!area.attachment ? (
+                            <motion.button
+                              type="button"
+                              whileHover={{ scale: 1.01 }}
+                              whileTap={{ scale: 0.99 }}
+                              className="w-full p-4 border-2 border-dashed border-gray-300 rounded-xl bg-white hover:border-blue-400 hover:bg-blue-50/50 transition-all duration-300 group"
+                              onClick={() => handleAttachmentClick(index)}
+                            >
+                              <div className="space-y-2 text-center">
+                                <div className="mx-auto w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+                                  <Paperclip className="h-5 w-5 text-gray-400 group-hover:text-blue-500" />
+                                </div>
+                                <div>
+                                  <p className="text-sm font-medium text-gray-900">Add layout for this area</p>
+                                  <p className="text-xs text-gray-500">PNG, JPG, GIF, PDF up to 10MB</p>
+                                </div>
+                              </div>
+                            </motion.button>
+                          ) : (
+                            <div className="w-full p-4 border-2 border-blue-200 border-dashed rounded-xl bg-blue-50/30">
+                              <FilePreview file={area.attachment} onRemove={() => removeAttachment(index)} />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {formData.work_areas.length === 0 && (
+                  <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
+                    <p className="text-gray-500">No work areas added yet. Click "Add Work Area" to get started.</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+                <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                  <MapPin className="mr-2 text-green-500" /> Area Management
                 </h2>
                 <div className="grid grid-cols-1 gap-6">
-                  {/* Nama Area */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Nama Area *</label>
-                    <div className="flex flex-wrap items-center gap-2 p-2 border border-gray-300 rounded-lg bg-white focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500" onClick={() => areaInputRef.current?.focus()}>
-                      {formData.name.map((area, index) => (
-                        <span key={index} className="flex items-center bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
-                          {area}
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setFormData((prev) => ({
-                                ...prev,
-                                name: prev.name.filter((_, i) => i !== index),
-                              }))
-                            }
-                            className="ml-2 text-blue-600 hover:text-red-600"
-                          >
-                            ×
-                          </button>
-                        </span>
-                      ))}
-
-                      <input
-                        type="text"
-                        ref={areaInputRef}
-                        className="flex-1 min-w-[120px] border-none outline-none focus:ring-0 text-sm text-gray-700"
-                        placeholder="Ketik nama area dan tekan Enter..."
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && e.currentTarget.value.trim() !== "") {
-                            e.preventDefault();
-                            const newArea = e.currentTarget.value.trim();
-                            setFormData((prev) => ({
-                              ...prev,
-                              name: [...prev.name, newArea],
-                            }));
-                            e.currentTarget.value = "";
-                          } else if (e.key === "Backspace" && e.currentTarget.value === "") {
-                            // Hapus area terakhir jika backspace saat input kosong
-                            setFormData((prev) => ({
-                              ...prev,
-                              name: prev.name.slice(0, -1),
-                            }));
-                          }
-                        }}
-                      />
-                    </div>
-                  </div>
-
                   <div>
                     <label htmlFor="pic_user_id" className="block text-sm font-medium text-gray-700 mb-1">
                       Penanggung Jawab Area <span className="text-red-500">*</span>
@@ -509,138 +578,90 @@ const FormGenbaArea: React.FC = () => {
                 </div>
               </div>
 
-              <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-                <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                  <Upload className="mr-2 text-purple-500" /> Layout Ruangan
-                </h2>
-                <div className="grid grid-cols-1 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-3">
-                      Layout Attachments <span className="text-gray-400 font-normal">(Optional, Multiple files allowed)</span>
-                    </label>
-
-                    {!formData.attachment ? ( // Seharusnya !formData.attachment
-                      <motion.button
-                        type="button"
-                        whileHover={{ scale: 1.01 }}
-                        whileTap={{ scale: 0.99 }}
-                        className="w-full p-8 border-2 border-dashed border-gray-300 rounded-xl bg-white hover:border-blue-400 hover:bg-blue-50/50 transition-all duration-300 group"
-                        onClick={handleAttachmentClick}
-                      >
-                        <div className="space-y-3 text-center">
-                          <div className="mx-auto w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center group-hover:bg-blue-100 transition-colors">
-                            <Paperclip className="h-6 w-6 text-gray-400 group-hover:text-blue-500" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">Click to select attachments</p>
-                            <p className="text-xs text-gray-500 mt-1">PNG, JPG, GIF, PDF up to 10MB each</p>
-                          </div>
-                        </div>
-                      </motion.button>
-                    ) : (
-                      <div className="w-full p-6 border-2 border-blue-200 border-dashed rounded-xl bg-blue-50/30">
-                        <div className="text-center">
-                          <div className="mx-auto w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mb-3">
-                            <Paperclip className="h-5 w-5 text-blue-600" />
-                          </div>
-                          <p className="text-sm font-medium text-blue-900">1 file selected</p>
-                          <p className="text-xs text-blue-600 mt-1">{formData.attachment.name}</p> {/* Tampilkan nama file */}
-                        </div>
+              {/* Attachment Options Modal */}
+              <AnimatePresence>
+                {showAttachmentOptions !== null && (
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center backdrop-brightness-50 p-4" onClick={() => setShowAttachmentOptions(null)}>
+                    <motion.div
+                      initial={{ scale: 0.95, y: 20 }}
+                      animate={{ scale: 1, y: 0 }}
+                      exit={{ scale: 0.95, y: 20 }}
+                      className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-auto overflow-hidden"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex justify-between items-center p-6 border-b border-gray-100">
+                        <h3 className="text-lg font-semibold text-gray-900">Select Attachment</h3>
+                        <button type="button" onClick={() => setShowAttachmentOptions(null)} className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100">
+                          <X size={20} />
+                        </button>
                       </div>
-                    )}
-                    <FilePreview attachment={formData.attachment} onRemove={removeAttachment} />
-                    <AnimatePresence>
-                      {showAttachmentOptions && (
-                        <motion.div
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          className="fixed inset-0 z-50 flex items-center justify-center backdrop-brightness-50 p-4"
-                          onClick={() => setShowAttachmentOptions(false)}
-                        >
-                          <motion.div
-                            initial={{ scale: 0.95, y: 20 }}
-                            animate={{ scale: 1, y: 0 }}
-                            exit={{ scale: 0.95, y: 20 }}
-                            className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-auto overflow-hidden"
-                            onClick={(e) => e.stopPropagation()}
+
+                      {!cameraStream ? (
+                        <div className="p-6 space-y-4">
+                          <motion.button
+                            type="button"
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => handleSelectFile(showAttachmentOptions)}
+                            className="w-full p-4 border-2 border-dashed border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50/50 transition-all duration-200 flex items-center space-x-4"
                           >
-                            <div className="flex justify-between items-center p-6 border-b border-gray-100">
-                              <h3 className="text-lg font-semibold text-gray-900">Select Attachment</h3>
-                              <button type="button" onClick={() => setShowAttachmentOptions(false)} className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100">
-                                <X size={20} />
-                              </button>
+                            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                              <File className="h-6 w-6 text-blue-600" />
                             </div>
+                            <div className="text-left">
+                              <div className="font-medium text-gray-900">Select File</div>
+                              <div className="text-sm text-gray-500">From your device</div>
+                            </div>
+                          </motion.button>
 
-                            {!cameraStream ? (
-                              <div className="p-6 space-y-4">
-                                <motion.button
-                                  type="button"
-                                  whileHover={{ scale: 1.02 }}
-                                  whileTap={{ scale: 0.98 }}
-                                  onClick={handleSelectFile}
-                                  className="w-full p-4 border-2 border-dashed border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50/50 transition-all duration-200 flex items-center space-x-4"
-                                >
-                                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                                    <File className="h-6 w-6 text-blue-600" />
-                                  </div>
-                                  <div className="text-left">
-                                    <div className="font-medium text-gray-900">Select Files</div>
-                                    <div className="text-sm text-gray-500">From your device (Multiple)</div>
-                                  </div>
-                                </motion.button>
-
-                                <motion.button
-                                  type="button"
-                                  whileHover={{ scale: 1.02 }}
-                                  whileTap={{ scale: 0.98 }}
-                                  onClick={handleOpenCamera}
-                                  className="w-full p-4 border-2 border-dashed border-gray-200 rounded-xl hover:border-purple-300 hover:bg-purple-50/50 transition-all duration-200 flex items-center space-x-4"
-                                >
-                                  <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                                    <Camera className="h-6 w-6 text-purple-600" />
-                                  </div>
-                                  <div className="text-left">
-                                    <div className="font-medium text-gray-900">Take Photo</div>
-                                    <div className="text-sm text-gray-500">Use camera</div>
-                                  </div>
-                                </motion.button>
-                              </div>
-                            ) : (
-                              <div className="p-6 space-y-4">
-                                <div className="relative bg-black rounded-lg overflow-hidden">
-                                  <video ref={videoRef} autoPlay playsInline className="w-full h-64 object-cover" />
-                                  <canvas ref={canvasRef} className="hidden" />
-                                </div>
-                                <div className="flex gap-3">
-                                  <motion.button
-                                    type="button"
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    onClick={handleCapturePhoto}
-                                    className="flex-1 bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors"
-                                  >
-                                    Take Photo
-                                  </motion.button>
-                                  <motion.button
-                                    type="button"
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    onClick={handleCloseCamera}
-                                    className="flex-1 bg-gray-200 text-gray-700 py-3 px-4 rounded-lg font-medium hover:bg-gray-300 transition-colors"
-                                  >
-                                    Cancel
-                                  </motion.button>
-                                </div>
-                              </div>
-                            )}
-                          </motion.div>
-                        </motion.div>
+                          <motion.button
+                            type="button"
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => handleOpenCamera(showAttachmentOptions)}
+                            className="w-full p-4 border-2 border-dashed border-gray-200 rounded-xl hover:border-purple-300 hover:bg-purple-50/50 transition-all duration-200 flex items-center space-x-4"
+                          >
+                            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                              <Camera className="h-6 w-6 text-purple-600" />
+                            </div>
+                            <div className="text-left">
+                              <div className="font-medium text-gray-900">Take Photo</div>
+                              <div className="text-sm text-gray-500">Use camera</div>
+                            </div>
+                          </motion.button>
+                        </div>
+                      ) : (
+                        <div className="p-6 space-y-4">
+                          <div className="relative bg-black rounded-lg overflow-hidden">
+                            <video ref={videoRef} autoPlay playsInline className="w-full h-64 object-cover" />
+                            <canvas ref={canvasRef} className="hidden" />
+                          </div>
+                          <div className="flex gap-3">
+                            <motion.button
+                              type="button"
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={handleCapturePhoto}
+                              className="flex-1 bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                            >
+                              Take Photo
+                            </motion.button>
+                            <motion.button
+                              type="button"
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={handleCloseCamera}
+                              className="flex-1 bg-gray-200 text-gray-700 py-3 px-4 rounded-lg font-medium hover:bg-gray-300 transition-colors"
+                            >
+                              Cancel
+                            </motion.button>
+                          </div>
+                        </div>
                       )}
-                    </AnimatePresence>
-                  </div>
-                </div>
-              </div>
+                    </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               <div className="flex flex-col sm:flex-row justify-end gap-4 pt-6 border-t border-gray-100 mt-8">
                 <motion.button
