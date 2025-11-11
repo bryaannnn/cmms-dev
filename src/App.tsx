@@ -139,16 +139,16 @@ function App() {
           <Route path="/audittrail" element={<AuditTrail />} />
         </Route>
 
-        <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}>
+        {/* <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}> */}
           <Route path="/genba" element={<GanbaSelection />} />
           <Route path="/genba/soconfiguration" element={<SOTemplate />} />
           <Route path="/genba/soconfiguration/configure/:id" element={<SOConfigure />} />
-          <Route path="/genba/genbaaction" element={<GenbaActivitys />} />
+          <Route path="/genba/genbaactivity" element={<GenbaActivitys />} />
           <Route path="/genba/genbaarea" element={<GenbaArea />} />
           <Route path="/genba/genbaarea/addgenbaarea" element={<FormGenbaArea />} />
           <Route path="/genba/genbaarea/editgenbaarea/:id" element={<EditFormGenbaArea />} />
           {/* <Route path="/ganba/soconfigurat" element={<SOConfiguration/>} /> */}
-        </Route>
+        {/* </Route> */}  
 
         <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}>
           <Route path="/workflowapproval" element={<WorkflowSelection />} />

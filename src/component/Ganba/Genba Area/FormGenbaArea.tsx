@@ -281,7 +281,10 @@ const FormGenbaArea: React.FC = () => {
 
     try {
       await createGenbaAreas({
-        work_areas: formData.work_areas,
+        work_areas: formData.work_areas.map((area) => ({
+          ...area,
+          is_default: area.is_default ?? false, // default false
+        })),
         department_id: parseInt(formData.department_id),
         pic_user_id: parseInt(formData.pic_user_id),
         attachment: null,
@@ -502,11 +505,11 @@ const FormGenbaArea: React.FC = () => {
                               onChange={(e) =>
                                 setFormData((prev) => ({
                                   ...prev,
-                                  is_default: e.target.checked,
+                                  work_areas: prev.work_areas.map((a, i) => (i === index ? { ...a, is_default: e.target.checked } : a)),
                                 }))
                               }
-                              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                             />
+
                             <span>Daily Reports (jadikan area default)</span>
                           </label>
                         </div>

@@ -162,6 +162,12 @@ export interface User {
   email_verified_at?: string | null;
   created_at?: string;
   updated_at?: string;
+  genbaSoRole?: {
+    genba_so_id: string;
+    genba_so_name: string;
+    role_id: string;
+    role_name: string;
+  };
 }
 
 export interface Mesin {
@@ -1205,14 +1211,12 @@ export interface GenbaActivity {
       };
     } | null;
   };
-  details: {
+  attachment: {
     id: number;
     genba_activity_id: number;
     file_path: string;
     file_name: string;
     notes: string | null;
-    created_at: string;
-    updated_at: string;
   }[];
 }
 
@@ -1237,6 +1241,7 @@ export interface GenbaWorkAreas {
     id: number;
     name: string;
     email: string;
+    nik: string;
   };
   is_default: boolean;
 }
@@ -1545,6 +1550,14 @@ const mapApiToUser = (apiUser: any): User => {
     department: department,
     department_id: apiUser.department_id || apiUser.department?.id || null,
     department_name: apiUser.department?.name || null,
+    genbaSoRole: apiUser.genbaSoRole
+      ? {
+          genba_so_id: apiUser.genbaSoRole.genba_so_id,
+          genba_so_name: apiUser.genbaSoRole.genba_so_name,
+          role_id: apiUser.genbaSoRole.role_id,
+          role_name: apiUser.genbaSoRole.role_name,
+        }
+      : undefined,
   };
 };
 
@@ -4193,7 +4206,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [fetchWithAuth]);
 
   const createGenbaAreas = useCallback(
-    async (data: CreateGenbaAreasPayload, attachment?: File[]): Promise<any> => {
+    async (data: CreateGenbaAreasPayload): Promise<any> => {
       const formData = new FormData();
 
       formData.append("department_id", data.department_id.toString());
@@ -4201,11 +4214,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       data.work_areas.forEach((area, index) => {
         formData.append(`work_areas[${index}][name]`, area.name);
+
+        // ✅ selalu kirim is_default, walau false
+        formData.append(`work_areas[${index}][is_default]`, area.is_default ? "1" : "0");
+
         if (area.attachment) {
           formData.append(`work_areas[${index}][attachment]`, area.attachment);
-        }
-        if (area.is_default) {
-          formData.append("is_default", area.is_default ? "1" : "0");
         }
       });
 
@@ -4214,7 +4228,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           method: "POST",
           body: formData,
         });
-
         return response;
       } catch (error) {
         console.error("Error creating genba area:", error);
@@ -4293,11 +4306,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       formData.append("genba_work_area_id", data.genba_work_area_id.toString());
       formData.append("keterangan", data.keterangan);
 
-      // Append files jika ada
       if (files && files.length > 0) {
         files.forEach((file) => {
           formData.append("attachments[]", file);
         });
+      } else {
+        // 🔹 jika tidak ada file, tetap kirim field kosong agar field attachment tetap eksis di backend
+        formData.append("attachments", "");
       }
 
       console.log("Creating genba activity with data:", {

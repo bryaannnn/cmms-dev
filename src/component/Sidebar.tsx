@@ -135,7 +135,7 @@ const Sidebar: React.FC = () => {
 
   // Mobile Bottom Navigation Component
   const MobileBottomNav = () => (
-    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 md:hidden">
+    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 md:hidden pointer-events-auto">
       <div className="flex justify-around items-center py-2">
         <button onClick={toggleMobileMenu} className={`flex flex-col items-center p-2 rounded-lg transition-colors duration-200 ${mobileMenuOpen ? "text-blue-600 bg-blue-50" : "text-gray-600"}`}>
           <Home className="text-xl" />
@@ -169,7 +169,7 @@ const Sidebar: React.FC = () => {
       {mobileMenuOpen && (
         <>
           {/* Backdrop */}
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden" onClick={toggleMobileMenu} />
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="fixed inset-0 backdrop-brightness-50 z-40 md:hidden" onClick={toggleMobileMenu} />
 
           {/* Menu Panel */}
           <motion.div initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }} transition={{ duration: 0.3, ease: "easeOut" }} className="fixed inset-y-0 left-0 w-80 bg-white z-50 md:hidden shadow-xl">
@@ -335,6 +335,17 @@ const Sidebar: React.FC = () => {
       {/* Mobile Components */}
       <MobileBottomNav />
       <MobileFullscreenMenu />
+
+      {/* 👇 Tambahkan style ini di paling bawah */}
+      <style>
+        {`
+          @media (max-width: 768px) {
+            body {
+              padding-bottom: 64px; /* tinggi bottom nav */
+            }
+          }
+        `}
+      </style>
     </>
   );
 };

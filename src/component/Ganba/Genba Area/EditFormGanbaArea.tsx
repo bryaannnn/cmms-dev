@@ -284,6 +284,13 @@ const EditFormGenbaArea: React.FC = () => {
     }));
   };
 
+  const picUserOptions = filteredUsers.map((user) => ({
+    value: user.id.toString(),
+    label: user.name,
+  }));
+
+  const selectedPicOption = picUserOptions.find((option) => option.value === formData.pic_user_id);
+
   const removeExistingLayout = (index: number) => {
     setFormData((prev) => ({
       ...prev,
@@ -565,8 +572,8 @@ const EditFormGenbaArea: React.FC = () => {
                     <Select
                       name="pic_user_id"
                       id="pic_user_id"
-                      options={filteredUsers.map((user) => ({ value: user.id.toString(), label: user.name }))}
-                      value={filteredUsers.map((pic) => ({ value: pic.id.toString(), label: pic.name })).find((option) => option.value === formData.pic_user_id)}
+                      options={picUserOptions}
+                      value={selectedPicOption}
                       onChange={(selectedOption) => handleChange(selectedOption, "pic_user_id")}
                       placeholder={formData.department_id ? "Select Penanggung Jawab" : "Please select department first"}
                       styles={customSelectStyles}

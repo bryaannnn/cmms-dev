@@ -134,7 +134,7 @@ const GanbaSelection: React.FC = () => {
               className="w-full md:w-1/2 bg-white rounded-2xl shadow-xl p-8 border border-green-100 cursor-pointer flex flex-col items-center text-center transition-all duration-300 hover:scale-105 hover:shadow-2xl"
               whileHover={{ y: -5 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => handleCardClick("/genba/genbaaction")}
+              onClick={() => handleCardClick("/genba/genbaactivity")}
             >
               <Clipboard size={64} className="text-green-600 mb-4" />
               <h3 className="text-2xl font-bold text-gray-900 mb-2">Work Area Reporting</h3>
