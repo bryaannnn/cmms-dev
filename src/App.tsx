@@ -1,4 +1,6 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
+import { useAuth } from "./routes/AuthContext"; // pastikan ini ada
+
 import LoginForm from "./pages/LoginForm";
 import Dashboard from "./pages/Dashboard";
 import ProtectedRoute from "./routes/ProtectedRoute";
@@ -108,25 +110,25 @@ import EditFormGenbaArea from "./component/Ganba/Genba Area/EditFormGanbaArea";
 import SOConfigure from "./component/Ganba/Template SO/SoConfiguration";
 import GenbaActivitys from "./component/Ganba/Daily Activity/GenbaActivity";
 import GenbaAction from "./component/Ganba/Daily Activity/DailyActivityDummy";
+import FormGenbaActivity from "./component/Ganba/Daily Activity/FormGenbaActivity";
+import ImagePage from "./pages/ImagePublic";
+
 
 function App() {
+  const { user } = useAuth();
+
   return (
     <>
       {/* <InternetStatusToast /> */}
       <Routes>
+        {/* <Route path="/genba/genbaarea/addgenbaarea" element={<FormGenbaArea />} /> */}
+        <Route path="/genbapublic" element={<ImagePage />} />
+        {/* <Route path="/genba/genbaactivity/addgenbaactivity" element={<FormGenbaActivity />} /> */}
         {/* Public Routes */}
         <Route path="/login" element={<LoginForm />} />
 
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-
-        <Route path="/maintenanceactivity/activitytypes/addactivitytype" element={<FormActivityType />} />
-
-        <Route path="/monitoringmaintenance/detailmonitoringmaintenanceD" element={<DetailDummy />} />
-
-        <Route path="/dummyB" element={<GenbaAction />} />
-
-        <Route path="dummy" element={<OrganizationStructure />} />
 
         {/* Protected Routes */}
         {/* Dashboard */}
@@ -140,15 +142,19 @@ function App() {
         </Route>
 
         {/* <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}> */}
-          <Route path="/genba" element={<GanbaSelection />} />
-          <Route path="/genba/soconfiguration" element={<SOTemplate />} />
-          <Route path="/genba/soconfiguration/configure/:id" element={<SOConfigure />} />
-          <Route path="/genba/genbaactivity" element={<GenbaActivitys />} />
+        <Route path="/genba" element={<GanbaSelection />} />
+        <Route path="/genba/genbaactivity" element={<GenbaActivitys />} />
+        <Route path="/genba/genbaactivity/formgenbaactivity" element={<FormGenbaActivity />} />
+        <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}>
           <Route path="/genba/genbaarea" element={<GenbaArea />} />
           <Route path="/genba/genbaarea/addgenbaarea" element={<FormGenbaArea />} />
           <Route path="/genba/genbaarea/editgenbaarea/:id" element={<EditFormGenbaArea />} />
-          {/* <Route path="/ganba/soconfigurat" element={<SOConfiguration/>} /> */}
-        {/* </Route> */}  
+          <Route path="/genba/soconfiguration" element={<SOTemplate />} />
+          <Route path="/genba/soconfiguration/configure/:id" element={<SOConfigure />} />
+        </Route>
+
+        {/* <Route path="/ganba/soconfigurat" element={<SOConfiguration/>} /> */}
+        {/* </Route> */}
 
         <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}>
           <Route path="/workflowapproval" element={<WorkflowSelection />} />
@@ -270,7 +276,7 @@ function App() {
 
         {/* Logout */}
         <Route path="/logout" element={<Logout />} />
-        <Route path="*" element={<NotFound />} />
+
         {/* Unauthorized (already defined above, but good to have a dedicated one for direct access) */}
         {/* <Route path="/unauthorized" element={<UnauthorizedPage />} /> */}
       </Routes>

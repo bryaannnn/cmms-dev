@@ -208,14 +208,14 @@ const LoginForm: React.FC = () => {
 
           <div className="relative w-64 h-96 bg-gray-800 rounded-3xl shadow-xl flex items-center justify-center p-4 transform scale-100 hover:scale-105 transition-transform duration-300 ease-in-out">
             <div className="absolute top-0 w-16 h-2 bg-gray-700 rounded-b-lg"></div>
-            <div className="text-purple-300 animate-pulse-light">
+            <div className="text-blue-300 animate-pulse-light">
               <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path d="M12 1C5.925 1 1 5.925 1 12s4.925 11 11 11 11-4.925 11-11S18.075 1 12 1zm0 20c-4.963 0-9-4.037-9-9s4.037-9 9-9 9 4.037 9 9-4.037 9-9 9zM10.5 7h3v3h-3V7zm-2 2h3v3h-3V9zm4 0h3v3h-3V9zm-2 2h3v3h-3v-3zm-2 2h3v3h-3v-3zm4 0h3v3h-3v-3zm-2 2h3v3h-3v-3z" />
               </svg>
             </div>
             <div className="absolute bottom-10 left-0 right-0 text-center text-white text-sm">
               <div className="w-3/4 mx-auto bg-gray-700 rounded-full h-1 mb-2">
-                <div className="bg-purple-300 h-1 rounded-full w-2/3 animate-progress-fill"></div>
+                <div className="bg-blue-300 h-1 rounded-full w-2/3 animate-progress-fill"></div>
               </div>
               <p>Please enter your fingerprint to continue</p>
             </div>

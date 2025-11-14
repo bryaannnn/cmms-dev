@@ -45,7 +45,7 @@ const EditFormGenbaArea: React.FC = () => {
   const { getGenbaAreas, updateGenbaAreas, getUsers, getDepartment } = useAuth();
   const [departments, setDepartments] = useState<Department[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
-    const stored = localStorage.getItem("sidebarOpen");
+    const stored = localStorage.getItem("si debarOpen");
     return stored ? JSON.parse(stored) : false;
   });
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);

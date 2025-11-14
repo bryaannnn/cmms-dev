@@ -1162,6 +1162,7 @@ export interface GenbaActivity {
     attachments: LayoutInterface[] | null;
     qrcode_path: string | null;
     qr_code_base64: string;
+    is_default: boolean;
     created_at: string | null;
     updated_at: string | null;
     department: {
@@ -1228,6 +1229,7 @@ export interface GenbaWorkAreas {
   created_at: string | null;
   attachment: LayoutInterface[] | null;
   qrcode_path: string | null;
+  is_default: boolean;
   qr_code_base64: string;
   updated_at: string | null;
   department: {
@@ -1243,7 +1245,6 @@ export interface GenbaWorkAreas {
     email: string;
     nik: string;
   };
-  is_default: boolean;
 }
 
 export interface LayoutInterface {
@@ -4252,7 +4253,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       formData.append("department_id", data.department_id.toString());
       formData.append("is_default", data.is_default ? "1" : "0"); // kirim boolean sebagai string
       formData.append("pic_user_id", data.pic_user_id.toString());
-      formData.append("_method", "PUT");
+      formData.append("_method", "POST");
 
       // Append file jika ada
       if (file) {

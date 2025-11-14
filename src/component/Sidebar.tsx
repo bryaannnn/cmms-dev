@@ -195,7 +195,7 @@ const Sidebar: React.FC = () => {
               </div>
 
               <div className="pt-4">
-                <h3 className="text-xs font-semibold uppercase text-gray-400 px-2 pb-2 tracking-wider">System</h3>
+                {hasPermission("23") && <h3 className="text-xs font-semibold uppercase text-gray-400 px-2 pb-2 tracking-wider">System</h3>}
                 {hasPermission("23") && (
                   <>
                     <NavItem icon={<ListCheck />} text="Audit Trail" to="/audittrail" expanded={true} onNavigate={handleMobileNavigate} />
@@ -205,13 +205,13 @@ const Sidebar: React.FC = () => {
               </div>
 
               <div className="pt-4">
-                <h3 className="text-xs font-semibold uppercase text-gray-400 px-2 pb-2 tracking-wider">Master</h3>
+                 {hasPermission("23") &&<h3 className="text-xs font-semibold uppercase text-gray-400 px-2 pb-2 tracking-wider">Master</h3>}
                 {hasPermission("3") && <NavItem icon={<Package />} text="Assets" to="/assets" expanded={true} onNavigate={handleMobileNavigate} />}
                 {hasPermission("15") && <NavItem icon={<Key />} text="User Management" to="/permissions" expanded={true} onNavigate={handleMobileNavigate} />}
               </div>
 
               <div className="pt-4">
-                <h3 className="text-xs font-semibold uppercase text-gray-400 px-2 pb-2 tracking-wider">Maintenance</h3>
+                 {hasPermission("23") &&<h3 className="text-xs font-semibold uppercase text-gray-400 px-2 pb-2 tracking-wider">Maintenance</h3>}
                 {hasPermission("31") && (
                   <>
                     <NavItem icon={<ChartBar />} text="Machine History" to="/machinehistory" expanded={true} onNavigate={handleMobileNavigate} />
@@ -221,7 +221,7 @@ const Sidebar: React.FC = () => {
               </div>
 
               <div className="pt-4">
-                <h3 className="text-xs font-semibold uppercase text-gray-400 px-2 pb-2 tracking-wider">Work Orders</h3>
+                 {hasPermission("23") &&<h3 className="text-xs font-semibold uppercase text-gray-400 px-2 pb-2 tracking-wider">Work Orders</h3>}
                 {hasPermission("7") && <NavItem icon={<Clipboard />} text="Work Orders" to="/workorders" expanded={true} onNavigate={handleMobileNavigate} />}
               </div>
             </nav>

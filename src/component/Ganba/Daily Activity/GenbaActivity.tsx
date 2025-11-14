@@ -88,7 +88,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, subtext, icon, color 
         scale: 1.02,
         boxShadow: "0 10px 25px -5px rgba(0,0,0,0.1)",
       }}
-      className={`rounded-2xl shadow-md p-6 border ${colorMap[color]} bg-white cursor-pointer transition-transform duration-200`}
+      className={`rounded-2xl shadow-md p-6 {} bg-white cursor-pointer transition-transform duration-200`}
     >
       <div className="flex items-center justify-between mb-2">
         <div>
@@ -144,6 +144,12 @@ const GenbaActivitys: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  const handleOpenActivityForm = (date: Date) => {
+    const dateString = date.toISOString().split("T")[0];
+
+    navigate("/genba/genbaactivity/formgenbaactivity", { state: { date: dateString } });
+  };
 
   const handleCloseSuccessModal = useCallback(() => {
     setShowSuccessModal(false);
@@ -263,21 +269,14 @@ const GenbaActivitys: React.FC = () => {
     return areas.filter((area) => area.pic_user_id.toString() === user?.id?.toString());
   };
 
-  const handleMonthChange = (offset: number) => {
-    const newDate = new Date(selectedYear, selectedMonth + offset, 1);
-    setSelectedMonth(newDate.getMonth());
-    setSelectedYear(newDate.getFullYear());
-    setCurrentDate(newDate);
-  };
-
   const getFilteredActivities = (): GenbaActivity[] => {
     let filtered = activities;
 
-    if (viewMode === "komite" && user?.department) {
-      filtered = filtered.filter((activity) => activity.work_area?.department?.name === user.department?.name);
-    } else if (viewMode === "karyawan") {
-      filtered = filtered.filter((activity) => activity.reporter?.nik === user?.nik);
-    }
+    // if (viewMode === "komite" && user?.department) {
+    //   filtered = filtered.filter((activity) => activity.work_area?.department?.name === user.department?.name);
+    // } else if (viewMode === "karyawan") {
+    //   filtered = filtered.filter((activity) => activity.reporter?.nik === user?.nik);
+    // }
 
     if (selectedArea) {
       filtered = filtered.filter((activity) => activity.work_area?.id.toString() === selectedArea);
@@ -300,7 +299,7 @@ const GenbaActivitys: React.FC = () => {
 
   const getDepartmentScore = (department: string, month: number, year: number): number => {
     const departmentActivities = activities.filter((activity) => {
-      const activityDate = new Date(activity.created_at || "");
+      const activityDate = new Date(activity.date);
       return activity.work_area?.department?.name === department && activityDate.getMonth() === month && activityDate.getFullYear() === year;
     });
 
@@ -332,21 +331,16 @@ const GenbaActivitys: React.FC = () => {
     return Math.min(score, 100);
   };
 
-  const getMonthlyScore = (month: number, year: number): number => {
-    const monthActivities = getFilteredActivities().filter((activity) => {
-      const activityDate = new Date(activity.created_at || "");
-      return activityDate.getMonth() === month && activityDate.getFullYear() === year;
-    });
-
-    const totalDays = new Date(year, month + 1, 0).getDate();
-    const uniqueDays = new Set(monthActivities.map((activity) => new Date(activity.date).toLocaleDateString("id-ID"))).size;
-
-    const score = totalDays > 0 ? (uniqueDays / totalDays) * 100 : 0;
-    return Math.min(score, 100);
-  };
-
   // Hitung score bulan ini (berdasarkan hari kerja)
   const getCurrentMonthScore = (): number => {
+    const selectedAreaObj = areas.find((a) => a.id.toString() === selectedArea);
+    const isDefaultArea = !!selectedAreaObj?.is_default;
+
+    // JIKA AREA NON-DAILY, KEMBALIKAN SCORE 0%
+    if (!isDefaultArea) {
+      return 0;
+    }
+
     const filtered = getFilteredActivities();
     const totalDaysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
 
@@ -374,7 +368,7 @@ const GenbaActivitys: React.FC = () => {
 
   const getEmployeeMonthlyScore = (nik: string, month: number, year: number): number => {
     const employeeActivities = activities.filter((activity) => {
-      const activityDate = new Date(activity.created_at || "");
+      const activityDate = new Date(activity.date);
       return activity.reporter?.nik === nik && activityDate.getMonth() === month && activityDate.getFullYear() === year;
     });
 
@@ -407,33 +401,53 @@ const GenbaActivitys: React.FC = () => {
     const area = areas.find((a) => a.id === areaId);
     if (!area) return 0;
 
-    const areaActivities = activities.filter(
-      (a) =>
-        (a.genba_work_area_id === areaId || a.work_area?.id === areaId) && (a.reporter_user_id === area.pic_user_id || a.reporter?.id === area.pic_user_id) && new Date(a.date).getMonth() === month && new Date(a.date).getFullYear() === year
-    );
+    // 1. Tentukan apakah ini area Production
+    const isProduction = area.department?.name === "Production"; // <-- BARU
+
+    // Filter aktivitas hanya untuk area dan PIC yang sesuai
+    const areaActivities = activities.filter((a) => (a.genba_work_area_id === areaId || a.work_area?.id === areaId) && new Date(a.date).getMonth() === month && new Date(a.date).getFullYear() === year);
+
+    if (!area.is_default) {
+      // Asumsi: jika ada minimal 1 laporan di bulan ini, dianggap 100%
+      const hasReport = areaActivities.length > 0;
+      return hasReport ? 100 : 0;
+    }
 
     // Ambil semua tanggal unik aktivitas
     const reportedDays = new Set(areaActivities.map((a) => new Date(a.date).toLocaleDateString("id-ID")));
 
-    // Hitung semua hari kerja (Senin–Jumat) dalam bulan tersebut — TIDAK dibatasi hari ini
+    // 2. Hitung Total Hari Target (Penyebut: 30 hari untuk Production, ~20 hari untuk lainnya)
     const totalDaysInMonth = new Date(year, month + 1, 0).getDate();
-    let workingDays = 0;
+    let totalTargetDays = 0; // Ganti workingDays menjadi totalTargetDays
+
     for (let d = 1; d <= totalDaysInMonth; d++) {
       const date = new Date(year, month, d);
-      const day = date.getDay();
-      if (day !== 0 && day !== 6) workingDays++;
+      const day = date.getDay(); // 0=Minggu, 6=Sabtu
+
+      // Logika Target Hari: Jika Production (true) atau bukan weekend
+      if (isProduction || (day !== 0 && day !== 6)) {
+        // <-- PERUBAHAN UTAMA DI SINI
+        totalTargetDays++;
+      }
     }
 
-    // Hitung berapa hari kerja yang sudah dilaporkan
-    let reportedWorkingDays = 0;
+    // 3. Hitung Berapa Hari yang Dilaporkan (Pembilang)
+    let reportedTargetDays = 0; // Ganti reportedWorkingDays
     reportedDays.forEach((dayStr) => {
       const [dd, mm, yyyy] = dayStr.split("/");
+      // Note: New Date(yyyy, mm-1, dd) should be used, but since the day of week check is correct below, we proceed.
       const date = new Date(+yyyy, +mm - 1, +dd);
       const day = date.getDay();
-      if (day !== 0 && day !== 6) reportedWorkingDays++;
+
+      // Logika Laporan: Jika Production (true) atau bukan weekend
+      if (isProduction || (day !== 0 && day !== 6)) {
+        // <-- PERUBAHAN UTAMA DI SINI
+        reportedTargetDays++;
+      }
     });
 
-    const score = workingDays > 0 ? (reportedWorkingDays / workingDays) * 100 : 0;
+    // 4. Hitung Score dengan menggunakan totalTargetDays dan reportedTargetDays
+    const score = totalTargetDays > 0 ? (reportedTargetDays / totalTargetDays) * 100 : 0;
     return Math.floor(score);
   };
 
@@ -482,9 +496,7 @@ const GenbaActivitys: React.FC = () => {
     const lastDay = new Date(year, month + 1, 0);
     const daysInMonth = lastDay.getDate();
 
-    const filteredActivities = activities.filter(
-      (a) => (a.genba_work_area_id === detailView?.data.id || a.work_area?.id === detailView?.data.id) && (a.reporter_user_id === detailView?.data.pic_user_id || a.reporter?.id === detailView?.data.pic_user_id)
-    );
+    const filteredActivities = activities.filter((a) => a.genba_work_area_id === detailView?.data.id || a.work_area?.id === detailView?.data.id);
 
     const days = [];
     for (let i = 1; i <= daysInMonth; i++) {
@@ -605,26 +617,6 @@ const GenbaActivitys: React.FC = () => {
     }
   };
 
-  const getStatusBadge = (date: Date, activities: GenbaActivity[]): React.JSX.Element => {
-    const today = new Date();
-    const dateStr = date.toLocaleDateString("id-ID");
-
-    const hasReport = activities.some((activity) => new Date(activity.date).toLocaleDateString("id-ID") === dateStr);
-
-    const isToday = date.toDateString() === today.toDateString();
-    const isPast = date < today && !isToday;
-
-    if (hasReport) {
-      return <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">Sudah Lapor</span>;
-    } else if (isToday) {
-      return <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-medium">Belum Lapor</span>;
-    } else if (isPast) {
-      return <span className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">Tidak Lapor</span>;
-    } else {
-      return <span className="px-2 py-1 bg-gray-50 text-gray-400 rounded-full text-xs font-medium">-</span>;
-    }
-  };
-
   const getTodaysStatus = (nik: string): React.JSX.Element => {
     const today = new Date();
     const todayStr = today.toLocaleDateString("id-ID");
@@ -661,25 +653,27 @@ const GenbaActivitys: React.FC = () => {
   };
 
   const renderEmployeeDetail = (area: GenbaWorkAreas): React.JSX.Element => {
+    const isDefault = area.is_default;
+
+    // SESUDAH (Fix filter bulan/tahun di areaActivities):
     const areaActivities = activities
-      .filter((a) => (a.genba_work_area_id === area.id || a.work_area?.id === area.id) && (a.reporter_user_id === area.pic_user_id || a.reporter?.id === area.pic_user_id))
-      .sort((a, b) => new Date(b.created_at || "").getTime() - new Date(a.created_at || "").getTime());
+      .filter((a) => a.genba_work_area_id === area.id || a.work_area?.id === area.id)
+      .filter((a) => {
+        const d = new Date(a.date);
+        return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
+      })
+      .sort((a, b) => new Date(b.date || "").getTime() - new Date(a.date || "").getTime());
 
     const reportedDays = new Set(areaActivities.filter((a) => new Date(a.date).getMonth() === selectedMonth && new Date(a.date).getFullYear() === selectedYear).map((a) => new Date(a.date).getDate()));
 
     const totalDaysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
-
-    // 💡 Tentukan apakah department ini Production
     const isProduction = area.department?.name === "Production";
 
-    // 💡 Hitung working days
     let workingDays = 0;
     for (let d = 1; d <= totalDaysInMonth; d++) {
       const date = new Date(selectedYear, selectedMonth, d);
       const dow = date.getDay();
-      if (isProduction || (dow !== 0 && dow !== 6)) {
-        workingDays++;
-      }
+      if (isProduction || (dow !== 0 && dow !== 6)) workingDays++;
     }
 
     const reportedWorkingDays = Array.from(reportedDays).filter((d) => {
@@ -688,9 +682,12 @@ const GenbaActivitys: React.FC = () => {
       return isProduction || (dow !== 0 && dow !== 6);
     }).length;
 
-    const monthlyScore = workingDays > 0 ? (reportedWorkingDays / workingDays) * 100 : 0;
-    const activeDays = reportedDays.size;
+    // ✅ Jika area non-daily → score hilang
+    const monthlyScore = isDefault ? (workingDays > 0 ? (reportedWorkingDays / workingDays) * 100 : 0) : 0;
+
     const detailCalendarDays = getCalendarDays(new Date(selectedYear, selectedMonth));
+
+    const activeDays = reportedDays.size;
 
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-white rounded-2xl shadow-md p-6 border border-blue-100">
@@ -717,8 +714,8 @@ const GenbaActivitys: React.FC = () => {
         {/* Statistik */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <StatCard title="Score Bulan Ini" value={`${monthlyScore.toFixed(0)}%`} icon={<CheckCircle className="w-6 h-6" />} color="blue" />
-          <StatCard title="Total Laporan" value={areaActivities.length} icon={<Calendar className="w-6 h-6" />} color="green" />
-          <StatCard title="Hari Aktif" value={activeDays} icon={<Activity className="w-6 h-6" />} color="purple" />
+          <StatCard title="Total Laporan" value={areaActivities.length} icon={<Calendar className="w-6 h-6" />} color="blue" />
+          <StatCard title="Hari Aktif" value={activeDays} icon={<Activity className="w-6 h-6" />} color="blue" />
         </div>
 
         {/* Kalender */}
@@ -771,14 +768,38 @@ const GenbaActivitys: React.FC = () => {
                 (a) => new Date(a.date).getDate() === day.fullDate.getDate() && new Date(a.date).getMonth() === day.fullDate.getMonth() && new Date(a.date).getFullYear() === day.fullDate.getFullYear()
               );
 
+              // Perhatikan: Variabel 'area' dan 'isDefault' yang bertentangan telah dihapus di sini
+
               const hasActivity = !!activityForDay;
               const isSameDay = day.fullDate.toDateString() === new Date().toDateString();
               const isPastDay = day.fullDate < new Date() && !isSameDay;
 
-              let dayStatus = "empty";
-              if (hasActivity) dayStatus = "has-report";
-              else if (isSameDay) dayStatus = "today-empty"; // hari ini belum lapor → biru
-              else if (isPastDay) dayStatus = "past-empty"; // hari lalu tanpa laporan → merah
+              let dayStatus = "empty"; // Cek apakah hari adalah akhir pekan dan bukan area Production (logika dari workingDays)
+              const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // 0=Minggu, 6=Sabtu
+              const isWorkingDay = isProduction || !isWeekend;
+
+              if (isDefault) {
+                // Menggunakan 'isDefault' dari awal fungsi (Area Daily)
+                // MODIFIKASI FINAL: AREA DAILY (is_default: true) MENGAKTIFKAN SEMUA STATUS WARNA
+                if (hasActivity) {
+                  dayStatus = "has-report"; // Hijau: Sudah Lapor
+                } else if (!isWorkingDay) {
+                  dayStatus = "empty"; // Abu-abu: Hari Libur (jika bukan production)
+                } else if (isSameDay) {
+                  dayStatus = "today-empty"; // Biru/Orange: Belum Lapor (Hari Ini)
+                } else if (isPastDay) {
+                  dayStatus = "past-empty"; // Merah: Tidak Lapor (Masa Lalu)
+                } else {
+                  dayStatus = "empty"; // Abu-abu: Tanggal Masa Depan/Normal
+                }
+              } else {
+                // AREA NON-DAILY (is_default: false) HANYA TAMPIL HIJAU ATAU ABU-ABU
+                if (hasActivity) {
+                  dayStatus = "has-report";
+                } else {
+                  dayStatus = "empty";
+                }
+              }
 
               return (
                 <motion.div
@@ -837,20 +858,36 @@ const GenbaActivitys: React.FC = () => {
 
                   // 🎯 Status hari ini
                   let statusEl;
-                  if (activity) {
-                    statusEl = <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">Sudah Lapor</span>;
-                  } else if (rowDate.toDateString() === today.toDateString()) {
-                    statusEl = <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">Belum Lapor</span>;
-                  } else if (rowDate < today) {
-                    statusEl = <span className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">Tidak Lapor</span>;
+
+                  if (isDefault) {
+                    // LOGIC UNTUK AREA DAILY (is_default: true)
+                    // TETAP MENGGUNAKAN LOGIKA LAMA (Sudah Lapor, Belum Lapor, Tidak Lapor)
+                    if (activity) {
+                      statusEl = <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">Sudah Lapor</span>;
+                    } else if (rowDate.toDateString() === today.toDateString()) {
+                      statusEl = <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">Belum Lapor</span>;
+                    } else if (rowDate < today) {
+                      statusEl = <span className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">Tidak Lapor</span>;
+                    } else {
+                      // Untuk tanggal di masa depan (tidak ada aktivitas)
+                      statusEl = <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-medium">Belum Lapor</span>;
+                    }
                   } else {
-                    statusEl = <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-medium">Belum Lapor</span>;
+                    // LOGIC UNTUK AREA NON-DAILY (is_default: false)
+                    // HANYA MENAMPILKAN "Sudah Lapor" atau "-"
+                    if (activity) {
+                      // Hanya jika ada activity, tampilkan "Sudah Lapor"
+                      statusEl = <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">Sudah Lapor</span>;
+                    } else {
+                      // Jika tidak ada activity, tampilkan "-"
+                      statusEl = <span className="px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs font-medium">-</span>;
+                    }
                   }
 
                   rows.push(
                     <tr key={rowDateStr} className="border-b border-gray-100 hover:bg-gray-50">
                       <td className="py-3 text-sm">{rowDateStr}</td>
-                      <td className="py-3 text-sm">{area.pic?.name || "-"}</td>
+                      <td className="py-3 text-sm">{activity?.reporter?.name || "-"}</td>
                       <td className="py-3 text-sm">{activity?.keterangan || "-"}</td>
                       <td className="py-3">{statusEl}</td>
                       <td className="py-3">
@@ -1066,12 +1103,38 @@ const GenbaActivitys: React.FC = () => {
               const colStart = index === 0 ? dayOfWeek + 1 : undefined;
 
               const clickedDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day.date);
+              const selectedAreaObj = areas.find((a) => a.id.toString() === selectedArea);
+              const isDefaultArea = !!selectedAreaObj?.is_default;
+
               const activityForDay = activities.find((a) => a.work_area?.id.toString() === selectedArea && new Date(a.date).toLocaleDateString("id-ID") === clickedDate.toLocaleDateString("id-ID"));
 
+              const isProduction = user?.department?.name === "Production";
+              const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
               let dayStatus = "empty";
-              if (day.hasReport) dayStatus = "has-report";
-              else if (day.isToday && !day.hasReport) dayStatus = "today-empty";
-              else if (day.isPast && !day.hasReport) dayStatus = "past-empty";
+              if (isDefaultArea) {
+                if (day.hasReport) dayStatus = "has-report";
+                else if (day.isToday && !day.hasReport) dayStatus = "today-empty";
+                else if (day.isPast && !day.hasReport) dayStatus = "past-empty";
+              } else {
+                if (day.hasReport) dayStatus = "has-report";
+                else if (day.isToday && !day.hasReport) dayStatus = "today-empty";
+              }
+
+              // 🔧 Warna weekend untuk non-production
+              let dayClass = "";
+              if (!isProduction && isWeekend) {
+                dayClass = "bg-gray-200 text-gray-400 border border-gray-300 cursor-not-allowed";
+              } else {
+                dayClass =
+                  dayStatus === "has-report"
+                    ? "bg-green-100 text-green-800 border border-green-200"
+                    : dayStatus === "today-empty"
+                    ? "bg-blue-100 text-blue-800 border border-blue-200 hover:bg-blue-200"
+                    : dayStatus === "past-empty"
+                    ? "bg-red-100 text-red-800 border border-red-200"
+                    : "bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200";
+              }
 
               return (
                 <motion.div
@@ -1080,26 +1143,25 @@ const GenbaActivitys: React.FC = () => {
                   whileTap={{ scale: 0.97 }}
                   onClick={() => {
                     if (day.hasReport && activityForDay) {
-                      setSelectedActivity(activityForDay); // buka modal detail
+                      setSelectedActivity(activityForDay);
                     } else if (day.isToday && !day.hasReport) {
-                      setCurrentDate(clickedDate);
-                      setShowForm(true); // buka form laporan baru
+                      const dateString = clickedDate.toISOString().split("T")[0];
+                      navigate(`/genba/genbaactivity/formgenbaactivity?date=${dateString}&area=${selectedArea}`);
+                    } else if (day.isPast && !day.hasReport && !isDefaultArea) {
+                      return;
                     }
                   }}
-                  className={`h-12 rounded-xl flex flex-col items-center justify-center transition-all cursor-pointer ${
-                    dayStatus === "has-report"
-                      ? "bg-green-100 text-green-800 border border-green-200"
-                      : dayStatus === "today-empty"
-                      ? "bg-blue-100 text-blue-800 border border-blue-200 hover:bg-blue-200"
-                      : dayStatus === "past-empty"
-                      ? "bg-red-100 text-red-800 border border-red-200"
-                      : "bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200"
-                  }`}
+                  className={`h-12 rounded-xl flex flex-col items-center justify-center transition-all cursor-pointer ${dayClass}`}
                   style={colStart ? { gridColumnStart: colStart } : undefined}
                 >
                   <span className="text-sm font-medium">{day.date}</span>
-                  {dayStatus === "has-report" && <CheckCircle size={12} className="mt-1" />}
-                  {dayStatus === "past-empty" && <AlertCircle size={12} className="mt-1" />}
+
+                  {!(!isProduction && isWeekend) && (
+                    <>
+                      {dayStatus === "has-report" && <CheckCircle size={12} className="mt-1" />}
+                      {isDefaultArea && dayStatus === "past-empty" && <AlertCircle size={12} className="mt-1" />}
+                    </>
+                  )}
                 </motion.div>
               );
             })}
@@ -1109,8 +1171,8 @@ const GenbaActivitys: React.FC = () => {
         {/* Statistik mengikuti area terpilih */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <StatCard title="Score Bulan Ini" value={`${getCurrentMonthScore().toFixed(0)}%`} icon={<CheckCircle className="w-6 h-6" />} color="blue" />
-          <StatCard title="Total Laporan" value={activities.filter((a) => a.work_area?.id.toString() === selectedArea && new Date(a.date).getMonth() === selectedMonth).length} icon={<Calendar className="w-6 h-6" />} color="green" />
-          <StatCard title="Area Bertanggung Jawab" value={`${userAreas.length} Area`} icon={<MapPin className="w-6 h-6" />} color="purple" />
+          <StatCard title="Total Laporan" value={activities.filter((a) => a.work_area?.id.toString() === selectedArea && new Date(a.date).getMonth() === selectedMonth).length} icon={<Calendar className="w-6 h-6" />} color="blue" />
+          <StatCard title="Area Bertanggung Jawab" value={`${userAreas.length} Area`} icon={<MapPin className="w-6 h-6" />} color="blue" />
         </div>
 
         {/* Profil Pelapor dan Map */}
@@ -1185,10 +1247,14 @@ const GenbaActivitys: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
             {userAreas.map((area) => {
-              const areaActivities = activities.filter((a) => a.work_area?.id.toString() === area.id.toString() && new Date(a.created_at || "").getMonth() === selectedMonth);
+              const areaActivities = activities.filter((a) => a.work_area?.id.toString() === area.id.toString() && new Date(a.date || "").getMonth() === selectedMonth);
               const totalDays = new Date(selectedYear, selectedMonth + 1, 0).getDate();
               const uniqueDays = new Set(areaActivities.map((a) => new Date(a.date).toLocaleDateString("id-ID"))).size;
-              const score = totalDays > 0 ? (uniqueDays / totalDays) * 100 : 0;
+              // LOGIKA PERBAIKAN: Hitung skor hanya jika is_default: true
+              const areaIsDefault = !!area.is_default;
+              const rawScore = totalDays > 0 ? (uniqueDays / totalDays) * 100 : 0;
+              // Jika non-default, score adalah 0
+              const score = areaIsDefault ? rawScore : 0;
 
               return (
                 <div key={area.id} className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow">
@@ -1353,7 +1419,7 @@ const GenbaActivitys: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <StatCard title="Score Department" value={`${getDepartmentScore(currentDepartment, selectedMonth, selectedYear).toFixed(0)}%`} icon={<BarChart3 className="w-6 h-6" />} color="blue" />
-            <StatCard title="Total Karyawan" value={filteredEmployees.length} icon={<Users className="w-6 h-6" />} color="green" />
+            <StatCard title="Total Karyawan" value={filteredEmployees.length} icon={<Users className="w-6 h-6" />} color="blue" />
             <StatCard
               title="Karyawan Aktif"
               value={
@@ -1363,13 +1429,13 @@ const GenbaActivitys: React.FC = () => {
                 }).length
               }
               icon={<CheckCircle className="w-6 h-6" />}
-              color="purple"
+              color="blue"
             />
             <StatCard
               title="Rata-rata Score"
               value={filteredEmployees.length > 0 ? `${(filteredEmployees.reduce((sum, emp) => sum + getEmployeeMonthlyScore(emp.nik, selectedMonth, selectedYear), 0) / filteredEmployees.length).toFixed(0)}%` : "0%"}
               icon={<BarChart3 className="w-6 h-6" />}
-              color="orange"
+              color="blue"
             />
           </div>
 
@@ -1401,11 +1467,17 @@ const GenbaActivitys: React.FC = () => {
                     const totalReports = areaActivities.length;
                     const score = getAreaMonthlyScore(area.id, selectedMonth, selectedYear);
                     const todayStr = new Date().toLocaleDateString("id-ID");
+                    const isDailyReport = !!area.is_default;
                     const hasReportToday = areaActivities.some((a) => new Date(a.date).toLocaleDateString("id-ID") === todayStr);
-                    const statusHariIni = hasReportToday ? (
-                      <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">Sudah Lapor</span>
+
+                    const statusHariIni = isDailyReport ? (
+                      hasReportToday ? (
+                        <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">Sudah Lapor</span>
+                      ) : (
+                        <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-medium">Belum Lapor</span>
+                      )
                     ) : (
-                      <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-medium">Belum Lapor</span>
+                      <span className="px-2 py-1 bg-blue-50 text-blue-600 rounded-full text-xs font-medium">Non-Daily</span>
                     );
 
                     return (
@@ -1475,9 +1547,9 @@ const GenbaActivitys: React.FC = () => {
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <StatCard title="Total Department" value={departmentsList.length} subtext="Active departments" icon={<Building2 className="w-6 h-6" />} color="blue" />
-            <StatCard title="Total Karyawan" value={uniqueEmployees.length} subtext="Registered employees" icon={<Users className="w-6 h-6" />} color="green" />
-            <StatCard title="Total Laporan" value={monthlyActivities.length} subtext="This month" icon={<FileText className="w-6 h-6" />} color="purple" />
-            <StatCard title="Rata-rata Score" value={`${averageScore.toFixed(0)}%`} subtext="Company wide" icon={<BarChart3 className="w-6 h-6" />} color="orange" />
+            <StatCard title="Total Karyawan" value={uniqueEmployees.length} subtext="Registered employees" icon={<Users className="w-6 h-6" />} color="blue" />
+            <StatCard title="Total Laporan" value={monthlyActivities.length} subtext="This month" icon={<FileText className="w-6 h-6" />} color="blue" />
+            <StatCard title="Rata-rata Score" value={`${averageScore.toFixed(0)}%`} subtext="Company wide" icon={<BarChart3 className="w-6 h-6" />} color="blue" />
           </div>
 
           {/* Performance per Department */}
@@ -1578,12 +1650,17 @@ const GenbaActivitys: React.FC = () => {
                     const totalReports = areaActivities.length;
                     const score = getAreaMonthlyScore(area.id, selectedMonth, selectedYear);
                     const todayStr = new Date().toLocaleDateString("id-ID");
+                    const isDailyReport = !!area.is_default;
                     const hasReportToday = areaActivities.some((a) => new Date(a.date).toLocaleDateString("id-ID") === todayStr);
 
-                    const statusHariIni = hasReportToday ? (
-                      <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">Sudah Lapor</span>
+                    const statusHariIni = isDailyReport ? (
+                      hasReportToday ? (
+                        <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">Sudah Lapor</span>
+                      ) : (
+                        <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-medium">Belum Lapor</span>
+                      )
                     ) : (
-                      <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-medium">Belum Lapor</span>
+                      <span className="px-2 py-1 bg-blue-50 text-blue-600 rounded-full text-xs font-medium">Non-Daily</span>
                     );
 
                     return (
@@ -1694,8 +1771,8 @@ const GenbaActivitys: React.FC = () => {
                     const isActive = viewMode === role.id;
                     const colorMap: Record<string, string> = {
                       karyawan: "from-blue-500 to-blue-600",
-                      komite: "from-green-500 to-green-600",
-                      management: "from-orange-500 to-orange-600",
+                      komite: "from-blue-500 to-blue-600",
+                      management: "from-blue-500 to-blue-600",
                     };
 
                     return (

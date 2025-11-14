@@ -47,6 +47,11 @@ interface PageHeaderProps {
 const breadcrumbMap: Record<string, string> = {
   "/dashboard": "Dashboard",
   "/assets": "Assets",
+  "/genba": "Genba",
+  "/genba/genbaactivity": "GenbaActivity",
+  "/genba/genbaactivity/formgenbaactivity": "Form Genba Activity",
+  "/genba/genbaarea/addgenbaarea": "Add Genba Work Area",
+  "/genba/genbaarea/editgenbaarea/:id": "Edit Genba Work Area",
   "/assets/assetsdata": "Assets Data",
   "/assets/assetsdata/addasset": "Add Asset",
   "/assets/assetsdata/editasset/:id": "Edit Asset",
