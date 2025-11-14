@@ -163,7 +163,7 @@ const Logout = () => {
             <div className="absolute top-0 w-16 h-2 bg-gray-700 rounded-b-lg"></div>
 
             {/* Ikon Kunci atau Pintu Keluar yang menggunakan warna ungu/biru muda yang sama */}
-            <div className="text-purple-300 animate-pulse-light">
+            <div className="text-blue-300 animate-pulse-light">
               <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path d="M13 12c0-1.104-.896-2-2-2h-1V7c0-2.757 2.243-5 5-5s5 2.243 5 5v3c0 1.104-.896 2-2 2h-1v2h2c1.104 0 2 .896 2 2v7c0 1.104-.896 2-2 2H6c-1.104 0-2-.896-2-2v-7c0-1.104.896-2 2-2h2v-2h-1c-1.104 0-2-.896-2-2V7c0-2.757 2.243-5 5-5s5 2.243 5 5v3h-1c-1.104 0-2 .896-2 2zM6 14v7h12v-7H6z" />
               </svg>
@@ -171,7 +171,7 @@ const Logout = () => {
 
             <div className="absolute bottom-10 left-0 right-0 text-center text-white text-sm">
               <div className="w-3/4 mx-auto bg-gray-700 rounded-full h-1 mb-2">
-                <div className="bg-purple-300 h-1 rounded-full w-2/3 animate-progress-fill"></div>
+                <div className="bg-blue-300 h-1 rounded-full w-2/3 animate-progress-fill"></div>
               </div>
               <p>Security check on exit completed</p>
             </div>

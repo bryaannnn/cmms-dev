@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Image, decode } from "image-js";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 import {
   Camera,
@@ -296,6 +298,54 @@ const GenbaActivitys: React.FC = () => {
 
     return filtered;
   };
+
+  // GenbaActivity.tsx - di dalam GenbaActivitys component (handleExportActivitiesPDF)
+
+  const handleExportActivitiesPDF = useCallback(() => {
+    const doc = new jsPDF();
+    const activitiesToExport = getFilteredActivities(); // Menggunakan data yang sudah difilter
+
+    // Header Laporan
+    doc.setFontSize(18);
+    doc.text("Laporan Aktivitas Genba Harian", 14, 22);
+    doc.setFontSize(11);
+    doc.setTextColor(100);
+    // Menggunakan filter bulan dan tahun yang sudah dipilih
+    doc.text(`Periode: ${new Date(selectedYear, selectedMonth).toLocaleDateString("id-ID", { month: "long", year: "numeric" })}`, 14, 30);
+    // Menggunakan filter area yang dipilih
+    doc.text(`Filter Area: ${areas.find((a) => a.id.toString() === selectedAreaFilter)?.name || "Semua Area"}`, 14, 37);
+    // Menggunakan filter pencarian
+    doc.text(`Pencarian: ${searchTerm || "-"}`, 14, 44);
+
+    // Persiapan Data Tabel
+    const tableColumn = ["Tanggal", "Reporter", "Area Kerja", "Department", "Keterangan Singkat", "Lampiran"];
+    const tableRows = activitiesToExport.map((activity) => [
+      formatDate(new Date(activity.date)),
+      activity.reporter?.name || "-",
+      activity.work_area?.name || "-",
+      activity.work_area?.department?.name || "-",
+      // Membatasi panjang Keterangan Singkat
+      activity.keterangan ? activity.keterangan.substring(0, 70) + (activity.keterangan.length > 70 ? "..." : "") : "-",
+      activity.attachment?.length || 0,
+    ]);
+
+    // Generate Tabel (PERBAIKAN UTAMA DI SINI)
+    // Menggunakan autoTable yang diimpor sebagai fungsi, bukan sebagai metode doc.
+    (autoTable as any)(doc, {
+      head: [tableColumn], // Header tabel
+      body: tableRows, // Data baris
+      startY: 50,
+      headStyles: { fillColor: [59, 130, 246] }, // Warna Biru (sama seperti di Reports.tsx)
+      margin: { top: 10 },
+      styles: { fontSize: 8 },
+      columnStyles: {
+        4: { cellWidth: 60 }, // Lebar kolom Keterangan Singkat
+      },
+    });
+
+    // Simpan File
+    doc.save(`Genba_Activity_Report_${selectedYear}_${selectedMonth + 1}.pdf`);
+  }, [activities, areas, selectedAreaFilter, selectedMonth, selectedYear, searchTerm, getFilteredActivities]);
 
   const getDepartmentScore = (department: string, month: number, year: number): number => {
     const departmentActivities = activities.filter((activity) => {
@@ -973,7 +1023,17 @@ const GenbaActivitys: React.FC = () => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Komite 5S</label>
-                    <input type="text" value={`Komite5s ${selectedActivity?.committee_role?.name ?? "-"}`} disabled className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900" />
+                    <input
+                      type="text"
+                      value={`${
+                        selectedActivity?.committee_role?.name
+                          .split(" ")
+                          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                          .join(" ") ?? "-"
+                      }`}
+                      disabled
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900"
+                    />
                   </div>
 
                   <div>
@@ -1146,7 +1206,7 @@ const GenbaActivitys: React.FC = () => {
                       setSelectedActivity(activityForDay);
                     } else if (day.isToday && !day.hasReport) {
                       const dateString = clickedDate.toISOString().split("T")[0];
-                      navigate(`/genba/genbaactivity/formgenbaactivity?date=${dateString}&area=${selectedArea}`);
+                      navigate(`/genba/genbaactivity/formgenbaactivity?area=${selectedArea}`);
                     } else if (day.isPast && !day.hasReport && !isDefaultArea) {
                       return;
                     }
@@ -1317,7 +1377,17 @@ const GenbaActivitys: React.FC = () => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Komite 5S</label>
-                    <input type="text" value={`Komite5s ${selectedActivity?.committee_role?.name ?? "-"}`} disabled className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900" />
+                    <input
+                      type="text"
+                      value={`${
+                        selectedActivity?.committee_role?.name
+                          .split(" ")
+                          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                          .join(" ") ?? "-"
+                      }`}
+                      disabled
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900"
+                    />
                   </div>
 
                   <div>
@@ -1400,17 +1470,17 @@ const GenbaActivitys: React.FC = () => {
 
               {!isKomiteDept && (
                 <>
+                  <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))} className="px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value={2023}>2023</option>
+                    <option value={2024}>2024</option>
+                    <option value={2025}>2025</option>
+                  </select>
                   <select value={selectedMonth} onChange={(e) => setSelectedMonth(Number(e.target.value))} className="px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
                     {Array.from({ length: 12 }, (_, i) => (
                       <option key={i} value={i}>
                         {new Date(2024, i).toLocaleDateString("id-ID", { month: "long" })}
                       </option>
                     ))}
-                  </select>
-                  <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))} className="px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value={2023}>2023</option>
-                    <option value={2024}>2024</option>
-                    <option value={2025}>2025</option>
                   </select>
                 </>
               )}
@@ -1536,10 +1606,30 @@ const GenbaActivitys: React.FC = () => {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 space-y-4 md:space-y-0">
             <h3 className="text-lg font-bold text-gray-900">Executive Dashboard 5S</h3>
             <div className="flex gap-3">
+              <motion.button
+                onClick={handleExportActivitiesPDF}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="px-4 py-2 rounded-lg bg-blue-600 text-white shadow-md hover:bg-blue-700 transition-colors duration-200 flex items-center"
+              >
+                <Download className="mr-2 h-4 w-4" /> Export PDF
+              </motion.button>
               <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))} className="px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <option value={2023}>2023</option>
                 <option value={2024}>2024</option>
                 <option value={2025}>2025</option>
+              </select>
+              <select
+                value={selectedMonth} // Menggunakan state selectedMonth
+                onChange={(e) => setSelectedMonth(Number(e.target.value))} // Mengupdate state
+                className="px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {/* Array bulan untuk opsi, index 0=Januari hingga 11=Desember */}
+                {["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"].map((month, index) => (
+                  <option key={index} value={index}>
+                    {month}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -1830,7 +1920,17 @@ const GenbaActivitys: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Komite 5S</label>
-                  <input type="text" value={`Komite5s ${user?.genbaSoRole?.role_name || "-"}`} disabled className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-600" />
+                  <input
+                    type="text"
+                    value={`${
+                      user?.genbaSoRole?.role_name
+                        .split(" ")
+                        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                        .join(" ") || "-"
+                    }`}
+                    disabled
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-600"
+                  />
                 </div>
 
                 <div>

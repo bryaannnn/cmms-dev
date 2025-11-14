@@ -205,13 +205,13 @@ const Sidebar: React.FC = () => {
               </div>
 
               <div className="pt-4">
-                 {hasPermission("23") &&<h3 className="text-xs font-semibold uppercase text-gray-400 px-2 pb-2 tracking-wider">Master</h3>}
+                {hasPermission("23") && <h3 className="text-xs font-semibold uppercase text-gray-400 px-2 pb-2 tracking-wider">Master</h3>}
                 {hasPermission("3") && <NavItem icon={<Package />} text="Assets" to="/assets" expanded={true} onNavigate={handleMobileNavigate} />}
                 {hasPermission("15") && <NavItem icon={<Key />} text="User Management" to="/permissions" expanded={true} onNavigate={handleMobileNavigate} />}
               </div>
 
               <div className="pt-4">
-                 {hasPermission("23") &&<h3 className="text-xs font-semibold uppercase text-gray-400 px-2 pb-2 tracking-wider">Maintenance</h3>}
+                {hasPermission("23") && <h3 className="text-xs font-semibold uppercase text-gray-400 px-2 pb-2 tracking-wider">Maintenance</h3>}
                 {hasPermission("31") && (
                   <>
                     <NavItem icon={<ChartBar />} text="Machine History" to="/machinehistory" expanded={true} onNavigate={handleMobileNavigate} />
@@ -221,7 +221,7 @@ const Sidebar: React.FC = () => {
               </div>
 
               <div className="pt-4">
-                 {hasPermission("23") &&<h3 className="text-xs font-semibold uppercase text-gray-400 px-2 pb-2 tracking-wider">Work Orders</h3>}
+                {hasPermission("23") && <h3 className="text-xs font-semibold uppercase text-gray-400 px-2 pb-2 tracking-wider">Work Orders</h3>}
                 {hasPermission("7") && <NavItem icon={<Clipboard />} text="Work Orders" to="/workorders" expanded={true} onNavigate={handleMobileNavigate} />}
               </div>
             </nav>
@@ -283,12 +283,12 @@ const Sidebar: React.FC = () => {
                 {sidebarOpen && <h3 className="text-xs font-semibold uppercase text-gray-400 px-4 pt-4 pb-1 tracking-wider">5S</h3>}
                 {hasPermission("7") && <NavItem icon={<Clipboard />} text="Genba" to="/genba" expanded={sidebarOpen} />}
 
-                {sidebarOpen && <h3 className="text-xs font-semibold uppercase text-gray-400 px-4 pt-4 pb-1 tracking-wider">System</h3>}
+                {sidebarOpen && hasPermission("23") && <h3 className="text-xs font-semibold uppercase text-gray-400 px-4 pt-4 pb-1 tracking-wider">System</h3>}
                 {hasPermission("23") && <NavItem icon={<ListCheck />} text="Audit Trail" to="/audittrail" expanded={sidebarOpen} />}
                 {hasPermission("23") && <NavItem icon={<History />} text="Backup & Restore" to="/backupandrestore" expanded={sidebarOpen} />}
                 {hasPermission("23") && <NavItem icon={<History />} text="Workflow Approval" to="/workflowapproval" expanded={sidebarOpen} />}
 
-                {sidebarOpen && <h3 className="text-xs font-semibold uppercase text-gray-400 px-4 pt-4 pb-1 tracking-wider">Master</h3>}
+                {sidebarOpen && hasPermission("23") && <h3 className="text-xs font-semibold uppercase text-gray-400 px-4 pt-4 pb-1 tracking-wider">Master</h3>}
                 {hasPermission("23") && <NavItem icon={<MapPin />} text="Work Location" to="/worklocation" expanded={sidebarOpen} />}
                 {hasPermission("23") && <NavItem icon={<Users />} text="Work Arrangement" to="/workarrangement" expanded={sidebarOpen} />}
                 {hasPermission("15") && <NavItem icon={<Key />} text="User Management" to="/permissions" expanded={sidebarOpen} />}
@@ -298,14 +298,14 @@ const Sidebar: React.FC = () => {
                 {hasPermission("3") && <NavItem icon={<LifeBuoy />} text="Services" to="/services" expanded={sidebarOpen} />}
                 {hasPermission("3") && <NavItem icon={<ToolCase />} text="Maintenance Activity" to="/maintenanceactivity" expanded={sidebarOpen} />}
 
-                {sidebarOpen && <h3 className="text-xs font-semibold uppercase text-gray-400 px-4 pt-4 pb-1 tracking-wider">Maintenance</h3>}
+                {sidebarOpen && hasPermission("23") && <h3 className="text-xs font-semibold uppercase text-gray-400 px-4 pt-4 pb-1 tracking-wider">Maintenance</h3>}
                 {hasPermission("31") && <NavItem icon={<ChartBar />} text="Machine History" to="/machinehistory" expanded={sidebarOpen} />}
                 {hasPermission("31") && <NavItem icon={<Monitor />} text="Monitoring Maintenance" to="/monitoringmaintenance" expanded={sidebarOpen} />}
 
                 {sidebarOpen && <h3 className="text-xs font-semibold uppercase text-gray-400 px-4 pt-4 pb-1 tracking-wider">Work Orders</h3>}
                 {hasPermission("7") && <NavItem icon={<Clipboard />} text="Work Orders" to="/workorders" expanded={sidebarOpen} />}
 
-                {sidebarOpen && <h3 className="text-xs font-semibold uppercase text-gray-400 px-4 pt-4 pb-1 tracking-wider">Spare Parts</h3>}
+                {sidebarOpen && hasPermission("23") && <h3 className="text-xs font-semibold uppercase text-gray-400 px-4 pt-4 pb-1 tracking-wider">Spare Parts</h3>}
                 {hasPermission("23") && <NavItem icon={<Component />} text="Sparepart Detail" to="/sparepartdetail" expanded={sidebarOpen} />}
                 {hasPermission("23") && <NavItem icon={<ShoppingCart />} text="Purchase Order Realization" to="/purchaseorderrealization" expanded={sidebarOpen} />}
                 {hasPermission("23") && <NavItem icon={<Receipt />} text="Transaction by Item" to="/transactionbyitem" expanded={sidebarOpen} />}

@@ -194,7 +194,10 @@ const ITRequest2: React.FC = () => {
         // Prevent state update if component unmounted
         if (!isMounted) return;
 
-        const userOrders = allOrders.filter((order) => order.requester_id === Number(currentUser?.id));
+        const userOrders = currentUser?.isSuperadmin ? allOrders : allOrders.filter((order) => order.requester_id === Number(currentUser?.id));
+
+        setWorkOrders(userOrders);
+
         setWorkOrders(userOrders);
 
         // Data bulan sebelumnya
@@ -1092,6 +1095,7 @@ const ITRequest2: React.FC = () => {
                   setError(null);
                   const allOrders = await getWorkOrdersIT();
                   const userOrders = allOrders.filter((order) => order.requester_id === Number(currentUser?.id));
+                  console.log(userOrders);
                   setWorkOrders(userOrders);
 
                   const oneMonthAgo = new Date();

@@ -161,6 +161,8 @@ export interface User {
   avatar?: string;
   email_verified_at?: string | null;
   created_at?: string;
+  roles: string[]; // dari backend: ["superadmin"]
+
   updated_at?: string;
   genbaSoRole?: {
     genba_so_id: string;
@@ -1546,6 +1548,8 @@ const mapApiToUser = (apiUser: any): User => {
     email: apiUser.email,
     roleId: apiUser.role_id ? String(apiUser.role_id) : null, // Perhatikan field name
     role: apiUser.role,
+    roles: apiUser.roles || [],
+    isSuperadmin: Array.isArray(apiUser.roles) ? apiUser.roles.includes("superadmin") : false,
     customPermissions: apiUser.customPermissions || [],
     permissions: apiUser.permissions || apiUser.allPermissions || [],
     department: department,
