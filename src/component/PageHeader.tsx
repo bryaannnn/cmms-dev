@@ -48,7 +48,7 @@ const breadcrumbMap: Record<string, string> = {
   "/dashboard": "Dashboard",
   "/assets": "Assets",
   "/genba": "Genba",
-  "/genba/genbaactivity": "GenbaActivity",
+  "/genba/genbaactivity": "Genba Activity",
   "/genba/genbaactivity/formgenbaactivity": "Form Genba Activity",
   "/genba/genbaarea/addgenbaarea": "Add Genba Work Area",
   "/genba/genbaarea/editgenbaarea/:id": "Edit Genba Work Area",
@@ -358,19 +358,28 @@ const PageHeader: React.FC<PageHeaderProps> = ({ mainTitle, mainTitleHighlight, 
       {/* Breadcrumb section */}
       <div className="bg-gray-50 border-b border-gray-100 px-4 py-3">
         <div className="flex items-center space-x-2 text-sm">
-          {breadcrumbs.map((breadcrumb, index) => (
-            <div key={breadcrumb.path} className="flex items-center space-x-2">
-              {index === 0 ? <Home size={16} className="text-gray-400" /> : <ChevronRight size={16} className="text-gray-400" />}
+          {breadcrumbs.map((breadcrumb, index) => {
+            const isFirst = index === 0;
+            const isLast = index === breadcrumbs.length - 1;
+            const shouldBeHiddenOnMobile = !isFirst && !isLast;
 
-              {breadcrumb.isClickable ? (
-                <button onClick={() => navigate(breadcrumb.path)} className="text-blue-600 hover:text-blue-800 font-medium transition-colors duration-200">
-                  {breadcrumb.label}
-                </button>
-              ) : (
-                <span className="text-gray-600 font-medium">{breadcrumb.label}</span>
-              )}
-            </div>
-          ))}
+            return (
+              <div key={breadcrumb.path} className={`flex items-center space-x-2 ${shouldBeHiddenOnMobile ? "hidden sm:flex" : "flex"}`}>
+                {isFirst ? <Home size={16} className="text-gray-400 flex-shrink-0" /> : <ChevronRight size={16} className="text-gray-400 flex-shrink-0" />}
+
+                {breadcrumb.isClickable ? (
+                  <button
+                    onClick={() => navigate(breadcrumb.path)}
+                    className="text-blue-600 hover:text-blue-800 font-medium transition-colors duration-200 truncate max-w-[150px] sm:max-w-none" // Tambahkan truncate untuk teks panjang di mobile
+                  >
+                    {breadcrumb.label}
+                  </button>
+                ) : (
+                  <span className="text-gray-600 font-medium truncate max-w-[150px] sm:max-w-none">{breadcrumb.label}</span>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {/* Mobile-only description */}

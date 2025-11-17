@@ -63,6 +63,8 @@ const EditFormGenbaArea: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  const [initialPicValue, setInitialPicValue] = useState<any>(null);
+
   const [formData, setFormData] = useState<AreaFormData>({
     name: "",
     department_id: "",
@@ -86,9 +88,13 @@ const EditFormGenbaArea: React.FC = () => {
       setFilteredUsers(filtered);
 
       // Reset pic_user_id if current selection is not in filtered list
-      if (formData.pic_user_id && !filtered.some((user) => user.id.toString() === formData.pic_user_id)) {
-        setFormData((prev) => ({ ...prev, pic_user_id: "" }));
-      }
+      // if (formData.pic_user_id && !filtered.some((user) => user.id.toString() === formData.pic_user_id)) {
+      //   setFormData((prev) => ({ ...prev, pic_user_id: "" }));
+      // }
+    } else if (!formData.department_id) {
+      setFilteredUsers([]);
+      // Hanya reset PIC jika department_id kosong (user memilih opsi kosong)
+      setFormData((prev) => ({ ...prev, pic_user_id: "" }));
     } else {
       setFilteredUsers([]);
       setFormData((prev) => ({ ...prev, pic_user_id: "" }));
@@ -130,20 +136,42 @@ const EditFormGenbaArea: React.FC = () => {
         }
       }
 
+      const correctPicId = areaData.pic_user_id?.toString() || "";
+
       setFormData({
         name: areaData.name,
         department_id: areaData.department_id?.toString() || "",
-        pic_user_id: areaData.pic?.id?.toString() || "",
+        pic_user_id: areaData.pic_user_id?.toString() || "",
         attachment: null,
         is_default: areaData.is_default,
         existingLayouts: existingLayouts, // Sekarang bertipe LayoutInterface[]
       });
+
+      if (areaData.pic && correctPicId) {
+        setInitialPicValue({
+          value: correctPicId,
+          label: areaData.pic.name, // Ambil namanya dari objek pic
+        });
+      } else {
+        setInitialPicValue(null);
+      }
     } catch (err) {
       setError("Failed to load area data");
     } finally {
       setLoading(false);
     }
   };
+
+  const picOptions = filteredUsers.map((user) => ({
+    value: String(user.id),
+    label: user.name,
+  }));
+
+  let selectedPicValue = picOptions.find((option) => option.value === formData.pic_user_id);
+
+  if (!selectedPicValue && initialPicValue) {
+    selectedPicValue = initialPicValue;
+  }
 
   const loadDepartments = async () => {
     try {
@@ -573,7 +601,7 @@ const EditFormGenbaArea: React.FC = () => {
                       name="pic_user_id"
                       id="pic_user_id"
                       options={picUserOptions}
-                      value={selectedPicOption}
+                      value={selectedPicValue}
                       onChange={(selectedOption) => handleChange(selectedOption, "pic_user_id")}
                       placeholder={formData.department_id ? "Select Penanggung Jawab" : "Please select department first"}
                       styles={customSelectStyles}

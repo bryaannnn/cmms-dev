@@ -251,7 +251,7 @@ const GenbaArea: React.FC = () => {
                 <span className="font-medium text-gray-900">{area?.department.name}</span>
               </div>
               <div className="flex justify-between">
-                <span>Penanggung Jawab:</span>
+                <span>PIC Area:</span>
                 <span className="font-medium text-gray-900">{area?.pic.name}</span>
               </div>
               <div className="flex justify-between">
@@ -493,7 +493,7 @@ const GenbaArea: React.FC = () => {
                     <tr>
                       <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Area Name</th>
                       <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Department</th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Penanggung Jawab</th>
+                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">PIC Area</th>
                       <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>

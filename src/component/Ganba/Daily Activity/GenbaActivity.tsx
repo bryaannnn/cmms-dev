@@ -107,7 +107,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, subtext, icon, color 
 const GenbaActivitys: React.FC = () => {
   const navigate = useNavigate();
   const projectEnvVariables = getProjectEnvVariables();
-  const { user, getGenbaActivities, getGenbaAreas, createGenbaActivity, updateGenbaActivity, deleteGenbaActivity, fetchUser, getDepartment, hasPermission, getGenbaSOs } = useAuth();
+  const { user, getGenbaActivities, getGenbaAreas, createGenbaActivity, updateGenbaActivity, deleteGenbaActivity, fetchUser, getDepartment, hasPermission, getGenbaSOs, token, fetchWithAuth } = useAuth();
 
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
     const stored = localStorage.getItem("sidebarOpen");
@@ -300,52 +300,6 @@ const GenbaActivitys: React.FC = () => {
   };
 
   // GenbaActivity.tsx - di dalam GenbaActivitys component (handleExportActivitiesPDF)
-
-  const handleExportActivitiesPDF = useCallback(() => {
-    const doc = new jsPDF();
-    const activitiesToExport = getFilteredActivities(); // Menggunakan data yang sudah difilter
-
-    // Header Laporan
-    doc.setFontSize(18);
-    doc.text("Laporan Aktivitas Genba Harian", 14, 22);
-    doc.setFontSize(11);
-    doc.setTextColor(100);
-    // Menggunakan filter bulan dan tahun yang sudah dipilih
-    doc.text(`Periode: ${new Date(selectedYear, selectedMonth).toLocaleDateString("id-ID", { month: "long", year: "numeric" })}`, 14, 30);
-    // Menggunakan filter area yang dipilih
-    doc.text(`Filter Area: ${areas.find((a) => a.id.toString() === selectedAreaFilter)?.name || "Semua Area"}`, 14, 37);
-    // Menggunakan filter pencarian
-    doc.text(`Pencarian: ${searchTerm || "-"}`, 14, 44);
-
-    // Persiapan Data Tabel
-    const tableColumn = ["Tanggal", "Reporter", "Area Kerja", "Department", "Keterangan Singkat", "Lampiran"];
-    const tableRows = activitiesToExport.map((activity) => [
-      formatDate(new Date(activity.date)),
-      activity.reporter?.name || "-",
-      activity.work_area?.name || "-",
-      activity.work_area?.department?.name || "-",
-      // Membatasi panjang Keterangan Singkat
-      activity.keterangan ? activity.keterangan.substring(0, 70) + (activity.keterangan.length > 70 ? "..." : "") : "-",
-      activity.attachment?.length || 0,
-    ]);
-
-    // Generate Tabel (PERBAIKAN UTAMA DI SINI)
-    // Menggunakan autoTable yang diimpor sebagai fungsi, bukan sebagai metode doc.
-    (autoTable as any)(doc, {
-      head: [tableColumn], // Header tabel
-      body: tableRows, // Data baris
-      startY: 50,
-      headStyles: { fillColor: [59, 130, 246] }, // Warna Biru (sama seperti di Reports.tsx)
-      margin: { top: 10 },
-      styles: { fontSize: 8 },
-      columnStyles: {
-        4: { cellWidth: 60 }, // Lebar kolom Keterangan Singkat
-      },
-    });
-
-    // Simpan File
-    doc.save(`Genba_Activity_Report_${selectedYear}_${selectedMonth + 1}.pdf`);
-  }, [activities, areas, selectedAreaFilter, selectedMonth, selectedYear, searchTerm, getFilteredActivities]);
 
   const getDepartmentScore = (department: string, month: number, year: number): number => {
     const departmentActivities = activities.filter((activity) => {
@@ -686,6 +640,350 @@ const GenbaActivitys: React.FC = () => {
     }
     return filePath;
   };
+
+  const blobToBase64 = (blob: Blob): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  };
+
+  const handleExportActivitiesPDF = useCallback(async () => {
+    const doc = new jsPDF();
+    let activitiesToExport = activities.filter((activity) => {
+      const date = new Date(activity.date);
+
+      // Filter 1: Bulan dan Tahun (Sudah Benar)
+      if (date.getMonth() !== selectedMonth || date.getFullYear() !== selectedYear) {
+        return false;
+      }
+
+      // Filter 2: Pencarian (Sudah Benar)
+      if (searchTerm) {
+        const matchesSearch = activity.reporter?.name.toLowerCase().includes(searchTerm.toLowerCase()) || activity.work_area?.name.toLowerCase().includes(searchTerm.toLowerCase()) || activity.reporter?.nik.includes(searchTerm);
+        if (!matchesSearch) {
+          return false;
+        }
+      }
+
+      // Filter 3: Department (Sudah Benar)
+      if (selectedDepartment) {
+        if (activity.work_area?.department?.name !== selectedDepartment) {
+          return false;
+        }
+      }
+
+      if (!selectedDepartment && selectedAreaFilter) {
+        if (String(activity.work_area?.id) !== String(selectedAreaFilter)) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    // COVER PAGE (Design Reports.tsx)
+    doc.setFillColor(59, 130, 246);
+    doc.rect(0, 0, 210, 297, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(24);
+    doc.text("LAPORAN AKTIVITAS GENBA", 105, 120, { align: "center" });
+    doc.setFontSize(14);
+    doc.text(`Periode: ${new Date(selectedYear, selectedMonth).toLocaleDateString("id-ID", { month: "long", year: "numeric" })}`, 105, 140, { align: "center" });
+    doc.text(`Dibuat pada: ${new Date().toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" })}`, 105, 150, { align: "center" });
+
+    // STATISTICS AND SCORE PAGE
+    doc.addPage();
+    let yPos = 20;
+
+    // Standard Header (Design Reports.tsx)
+    doc.setFillColor(59, 130, 246);
+    doc.rect(0, 0, 210, 30, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(16);
+    doc.text("RINGKASAN STATISTIK DAN SKOR", 105, 20, { align: "center" });
+
+    // Filter Info
+    doc.setTextColor(0);
+    doc.setFontSize(11);
+    doc.text(`Periode: ${new Date(selectedYear, selectedMonth).toLocaleDateString("id-ID", { month: "long", year: "numeric" })}`, 14, 40);
+    const areaFilterDisplay = selectedDepartment ? `Department: ${selectedDepartment}` : areas.find((a) => a.id.toString() === selectedAreaFilter)?.name || "Semua Area";
+    doc.text(`Filter Area ${areaFilterDisplay}`, 14, 47);
+    doc.text(`Pencarian: ${searchTerm || "-"}`, 14, 54);
+    yPos = 72;
+
+    // DEPARTMENT SCORES TABLE
+    doc.setFontSize(14);
+    doc.setTextColor(40, 40, 40);
+    doc.text("SKOR PER DEPARTMENT", 14, yPos);
+    yPos += 5;
+
+    const deptColumns = ["Department", "Score (%)", "Target", "Status"];
+    const deptRows = departments.map((dept) => {
+      const score = getDepartmentScore(dept.name, selectedMonth, selectedYear);
+      const target = 95;
+      const status = score >= target ? "SUCCESS" : "FAIL";
+      return [dept.name, score.toFixed(2), `${target}%`, status];
+    });
+
+    (autoTable as any)(doc, {
+      head: [deptColumns],
+      body: deptRows,
+      startY: yPos + 5,
+      headStyles: { fillColor: [59, 130, 246] },
+      margin: { left: 14, right: 14 },
+      styles: { fontSize: 9 },
+      columnStyles: {
+        1: { cellWidth: 25 },
+        2: { cellWidth: 20 },
+        3: { cellWidth: 20 },
+      },
+      didDrawCell: (data: any) => {
+        if (data.section === "body" && data.column.index === 3) {
+          const status = data.cell.text[0];
+          const textX = data.cell.x + data.cell.width / 2;
+          // Penyesuaian posisi Y untuk tengah
+          const textY = data.cell.y + data.cell.height / 2;
+
+          if (status === "SUCCESS") {
+            doc.setFillColor(180, 250, 180);
+            doc.setTextColor(0, 128, 0);
+          } else if (status === "FAIL") {
+            doc.setFillColor(250, 180, 180);
+            doc.setTextColor(255, 0, 0);
+          } else {
+            doc.setFillColor(255, 255, 255);
+            doc.setTextColor(0, 0, 0);
+          }
+
+          doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, "F");
+
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(8);
+
+          // PERBAIKAN: Menghapus `valign: "middle"`
+          doc.text(status, textX, textY, {
+            align: "center",
+          });
+
+          doc.setTextColor(0, 0, 0);
+          doc.setFont("helvetica", "normal");
+        }
+      },
+    });
+
+    yPos = (doc as any).lastAutoTable.finalY + 10;
+
+    // AREA SCORES TABLE (Harian/Daily)
+    doc.setFontSize(14);
+    doc.setTextColor(40, 40, 40);
+    doc.text("SKOR PER AREA KERJA HARIAN (Daily)", 14, yPos);
+    yPos += 5;
+
+    const dailyAreas = areas;
+    const areaColumns = ["Area Kerja", "Department", "PIC", "Score (%)"];
+    const areaRows = dailyAreas.map((area) => {
+      const score = getAreaMonthlyScore(area.id, selectedMonth, selectedYear);
+      return [
+        area.name,
+        area.department?.name || "-",
+        // PERBAIKAN: Mengkonversi kedua sisi perbandingan ke String() untuk mengatasi Error 2367
+        area.pic_user_id ? allUsers.find((u) => String(u.id) === String(area.pic_user_id))?.name || "-" : "-",
+        score.toFixed(2),
+      ];
+    });
+
+    (autoTable as any)(doc, {
+      head: [areaColumns],
+      body: areaRows,
+      startY: yPos + 5,
+      headStyles: { fillColor: [59, 130, 246] },
+      margin: { left: 14, right: 14 },
+      styles: { fontSize: 8 },
+    });
+
+    // DETAILED ACTIVITY LIST PAGE
+    doc.addPage();
+
+    // Standard Header (Design Reports.tsx)
+    doc.setFillColor(59, 130, 246);
+    doc.rect(0, 0, 210, 30, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(16);
+    doc.text("DETAIL LAPORAN AKTIVITAS", 105, 20, { align: "center" });
+
+    // Filter Info
+    doc.setTextColor(0);
+    doc.setFontSize(11);
+    doc.text(`Periode: ${new Date(selectedYear, selectedMonth).toLocaleDateString("id-ID", { month: "long", year: "numeric" })}`, 14, 40);
+    doc.text(`Total Aktivitas: ${activitiesToExport.length}`, 14, 47);
+
+    // Persiapan Data Tabel
+    const tableColumn = ["Tanggal", "Reporter", "Area Kerja", "Department", "Keterangan Singkat", "Lampiran"];
+    const tableRows = activitiesToExport.map((activity) => {
+      // =========================================================================
+      // PERBAIKAN DI SINI: Membuat string detail lampiran
+      // =========================================================================
+      const attachments = activity.attachment;
+      let attachmentDetails = "-";
+
+      if (attachments && attachments.length > 0) {
+        // Asumsi: Setiap objek lampiran memiliki properti 'filename'
+        attachmentDetails = attachments.map((att: any, index: number) => `${index + 1}. ${att.filename || "File Lampiran"}`).join("\n");
+      }
+
+      return [
+        formatDate(new Date(activity.date)),
+        activity.reporter?.name || "-",
+        activity.work_area?.name || "-",
+        activity.work_area?.department?.name || "-",
+        activity.keterangan ? activity.keterangan.substring(0, 70) + (activity.keterangan.length > 70 ? "..." : "") : "-",
+        attachmentDetails, // Menggunakan string detail lampiran
+      ];
+    });
+
+    // Generate Tabel
+    (autoTable as any)(doc, {
+      head: [tableColumn],
+      body: tableRows,
+      startY: 55,
+      headStyles: { fillColor: [59, 130, 246] },
+      margin: { top: 10, left: 14, right: 14 },
+      styles: { fontSize: 8 },
+      columnStyles: {
+        4: { cellWidth: 60 },
+        5: { cellWidth: 40, overflow: "linebreak" },
+      },
+    });
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const imageMaxWidth = pageWidth - 28;
+    const MAX_IMAGE_HEIGHT = 80;
+
+    for (const activity of activitiesToExport) {
+      if (activity.attachment && activity.attachment.length > 0) {
+        doc.addPage();
+        let currentY = 40;
+
+        // Header Halaman Lampiran
+        doc.setFillColor(59, 130, 246);
+        doc.rect(0, 0, 210, 30, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(16);
+        doc.text("LAMPIRAN VISUAL AKTIVITAS", 105, 20, { align: "center" });
+
+        // Konteks Aktivitas
+        doc.setTextColor(40, 40, 40);
+        doc.setFontSize(11);
+        doc.text(`Aktivitas: ${activity.work_area?.name || "-"} oleh ${activity.reporter?.name || "-"}`, 14, currentY);
+        doc.text(`Keterangan: ${activity.keterangan ? activity.keterangan.substring(0, 70) + "..." : "-"}`, 14, currentY + 7);
+        currentY += 15;
+
+        for (const att of activity.attachment) {
+          // MENGGUNAKAN getFotoUrl SESUAI PERMINTAAN
+          const fullImageUrl = getFotoUrl(att.file_path);
+
+          if (!token) {
+            // Log ini akan muncul di konsol, dan loop akan dihentikan (return)
+            console.error("ERROR: Token autentikasi tidak ditemukan. Gagal memuat lampiran.");
+            // Namun, menggunakan 'return' di dalam loop hanya akan menghentikan function handleExportActivitiesPDF
+            // yang mungkin tidak diinginkan. Lebih baik menggunakan 'continue' atau throw error yang tertangkap di luar loop.
+
+            // Untuk saat ini, kita akan melompat (continue) ke lampiran berikutnya
+            // dan mencatat error di PDF.
+            doc.setTextColor(255, 0, 0);
+            doc.setFontSize(10);
+            doc.text(`[FATAL ERROR: Token tidak tersedia]`, 14, currentY);
+            currentY += 8;
+            continue;
+          }
+
+          try {
+            // 'omit' adalah upaya untuk menghilangkan cookie, tapi mempertahankan header 'Authorization'
+            const response = await fetch(fullImageUrl, {
+              mode: "cors", // Pastikan mode CORS eksplisit
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+              credentials: "omit", // Coba hilangkan cookie jika mengganggu CORS
+            });
+
+            if (!response.ok) {
+              console.error(`[PDF Export Error] Gagal memuat gambar ${att.file_name}. URL: ${fullImageUrl}. Status: ${response.status} ${response.statusText}`);
+              throw new Error(`HTTP error! status: ${response.status} ${response.statusText}`);
+            }
+
+            const blob = await response.blob();
+            const base64Image = await blobToBase64(blob);
+
+            if (typeof base64Image === "string") {
+              // PERBAIKAN 2: GUNAKAN window.Image UNTUK TIPE DOM STANDAR
+              const img = new window.Image();
+              img.src = base64Image;
+
+              await new Promise((resolve) => {
+                img.onload = resolve;
+                img.onerror = resolve;
+              });
+
+              const originalWidth = img.width || 1;
+              const originalHeight = img.height || 1;
+
+              let displayWidth = imageMaxWidth;
+              let displayHeight = (originalHeight / originalWidth) * displayWidth;
+
+              if (displayHeight > MAX_IMAGE_HEIGHT) {
+                displayHeight = MAX_IMAGE_HEIGHT;
+                displayWidth = (originalWidth / originalHeight) * displayHeight;
+              }
+
+              // Pengecekan halaman
+              if (currentY + displayHeight + 20 > pageHeight) {
+                doc.addPage();
+                currentY = 40;
+              }
+
+              // Tambahkan Nama File
+              doc.setTextColor(40, 40, 40);
+              doc.setFontSize(9);
+              doc.text(`Nama File: ${att.file_name}`, 14, currentY);
+              currentY += 4;
+
+              doc.addImage(base64Image, (pageWidth - displayWidth) / 2, currentY, displayWidth, displayHeight);
+
+              currentY += displayHeight + 8;
+            }
+          } catch (error: any) {
+            // Di dalam catch (error: any) { ... }
+            // Logging ke console browser untuk debugging yang lebih dalam
+            console.error("Kesalahan saat memproses gambar:", fullImageUrl, error);
+
+            // Tentukan pesan error yang ditampilkan di PDF
+            let errorMessage = "Unknown Error";
+            if (error.message && error.message.includes("HTTP Error! Status")) {
+              // Jika error berasal dari response.ok (e.g., 401 Unauthorized, 404 Not Found)
+              errorMessage = `HTTP: ${error.message.split("Status: ")[1]}`;
+            } else {
+              // Jika error Failed to fetch (kemungkinan besar CORS Preflight)
+              errorMessage = "Network/CORS Blocked (Failed to fetch)";
+            }
+
+            doc.setTextColor(255, 0, 0);
+            doc.setFontSize(10);
+            // Tampilkan error yang lebih detail di PDF
+            doc.text(`[ERROR: Gagal memuat ${att.file_name} - ${errorMessage}]`, 14, currentY);
+            currentY += 8;
+          }
+        }
+      }
+    }
+
+    // Simpan File
+    doc.save(`Genba_Activity_Comprehensive_Report_${selectedYear}_${selectedMonth + 1}.pdf`);
+  }, [activities, areas, selectedAreaFilter, selectedMonth, selectedYear, searchTerm, getFilteredActivities, departments, allUsers, formatDate, getDepartmentScore, getAreaMonthlyScore, getFotoUrl]);
 
   const getUniqueEmployees = (): User[] => {
     const employeeMap = new Map();
