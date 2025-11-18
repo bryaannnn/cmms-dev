@@ -1519,10 +1519,15 @@ interface AuthContextType {
   getGenbaSOs: () => Promise<GenbaSO[]>;
   getGenbaSOById: (id: string | number) => Promise<GenbaSO>;
   getGenbaAreas: () => Promise<GenbaWorkAreas[]>;
+  getGenbaAreas2: () => Promise<GenbaWorkAreas[]>;
   createGenbaSO: (data: CreateGenbaSOPayload) => Promise<GenbaSO>;
   createGenbaAreas: (data: CreateGenbaAreasPayload, attachment?: File[]) => Promise<any>;
   updateGenbaSO: (id: string | number, data: UpdateGenbaSOPayload) => Promise<GenbaSO>;
-  updateGenbaAreas: (id: string | number, data: UpdateGenbaAreasPayload, files: File | null) => Promise<GenbaWorkAreas>;
+  updateGenbaAreas: (
+    id: string | number,
+    data: UpdateGenbaAreasPayload | FormData, // <--- UBAH DI SINI
+    file?: File | null // Argumen ketiga (optional)
+  ) => Promise<GenbaWorkAreas>;
   deleteGenbaSO: (id: string | number) => Promise<void>;
   deleteGenbaAreas: (id: string | number) => Promise<void>;
   setGenbaSOActive: (id: string | number) => Promise<GenbaSO>;
@@ -4222,6 +4227,39 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [fetchWithAuth]);
 
+  const getGenbaAreas2 = useCallback(async (): Promise<GenbaWorkAreas[]> => {
+    // Ambil base URL API dari environment variables
+    const projectEnv = getProjectEnvVariables();
+    const apiUrl = projectEnv.envVariables.VITE_REACT_API_URL;
+    const path = "/genba-work-areas?includes_trashed=true";
+    const fullUrl = `${apiUrl}${path}`;
+
+    try {
+      // Menggunakan fetch standar tanpa token otentikasi
+      const response = await fetch(fullUrl, {
+        method: "GET",
+        headers: {
+          // Hanya diperlukan Content-Type, tidak perlu Authorization
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        console.error("HTTP Error fetching genba areas for public access:", response.status, response.statusText);
+        return [];
+      }
+
+      const data = await response.json();
+
+      // Mengembalikan data, menyesuaikan dengan struktur respons API Anda
+      return data.data || data;
+    } catch (error) {
+      console.error("Failed to fetch genba areas (public):", error);
+      return [];
+    }
+    // Dependency array dikosongkan karena tidak ada dependensi eksternal (fetchWithAuth dihapus)
+  }, []);
+
   const createGenbaAreas = useCallback(
     async (data: CreateGenbaAreasPayload): Promise<any> => {
       const formData = new FormData();
@@ -4254,32 +4292,52 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     [fetchWithAuth]
   );
 
-  // Di AuthContext.tsx - perbaiki fungsi updateGenbaAreas
   const updateGenbaAreas = useCallback(
-    async (id: string | number, data: UpdateGenbaAreasPayload, file?: File | null): Promise<GenbaWorkAreas> => {
-      const formData = new FormData();
+    // Signature sekarang menerima UpdateGenbaAreasPayload ATAU FormData
+    async (
+      id: string | number,
+      data: UpdateGenbaAreasPayload | FormData, // FIX ERROR 2322: Menerima union type
+      file?: File | null
+    ): Promise<GenbaWorkAreas> => {
+      let finalFormData: FormData;
 
-      // Append basic data
-      if (Array.isArray(data.name)) {
-        formData.append("name", JSON.stringify(data.name));
+      if (data instanceof FormData) {
+        // Jika data yang dikirim client SUDAH berupa FormData (seperti dari EditFormGanbaArea.tsx)
+        finalFormData = data;
+
+        // Catatan: Jika ada file di argumen 'file' terpisah,
+        // ini mungkin terlewat jika file sudah ada di 'data' FormData.
+        // Karena EditFormGanbaArea.tsx sudah memasukkan file ke FormData,
+        // kita abaikan argumen 'file' di sini.
       } else {
-        formData.append("name", data.name);
+        // Jika data yang dikirim client berupa UpdateGenbaAreasPayload (objek JSON)
+        finalFormData = new FormData();
+
+        // Append basic data dari payload
+        if (Array.isArray(data.name)) {
+          finalFormData.append("name", JSON.stringify(data.name));
+        } else {
+          finalFormData.append("name", data.name);
+        }
+
+        finalFormData.append("department_id", data.department_id.toString());
+        finalFormData.append("is_default", data.is_default ? "1" : "0");
+        finalFormData.append("pic_user_id", data.pic_user_id.toString());
+
+        // Append file jika dikirim melalui argumen 'file'
+        if (file) {
+          finalFormData.append("attachment", file);
+        }
       }
 
-      formData.append("department_id", data.department_id.toString());
-      formData.append("is_default", data.is_default ? "1" : "0"); // kirim boolean sebagai string
-      formData.append("pic_user_id", data.pic_user_id.toString());
-      formData.append("_method", "POST");
-
-      // Append file jika ada
-      if (file) {
-        formData.append("attachment", file);
-      }
+      // Append _method (Anda bisa pindahkan ini ke dalam if/else, tetapi lebih aman di sini)
+      finalFormData.append("_method", "POST");
 
       const response = await fetchWithAuth(`/genba-work-areas/${id}`, {
         method: "POST",
-        body: formData,
+        body: finalFormData, // Menggunakan finalFormData
       });
+
       return response.data || response;
     },
     [fetchWithAuth]
@@ -4534,6 +4592,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         getGenbaRoles,
         getGenbaSOs,
         getGenbaAreas,
+        getGenbaAreas2,
         getGenbaSOById,
         createGenbaSO,
         createGenbaAreas,

@@ -122,7 +122,7 @@ function App() {
       {/* <InternetStatusToast /> */}
       <Routes>
         {/* <Route path="/genba/genbaarea/addgenbaarea" element={<FormGenbaArea />} /> */}
-        <Route path="/genbapublic" element={<ImagePage />} />
+        <Route path="/genbapublic/:id" element={<ImagePage />} />
         {/* <Route path="/genba/genbaactivity/addgenbaactivity" element={<FormGenbaActivity />} /> */}
         {/* Public Routes */}
         <Route path="/login" element={<LoginForm />} />
