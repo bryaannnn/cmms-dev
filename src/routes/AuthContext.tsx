@@ -1221,6 +1221,17 @@ export interface GenbaActivity {
     file_name: string;
     notes: string | null;
   }[];
+  all_photos_base64: {
+    genba_activity_id: number;
+    file_path: string;
+    base64_data: string;
+  }[];
+}
+
+export interface GenbaActivityPhoto {
+  genba_activity_id: number;
+  file_path: string;
+  base64_data: string;
 }
 
 export interface GenbaWorkAreas {
@@ -1516,6 +1527,7 @@ interface AuthContextType {
   deleteGenbaAreas: (id: string | number) => Promise<void>;
   setGenbaSOActive: (id: string | number) => Promise<GenbaSO>;
   getGenbaActivities: () => Promise<GenbaActivity[]>;
+  getGenbaActivitiesPhoto: () => Promise<GenbaActivityPhoto[]>;
   getGenbaActivityById: (id: string | number) => Promise<GenbaActivity>;
   createGenbaActivity: (data: CreateGenbaActivityPayload, files?: File[]) => Promise<GenbaActivityResponse>;
   updateGenbaActivity: (id: string | number, data: Partial<CreateGenbaActivityPayload>, files?: File[]) => Promise<GenbaActivityResponse>;
@@ -4294,6 +4306,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [fetchWithAuth]);
 
+  const getGenbaActivitiesPhoto = useCallback(async (): Promise<GenbaActivityPhoto[]> => {
+    try {
+      const response = await fetchWithAuth("/genba-activities-all-photos-index?includes_trashed=true");
+      return response.data || response;
+    } catch (error) {
+      console.error("Failed to fetch genba activities:", error);
+      return [];
+    }
+  }, [fetchWithAuth]);
+
   const getGenbaActivityById = useCallback(
     async (id: string | number): Promise<GenbaActivity> => {
       const response = await fetchWithAuth(`/genba-activities/${id}?includes_trashed=true`);
@@ -4521,6 +4543,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         deleteGenbaSO,
         setGenbaSOActive,
         getGenbaActivities,
+        getGenbaActivitiesPhoto,
         getGenbaActivityById,
         createGenbaActivity,
         updateGenbaActivity,

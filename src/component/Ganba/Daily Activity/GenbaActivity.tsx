@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Image, decode } from "image-js";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-
+import pica from "pica";
 import {
   Camera,
   MapPin,
@@ -33,13 +33,18 @@ import {
 import Sidebar from "../../../component/Sidebar";
 import { getProjectEnvVariables } from "../../../shared/projectEnvVariables";
 import PageHeader from "../../../component/PageHeader";
-import { useAuth, User as AuthUser, Department, GenbaWorkAreas, GenbaActivity, User, GenbaSO } from "../../../routes/AuthContext";
+import { useAuth, User as AuthUser, Department, GenbaWorkAreas, GenbaActivity, User, GenbaSO, GenbaActivityPhoto } from "../../../routes/AuthContext";
 import { DateNumberType } from "node_modules/react-datepicker/dist/date_utils";
 
 interface UserRole {
   id: string;
   name: string;
   level: number;
+}
+
+interface GenbaPhotoBase64 {
+  base64_data: string;
+  file_path: string;
 }
 
 const Modal: React.FC<{
@@ -107,7 +112,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, subtext, icon, color 
 const GenbaActivitys: React.FC = () => {
   const navigate = useNavigate();
   const projectEnvVariables = getProjectEnvVariables();
-  const { user, getGenbaActivities, getGenbaAreas, createGenbaActivity, updateGenbaActivity, deleteGenbaActivity, fetchUser, getDepartment, hasPermission, getGenbaSOs, token, fetchWithAuth } = useAuth();
+  const { user, getGenbaActivities, getGenbaAreas, createGenbaActivity, updateGenbaActivity, deleteGenbaActivity, fetchUser, getDepartment, hasPermission, getGenbaSOs, token, fetchWithAuth, getGenbaActivitiesPhoto } = useAuth();
 
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
     const stored = localStorage.getItem("sidebarOpen");
@@ -134,6 +139,8 @@ const GenbaActivitys: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [genbaSOs, setGenbaSOs] = useState<GenbaSO[]>([]);
+  const [genbaPhotos, setGenbaPhotos] = useState<GenbaActivityPhoto[]>([]);
+
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const [selectedAreaFilter, setSelectedAreaFilter] = useState<string>("");
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -167,12 +174,32 @@ const GenbaActivitys: React.FC = () => {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        const [areasData, usersData, departmentsData, activitiesData, genbaSOsData] = await Promise.all([getGenbaAreas(), fetchUser(), getDepartment(), getGenbaActivities(), getGenbaSOs()]);
+        const [areasData, usersData, departmentsData, activitiesData, genbaSOsData, genbaPhotos] = await Promise.all([getGenbaAreas(), fetchUser(), getDepartment(), getGenbaActivities(), getGenbaSOs(), getGenbaActivitiesPhoto()]);
 
         setAreas(areasData);
         setDepartments(departmentsData);
         setActivities(activitiesData);
         setGenbaSOs(genbaSOsData);
+        setGenbaPhotos(genbaPhotos);
+
+        const mergedActivities: GenbaActivity[] = activitiesData.map((act: GenbaActivity) => {
+          const photos = genbaPhotos
+            .filter((p) => String(p.genba_activity_id) === String(act.id))
+            .map((p) => ({
+              genba_activity_id: p.genba_activity_id,
+              file_path: p.file_path,
+              base64_data: p.base64_data,
+            }));
+
+          return {
+            ...act,
+            all_photos_base64: photos,
+          };
+        });
+
+        setActivities(mergedActivities);
+
+        setActivities(mergedActivities);
 
         if (areasData.length > 0 && !selectedArea) {
           const userAreas = areasData.filter((a) => a.pic_user_id.toString() === user?.id?.toString());
@@ -227,7 +254,7 @@ const GenbaActivitys: React.FC = () => {
     };
 
     loadData();
-  }, [getGenbaAreas, getDepartment, getGenbaActivities, getGenbaSOs, fetchUser]);
+  }, [getGenbaAreas, getDepartment, getGenbaActivities, getGenbaSOs, fetchUser, getGenbaActivitiesPhoto]);
 
   useEffect(() => {
     const isKomiteDept = userRoles.some((r) => r.name.toLowerCase().includes("komite 5s department"));
@@ -641,26 +668,66 @@ const GenbaActivitys: React.FC = () => {
     return filePath;
   };
 
-  const blobToBase64 = (blob: Blob): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
+  const picaInstance = pica();
+  const MAX_RESIZE_DIMENSION = 1200;
+
+  const processImageWithPica = async (base64Str: string) => {
+    const response = await fetch(base64Str);
+    const blob = await response.blob();
+
+    const img = new window.Image();
+    await new Promise((resolve) => {
+      img.onload = resolve;
+      img.onerror = resolve;
+      img.src = URL.createObjectURL(blob);
     });
+
+    let ratio = 1;
+    let width = img.width;
+    let height = img.height;
+
+    if (width > MAX_RESIZE_DIMENSION) {
+      ratio = MAX_RESIZE_DIMENSION / width;
+    }
+    if (height * ratio > MAX_RESIZE_DIMENSION) {
+      ratio = MAX_RESIZE_DIMENSION / height;
+    }
+
+    const targetWidth = img.width * ratio;
+    const targetHeight = img.height * ratio;
+
+    const from = document.createElement("canvas");
+    from.width = img.width;
+    from.height = img.height;
+    const ctx = from.getContext("2d");
+    if (ctx) ctx.drawImage(img, 0, 0);
+
+    const to = document.createElement("canvas");
+    to.width = targetWidth;
+    to.height = targetHeight;
+
+    const resizedCanvas = await picaInstance.resize(from, to);
+
+    const resizedBase64 = resizedCanvas.toDataURL("image/png", 0.8);
+
+    URL.revokeObjectURL(img.src);
+
+    return {
+      resizedBase64,
+      width: targetWidth,
+      height: targetHeight,
+    };
   };
 
   const handleExportActivitiesPDF = useCallback(async () => {
     const doc = new jsPDF();
-    let activitiesToExport = activities.filter((activity) => {
+    let activitiesToExport = activities.filter((activity: any) => {
       const date = new Date(activity.date);
 
-      // Filter 1: Bulan dan Tahun (Sudah Benar)
       if (date.getMonth() !== selectedMonth || date.getFullYear() !== selectedYear) {
         return false;
       }
 
-      // Filter 2: Pencarian (Sudah Benar)
       if (searchTerm) {
         const matchesSearch = activity.reporter?.name.toLowerCase().includes(searchTerm.toLowerCase()) || activity.work_area?.name.toLowerCase().includes(searchTerm.toLowerCase()) || activity.reporter?.nik.includes(searchTerm);
         if (!matchesSearch) {
@@ -668,7 +735,6 @@ const GenbaActivitys: React.FC = () => {
         }
       }
 
-      // Filter 3: Department (Sudah Benar)
       if (selectedDepartment) {
         if (activity.work_area?.department?.name !== selectedDepartment) {
           return false;
@@ -684,7 +750,6 @@ const GenbaActivitys: React.FC = () => {
       return true;
     });
 
-    // COVER PAGE (Design Reports.tsx)
     doc.setFillColor(59, 130, 246);
     doc.rect(0, 0, 210, 297, "F");
     doc.setTextColor(255, 255, 255);
@@ -694,34 +759,30 @@ const GenbaActivitys: React.FC = () => {
     doc.text(`Periode: ${new Date(selectedYear, selectedMonth).toLocaleDateString("id-ID", { month: "long", year: "numeric" })}`, 105, 140, { align: "center" });
     doc.text(`Dibuat pada: ${new Date().toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" })}`, 105, 150, { align: "center" });
 
-    // STATISTICS AND SCORE PAGE
     doc.addPage();
     let yPos = 20;
 
-    // Standard Header (Design Reports.tsx)
     doc.setFillColor(59, 130, 246);
     doc.rect(0, 0, 210, 30, "F");
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(16);
     doc.text("RINGKASAN STATISTIK DAN SKOR", 105, 20, { align: "center" });
 
-    // Filter Info
     doc.setTextColor(0);
     doc.setFontSize(11);
     doc.text(`Periode: ${new Date(selectedYear, selectedMonth).toLocaleDateString("id-ID", { month: "long", year: "numeric" })}`, 14, 40);
-    const areaFilterDisplay = selectedDepartment ? `Department: ${selectedDepartment}` : areas.find((a) => a.id.toString() === selectedAreaFilter)?.name || "Semua Area";
+    const areaFilterDisplay = selectedDepartment ? `Department: ${selectedDepartment}` : areas.find((a: any) => a.id.toString() === selectedAreaFilter)?.name || "Semua Area";
     doc.text(`Filter Area ${areaFilterDisplay}`, 14, 47);
     doc.text(`Pencarian: ${searchTerm || "-"}`, 14, 54);
     yPos = 72;
 
-    // DEPARTMENT SCORES TABLE
     doc.setFontSize(14);
     doc.setTextColor(40, 40, 40);
     doc.text("SKOR PER DEPARTMENT", 14, yPos);
     yPos += 5;
 
     const deptColumns = ["Department", "Score (%)", "Target", "Status"];
-    const deptRows = departments.map((dept) => {
+    const deptRows = departments.map((dept: any) => {
       const score = getDepartmentScore(dept.name, selectedMonth, selectedYear);
       const target = 95;
       const status = score >= target ? "SUCCESS" : "FAIL";
@@ -744,7 +805,6 @@ const GenbaActivitys: React.FC = () => {
         if (data.section === "body" && data.column.index === 3) {
           const status = data.cell.text[0];
           const textX = data.cell.x + data.cell.width / 2;
-          // Penyesuaian posisi Y untuk tengah
           const textY = data.cell.y + data.cell.height / 2;
 
           if (status === "SUCCESS") {
@@ -763,7 +823,6 @@ const GenbaActivitys: React.FC = () => {
           doc.setFont("helvetica", "bold");
           doc.setFontSize(8);
 
-          // PERBAIKAN: Menghapus `valign: "middle"`
           doc.text(status, textX, textY, {
             align: "center",
           });
@@ -776,7 +835,6 @@ const GenbaActivitys: React.FC = () => {
 
     yPos = (doc as any).lastAutoTable.finalY + 10;
 
-    // AREA SCORES TABLE (Harian/Daily)
     doc.setFontSize(14);
     doc.setTextColor(40, 40, 40);
     doc.text("SKOR PER AREA KERJA HARIAN (Daily)", 14, yPos);
@@ -784,15 +842,9 @@ const GenbaActivitys: React.FC = () => {
 
     const dailyAreas = areas;
     const areaColumns = ["Area Kerja", "Department", "PIC", "Score (%)"];
-    const areaRows = dailyAreas.map((area) => {
+    const areaRows = dailyAreas.map((area: any) => {
       const score = getAreaMonthlyScore(area.id, selectedMonth, selectedYear);
-      return [
-        area.name,
-        area.department?.name || "-",
-        // PERBAIKAN: Mengkonversi kedua sisi perbandingan ke String() untuk mengatasi Error 2367
-        area.pic_user_id ? allUsers.find((u) => String(u.id) === String(area.pic_user_id))?.name || "-" : "-",
-        score.toFixed(2),
-      ];
+      return [area.name, area.department?.name || "-", area.pic_user_id ? allUsers.find((u: any) => String(u.id) === String(area.pic_user_id))?.name || "-" : "-", score.toFixed(2)];
     });
 
     (autoTable as any)(doc, {
@@ -804,34 +856,26 @@ const GenbaActivitys: React.FC = () => {
       styles: { fontSize: 8 },
     });
 
-    // DETAILED ACTIVITY LIST PAGE
     doc.addPage();
 
-    // Standard Header (Design Reports.tsx)
     doc.setFillColor(59, 130, 246);
     doc.rect(0, 0, 210, 30, "F");
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(16);
     doc.text("DETAIL LAPORAN AKTIVITAS", 105, 20, { align: "center" });
 
-    // Filter Info
     doc.setTextColor(0);
     doc.setFontSize(11);
     doc.text(`Periode: ${new Date(selectedYear, selectedMonth).toLocaleDateString("id-ID", { month: "long", year: "numeric" })}`, 14, 40);
     doc.text(`Total Aktivitas: ${activitiesToExport.length}`, 14, 47);
 
-    // Persiapan Data Tabel
     const tableColumn = ["Tanggal", "Reporter", "Area Kerja", "Department", "Keterangan Singkat", "Lampiran"];
-    const tableRows = activitiesToExport.map((activity) => {
-      // =========================================================================
-      // PERBAIKAN DI SINI: Membuat string detail lampiran
-      // =========================================================================
+    const tableRows = activitiesToExport.map((activity: any) => {
       const attachments = activity.attachment;
       let attachmentDetails = "-";
 
       if (attachments && attachments.length > 0) {
-        // Asumsi: Setiap objek lampiran memiliki properti 'filename'
-        attachmentDetails = attachments.map((att: any, index: number) => `${index + 1}. ${att.filename || "File Lampiran"}`).join("\n");
+        attachmentDetails = attachments.map((att: any, index: number) => `${index + 1}. ${att.file_name|| "File Lampiran"}`).join("\n");
       }
 
       return [
@@ -840,11 +884,10 @@ const GenbaActivitys: React.FC = () => {
         activity.work_area?.name || "-",
         activity.work_area?.department?.name || "-",
         activity.keterangan ? activity.keterangan.substring(0, 70) + (activity.keterangan.length > 70 ? "..." : "") : "-",
-        attachmentDetails, // Menggunakan string detail lampiran
+        attachmentDetails,
       ];
     });
 
-    // Generate Tabel
     (autoTable as any)(doc, {
       head: [tableColumn],
       body: tableRows,
@@ -863,127 +906,119 @@ const GenbaActivitys: React.FC = () => {
     const imageMaxWidth = pageWidth - 28;
     const MAX_IMAGE_HEIGHT = 80;
 
+    type ProcessedImage = {
+      activityId: number | string;
+      att: any;
+      resizedBase64: string;
+      displayWidth: number;
+      displayHeight: number;
+      error: string | null;
+    };
+
+    const allImagePromises: Promise<ProcessedImage>[] = activitiesToExport.flatMap((activity: any) => {
+      if (!activity.all_photos_base64 || activity.all_photos_base64.length === 0) {
+        return [];
+      }
+
+      const activityId = activity.id;
+
+      return activity.all_photos_base64.map(async (att: any) => {
+        let base64Image = att.base64_data;
+
+        if (typeof base64Image === "string" && !base64Image.startsWith("data:image")) {
+          base64Image = "data:image/png;base64," + base64Image;
+        }
+
+        if (typeof base64Image === "string" && base64Image.startsWith("data:image/")) {
+          try {
+            const { resizedBase64, width: originalWidth, height: originalHeight } = await processImageWithPica(base64Image);
+
+            let displayWidth = imageMaxWidth;
+            let displayHeight = (originalHeight / originalWidth) * displayWidth;
+
+            if (displayHeight > MAX_IMAGE_HEIGHT) {
+              displayWidth = (originalWidth / originalHeight) * MAX_IMAGE_HEIGHT;
+              displayHeight = MAX_IMAGE_HEIGHT;
+            }
+
+            return {
+              activityId,
+              att,
+              resizedBase64,
+              displayWidth,
+              displayHeight,
+              error: null,
+            } as ProcessedImage;
+          } catch (error: any) {
+            return { activityId, att, resizedBase64: "", displayWidth: 0, displayHeight: 0, error: "Processing error" } as ProcessedImage;
+          }
+        }
+        return { activityId, att, resizedBase64: "", displayWidth: 0, displayHeight: 0, error: "Invalid data" } as ProcessedImage;
+      });
+    });
+
+    const processedImages = await Promise.all(allImagePromises);
+
+    const groupedImages = processedImages.reduce((acc: any, item: ProcessedImage) => {
+      if (item.displayWidth === 0 && item.error !== null) return acc;
+
+      const id = item.activityId;
+      if (!acc[id]) {
+        acc[id] = [];
+      }
+      acc[id].push(item);
+      return acc;
+    }, {} as Record<string | number, ProcessedImage[]>);
+
     for (const activity of activitiesToExport) {
-      if (activity.attachment && activity.attachment.length > 0) {
+      const imagesToDraw = groupedImages[activity.id];
+
+      if (imagesToDraw && imagesToDraw.length > 0) {
         doc.addPage();
         let currentY = 40;
 
-        // Header Halaman Lampiran
         doc.setFillColor(59, 130, 246);
         doc.rect(0, 0, 210, 30, "F");
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(16);
         doc.text("LAMPIRAN VISUAL AKTIVITAS", 105, 20, { align: "center" });
 
-        // Konteks Aktivitas
         doc.setTextColor(40, 40, 40);
         doc.setFontSize(11);
         doc.text(`Aktivitas: ${activity.work_area?.name || "-"} oleh ${activity.reporter?.name || "-"}`, 14, currentY);
         doc.text(`Keterangan: ${activity.keterangan ? activity.keterangan.substring(0, 70) + "..." : "-"}`, 14, currentY + 7);
         currentY += 15;
 
-        for (const att of activity.attachment) {
-          // MENGGUNAKAN getFotoUrl SESUAI PERMINTAAN
-          const fullImageUrl = getFotoUrl(att.file_path);
+        for (const item of imagesToDraw) {
+          if (currentY + item.displayHeight + 20 > pageHeight) {
+            doc.addPage();
+            currentY = 40;
+          }
 
-          if (!token) {
-            // Log ini akan muncul di konsol, dan loop akan dihentikan (return)
-            console.error("ERROR: Token autentikasi tidak ditemukan. Gagal memuat lampiran.");
-            // Namun, menggunakan 'return' di dalam loop hanya akan menghentikan function handleExportActivitiesPDF
-            // yang mungkin tidak diinginkan. Lebih baik menggunakan 'continue' atau throw error yang tertangkap di luar loop.
-
-            // Untuk saat ini, kita akan melompat (continue) ke lampiran berikutnya
-            // dan mencatat error di PDF.
+          if (item.error) {
             doc.setTextColor(255, 0, 0);
             doc.setFontSize(10);
-            doc.text(`[FATAL ERROR: Token tidak tersedia]`, 14, currentY);
+            const fileName = item.att.file_path ? item.att.file_path.split("/").pop() || "Unnamed File" : "Unnamed File (Processing Error)";
+            doc.text(`[ERROR: ${item.error} for ${fileName}]`, 14, currentY);
             currentY += 8;
             continue;
           }
 
-          try {
-            // 'omit' adalah upaya untuk menghilangkan cookie, tapi mempertahankan header 'Authorization'
-            const response = await fetch(fullImageUrl, {
-              mode: "cors", // Pastikan mode CORS eksplisit
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-              credentials: "omit", // Coba hilangkan cookie jika mengganggu CORS
-            });
+          const fileName = item.att.file_path ? item.att.file_path.split("/").pop() || "Unnamed File" : "Unnamed File";
+          doc.setTextColor(40, 40, 40);
+          doc.setFontSize(9);
+          doc.text(`Nama File: ${fileName}`, 14, currentY);
+          currentY += 4;
 
-            if (!response.ok) {
-              console.error(`[PDF Export Error] Gagal memuat gambar ${att.file_name}. URL: ${fullImageUrl}. Status: ${response.status} ${response.statusText}`);
-              throw new Error(`HTTP error! status: ${response.status} ${response.statusText}`);
-            }
+          doc.addImage(item.resizedBase64, (pageWidth - item.displayWidth) / 2, currentY, item.displayWidth, item.displayHeight);
 
-            const blob = await response.blob();
-            const base64Image = await blobToBase64(blob);
-
-            if (typeof base64Image === "string") {
-              // PERBAIKAN 2: GUNAKAN window.Image UNTUK TIPE DOM STANDAR
-              const img = new window.Image();
-              img.src = base64Image;
-
-              await new Promise((resolve) => {
-                img.onload = resolve;
-                img.onerror = resolve;
-              });
-
-              const originalWidth = img.width || 1;
-              const originalHeight = img.height || 1;
-
-              let displayWidth = imageMaxWidth;
-              let displayHeight = (originalHeight / originalWidth) * displayWidth;
-
-              if (displayHeight > MAX_IMAGE_HEIGHT) {
-                displayHeight = MAX_IMAGE_HEIGHT;
-                displayWidth = (originalWidth / originalHeight) * displayHeight;
-              }
-
-              // Pengecekan halaman
-              if (currentY + displayHeight + 20 > pageHeight) {
-                doc.addPage();
-                currentY = 40;
-              }
-
-              // Tambahkan Nama File
-              doc.setTextColor(40, 40, 40);
-              doc.setFontSize(9);
-              doc.text(`Nama File: ${att.file_name}`, 14, currentY);
-              currentY += 4;
-
-              doc.addImage(base64Image, (pageWidth - displayWidth) / 2, currentY, displayWidth, displayHeight);
-
-              currentY += displayHeight + 8;
-            }
-          } catch (error: any) {
-            // Di dalam catch (error: any) { ... }
-            // Logging ke console browser untuk debugging yang lebih dalam
-            console.error("Kesalahan saat memproses gambar:", fullImageUrl, error);
-
-            // Tentukan pesan error yang ditampilkan di PDF
-            let errorMessage = "Unknown Error";
-            if (error.message && error.message.includes("HTTP Error! Status")) {
-              // Jika error berasal dari response.ok (e.g., 401 Unauthorized, 404 Not Found)
-              errorMessage = `HTTP: ${error.message.split("Status: ")[1]}`;
-            } else {
-              // Jika error Failed to fetch (kemungkinan besar CORS Preflight)
-              errorMessage = "Network/CORS Blocked (Failed to fetch)";
-            }
-
-            doc.setTextColor(255, 0, 0);
-            doc.setFontSize(10);
-            // Tampilkan error yang lebih detail di PDF
-            doc.text(`[ERROR: Gagal memuat ${att.file_name} - ${errorMessage}]`, 14, currentY);
-            currentY += 8;
-          }
+          currentY += item.displayHeight + 8;
         }
       }
     }
 
-    // Simpan File
     doc.save(`Genba_Activity_Comprehensive_Report_${selectedYear}_${selectedMonth + 1}.pdf`);
-  }, [activities, areas, selectedAreaFilter, selectedMonth, selectedYear, searchTerm, getFilteredActivities, departments, allUsers, formatDate, getDepartmentScore, getAreaMonthlyScore, getFotoUrl]);
+  }, [activities, areas, selectedAreaFilter, selectedMonth, selectedYear, searchTerm, getFilteredActivities, departments, allUsers, formatDate, getDepartmentScore, getAreaMonthlyScore, genbaPhotos]);
 
   const getUniqueEmployees = (): User[] => {
     const employeeMap = new Map();
