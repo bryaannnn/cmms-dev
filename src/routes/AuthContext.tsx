@@ -45,6 +45,64 @@ export const getPermissionNameById = (id: string): PermissionName | null => {
     "32": "create_machine_history",
     "33": "edit_machinehistory",
     "34": "delete_machinehistory",
+    // Permissions ID 35-43 are skipped
+    "44": "view_mesins",
+    "45": "create_mesins",
+    "46": "edit_mesins",
+    "47": "delete_mesins",
+    "48": "view_vendors",
+    "49": "create_vendors",
+    "50": "edit_vendors",
+    "51": "delete_vendors",
+    "52": "view_units",
+    "53": "manage_units",
+    "54": "view_unitsp",
+    "55": "manage_unitsp",
+    "56": "view_workareas",
+    "57": "manage_workareas",
+    "58": "view_service_groups",
+    "59": "manage_service_groups",
+    "60": "view_service_catalogues",
+    "61": "manage_service_catalogues",
+    "62": "view_departments",
+    "63": "manage_departments",
+    "64": "view_item_mesins",
+    "65": "manage_item_mesins",
+    "66": "manage_groups",
+    "67": "manage_shifts",
+    "68": "manage_itemtroubles",
+    "69": "manage_jenisaktifitas",
+    "70": "manage_kegiatan",
+    "71": "manage_stoptimes",
+    "72": "manage_intervals",
+    "73": "manage_startstops",
+    "74": "view_trashed_mhs",
+    "75": "restore_mhs",
+    "76": "force_delete_mhs",
+    "77": "view_monitoring_schedules",
+    "78": "manage_monitoring_schedules",
+    "79": "view_monitoring_activities",
+    "80": "manage_monitoring_activities",
+    "81": "batch_update_monitoring_activities",
+    "82": "approve_schedule",
+    "83": "view_approval_templates",
+    "84": "manage_approval_templates",
+    "85": "set_active_approval_templates",
+    "86": "manage_template_approvers",
+    "87": "view_activity_logs",
+    "88": "view_erp_data",
+    "89": "manage_erp_integration",
+    // BARU GENBA
+    "90": "view_genba_master",
+    "91": "manage_genba_roles",
+    "92": "manage_genba_sos",
+    "93": "manage_genba_so_bridges",
+    "94": "manage_genba_work_areas",
+    "95": "create_genba_activity",
+    "96": "view_own_genba_activity",
+    "97": "view_all_genba_activity",
+    "98": "approve_genba_activity",
+    "99": "delete_genba_activity",
   };
   return mapping[id] || null;
 };
@@ -83,7 +141,63 @@ export type PermissionName =
   | "edit_settings"
   | "view_permissions"
   | "edit_permissions"
-  | "manage_users";
+  | "manage_users"
+  | "view_mesins"
+  | "create_mesins"
+  | "edit_mesins"
+  | "delete_mesins"
+  | "view_vendors"
+  | "create_vendors"
+  | "edit_vendors"
+  | "delete_vendors"
+  | "view_units"
+  | "manage_units"
+  | "view_unitsp"
+  | "manage_unitsp"
+  | "view_workareas"
+  | "manage_workareas"
+  | "view_service_groups"
+  | "manage_service_groups"
+  | "view_service_catalogues"
+  | "manage_service_catalogues"
+  | "view_departments"
+  | "manage_departments"
+  | "view_item_mesins"
+  | "manage_item_mesins"
+  | "manage_groups"
+  | "manage_shifts"
+  | "manage_itemtroubles"
+  | "manage_jenisaktifitas"
+  | "manage_kegiatan"
+  | "manage_stoptimes"
+  | "manage_intervals"
+  | "manage_startstops"
+  | "view_trashed_mhs"
+  | "restore_mhs"
+  | "force_delete_mhs"
+  | "view_monitoring_schedules"
+  | "manage_monitoring_schedules"
+  | "view_monitoring_activities"
+  | "manage_monitoring_activities"
+  | "batch_update_monitoring_activities"
+  | "approve_schedule"
+  | "view_approval_templates"
+  | "manage_approval_templates"
+  | "set_active_approval_templates"
+  | "manage_template_approvers"
+  | "view_activity_logs"
+  | "view_erp_data"
+  | "manage_erp_integration"
+  | "view_genba_master"
+  | "manage_genba_roles"
+  | "manage_genba_sos"
+  | "manage_genba_so_bridges"
+  | "manage_genba_work_areas"
+  | "create_genba_activity"
+  | "view_own_genba_activity"
+  | "view_all_genba_activity"
+  | "approve_genba_activity"
+  | "delete_genba_activity";
 
 export interface Role {
   id: string;
@@ -1565,10 +1679,10 @@ const mapApiToUser = (apiUser: any): User => {
     email: apiUser.email,
     roleId: apiUser.role_id ? String(apiUser.role_id) : null, // Perhatikan field name
     role: apiUser.role,
-    roles: apiUser.roles || [],
+    roles: Array.isArray(apiUser.roles) ? apiUser.roles : [],
     isSuperadmin: Array.isArray(apiUser.roles) ? apiUser.roles.includes("superadmin") : false,
-    customPermissions: apiUser.customPermissions || [],
-    permissions: apiUser.permissions || apiUser.allPermissions || [],
+    customPermissions: Array.isArray(apiUser.customPermissions) ? apiUser.customPermissions : [],
+    permissions: Array.isArray(apiUser.permissions) ? apiUser.permissions : Array.isArray(apiUser.allPermissions) ? apiUser.allPermissions : [],
     department: department,
     department_id: apiUser.department_id || apiUser.department?.id || null,
     department_name: apiUser.department?.name || null,
@@ -4331,7 +4445,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       // Append _method (Anda bisa pindahkan ini ke dalam if/else, tetapi lebih aman di sini)
-      finalFormData.append("_method", "POST");
+      finalFormData.append("_method", "PUT");
 
       const response = await fetchWithAuth(`/genba-work-areas/${id}`, {
         method: "POST",

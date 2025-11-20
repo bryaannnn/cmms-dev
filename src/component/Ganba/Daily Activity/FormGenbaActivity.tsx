@@ -131,6 +131,24 @@ const FormGenbaActivity: React.FC = () => {
     }
   };
 
+  const handleNativeCapture = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+
+    if (files && files.length > 0) {
+      // Mengambil semua file yang dipilih (bisa dari galeri atau hasil foto)
+      const newFiles = Array.from(files);
+
+      // Tambahkan file baru ke array attachments di formData
+      setFormData((prev) => ({
+        ...prev,
+        attachments: [...prev.attachments, ...newFiles],
+      }));
+
+      // PENTING: Reset nilai input agar user bisa memilih/mengambil foto lagi
+      event.target.value = "";
+    }
+  };
+
   const removeAttachment = (index: number) => {
     setFormData((prev) => ({ ...prev, attachments: prev.attachments.filter((_, i) => i !== index) }));
   };
@@ -291,15 +309,24 @@ const FormGenbaActivity: React.FC = () => {
                       ))}
                     </div>
 
-                    <motion.button
-                      type="button"
-                      onClick={startCamera}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment" // Memicu kamera belakang secara langsung
+                      multiple // Penting: Memungkinkan pengambilan foto berulang atau pemilihan banyak file dari galeri
+                      id="native-camera-input" // ID unik untuk dihubungkan dengan label
+                      onChange={handleNativeCapture} // Fungsi penanganan file
+                      style={{ display: "none" }} // Sembunyikan elemen input yang sebenarnya
+                    />
+
+                    <motion.label
+                      htmlFor="native-camera-input"
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                      className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors" // Tambahkan cursor-pointer
                     >
                       <Camera size={18} /> <span>Open Camera</span>
-                    </motion.button>
+                    </motion.label>
                   </div>
                 </div>
               </div>

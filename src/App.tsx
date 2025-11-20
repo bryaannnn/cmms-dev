@@ -112,7 +112,8 @@ import GenbaActivitys from "./component/Ganba/Daily Activity/GenbaActivity";
 import GenbaAction from "./component/Ganba/Daily Activity/DailyActivityDummy";
 import FormGenbaActivity from "./component/Ganba/Daily Activity/FormGenbaActivity";
 import ImagePage from "./pages/ImagePublic";
-
+import GenbaAreaGate from "./component/Ganba/Genba Area/GenbaAreaGate";
+import ImagePublic from "./pages/ImagePublic";
 
 function App() {
   const { user } = useAuth();
@@ -122,7 +123,8 @@ function App() {
       {/* <InternetStatusToast /> */}
       <Routes>
         {/* <Route path="/genba/genbaarea/addgenbaarea" element={<FormGenbaArea />} /> */}
-        <Route path="/genbapublic/:id" element={<ImagePage />} />
+        <Route path="/genbapublic/:id" element={<ImagePublic />} />
+        <Route path="/monitoringmaintenance" element={<MonitoringMaintenance />} />
         {/* <Route path="/genba/genbaactivity/addgenbaactivity" element={<FormGenbaActivity />} /> */}
         {/* Public Routes */}
         <Route path="/login" element={<LoginForm />} />
@@ -133,7 +135,7 @@ function App() {
         {/* Protected Routes */}
         {/* Dashboard */}
         <Route element={<ProtectedRoute />}>
-          <Route index element={<Dashboard />} /> {/* Ren ders Dashboard for "/" */}
+          <Route index element={<Dashboard />} />
           <Route path="/dashboard" element={<Dashboard />} />
         </Route>
 
@@ -141,10 +143,12 @@ function App() {
           <Route path="/audittrail" element={<AuditTrail />} />
         </Route>
 
-        {/* <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}> */}
-        <Route path="/genba" element={<GanbaSelection />} />
-        <Route path="/genba/genbaactivity" element={<GenbaActivitys />} />
-        <Route path="/genba/genbaactivity/formgenbaactivity" element={<FormGenbaActivity />} />
+        <Route element={<ProtectedRoute requiredPermissions={["view_genba_master"]} />}>
+          <Route path="/genba" element={<GanbaSelection />} />
+          <Route path="/genba/genbaactivity" element={<GenbaActivitys />} />
+          <Route path="/genba/genbaactivity/formgenbaactivity" element={<FormGenbaActivity />} />
+        </Route>
+
         <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}>
           <Route path="/genba/genbaarea" element={<GenbaArea />} />
           <Route path="/genba/genbaarea/addgenbaarea" element={<FormGenbaArea />} />
@@ -154,7 +158,6 @@ function App() {
         </Route>
 
         {/* <Route path="/ganba/soconfigurat" element={<SOConfiguration/>} /> */}
-        {/* </Route> */}
 
         <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}>
           <Route path="/workflowapproval" element={<WorkflowSelection />} />
@@ -242,7 +245,7 @@ function App() {
         </Route>
 
         <Route element={<ProtectedRoute requiredPermissions={["view_assets"]} />}>
-          <Route path="/monitoringmaintenance" element={<MonitoringMaintenance />} />
+          
           <Route path="/monitoringmaintenance/detailmonitoringmaintenance/:id" element={<DetailMonitoringMaintenance />} />
           <Route path="/monitoringmaintenance/formmonitoringmaintenance" element={<FormMonitoringMaintenance />} />
           <Route path="/monitoringmaintenance" element={<MonitoringMaintenance />} />

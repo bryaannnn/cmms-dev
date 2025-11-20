@@ -8,7 +8,7 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ requiredPermissions = [] }) => {
-  const { token, user, hasPermission, isAuthLoading } = useAuth(); // Ambil isAuthLoading
+  const { token, user, hasPermission, isAuthLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -20,7 +20,15 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ requiredPermissions = [
 
     // 2. Jika tidak ada token dan tidak lagi loading, arahkan ke login
     if (!token) {
-      navigate("/login", { state: { from: location }, replace: true });
+      // --- LOGIKA BARU: SIMPAN INTENDED PATH KE LOCAL STORAGE ---
+      // Ambil path lengkap (pathname + query string) dari URL yang sedang dicoba diakses.
+      const intendedPath = location.pathname + location.search;
+
+      // Simpan path ini agar bisa dibaca setelah login berhasil.
+      localStorage.setItem("intendedPath", intendedPath);
+
+      // Lakukan redirect ke login (state: { from: location } tidak lagi diperlukan)
+      navigate("/login", { replace: true });
       return;
     }
 
@@ -29,7 +37,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ requiredPermissions = [
     if (user && requiredPermissions.length > 0 && !requiredPermissions.some((perm) => hasPermission(perm))) {
       navigate("/unauthorized", { state: { from: location }, replace: true });
     }
-  }, [token, user, requiredPermissions, hasPermission, navigate, location, isAuthLoading]); // Tambahkan isAuthLoading sebagai dependency
+  }, [token, user, requiredPermissions, hasPermission, navigate, location, isAuthLoading]);
 
   // Tampilkan loading spinner atau null saat isAuthLoading true
   if (isAuthLoading) {

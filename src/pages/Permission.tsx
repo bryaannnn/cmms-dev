@@ -80,16 +80,70 @@ interface NavItemProps {
 }
 
 const pagePermissionMapping: PagePermissions = {
+  // Core Modules
   dashboard: { view: "1", edit: "2" },
   assets: { view: "3", create: "4", edit: "5", delete: "6" },
   workorders: { view: "7", create: "8", assign: "9", complete: "10", edit: "18", delete: "19" },
-  machinehistory: { view: "31", create: "32", edit: "33", delete: "34" },
   inventory: { view: "23", create: "24", edit: "25", delete: "26" },
+  machinehistory: { view: "31", create: "32", edit: "33", delete: "34" },
   reports: { view: "11", create: "20", edit: "21", export: "12", delete: "22" },
   teams: { view: "27", create: "28", edit: "29", delete: "30" },
+
+  // System Settings & Users
   settings: { view: "13", edit: "14" },
   permissions: { view: "15", edit: "16" },
   users: { manage: "17" },
+  activity_logs: { view: "87" }, // ID: 87
+  erp_integration: { view_data: "88", manage_integration: "89" }, // IDs: 88, 89
+
+  // Master Data Management (IDs start from 44)
+  mesins: { view: "44", create: "45", edit: "46", delete: "47" }, // IDs: 44-47
+  vendors: { view: "48", create: "49", edit: "50", delete: "51" }, // IDs: 48-51
+  units: { view: "52", manage: "53" }, // IDs: 52-53
+  unitsp: { view: "54", manage: "55" }, // IDs: 54-55
+  workareas: { view: "56", manage: "57" }, // IDs: 56-57
+  service_groups: { view: "58", manage: "59" }, // IDs: 58-59
+  service_catalogues: { view: "60", manage: "61" }, // IDs: 60-61
+  departments: { view: "62", manage: "63" }, // IDs: 62-63
+  item_mesins: { view: "64", manage: "65" }, // IDs: 64-65
+  groups: { manage: "66" }, // ID: 66
+  shifts: { manage: "67" }, // ID: 67
+  itemtroubles: { manage: "68" }, // ID: 68
+  jenisaktifitas: { manage: "69" }, // ID: 69
+  kegiatan: { manage: "70" }, // ID: 70
+  stoptimes: { manage: "71" }, // ID: 71
+  intervals: { manage: "72" }, // ID: 72
+  startstops: { manage: "73" }, // ID: 73
+
+  // Machine History Management
+  trashed_mhs: { view: "74", restore: "75", force_delete: "76" }, // IDs: 74-76
+
+  // Monitoring & Approval
+  monitoring_schedules: { view: "77", manage: "78" }, // IDs: 77-78
+  monitoring_activities: { view: "79", manage: "80", batch_update: "81" }, // IDs: 79-81
+  schedule_approval: { approve: "82" }, // ID: 82
+  approval_templates: {
+    view: "83",
+    manage: "84",
+    set_active: "85",
+    manage_approvers: "86",
+  }, // IDs: 83-86
+
+  // Genba Module (IDs start from 90)
+  genba_master_config: {
+    view_master: "90",
+    manage_roles: "91",
+    manage_sos: "92",
+    manage_so_bridges: "93",
+    manage_work_areas: "94",
+  }, // IDs: 90-94
+  genba_activity: {
+    create: "95",
+    view_own: "96",
+    view_all: "97",
+    approve: "98",
+    delete: "99",
+  }, // IDs: 95-99
 };
 
 const NavItem: React.FC<NavItemProps> = ({ icon, text, to, expanded }) => {
@@ -397,7 +451,7 @@ const PermissionsPage: React.FC = () => {
     .filter((user) => departmentFilter === "all" || user.department?.name === departmentFilter)
     .filter((user) => user.name.toLowerCase().includes(searchQuery.toLowerCase()) || user.nik.toLowerCase().includes(searchQuery.toLowerCase()));
 
-  if (!hasPermission("15")) {
+  if (!hasPermission("view_permissions")) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50 font-sans">
         <div className="bg-white rounded-xl shadow-lg p-8 text-center border border-red-200">
@@ -449,7 +503,7 @@ const PermissionsPage: React.FC = () => {
             <div>
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-semibold text-gray-900">Roles</h2>
-                {hasPermission("16") && (
+                {hasPermission("edit_permissions") && (
                   <motion.button
                     onClick={() => {
                       setShowNewRoleForm(true);
@@ -568,7 +622,7 @@ const PermissionsPage: React.FC = () => {
                         {role.isSuperadmin && <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">Superadmin</span>}
                       </h3>
                       <div className="flex space-x-2">
-                        {!role.isSuperadmin && hasPermission("16") && (
+                        {!role.isSuperadmin && hasPermission("edit_permissions") && (
                           <motion.button
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}
@@ -579,7 +633,7 @@ const PermissionsPage: React.FC = () => {
                             <Edit className="text-base" />
                           </motion.button>
                         )}
-                        {!role.isSuperadmin && hasPermission("17") && (
+                        {!role.isSuperadmin && hasPermission("edit_permissions") && (
                           <motion.button
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}
@@ -632,7 +686,7 @@ const PermissionsPage: React.FC = () => {
                       </option>
                     ))}
                   </select>
-                  {hasPermission("17") && (
+                  {hasPermission("manage_users") && (
                     <motion.button
                       whileHover={{ scale: 1.02, boxShadow: "0 4px 12px rgba(37, 99, 235, 0.3)" }}
                       whileTap={{ scale: 0.98 }}

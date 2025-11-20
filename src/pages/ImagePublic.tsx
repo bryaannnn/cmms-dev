@@ -5,21 +5,16 @@ import Sidebar from "../component/Sidebar";
 import PageHeader from "../component/PageHeader";
 import { getProjectEnvVariables } from "../shared/projectEnvVariables";
 import { Image, FilePlus2, User as UserIcon, Building, Hourglass, MapPin } from "lucide-react";
-// Impor tipe yang diperlukan (User dan Department tidak perlu diimpor terpisah karena sudah ada di GenbaWorkAreas)
 import { useAuth, GenbaWorkAreas, LayoutInterface } from "../routes/AuthContext";
 
-// Definisikan tipe AreaDetail, menambahkan existingLayouts untuk konsistensi state
 type AreaDetail = GenbaWorkAreas & {
   existingLayouts: LayoutInterface[];
 };
 
-// 2. Definisikan fungsi helper untuk mendapatkan URL gambar lengkap
 const getFotoUrl = (filePath: string): string => {
-  // Ambil environment variables
   const projectEnvVariables = getProjectEnvVariables();
-  
+
   if (!filePath.startsWith("http")) {
-    // Tambahkan VITE_BACKEND_API_URL di depan path yang tidak memiliki http (relatif)
     return `${projectEnvVariables.envVariables.VITE_BACKEND_API_URL}/${filePath}`;
   }
   return filePath;
@@ -63,10 +58,8 @@ const ImagePublic: React.FC = () => {
         return;
       }
 
-      // Properti 'attachment' sudah bertipe LayoutInterface[] | null
       const layouts: LayoutInterface[] = area.attachment || [];
 
-      // Set state menggunakan tipe GenbaWorkAreas dan existingLayouts yang diambil dari attachment
       setAreaData({
         ...area,
         existingLayouts: layouts,
@@ -95,19 +88,22 @@ const ImagePublic: React.FC = () => {
 
   const areaName = areaData?.name || "-";
   const department = areaData?.department?.name || "-";
-  // Gunakan 'pic' alih-alih 'pic_user'
   const picName = areaData?.pic?.name || "-";
-  // Karena 'pic' tidak memiliki 'avatar', gunakan fallback avatar dari nama
   const picAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(picName)}`;
 
   const isDefault = areaData?.is_default ?? false;
   const typeLabel = isDefault ? "Daily Reports" : "Bebas Lapor";
 
-  // 3. Terapkan getFotoUrl saat memetakan layout
-  const layouts =
-    areaData?.existingLayouts
-      .map((l) => getFotoUrl(l.path)) // Gunakan l.path dan proses dengan getFotoUrl
-      .filter(Boolean) || [];
+  const layouts = areaData?.existingLayouts.map((l) => getFotoUrl(l.path)).filter(Boolean) || [];
+
+  const handleCreateReport = () => {
+    if (areaData?.id) {
+      navigate(`/genba/genbaactivity/formgenbaactivity?area=${areaData.id}`);
+    } else {
+      console.error("Area ID is not available for report creation.");
+      navigate("/genba/genbaactivity/formgenbaactivity");
+    }
+  };
 
   if (loading) {
     return (
@@ -149,14 +145,6 @@ const ImagePublic: React.FC = () => {
                 <Image size={28} className="text-blue-600" />
                 Detail Area: {areaName}
               </h1>
-              <motion.button
-                onClick={() => navigate("/genba/genbaarea")}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="flex items-center gap-2 px-5 py-2.5 bg-gray-200 text-gray-800 rounded-lg font-medium hover:bg-gray-300 transition-colors"
-              >
-                Back to Genba Area
-              </motion.button>
             </motion.div>
 
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="bg-white rounded-2xl shadow-xl overflow-hidden p-6 md:p-8 border border-blue-50">
@@ -204,7 +192,11 @@ const ImagePublic: React.FC = () => {
                 {layouts.length > 0 ? (
                   layouts.map((img, i) => (
                     <div key={i} className="bg-gray-50 p-3 rounded-xl border border-gray-200 shadow-sm">
-                      <img src={img} alt={`Layout ${i + 1}`} className="w-full h-56 object-cover rounded-lg" />
+                      <img
+                        src={img}
+                        alt={`Layout ${i + 1}`}
+                        className="w-full h-auto rounded-lg" // Menggunakan h-auto untuk mempertahankan rasio aspek
+                      />
                       <p className="mt-2 text-sm text-gray-600 text-center">{`Layout Area ${i + 1}`}</p>
                     </div>
                   ))
@@ -217,10 +209,11 @@ const ImagePublic: React.FC = () => {
 
               <div className="flex justify-center">
                 <motion.button
-                  onClick={() => navigate("/genba/genbaactivity/formgenbaactivity")}
+                  onClick={handleCreateReport}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   className="flex items-center gap-2 px-8 py-3 bg-blue-600 text-white text-lg rounded-xl shadow-md hover:bg-blue-700 transition-all"
+                  disabled={!areaData}
                 >
                   <FilePlus2 size={20} />
                   Buat Laporan Genba

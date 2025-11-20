@@ -103,7 +103,7 @@ const ServiceGroup: React.FC = () => {
   }, [loadServiceGroups]);
 
   const openAdd = () => {
-    if (!hasPermission("manage_users")) {
+    if (!hasPermission("view_service_groups")) {
       setError("You don't have permission to add service groups");
       return;
     }
@@ -116,7 +116,7 @@ const ServiceGroup: React.FC = () => {
   };
 
   const openEdit = (g: ServiceGroup) => {
-    if (!hasPermission("manage_users")) {
+    if (!hasPermission("view_service_groups")) {
       setError("You don't have permission to edit service groups");
       return;
     }
@@ -201,7 +201,7 @@ const ServiceGroup: React.FC = () => {
               <p className="text-gray-600 mt-2 text-sm max-w-xl">Manage service groups used across the service management system.</p>
             </div>
 
-            {hasPermission("manage_users") && (
+            {hasPermission("view_service_groups") && (
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -225,7 +225,7 @@ const ServiceGroup: React.FC = () => {
                 <Folder />
               </div>
               <p className="text-gray-700 text-base font-medium">No service groups available.</p>
-              {hasPermission("manage_users") && (
+              {hasPermission("view_service_groups") && (
                 <button onClick={() => navigate(`/service/servicegroups/`)} className="mt-5 px-5 py-2 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors duration-200 text-sm">
                   Create first group
                 </button>
@@ -262,7 +262,7 @@ const ServiceGroup: React.FC = () => {
                         <td className="px-5 py-3">
                           <div className="text-sm text-gray-600 truncate max-w-xs">{g.description || "-"}</div>
                         </td>
-                        {hasPermission("manage_users") && (
+                        {hasPermission("view_service_groups") && (
                           <td className="px-5 py-3 whitespace-nowrap text-sm font-medium space-x-1.5">
                             <motion.button
                               whileHover={{ scale: 1.1 }}

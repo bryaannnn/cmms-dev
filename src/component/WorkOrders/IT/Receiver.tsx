@@ -1031,7 +1031,7 @@ const ITReceiver: React.FC = () => {
                   {currentOrders.length > 0 ? (
                     currentOrders.map((order) => {
                       const isResolved = order.handling_status === "Resolved" || order.handling_status === "Done" || order.handling_status === "Cancel" || order.handling_status === "Closed";
-                      const canEdit = !isResolved && hasPermission("edit_workorders");
+                      const canEdit = !isResolved && hasPermission("view_workorders");
                       const isNew = order.handling_status === "New";
                       const isInProgressOrSimilar = ["In Progress", "Escalated", "Vendor Handled"].includes(order.handling_status);
 

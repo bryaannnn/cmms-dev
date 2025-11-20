@@ -527,6 +527,22 @@
   background-color: #f8fbff;
 }
 
+.fc-day-today {
+  /* * Menggunakan warna latar belakang biru muda (misalnya Tailwind blue-100: #dbeafe) 
+     * !important digunakan untuk memastikan style ini mengalahkan style bawaan FullCalendar.
+     */
+  background-color: #dbeafe !important;
+
+  /* * Opsional: Mengubah warna border di sekitar sel hari ini
+     * (FullCalendar sering menggunakan border yang berbeda untuk hari ini)
+     */
+  border-color: #dbeafe !important;
+
+  /* Optional: Memberikan border samping yang lebih tegas (misalnya Tailwind blue-400) */
+  border-left: 1px solid #60a5fa !important;
+  border-right: 1px solid #60a5fa !important;
+}
+
 /*Monitoring Maintenance calendear*/
 
 /* .custom-scrollbar::-webkit-scrollbar {

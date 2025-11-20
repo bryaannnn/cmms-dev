@@ -1,11 +1,4 @@
 import * as React from "react";
-
-import FullCalendar from "@fullcalendar/react";
-import dayGridPlugin from "@fullcalendar/daygrid";
-import interactionPlugin from "@fullcalendar/interaction";
-// Tambahkan locale jika Anda ingin Bahasa Indonesia
-import idLocale from "@fullcalendar/core/locales/id";
-
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -49,40 +42,11 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
 
-interface RenderableSchedule {
-  id: string;
-  startDate: Date;
-  endDate: Date;
-  label: string;
-  color: string;
-}
-
-interface FullCalendarEvent {
-  id: string;
-  title: string;
-  start: string; // YYYY-MM-DD
-  end: string; // YYYY-MM-DD
-  allDay: boolean;
-  backgroundColor?: string;
-  borderColor?: string;
-  extendedProps: MonitoringSchedule; // Menyimpan data asli
-}
-
-// Tambahkan konstanta ini di bagian atas file
-const INTERVAL_COLOR_MAP: Record<string, string> = {
-  Weekly: "bg-red-600 hover:bg-red-700",
-  Monthly: "bg-blue-600 hover:bg-blue-700",
-  "3 Months": "bg-green-600 hover:bg-green-700",
-  "6 Months": "bg-yellow-600 hover:bg-yellow-700", // Warna cerah untuk membedakan
-  "1 Year": "bg-purple-600 hover:bg-purple-700",
-  default: "bg-gray-500 hover:bg-gray-600",
-};
-
 export interface MaintenanceTaskRecord {
   id: string;
   mesin: string;
   date: string;
-  interval: "Weekly" | "Monthly" | "3 Month" | "6 Month" | "1 Year";
+  interval: "Weekly" | "Monthly" | "3 Months" | "6 Months" | "1 Year" | "Emergency" | "Harian" | "Per 50 Jam Kerja" | "Daily";
   unitWilayah: string;
   item: string;
   unitOfMeasure: string;
@@ -257,234 +221,6 @@ interface DetailViewProps {
   record: MaintenanceTaskRecord;
   onUpdateRecord: (updatedRecord: MaintenanceTaskRecord) => void; // HAPUS parameter id
 }
-
-interface SpanningSchedule {
-  scheduleId: string;
-  startDate: Date;
-  endDate: Date;
-  label: string;
-  colorClass: string;
-  status: string;
-  // Tambahkan properti lain yang diperlukan jika ada
-}
-
-// Asumsi: MaintenanceTaskRecord memiliki properti 'monitoringInterval: string'
-
-const getSpanningSchedules = (records: MaintenanceTaskRecord[], currentMonthDate: Date): SpanningSchedule[] => {
-  // 1. Group records by scheduleId
-  const grouped = records.reduce((acc, record) => {
-    const id = String(record.scheduleId);
-    if (!acc[id]) {
-      acc[id] = {
-        dates: [],
-        status: record.scheduleStatus || "New",
-        machine: record.mesin || "N/A",
-        // 🚨 NEW: Capture interval type
-        interval: record.interval || "default",
-        items: 0,
-      };
-    }
-    acc[id].dates.push(new Date(record.date));
-    acc[id].items += 1;
-
-    // Prioritize status: Done > On Progress > New
-    const currentStatus = record.scheduleStatus || "New";
-    if (currentStatus === "Done") acc[id].status = "Done";
-    else if (currentStatus === "On Progress" && acc[id].status !== "Done") acc[id].status = "On Progress";
-
-    return acc;
-  }, {} as Record<string, { dates: Date[]; status: string; machine: string; interval: string; items: number }>);
-
-  // 2. Convert groups into SpanningSchedule
-  return Object.entries(grouped).map(([scheduleId, data]) => {
-    data.dates.sort((a, b) => a.getTime() - b.getTime());
-    const startDate = data.dates[0];
-    const endDateWithSpan = new Date(data.dates[data.dates.length - 1]);
-
-    // 🚨 NEW: Determine color based on interval
-    const intervalKey = data.interval;
-    const baseColor = INTERVAL_COLOR_MAP[intervalKey] || INTERVAL_COLOR_MAP["default"];
-
-    return {
-      scheduleId,
-      startDate,
-      endDate: endDateWithSpan,
-      label: `${data.machine} (${intervalKey})`, // Label diperbarui
-      colorClass: baseColor, // Menggunakan warna interval
-      status: data.status,
-    };
-  });
-};
-
-interface ScheduleOverlayProps {
-  schedules: SpanningSchedule[];
-  currentCalendarDate: Date;
-  onScheduleClick: (schedule: SpanningSchedule) => void;
-}
-
-const CELL_HEIGHT_PX = 60;
-const CALENDAR_GRID_COLS = 8;
-const DATE_COLS = 7;
-const GAP_REM = 0.5; // gap-2 di Tailwind (0.5rem)
-const GAP_PX_VERTICAL = 8; // Estimasi gap-2 vertical (0.5rem * 16px/rem = 8px)
-
-// Konstanta untuk Stacking
-const VERTICAL_SPACING_PX = 8; // Jarak vertikal antar schedule yang bertumpuk
-const HORIZONTAL_SPACING_PX = 4; // Jarak horizontal antar schedule yang bertumpuk (offset kekanan)
-
-const getCalendarStartDay = (date: Date) => {
-  const year = date.getFullYear();
-  const month = date.getMonth();
-  const firstDayOfMonth = new Date(year, month, 1);
-  const firstDayOfWeekOfMonth = firstDayOfMonth.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
-
-  // Hitung hari kosong sebelum hari pertama (untuk Mon-based calendar)
-  // Jika hari pertama = Mon (1), daysToFillPre = 0
-  // Jika hari pertama = Sun (0), daysToFillPre = 6
-  const daysToFillPre = firstDayOfWeekOfMonth === 0 ? 6 : firstDayOfWeekOfMonth - 1;
-
-  const firstDayOnGrid = new Date(year, month, 1 - daysToFillPre);
-  firstDayOnGrid.setHours(0, 0, 0, 0);
-  return firstDayOnGrid;
-};
-
-const ScheduleOverlay: React.FC<ScheduleOverlayProps> = ({ schedules, currentCalendarDate, onScheduleClick }) => {
-  const calendarStartDay = useMemo(() => getCalendarStartDay(currentCalendarDate), [currentCalendarDate]);
-
-  const renderableSegments = useMemo(() => {
-    const segments: any[] = [];
-    const dateMap = new Map<string, number>();
-    let datePointer = new Date(calendarStartDay);
-
-    // Map untuk melacak slot vertikal yang terpakai di setiap tanggal: Key='YYYY-MM-DD', Value=Array of occupied slot indexes [0, 1, 2, ...]
-    const rowsInUse = new Map<string, number[]>();
-
-    // 1. Map Tanggal ke Index Grid (0-41)
-    for (let i = 0; i < 42; i++) {
-      dateMap.set(datePointer.toISOString().split("T")[0], i);
-      datePointer.setDate(datePointer.getDate() + 1);
-    }
-
-    // Urutkan jadwal agar penentuan slot lebih konsisten
-    const sortedSchedules = [...schedules].sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
-
-    sortedSchedules.forEach((schedule) => {
-      let currentDatePointer = new Date(schedule.startDate);
-      currentDatePointer.setHours(0, 0, 0, 0);
-      const scheduleEndDate = new Date(schedule.endDate);
-      scheduleEndDate.setHours(0, 0, 0, 0);
-
-      while (currentDatePointer.getTime() <= scheduleEndDate.getTime()) {
-        const dateString = currentDatePointer.toISOString().split("T")[0];
-        const startIndex = dateMap.get(dateString);
-
-        if (startIndex === undefined) {
-          currentDatePointer.setDate(currentDatePointer.getDate() + 1);
-          continue;
-        }
-
-        const startDayIndex = startIndex % DATE_COLS; // Index hari dalam seminggu (0-6)
-        const startRow = Math.floor(startIndex / DATE_COLS);
-
-        const endOfWeekIndex = startRow * DATE_COLS + 6;
-        let segmentEndIndex = startIndex;
-        let tempDatePointer = new Date(currentDatePointer);
-
-        // Cari index hari terakhir segmen di minggu ini
-        while (tempDatePointer.getTime() <= scheduleEndDate.getTime() && dateMap.get(tempDatePointer.toISOString().split("T")[0]) !== undefined && dateMap.get(tempDatePointer.toISOString().split("T")[0])! <= endOfWeekIndex) {
-          segmentEndIndex = dateMap.get(tempDatePointer.toISOString().split("T")[0]) || segmentEndIndex;
-          tempDatePointer.setDate(tempDatePointer.getDate() + 1);
-        }
-
-        const endDayIndex = segmentEndIndex % DATE_COLS;
-        const segmentDaySpan = endDayIndex - startDayIndex + 1;
-
-        // ------------------ LOGIKA STACKING BARU ------------------
-        const segmentDates: string[] = [];
-        let checkDate = new Date(currentDatePointer);
-        while (checkDate.getTime() <= tempDatePointer.getTime()) {
-          segmentDates.push(checkDate.toISOString().split("T")[0]);
-          checkDate.setDate(checkDate.getDate() + 1);
-        }
-
-        let slotIndex = 0;
-        let slotFound = false;
-
-        // Cari slot vertikal pertama yang tersedia di SEMUA hari yang dicakup segmen ini
-        while (!slotFound) {
-          const isOccupied = segmentDates.some((dateKey) => rowsInUse.get(dateKey)?.includes(slotIndex));
-
-          if (!isOccupied) {
-            slotFound = true;
-          } else {
-            slotIndex++;
-          }
-        }
-
-        // Tandai semua tanggal dalam segmen sebagai terisi untuk slotIndex ini
-        segmentDates.forEach((dateKey) => {
-          const occupiedSlots = rowsInUse.get(dateKey) || [];
-          occupiedSlots.push(slotIndex);
-          rowsInUse.set(dateKey, occupiedSlots);
-        });
-
-        // --- Perhitungan Posisi Vertikal ---
-        // Tinggi dasar baris + offset dari nomor tanggal + (slotIndex * jarak tumpukan)
-        const baseTop = startRow * (CELL_HEIGHT_PX + GAP_PX_VERTICAL) + 18;
-        const topPosition = baseTop + slotIndex * VERTICAL_SPACING_PX;
-
-        // --- Perhitungan Posisi Horizontal ---
-        const COLUMN_WIDTH_PERCENT = 100 / CALENDAR_GRID_COLS;
-        const leftPercentage = COLUMN_WIDTH_PERCENT + startDayIndex * COLUMN_WIDTH_PERCENT;
-        const totalGapsPassed = 1 + startDayIndex;
-        const widthPercentage = segmentDaySpan * COLUMN_WIDTH_PERCENT;
-        const totalInternalGaps = (segmentDaySpan - 1) * GAP_REM;
-
-        // Perhitungan Left FINAL (dengan offset kekanan)
-        const leftValue = `calc(${leftPercentage}% + ${totalGapsPassed * GAP_REM}rem + ${slotIndex * HORIZONTAL_SPACING_PX}px)`;
-
-        segments.push({
-          ...schedule,
-          key: `${schedule.scheduleId}-${startRow}-${slotIndex}`, // Key unik dengan slotIndex
-          top: `${topPosition}px`,
-          left: leftValue,
-          width: `calc(${widthPercentage}% + ${totalInternalGaps}rem)`,
-          isFirst: startRow === Math.floor((dateMap.get(schedule.startDate.toISOString().split("T")[0]) ?? 0) / DATE_COLS),
-        });
-
-        currentDatePointer = tempDatePointer;
-      }
-    });
-    return segments;
-  }, [schedules, calendarStartDay]);
-
-  return (
-    <div className="absolute inset-0 pointer-events-none">
-      {renderableSegments.map((seg) => (
-        <motion.button
-          key={seg.key}
-          onClick={(e) => {
-            e.stopPropagation();
-            onScheduleClick(seg as SpanningSchedule);
-          }}
-          style={{
-            position: "absolute",
-            top: seg.top,
-            left: seg.left,
-            width: seg.width,
-            height: `${CELL_HEIGHT_PX * 0.4}px`,
-            zIndex: 10 + (seg.top.match(/(\d+)/)?.[1] || 0) / 10, // Z-index berdasarkan posisi top
-          }}
-          whileHover={{ scale: 1.01 }}
-          whileTap={{ scale: 0.98 }}
-          className={`p-1 rounded-md text-xs text-white overflow-hidden whitespace-nowrap shadow-md pointer-events-auto flex items-center justify-start ${seg.colorClass}`}
-        >
-          {seg.isFirst && <span className="font-semibold px-1 truncate">{seg.label}</span>}
-        </motion.button>
-      ))}
-    </div>
-  );
-};
 
 const getWeekOfMonth = (date: Date): number => {
   const startDay = date.getDate();
@@ -1731,7 +1467,6 @@ const MonitoringMaintenance: React.FC = () => {
   const machineFilterDropdownRef = useRef<HTMLDivElement>(null);
   const [showUnitFilterDropdown, setShowUnitFilterDropdown] = useState(false);
   const unitFilterDropdownRef = useRef<HTMLDivElement>(null);
-  const [currentMonth, setCurrentMonth] = useState(new Date());
 
   // Options untuk filter
   const statusOptions = useMemo(
@@ -1786,7 +1521,7 @@ const MonitoringMaintenance: React.FC = () => {
 
       const intervalType = schedule.monitoring_interval?.type_interval || "weekly";
       const intervalDisplay =
-        intervalType === "weekly" ? "Weekly" : intervalType === "monthly" ? "Monthly" : intervalType === "3 month" ? "3 Month" : intervalType === "6 month" ? "6 Month" : intervalType === "1 year" ? "1 Year" : "Weekly";
+        intervalType === "weekly" ? "Weekly" : intervalType === "monthly" ? "Monthly" : intervalType === "quarterly" ? "3 Months" : intervalType === "semi-annual" ? "6 Months" : intervalType === "yearly" ? "1 Year" : "Daily";
 
       // PERBAIKAN: Gunakan item_mesins dari schedule jika ada, jika tidak gunakan dari machine
       const itemsToMonitor = schedule.item_mesins && schedule.item_mesins.length > 0 ? schedule.item_mesins : machine?.item_mesin || [];
@@ -2246,32 +1981,24 @@ const MonitoringMaintenance: React.FC = () => {
     setShowDailyScheduleModal(false);
   };
 
-  // Di dalam komponen MonitoringMaintenance.tsx, ganti fungsi renderCalendarDays Anda dengan ini:
-
-  // Di dalam komponen MonitoringMaintenance.tsx, ganti fungsi renderCalendarDays Anda:
-
   const renderCalendarDays = (): React.ReactNode[] => {
     const year = currentCalendarDate.getFullYear();
     const month = currentCalendarDate.getMonth();
-    // Asumsikan helper functions ini sudah ada (getDaysInMonth, getFirstDayOfMonth, getISOWeekNumber):
     const daysInMonth = getDaysInMonth(year, month);
-    const firstDayOfWeekOfMonth = getFirstDayOfMonth(year, month); // Asumsikan 0=Min, 1=Sen
+    const firstDayOfWeekOfMonth = getFirstDayOfMonth(year, month);
 
     const calendarRows: React.ReactNode[] = [];
     let dayCounter = 1;
     let weekDays: React.ReactNode[] = [];
     let currentWeekStartDate: Date | null = null;
-    const isCurrentMonth = today.getMonth() === month && today.getFullYear() === year;
-
-    // Menghitung hari kosong (pre-month)
-    // Perhatikan: Karena header Anda dimulai dari Mon, firstDayOfWeekOfMonth harus disesuaikan jika 0=Sun.
-    // Jika 0=Sun, dan hari pertama adalah Minggu (index 0), maka akan ada 6 sel kosong di depan jika kalender dimulai dari Mon.
-    const daysToFillPre = firstDayOfWeekOfMonth === 0 ? 6 : firstDayOfWeekOfMonth - 1;
 
     // Empty cells for days before the first day of the month
-    for (let i = 0; i < daysToFillPre; i++) {
-      // Styling minimal untuk konsistensi tinggi baris
-      weekDays.push(<div key={`empty-pre-${i}`} className="p-1.5 min-h-[60px] flex flex-col items-end justify-start text-sm border-b border-gray-100 bg-gray-50/50" />);
+    for (let i = 0; i < firstDayOfWeekOfMonth; i++) {
+      weekDays.push(
+        <div key={`empty-pre-${i}`} className="p-3 rounded-xl bg-gray-50 border border-gray-100 min-h-[100px] flex flex-col items-center justify-center">
+          <span className="text-sm text-gray-400">-</span>
+        </div>
+      );
     }
 
     while (dayCounter <= daysInMonth) {
@@ -2281,44 +2008,108 @@ const MonitoringMaintenance: React.FC = () => {
       }
 
       const dateString = `${year}-${String(month + 1).padStart(2, "0")}-${String(dayCounter).padStart(2, "0")}`;
-      const isToday = isCurrentMonth && today.toDateString() === date.toDateString();
 
-      // Sel hari SANGAT disederhanakan
-      const dayCell = (
-        <div
-          key={dateString}
-          // data-date PENTING untuk menargetkan posisi jadwal di lapisan overlay
-          data-date={dateString}
-          className={`p-1.5 min-h-[60px] flex flex-col transition-all duration-200 border-b border-gray-100 relative ${isToday ? "bg-blue-50/50" : date.getDay() === 0 || date.getDay() === 6 ? "bg-gray-50/50" : "bg-white"}`}
-        >
-          {/* 1. Date Number - Posisikan di kanan atas sel */}
-          <div className="flex justify-end items-center">
-            <span className={`text-sm font-semibold ${isToday ? "text-blue-700" : "text-gray-600"}`}>{dayCounter}</span>
+      // Filter records untuk hari ini
+      const dayRecords = filteredRecords.filter((record) => record.date === dateString);
+
+      // Kelompokkan records berdasarkan scheduleId
+      const schedulesByGroup = dayRecords.reduce((acc, record) => {
+        const scheduleId = String(record.scheduleId || "unknown");
+        if (!acc[scheduleId]) {
+          acc[scheduleId] = {
+            scheduleId: scheduleId,
+            machine: record.mesin,
+            items: [record],
+          };
+        } else {
+          acc[scheduleId].items.push(record);
+        }
+        return acc;
+      }, {} as Record<string, { scheduleId: string; machine: string; items: MaintenanceTaskRecord[] }>);
+
+      const scheduleGroups = Object.values(schedulesByGroup);
+
+      // Tentukan styling berdasarkan status dan apakah hari ini
+      const isToday = today.toDateString() === date.toDateString();
+      const hasSchedules = scheduleGroups.length > 0;
+
+      // Base classes untuk semua hari
+      let cellClasses = `p-3 rounded-xl border-2 min-h-[100px] flex flex-col transition-all duration-200 `;
+
+      // Styling berdasarkan status
+      if (isToday) {
+        cellClasses += `bg-blue-50 border-blue-200 shadow-sm `;
+      } else if (hasSchedules) {
+        // Tentukan warna berdasarkan status schedule
+        const allStatuses = scheduleGroups.flatMap((group) => group.items.map((item) => item.scheduleStatus || "New"));
+
+        if (allStatuses.includes("Done")) {
+          cellClasses += `bg-green-50 border-green-200 `;
+        } else if (allStatuses.includes("On Progress")) {
+          cellClasses += `bg-yellow-50 border-yellow-200 `;
+        } else {
+          cellClasses += `bg-blue-50 border-blue-200 `;
+        }
+      } else {
+        cellClasses += `bg-white border-gray-100 hover:border-gray-200 `;
+      }
+
+      // Hover effect
+      cellClasses += `hover:shadow-md hover:scale-[1.02] cursor-pointer `;
+
+      weekDays.push(
+        <motion.div key={dateString} className={cellClasses} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => hasSchedules && handleOpenDailyScheduleModal(dayRecords, dateString)}>
+          {/* Date Number */}
+          <div className="flex justify-between items-start mb-2">
+            <span className={`text-sm font-semibold ${isToday ? "text-blue-600" : hasSchedules ? "text-gray-900" : "text-gray-500"}`}>{dayCounter}</span>
+            {isToday && <div className="w-2 h-2 bg-blue-500 rounded-full"></div>}
           </div>
 
-          {/* 2. Area ini biarkan kosong. Jadwal akan dirender di lapisan absolute di atasnya. */}
-        </div>
+          {/* Schedule Content */}
+          <div className="flex-1 flex flex-col gap-1.5">
+            {scheduleGroups.slice(0, 2).map((group, index) => (
+              <div
+                key={group.scheduleId}
+                className={`px-2 py-1.5 rounded-lg text-xs font-medium ${
+                  group.items[0].scheduleStatus === "Done"
+                    ? "bg-green-100 text-green-800 border border-green-200"
+                    : group.items[0].scheduleStatus === "On Progress"
+                    ? "bg-yellow-100 text-yellow-800 border border-yellow-200"
+                    : "bg-blue-100 text-blue-800 border border-blue-200"
+                }`}
+              >
+                <div className="font-semibold truncate">{group.machine}</div>
+                <div className="text-xs opacity-75 mt-0.5">
+                  {group.items.length} item{group.items.length > 1 ? "s" : ""}
+                </div>
+              </div>
+            ))}
+
+            {scheduleGroups.length > 2 && <div className="px-2 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs font-medium text-center">+{scheduleGroups.length - 2} more</div>}
+          </div>
+        </motion.div>
       );
 
-      weekDays.push(dayCell);
-
-      // Logic untuk menyelesaikan satu baris minggu (7 hari)
+      // Week number cell
       if (weekDays.length === 7 || dayCounter === daysInMonth) {
-        // Isi sel kosong di akhir bulan jika diperlukan
         while (weekDays.length < 7) {
-          weekDays.push(<div key={`empty-post-${weekDays.length}`} className="p-1.5 min-h-[60px] flex flex-col items-end justify-start text-sm border-b border-gray-100 bg-gray-50/50" />);
+          weekDays.push(
+            <div key={`empty-post-${weekDays.length}`} className="p-3 rounded-xl bg-gray-50 border border-gray-100 min-h-[100px] flex flex-col items-center justify-center">
+              <span className="text-sm text-gray-400">-</span>
+            </div>
+          );
         }
 
         const weekNum = currentWeekStartDate ? getISOWeekNumber(currentWeekStartDate) : null;
 
-        // Baris kalender: 7 Hari + 1 Nomor Minggu (WN)
         calendarRows.push(
           <React.Fragment key={`week-row-${dayCounter}`}>
-            {/* 🚨 NOMOR MINGGU (WN) TARUH DI BELAKANG SENDIRI */}
-            <div className="p-1.5 flex items-center justify-center min-h-[60px] border-b border-gray-100 bg-gray-100">
-              <span className="text-sm font-bold text-gray-600">{weekNum !== null ? ` ${String(weekNum).padStart(2, "0")}` : ""}</span>
+            {/* Week Number Cell */}
+            <div className="p-3 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 flex items-center justify-center">
+              <span className="text-sm font-bold text-gray-600">{weekNum !== null ? `${String(weekNum).padStart(2, "0")}` : ""}</span>
             </div>
-            {/* Days of the week (7 kolom) */}
+
+            {/* Days of the week */}
             {weekDays}
           </React.Fragment>
         );
@@ -2345,7 +2136,7 @@ const MonitoringMaintenance: React.FC = () => {
         id: `approval-${task.id}`,
         icon: <Bell className="text-orange-500" />,
         title: `Approval Needed: ${task.mesin} - ${task.item}`,
-        description: `Record  for ${task.mesin} - ${task.item} is awaiting your approval ().`,
+        description: `Record for ${task.mesin} - ${task.item} is awaiting your approval ().`,
         date: new Date(task.date).toLocaleDateString("en-US"),
       });
     });
@@ -2388,97 +2179,6 @@ const MonitoringMaintenance: React.FC = () => {
       setSelectedInterval((prev) => prev.filter((value) => value !== intervalValue));
     }
   };
-
-  const spanningSchedules = useMemo(() => getSpanningSchedules(filteredRecords, currentCalendarDate), [filteredRecords, currentCalendarDate]);
-
-  // Di dalam MonitoringMaintenance component
-
-  // ⚠️ CATATAN: Pastikan Anda MENGHAPUS tipe SpanningSchedule jika Anda tidak menggunakannya lagi
-  // Karena Anda menyimpan MonitoringSchedule di extendedProps, handler harus menerimanya.
-
-  const handleScheduleClick = useCallback(
-    // 💡 Ganti tipe argumen dari SpanningSchedule ke MonitoringSchedule
-    (scheduleData: MonitoringSchedule) => {
-      // 1. Dapatkan scheduleId dari data asli
-      const scheduleIdString = String(scheduleData.id_monitoring_schedule);
-
-      // 2. Filter semua record yang terkait dengan scheduleId ini
-      // Asumsi: 'filteredRecords' adalah array MaintenanceTaskRecord dengan properti 'scheduleId'
-      const allScheduleRecords = filteredRecords.filter((record) => String(record.scheduleId) === scheduleIdString);
-
-      if (allScheduleRecords.length > 0) {
-        // 3. Gunakan tanggal mulai (tgl_start) dari data asli sebagai referensi tanggal modal
-        const dateString = scheduleData.tgl_start; // Sudah dalam format YYYY-MM-DD
-
-        // 4. Set state untuk membuka DailyScheduleListModal
-        setDailySchedulesForSelectedDate(allScheduleRecords);
-        setSelectedDateForDailySchedules(dateString);
-        setShowDailyScheduleModal(true);
-      }
-    },
-    // Pastikan filteredRecords, setDailySchedulesForSelectedDate, dll. ada di dependencies
-    [filteredRecords, setDailySchedulesForSelectedDate, setSelectedDateForDailySchedules, setShowDailyScheduleModal]
-  );
-
-  // Di dalam Monitoring.tsx, perbarui hook useMemo Anda:
-
-  // Tambahkan fungsi helper ini di luar komponen Monitoring
-
-  const addOneDayToStringRobust = (dateString: string): string => {
-    // 1. Pecah string tanggal (YYYY, MM, DD)
-    const [year, month, day] = dateString.split("-").map(Number);
-
-    // 2. Buat objek Date menggunakan Date.UTC (Month di JS dimulai dari 0, jadi kurangi 1)
-    // Ini memastikan perhitungan terjadi di UTC, menghilangkan bias waktu lokal.
-    const date = new Date(Date.UTC(year, month - 1, day));
-
-    // 3. Tambahkan satu hari menggunakan setUTCDate
-    date.setUTCDate(date.getUTCDate() + 1);
-
-    // 4. Kembalikan dalam format YYYY-MM-DD
-    return date.toISOString().split("T")[0];
-  };
-
-  const INTERVAL_HEX_COLOR_MAP: Record<string, string> = {
-    // Palet Biru Monokromatik
-    weekly: "#93C5FD", // Biru Paling Muda
-    monthly: "#60A5FA", // Biru Sedang
-    "3 month": "#3B82F6", // Biru Primer
-    "6 month": "#2563EB", // Biru Tua
-    "1 year": "#1D4ED8", // Biru Sangat Tua
-    default: "#6B7280", // Abu-abu
-  };
-
-  const calendarEvents: FullCalendarEvent[] = useMemo(() => {
-    if (!schedules || schedules.length === 0) {
-      return [];
-    }
-
-    return schedules.map((s) => {
-      // --- LOGIKA WARNA BARU BERDASARKAN INTERVAL ---
-      // type_interval sudah berupa string huruf kecil ("weekly") dari data JSON.
-      const intervalType = s.monitoring_interval.type_interval;
-
-      // Menggunakan intervalType (huruf kecil) untuk mencari warna
-      // Jika tidak ditemukan (misalnya untuk "3 Months", jika data JSON-nya "3 months"),
-      // maka akan digunakan fallback, tetapi ini bergantung pada konsistensi data.
-      const hexColor = INTERVAL_HEX_COLOR_MAP[intervalType] || INTERVAL_HEX_COLOR_MAP.default;
-
-      // ... (Logika Tanggal Akhir yang Sudah Diperbaiki) ...
-      const exclusiveEndDate = addOneDayToStringRobust(s.tgl_end);
-
-      return {
-        id: String(s.id_monitoring_schedule),
-        title: s.data_mesin.name + " - " + s.unit + " - " + s.monitoring_interval.type_interval,
-        start: s.tgl_start,
-        end: exclusiveEndDate,
-        allDay: true,
-        backgroundColor: hexColor,
-        borderColor: hexColor,
-        extendedProps: s,
-      };
-    });
-  }, [schedules]);
 
   const isStep1Complete = addForm.startDate !== null && addForm.endDate !== null;
   const isStep2Complete = addForm.selectedUnits.length > 0;
@@ -2813,59 +2513,90 @@ const MonitoringMaintenance: React.FC = () => {
                       )}
                     </AnimatePresence>
                   </motion.div>
-                  
+
                   {/* View Modes */}
 
                   {viewMode === "calendar" && (
-                    <div className="px-4 py-4 md:px-8 md:py-6">
-                      <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100 mb-6">
-                        <FullCalendar
-                          // Plugins yang digunakan
-                          plugins={[dayGridPlugin, interactionPlugin]}
-                          // Konfigurasi Tampilan
-                          initialView="dayGridMonth" // Tampilan default (Bulan)
-                          headerToolbar={{
-                            left: "prev,next today",
-                            center: "title",
-                            right: "dayGridMonth,dayGridWeek", // Pilihan tampilan
-                          }}
-                          // Konfigurasi Tanggal dan Bahasa
-                          initialDate={currentCalendarDate} // Menggunakan state Anda
-                          locale={idLocale}
-                          weekends={true} // Tampilkan akhir pekan
-                          events={calendarEvents}
-                          // Konfigurasi Klik Event
-                          // Di dalam FullCalendar
-                          eventClick={(info) => {
-                            // 💡 Hilangkan SpanningSchedule, ganti dengan MonitoringSchedule
-                            const originalSchedule = info.event.extendedProps as MonitoringSchedule;
-                            handleScheduleClick(originalSchedule);
-                          }}
-                          // Styling (Opsional, tergantung tema CSS Anda)
-                          height="auto"
-                        />
+                    <div className="space-y-6">
+                      {/* Calendar Header - Modern Design */}
+                      <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+                        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                          <div className="text-center lg:text-left">
+                            <h2 className="text-2xl font-bold text-gray-900 mb-2">{currentCalendarDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</h2>
+                            <p className="text-gray-600 text-sm">Monitor your maintenance schedules and activities</p>
+                          </div>
+
+                          <div className="flex items-center justify-center gap-3">
+                            <motion.button
+                              whileHover={{ scale: 1.05, backgroundColor: "rgba(59, 130, 246, 0.1)" }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={goToPreviousMonth}
+                              className="p-3 rounded-xl text-gray-600 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200 border border-gray-200"
+                              aria-label="Previous month"
+                            >
+                              <ChevronLeft size={20} />
+                            </motion.button>
+
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={goToCurrentMonth}
+                              className="px-4 py-3 bg-blue-600 text-white rounded-xl text-sm font-semibold shadow-lg hover:bg-blue-700 transition-colors duration-200"
+                            >
+                              Today
+                            </motion.button>
+
+                            <motion.button
+                              whileHover={{ scale: 1.05, backgroundColor: "rgba(59, 130, 246, 0.1)" }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={goToNextMonth}
+                              className="p-3 rounded-xl text-gray-600 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200 border border-gray-200"
+                              aria-label="Next month"
+                            >
+                              <ChevronRight size={20} />
+                            </motion.button>
+                          </div>
+                        </div>
                       </div>
 
-                      {/* Kontainer Legend Baru */}
+                      {/* Calendar Grid - Modern Design */}
                       <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Schedule Interval Legend</h3>
-                        <div className="flex flex-wrap gap-x-8 gap-y-4">
-                          {Object.entries(INTERVAL_HEX_COLOR_MAP)
-                            // Filter 'default'
-                            .filter(([key]) => key !== "default")
-                            .map(([interval, hexColor]) => (
-                              <div key={interval} className="flex items-center gap-3">
-                                {/* 💡 KOREKSI: Menggunakan style inline dengan hexColor */}
-                                <div
-                                  className={`w-4 h-4 rounded-full`}
-                                  style={{ backgroundColor: hexColor }} // Terapkan warna Hex di sini
-                                ></div>
-                                <span className="text-sm font-medium text-gray-700">
-                                  {/* Kapitalisasi Awal untuk Tampilan yang Lebih Baik */}
-                                  {interval.charAt(0).toUpperCase() + interval.slice(1)}
-                                </span>
-                              </div>
-                            ))}
+                        {/* Week Days Header */}
+                        <div className="grid grid-cols-8 gap-2 mb-4">
+                          <div className="p-3 text-center">
+                            <span className="text-sm font-semibold text-gray-500 uppercase tracking-wider">WN</span>
+                          </div>
+                          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
+                            <div key={day} className="p-3 text-center">
+                              <span className="text-sm font-semibold text-gray-500 uppercase tracking-wider">{day}</span>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Calendar Days Grid */}
+                        <div className="grid grid-cols-8 gap-2">{renderCalendarDays()}</div>
+                      </div>
+
+                      {/* Legend - Modern Design */}
+                      <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Schedule Status</h3>
+                        <div className="flex flex-wrap gap-6">
+                          <div className="flex items-center gap-3">
+                            <div className="w-4 h-4 bg-blue-100 border-2 border-blue-400 rounded-full"></div>
+                            <span className="text-sm font-medium text-gray-700">New / Not Started</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="w-4 h-4 bg-yellow-100 border-2 border-yellow-400 rounded-full"></div>
+                            <span className="text-sm font-medium text-gray-700">On Progress</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="w-4 h-4 bg-green-100 border-2 border-green-400 rounded-full"></div>
+                            <span className="text-sm font-medium text-gray-700">Done / Completed</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="w-4 h-4 bg-gray-100 border-2 border-gray-300 rounded-full"></div>
+                            <span className="text-sm font-medium text-gray-700">No Schedule</span>
+                          </div>
                         </div>
                       </div>
                     </div>

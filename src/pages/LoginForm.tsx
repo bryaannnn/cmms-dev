@@ -15,7 +15,6 @@ const LoginForm: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
 
-  // Deklarasi state untuk sapaan hanya SATU KALI di sini
   const [currentGreeting, setGreeting] = useState(greetings[0]);
   const [isTransitioning, setIsTransitioning] = useState(false);
 
@@ -25,7 +24,6 @@ const LoginForm: React.FC = () => {
   useEffect(() => {
     setIsMounted(true);
 
-    // Gunakan window.setTimeout untuk mendapatkan tipe number
     let timeoutId: number;
 
     const intervalId = setInterval(() => {
@@ -46,7 +44,6 @@ const LoginForm: React.FC = () => {
     };
   }, []);
 
-  // Objek style dasar untuk elemen h1
   const baseStyle: React.CSSProperties = {
     fontSize: "3rem",
     fontFamily: "sans-serif",
@@ -54,7 +51,6 @@ const LoginForm: React.FC = () => {
     transition: "opacity 0.5s ease-in-out, transform 0.5s ease-in-out",
   };
 
-  // Objek style dinamis berdasarkan state isTransitioning
   const dynamicStyle: React.CSSProperties = isTransitioning ? { opacity: 0, transform: "translateY(-20px)" } : { opacity: 1, transform: "translateY(0)" };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -64,7 +60,16 @@ const LoginForm: React.FC = () => {
 
     try {
       await login(nik, password);
-      navigate("/dashboard");
+
+      const intendedPath = localStorage.getItem("intendedPath");
+
+      if (intendedPath && intendedPath !== "/login") {
+        navigate(intendedPath, { replace: true });
+        localStorage.removeItem("intendedPath");
+      } else {
+        navigate("/dashboard", { replace: true });
+      }
+
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {
@@ -80,7 +85,7 @@ const LoginForm: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-white to-blue-50 p-4 font-sans">
       <div
         className={`flex flex-col lg:flex-row w-full max-w-6xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden
-                    transform transition-all duration-700 ease-out ${isMounted ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0"}`}
+						 transform transition-all duration-700 ease-out ${isMounted ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0"}`}
       >
         <div className="w-full lg:w-1/2 p-6 sm:p-10 md:p-12 flex flex-col justify-center">
           <div className={`flex items-center space-x-2 mb-8 transition-opacity duration-700 ease-out delay-200 ${isMounted ? "opacity-100" : "opacity-0"}`}>
@@ -118,8 +123,8 @@ const LoginForm: React.FC = () => {
                 required
                 autoComplete="off"
                 className="w-full px-4 py-3 text-base rounded-md border border-gray-300
-                          focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:shadow-md
-                          transition-all duration-300 ease-in-out"
+									 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:shadow-md
+									 transition-all duration-300 ease-in-out"
               />
             </div>
 
@@ -137,8 +142,8 @@ const LoginForm: React.FC = () => {
                   required
                   autoComplete="current-password"
                   className="w-full px-4 py-3 text-base rounded-md border border-gray-300
-                            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:shadow-md
-                            transition-all duration-300 ease-in-out pr-10"
+									 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:shadow-md
+									 transition-all duration-300 ease-in-out pr-10"
                 />
                 <button
                   type="button"
@@ -167,10 +172,10 @@ const LoginForm: React.FC = () => {
               type="submit"
               disabled={isSubmitting}
               className={`w-full py-3 px-4 rounded-md text-base font-medium
-                          transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500
-                          ${isSubmitting ? "bg-blue-400 text-white cursor-not-allowed" : "bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 transform hover:-translate-y-0.5"}
-                          flex items-center justify-center
-                          ${isMounted ? "translate-y-0 opacity-100 delay-800" : "translate-y-5 opacity-0"}`}
+									 transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500
+									 ${isSubmitting ? "bg-blue-400 text-white cursor-not-allowed" : "bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 transform hover:-translate-y-0.5"}
+									 flex items-center justify-center
+									 ${isMounted ? "translate-y-0 opacity-100 delay-800" : "translate-y-5 opacity-0"}`}
             >
               {isSubmitting ? (
                 <>
@@ -200,7 +205,7 @@ const LoginForm: React.FC = () => {
 
         <div
           className={`hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-500 to-aqua-800 items-center justify-center relative p-8
-                      transform transition-all duration-700 ease-out delay-300 ${isMounted ? "translate-x-0 opacity-100" : "translate-x-10 opacity-0"}`}
+						 transform transition-all duration-700 ease-out delay-300 ${isMounted ? "translate-x-0 opacity-100" : "translate-x-10 opacity-0"}`}
         >
           <div className="absolute top-1/4 left-1/4 bg-white opacity-20 w-32 h-16 rounded-full blur-md animate-float"></div>
           <div className="absolute bottom-1/3 right-1/4 bg-white opacity-20 w-48 h-24 rounded-full blur-md animate-float-delay"></div>

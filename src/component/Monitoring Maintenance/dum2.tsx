@@ -1,11 +1,4 @@
 import * as React from "react";
-
-import FullCalendar from "@fullcalendar/react";
-import dayGridPlugin from "@fullcalendar/daygrid";
-import interactionPlugin from "@fullcalendar/interaction";
-// Tambahkan locale jika Anda ingin Bahasa Indonesia
-import idLocale from "@fullcalendar/core/locales/id";
-
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -57,17 +50,6 @@ interface RenderableSchedule {
   color: string;
 }
 
-interface FullCalendarEvent {
-  id: string;
-  title: string;
-  start: string; // YYYY-MM-DD
-  end: string; // YYYY-MM-DD
-  allDay: boolean;
-  backgroundColor?: string;
-  borderColor?: string;
-  extendedProps: MonitoringSchedule; // Menyimpan data asli
-}
-
 // Tambahkan konstanta ini di bagian atas file
 const INTERVAL_COLOR_MAP: Record<string, string> = {
   Weekly: "bg-red-600 hover:bg-red-700",
@@ -82,7 +64,7 @@ export interface MaintenanceTaskRecord {
   id: string;
   mesin: string;
   date: string;
-  interval: "Weekly" | "Monthly" | "3 Month" | "6 Month" | "1 Year";
+  interval: "Weekly" | "Monthly" | "3 Months" | "6 Months" | "1 Year" | "Emergency" | "Harian" | "Per 50 Jam Kerja" | "Daily";
   unitWilayah: string;
   item: string;
   unitOfMeasure: string;
@@ -1786,7 +1768,7 @@ const MonitoringMaintenance: React.FC = () => {
 
       const intervalType = schedule.monitoring_interval?.type_interval || "weekly";
       const intervalDisplay =
-        intervalType === "weekly" ? "Weekly" : intervalType === "monthly" ? "Monthly" : intervalType === "3 month" ? "3 Month" : intervalType === "6 month" ? "6 Month" : intervalType === "1 year" ? "1 Year" : "Weekly";
+        intervalType === "weekly" ? "Weekly" : intervalType === "monthly" ? "Monthly" : intervalType === "quarterly" ? "3 Months" : intervalType === "semi-annual" ? "6 Months" : intervalType === "yearly" ? "1 Year" : "Daily";
 
       // PERBAIKAN: Gunakan item_mesins dari schedule jika ada, jika tidak gunakan dari machine
       const itemsToMonitor = schedule.item_mesins && schedule.item_mesins.length > 0 ? schedule.item_mesins : machine?.item_mesin || [];
@@ -2393,92 +2375,23 @@ const MonitoringMaintenance: React.FC = () => {
 
   // Di dalam MonitoringMaintenance component
 
-  // ⚠️ CATATAN: Pastikan Anda MENGHAPUS tipe SpanningSchedule jika Anda tidak menggunakannya lagi
-  // Karena Anda menyimpan MonitoringSchedule di extendedProps, handler harus menerimanya.
-
   const handleScheduleClick = useCallback(
-    // 💡 Ganti tipe argumen dari SpanningSchedule ke MonitoringSchedule
-    (scheduleData: MonitoringSchedule) => {
-      // 1. Dapatkan scheduleId dari data asli
-      const scheduleIdString = String(scheduleData.id_monitoring_schedule);
-
-      // 2. Filter semua record yang terkait dengan scheduleId ini
-      // Asumsi: 'filteredRecords' adalah array MaintenanceTaskRecord dengan properti 'scheduleId'
-      const allScheduleRecords = filteredRecords.filter((record) => String(record.scheduleId) === scheduleIdString);
+    (schedule: SpanningSchedule) => {
+      // 1. Filter semua record yang terkait dengan scheduleId ini
+      const allScheduleRecords = filteredRecords.filter((record) => String(record.scheduleId) === schedule.scheduleId);
 
       if (allScheduleRecords.length > 0) {
-        // 3. Gunakan tanggal mulai (tgl_start) dari data asli sebagai referensi tanggal modal
-        const dateString = scheduleData.tgl_start; // Sudah dalam format YYYY-MM-DD
+        // 2. Gunakan tanggal mulai schedule sebagai referensi tanggal modal
+        const dateString = schedule.startDate.toISOString().split("T")[0];
 
-        // 4. Set state untuk membuka DailyScheduleListModal
+        // 3. Set state untuk membuka DailyScheduleListModal
         setDailySchedulesForSelectedDate(allScheduleRecords);
         setSelectedDateForDailySchedules(dateString);
         setShowDailyScheduleModal(true);
       }
     },
-    // Pastikan filteredRecords, setDailySchedulesForSelectedDate, dll. ada di dependencies
     [filteredRecords, setDailySchedulesForSelectedDate, setSelectedDateForDailySchedules, setShowDailyScheduleModal]
   );
-
-  // Di dalam Monitoring.tsx, perbarui hook useMemo Anda:
-
-  // Tambahkan fungsi helper ini di luar komponen Monitoring
-
-  const addOneDayToStringRobust = (dateString: string): string => {
-    // 1. Pecah string tanggal (YYYY, MM, DD)
-    const [year, month, day] = dateString.split("-").map(Number);
-
-    // 2. Buat objek Date menggunakan Date.UTC (Month di JS dimulai dari 0, jadi kurangi 1)
-    // Ini memastikan perhitungan terjadi di UTC, menghilangkan bias waktu lokal.
-    const date = new Date(Date.UTC(year, month - 1, day));
-
-    // 3. Tambahkan satu hari menggunakan setUTCDate
-    date.setUTCDate(date.getUTCDate() + 1);
-
-    // 4. Kembalikan dalam format YYYY-MM-DD
-    return date.toISOString().split("T")[0];
-  };
-
-  const INTERVAL_HEX_COLOR_MAP: Record<string, string> = {
-    // Palet Biru Monokromatik
-    weekly: "#93C5FD", // Biru Paling Muda
-    monthly: "#60A5FA", // Biru Sedang
-    "3 month": "#3B82F6", // Biru Primer
-    "6 month": "#2563EB", // Biru Tua
-    "1 year": "#1D4ED8", // Biru Sangat Tua
-    default: "#6B7280", // Abu-abu
-  };
-
-  const calendarEvents: FullCalendarEvent[] = useMemo(() => {
-    if (!schedules || schedules.length === 0) {
-      return [];
-    }
-
-    return schedules.map((s) => {
-      // --- LOGIKA WARNA BARU BERDASARKAN INTERVAL ---
-      // type_interval sudah berupa string huruf kecil ("weekly") dari data JSON.
-      const intervalType = s.monitoring_interval.type_interval;
-
-      // Menggunakan intervalType (huruf kecil) untuk mencari warna
-      // Jika tidak ditemukan (misalnya untuk "3 Months", jika data JSON-nya "3 months"),
-      // maka akan digunakan fallback, tetapi ini bergantung pada konsistensi data.
-      const hexColor = INTERVAL_HEX_COLOR_MAP[intervalType] || INTERVAL_HEX_COLOR_MAP.default;
-
-      // ... (Logika Tanggal Akhir yang Sudah Diperbaiki) ...
-      const exclusiveEndDate = addOneDayToStringRobust(s.tgl_end);
-
-      return {
-        id: String(s.id_monitoring_schedule),
-        title: s.data_mesin.name + " - " + s.unit + " - " + s.monitoring_interval.type_interval,
-        start: s.tgl_start,
-        end: exclusiveEndDate,
-        allDay: true,
-        backgroundColor: hexColor,
-        borderColor: hexColor,
-        extendedProps: s,
-      };
-    });
-  }, [schedules]);
 
   const isStep1Complete = addForm.startDate !== null && addForm.endDate !== null;
   const isStep2Complete = addForm.selectedUnits.length > 0;
@@ -2813,57 +2726,86 @@ const MonitoringMaintenance: React.FC = () => {
                       )}
                     </AnimatePresence>
                   </motion.div>
-                  
+
                   {/* View Modes */}
 
                   {viewMode === "calendar" && (
-                    <div className="px-4 py-4 md:px-8 md:py-6">
-                      <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100 mb-6">
-                        <FullCalendar
-                          // Plugins yang digunakan
-                          plugins={[dayGridPlugin, interactionPlugin]}
-                          // Konfigurasi Tampilan
-                          initialView="dayGridMonth" // Tampilan default (Bulan)
-                          headerToolbar={{
-                            left: "prev,next today",
-                            center: "title",
-                            right: "dayGridMonth,dayGridWeek", // Pilihan tampilan
-                          }}
-                          // Konfigurasi Tanggal dan Bahasa
-                          initialDate={currentCalendarDate} // Menggunakan state Anda
-                          locale={idLocale}
-                          weekends={true} // Tampilkan akhir pekan
-                          events={calendarEvents}
-                          // Konfigurasi Klik Event
-                          // Di dalam FullCalendar
-                          eventClick={(info) => {
-                            // 💡 Hilangkan SpanningSchedule, ganti dengan MonitoringSchedule
-                            const originalSchedule = info.event.extendedProps as MonitoringSchedule;
-                            handleScheduleClick(originalSchedule);
-                          }}
-                          // Styling (Opsional, tergantung tema CSS Anda)
-                          height="auto"
-                        />
+                    <div className="space-y-6">
+                      {/* Calendar Header - Modern Design */}
+                      <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+                        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                          <div className="text-center lg:text-left">
+                            <h2 className="text-2xl font-bold text-gray-900 mb-2">{currentCalendarDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</h2>
+                            <p className="text-gray-600 text-sm">Monitor your maintenance schedules and activities</p>
+                          </div>
+
+                          <div className="flex items-center justify-center gap-3">
+                            <motion.button
+                              whileHover={{ scale: 1.05, backgroundColor: "rgba(59, 130, 246, 0.1)" }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={goToPreviousMonth}
+                              className="p-3 rounded-xl text-gray-600 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200 border border-gray-200"
+                              aria-label="Previous month"
+                            >
+                              <ChevronLeft size={20} />
+                            </motion.button>
+
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={goToCurrentMonth}
+                              className="px-4 py-3 bg-blue-600 text-white rounded-xl text-sm font-semibold shadow-lg hover:bg-blue-700 transition-colors duration-200"
+                            >
+                              Today
+                            </motion.button>
+
+                            <motion.button
+                              whileHover={{ scale: 1.05, backgroundColor: "rgba(59, 130, 246, 0.1)" }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={goToNextMonth}
+                              className="p-3 rounded-xl text-gray-600 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200 border border-gray-200"
+                              aria-label="Next month"
+                            >
+                              <ChevronRight size={20} />
+                            </motion.button>
+                          </div>
+                        </div>
                       </div>
 
-                      {/* Kontainer Legend Baru */}
+                      <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100 relative">
+                        <div className="grid grid-cols-8 gap-2 mb-4">
+                          {/* Kolom Week Number (WN) di BELAKANG */}
+                          <div className="p-3 text-center">
+                            <span className="text-sm font-semibold text-gray-500 uppercase tracking-wider">WN</span>
+                          </div>
+                          {/* Kolom Hari (Senin - Minggu) */}
+                          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
+                            <div key={day} className="p-3 text-center">
+                              <span className="text-sm font-semibold text-gray-500 uppercase tracking-wider">{day}</span>
+                            </div>
+                          ))}
+                        </div>
+                        {/* Calendar Days Grid (Nomor Tanggal & WN) */}
+                        <div className="grid grid-cols-8 gap-2">{renderCalendarDays()}</div>
+
+                        {/* SCHEDULE OVERLAY (LAPISAN JADWAL) */}
+                        <ScheduleOverlay schedules={spanningSchedules} currentCalendarDate={currentCalendarDate} onScheduleClick={handleScheduleClick} />
+                      </div>
+
+                      {/* Legend - Modern Design (Interval) */}
                       <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+                        {/* Mengubah Judul dari Status menjadi Interval */}
                         <h3 className="text-lg font-semibold text-gray-900 mb-4">Schedule Interval Legend</h3>
                         <div className="flex flex-wrap gap-x-8 gap-y-4">
-                          {Object.entries(INTERVAL_HEX_COLOR_MAP)
-                            // Filter 'default'
+                          {/* Loop melalui INTERVAL_COLOR_MAP untuk menampilkan legend */}
+                          {Object.entries(INTERVAL_COLOR_MAP)
+                            // Filter 'default' karena itu adalah fallback, bukan interval utama
                             .filter(([key]) => key !== "default")
-                            .map(([interval, hexColor]) => (
+                            .map(([interval, colorClasses]) => (
                               <div key={interval} className="flex items-center gap-3">
-                                {/* 💡 KOREKSI: Menggunakan style inline dengan hexColor */}
-                                <div
-                                  className={`w-4 h-4 rounded-full`}
-                                  style={{ backgroundColor: hexColor }} // Terapkan warna Hex di sini
-                                ></div>
-                                <span className="text-sm font-medium text-gray-700">
-                                  {/* Kapitalisasi Awal untuk Tampilan yang Lebih Baik */}
-                                  {interval.charAt(0).toUpperCase() + interval.slice(1)}
-                                </span>
+                                {/* Mengambil kelas warna dasar dari string (misal: 'bg-red-600') */}
+                                <div className={`w-4 h-4 rounded-full ${colorClasses.split(" ")[0]}`}></div>
+                                <span className="text-sm font-medium text-gray-700">{interval}</span>
                               </div>
                             ))}
                         </div>

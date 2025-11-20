@@ -492,7 +492,7 @@ const VendorPage: React.FC = () => {
               <p className="text-gray-600 mt-2 text-sm max-w-xl">Organize and manage vendors by specific company.</p>
             </div>
             <div className="flex flex-wrap gap-3 items-center">
-              {hasPermission("create_machine_history") && (
+              {hasPermission("view_vendors") && (
                 <motion.button
                   onClick={() => navigate("/vendors/addvendor")}
                   whileHover={{ scale: 1.02, boxShadow: "0 4px 12px rgba(37, 99, 235, 0.3)" }}
