@@ -46,12 +46,14 @@ interface FormMachine {
   intervalId: number | null; // Tambahkan intervalId
   intervalType?: string; // Opsional: untuk display
   items: FormItem[];
+  masterItems: FormItem[];
 }
 
 interface FormItem extends ItemMesin {
   hasil_monitoring?: string;
   hasil_keterangan?: string;
   interval_type?: string;
+  uom: string;
 }
 
 interface FormState {
@@ -127,6 +129,7 @@ const FormMonitoringMaintenance: React.FC = () => {
       try {
         setIsLoadingMasterData(true);
         const data = await getAllMasterMonitoring();
+        console.log("Master Data intervals ready to set:", data.intervals);
         setMasterData(data);
       } catch (err) {
         setError("Gagal memuat data master");
@@ -190,6 +193,7 @@ const FormMonitoringMaintenance: React.FC = () => {
           name: "",
           intervalId: null, // Add this required property
           items: [],
+          masterItems: [],
         },
       ];
       return { ...prev, units: newUnits };
@@ -208,22 +212,36 @@ const FormMonitoringMaintenance: React.FC = () => {
     async (unitIndex: number, machineIndex: number, selectedOption: any) => {
       if (selectedOption) {
         try {
-          // Ambil detail mesin dari API
+          // 💡 SOLUSI 1: Hapus .data jika getMesinDetail mengembalikan MesinDetail
           const selectedMachineDetail = await getMesinDetail(selectedOption.value);
 
           if (selectedMachineDetail) {
+            // 💡 SOLUSI 2: Eksplisitkan tipe parameter 'item'
+            const masterItems: FormItem[] = selectedMachineDetail.item_mesin.map(
+              (item: ItemMesin): FormItem => ({
+                // Properti dari ItemMesin (termasuk interval_id)
+                ...item,
+                item_mesin: item.item_mesin,
+                uom: item.satuan,
+
+                // Properti frontend tambahan
+                hasil_monitoring: "",
+                hasil_keterangan: "",
+                interval_type: "",
+              })
+            );
+
             setFormData((prev) => {
               const newUnits = [...prev.units];
+
+              // 💡 SOLUSI 3: masterItems sekarang properti yang valid di FormMachine
               newUnits[unitIndex].machines[machineIndex] = {
                 id: selectedMachineDetail.id,
                 name: selectedMachineDetail.name,
                 intervalId: null,
-                items: selectedMachineDetail.item_mesin.map((item) => ({
-                  ...item,
-                  hasil_monitoring: "",
-                  hasil_keterangan: "",
-                  interval_type: "", // Akan diisi ketika interval dipilih
-                })),
+                intervalType: undefined,
+                masterItems: masterItems, // ✅ Valid setelah interface diperbarui
+                items: [],
               };
               return { ...prev, units: newUnits };
             });
@@ -239,6 +257,8 @@ const FormMonitoringMaintenance: React.FC = () => {
             id: 0,
             name: "",
             intervalId: null,
+            intervalType: undefined,
+            masterItems: [], // ✅ Valid setelah interface diperbarui
             items: [],
           };
           return { ...prev, units: newUnits };
@@ -250,31 +270,45 @@ const FormMonitoringMaintenance: React.FC = () => {
 
   const handleIntervalSelect = useCallback(
     (unitIndex: number, machineIndex: number, selectedOption: any) => {
+      console.log("1. Selected Option:", selectedOption);
+      console.log("1. Machine ID:", formData.units[unitIndex]?.machines[machineIndex]?.id);
+
       if (selectedOption && formData.units[unitIndex]?.machines[machineIndex]?.id) {
-        const selectedInterval = masterData?.intervals?.find((interval) => interval.id_interval === selectedOption.value);
+        const selectedInterval = masterData?.intervals?.find((interval) => {
+          // 💡 DEBUG PENTING: Bandingkan tipe data
+          console.log(`2. Comparing value: ${selectedOption.value} (Type: ${typeof selectedOption.value}) === ${interval.id_interval} (Type: ${typeof interval.id_interval})`);
+
+          // Gunakan perbandingan yang sensitif terhadap tipe data jika Anda mencurigai ada perbedaan tipe.
+          // Jika id_interval adalah number dan value adalah string:
+          return interval.id_interval === Number(selectedOption.value);
+        });
+
+        console.log("2. Found Interval:", selectedInterval);
 
         if (selectedInterval) {
           setFormData((prev) => {
             const newUnits = [...prev.units];
             const currentMachine = newUnits[unitIndex].machines[machineIndex];
 
-            // Filter items berdasarkan interval_id yang dipilih
-            const filteredItems = currentMachine.items.filter((item) => item.interval_id === selectedInterval.id_interval);
+            const filteredItems = currentMachine.masterItems.filter((item) => item.interval_id === selectedInterval.id_interval);
 
             newUnits[unitIndex].machines[machineIndex] = {
               ...currentMachine,
               intervalId: selectedInterval.id_interval,
               intervalType: selectedInterval.type_interval,
               items: filteredItems.map((item) => ({
+                // items diisi dengan hasil filter dari masterItems
                 ...item,
                 interval_type: selectedInterval.type_interval,
               })),
             };
             return { ...prev, units: newUnits };
           });
+        } else {
+          console.error("Interval not found in masterData, possible ID mismatch.");
         }
       } else {
-        // Jika interval dihapus, reset items ke semua item mesin
+        // Logika clear/reset interval
         setFormData((prev) => {
           const newUnits = [...prev.units];
           const currentMachine = newUnits[unitIndex].machines[machineIndex];
@@ -283,13 +317,14 @@ const FormMonitoringMaintenance: React.FC = () => {
             ...currentMachine,
             intervalId: null,
             intervalType: undefined,
-            items: currentMachine.items.map((item) => ({
-              ...item,
-              interval_type: "",
-            })),
+            // 💡 Perbaiki: Kosongkan items (agar tidak ada item yang dikirim saat interval dihapus)
+            items: [],
+            // Tidak perlu memetakan currentMachine.items karena sudah di-reset di sini
           };
           return { ...prev, units: newUnits };
         });
+
+        console.log("1. Skipping filter: Selected Option is null/clear or Machine ID is missing.");
       }
     },
     [masterData, formData.units]
@@ -546,10 +581,12 @@ const FormMonitoringMaintenance: React.FC = () => {
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Interval</label>
                                 <Select
                                   options={
-                                    masterData?.intervals?.map((interval) => ({
-                                      value: interval.id_interval,
-                                      label: interval.type_interval,
-                                    })) || []
+                                    masterData && masterData.intervals
+                                      ? masterData.intervals.map((interval) => ({
+                                          value: interval.id_interval,
+                                          label: interval.type_interval,
+                                        }))
+                                      : []
                                   }
                                   value={
                                     machine.intervalId
@@ -562,7 +599,7 @@ const FormMonitoringMaintenance: React.FC = () => {
                                   onChange={(option) => handleIntervalSelect(unitIndex, machineIndex, option)}
                                   isClearable
                                   placeholder={machine.id ? "Select Interval" : "Please Select Machine"}
-                                  isDisabled={!machine.id || machine.items.length === 0}
+                                  isDisabled={!machine.id || machine.masterItems.length === 0}
                                   styles={customSelectStyles}
                                 />
                               </div>
@@ -572,14 +609,17 @@ const FormMonitoringMaintenance: React.FC = () => {
                             {machine.id && (
                               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                                 <div className="flex items-center justify-between">
-                                  <span className="text-sm font-medium text-blue-800">Total {machine.items.length} item monitoring tersedia</span>
+                                  {/* 🛑 PERBAIKAN: Gunakan masterItems.length untuk Total item yang tersedia */}
+                                  <span className="text-sm font-medium text-blue-800">Total {machine.masterItems.length} item monitoring tersedia</span>
                                   {machine.intervalId && (
                                     <span className="text-sm text-green-600">
-                                      {machine.items.filter((item) => item.interval_id === machine.intervalId).length} item untuk interval {machine.intervalType}
+                                      {/* 🛑 PERBAIKAN: Filter masterItems untuk menghitung item yang cocok */}
+                                      {machine.masterItems.filter((item) => item.interval_id === machine.intervalId).length} item untuk interval {machine.intervalType}
                                     </span>
                                   )}
                                 </div>
-                                {machine.items.length === 0 && <span className="text-xs text-orange-600 bg-orange-100 px-2 py-1 rounded mt-2 inline-block">Mesin ini belum memiliki item monitoring</span>}
+                                {/* 🛑 PERBAIKAN: Cek item kosong juga dari masterItems */}
+                                {machine.masterItems.length === 0 && <span className="text-xs text-orange-600 bg-orange-100 px-2 py-1 rounded mt-2 inline-block">Mesin ini belum memiliki item monitoring</span>}
                               </div>
                             )}
 

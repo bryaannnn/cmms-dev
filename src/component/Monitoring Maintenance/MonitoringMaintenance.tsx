@@ -1724,6 +1724,7 @@ const MonitoringMaintenance: React.FC = () => {
   const [selectedInterval, setSelectedInterval] = useState<string[]>([]);
 
   const [showIntervalFilterDropdown, setShowIntervalFilterDropdown] = useState(false);
+  const intervalFilterDropdownRef = useRef<HTMLDivElement>(null);
 
   const [showStatusFilterDropdown, setShowStatusFilterDropdown] = useState(false);
   const statusFilterDropdownRef = useRef<HTMLDivElement>(null);
@@ -1731,6 +1732,7 @@ const MonitoringMaintenance: React.FC = () => {
   const machineFilterDropdownRef = useRef<HTMLDivElement>(null);
   const [showUnitFilterDropdown, setShowUnitFilterDropdown] = useState(false);
   const unitFilterDropdownRef = useRef<HTMLDivElement>(null);
+
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
   // Options untuk filter
@@ -1743,17 +1745,15 @@ const MonitoringMaintenance: React.FC = () => {
     []
   );
 
-  const intervalOptions = useMemo(
-    () => [
-      { value: "Daily", label: "Daily" },
-      { value: "Weekly", label: "Weekly" },
-      { value: "Monthly", label: "Monthly" },
-      { value: "3 Months", label: "3 Months" },
-      { value: "6 Months", label: "6 Months" },
-      { value: "1 Year", label: "1 Year" },
-    ],
-    []
-  );
+  const intervalOptions = useMemo(() => {
+    return [
+      { value: "weekly", label: "Weekly" },
+      { value: "monthly", label: "Monthly" },
+      { value: "3 month", label: "3 Month" },
+      { value: "6 month", label: "6 Month" },
+      { value: "1 year", label: "1 Year" },
+    ];
+  }, []);
 
   // Convert API schedules to RoutineSchedule format
   const routineSchedules: RoutineSchedule[] = useMemo(() => {
@@ -1785,8 +1785,7 @@ const MonitoringMaintenance: React.FC = () => {
       const machineName = machine?.name || `Machine ${schedule.id_mesins}`;
 
       const intervalType = schedule.monitoring_interval?.type_interval || "weekly";
-      const intervalDisplay =
-        intervalType === "weekly" ? "Weekly" : intervalType === "monthly" ? "Monthly" : intervalType === "3 month" ? "3 Month" : intervalType === "6 month" ? "6 Month" : intervalType === "1 year" ? "1 Year" : "Weekly";
+      const intervalDisplay = intervalType === "weekly" ? "Weekly" : intervalType === "monthly" ? "Monthly" : intervalType === "3 month" ? "3 Month" : intervalType === "6 month" ? "6 Month" : intervalType === "1 year" ? "1 Year" : "Weekly";
 
       // PERBAIKAN: Gunakan item_mesins dari schedule jika ada, jika tidak gunakan dari machine
       const itemsToMonitor = schedule.item_mesins && schedule.item_mesins.length > 0 ? schedule.item_mesins : machine?.item_mesin || [];
@@ -2062,10 +2061,25 @@ const MonitoringMaintenance: React.FC = () => {
     }
 
     // Date filter
-    if (filterStartDate && filterEndDate) {
-      const start = filterStartDate.toISOString().split("T")[0];
-      const end = filterEndDate.toISOString().split("T")[0];
-      filtered = filtered.filter((record) => record.date >= start && record.date <= end);
+    // if (filterStartDate && filterEndDate) {
+    //   const start = filterStartDate.toISOString().split("T")[0];
+    //   const end = filterEndDate.toISOString().split("T")[0];
+    //   filtered = filtered.filter((record) => record.date >= start && record.date <= end);
+    //   if (filtered.length === 0) return [];
+    // }
+
+    // 💡 MODIFIKASI LOGIKA FILTER TANGGAL (Untuk record.date)
+    if (filterStartDate) {
+      const startISO = filterStartDate.toISOString().split("T")[0];
+      // Filter hanya record yang Tanggalnya >= startISO
+      filtered = filtered.filter((record) => record.date >= startISO);
+      if (filtered.length === 0) return [];
+    }
+
+    if (filterEndDate) {
+      const endISO = filterEndDate.toISOString().split("T")[0];
+      // Filter hanya record yang Tanggalnya <= endISO
+      filtered = filtered.filter((record) => record.date <= endISO);
       if (filtered.length === 0) return [];
     }
 
@@ -2088,8 +2102,14 @@ const MonitoringMaintenance: React.FC = () => {
       if (filtered.length === 0) return [];
     }
 
+    if (selectedInterval.length > 0) {
+      const intervalSet = new Set(selectedInterval);
+      filtered = filtered.filter((record) => intervalSet.has(record.interval));
+      if (filtered.length === 0) return [];
+    }
+
     return filtered;
-  }, [records, filterStartDate, filterEndDate, selectedStatus, selectedUnit, selectedMachine, searchTerm]);
+  }, [records, filterStartDate, filterEndDate, selectedStatus, selectedUnit, selectedMachine, searchTerm, selectedInterval]);
 
   useEffect(() => {
     const handleResize = (): void => {
@@ -2381,13 +2401,15 @@ const MonitoringMaintenance: React.FC = () => {
   };
 
   // Handler untuk Interval multi-select
-  const handleIntervalCheckboxChange = (intervalValue: string, isChecked: boolean) => {
-    if (isChecked) {
-      setSelectedInterval((prev) => [...prev, intervalValue]);
-    } else {
-      setSelectedInterval((prev) => prev.filter((value) => value !== intervalValue));
-    }
-  };
+  const handleIntervalCheckboxChange = useCallback((value: string, checked: boolean) => {
+    setSelectedInterval((prev) => {
+      if (checked) {
+        return [...prev, value];
+      } else {
+        return prev.filter((v) => v !== value);
+      }
+    });
+  }, []);
 
   const spanningSchedules = useMemo(() => getSpanningSchedules(filteredRecords, currentCalendarDate), [filteredRecords, currentCalendarDate]);
 
@@ -2440,28 +2462,112 @@ const MonitoringMaintenance: React.FC = () => {
   };
 
   const INTERVAL_HEX_COLOR_MAP: Record<string, string> = {
-    // Palet Biru Monokromatik
-    weekly: "#93C5FD", // Biru Paling Muda
-    monthly: "#60A5FA", // Biru Sedang
-    "3 month": "#3B82F6", // Biru Primer
-    "6 month": "#2563EB", // Biru Tua
-    "1 year": "#1D4ED8", // Biru Sangat Tua
-    default: "#6B7280", // Abu-abu
+    weekly: "#059669",
+    monthly: "#3B82F6",
+    "3 month": "#0891B2",
+    "6 month": "#F59E0B",
+    "1 year": "#DC2626",
+    default: "#6B7280",
   };
 
-  const calendarEvents: FullCalendarEvent[] = useMemo(() => {
+  // ... (Definisi INTERVAL_HEX_COLOR_MAP, State, dan Handler fungsi Anda)
+
+  // 💡 Tambahkan semua state filter yang relevan ke dependency array!
+  const filteredSchedules = useMemo(() => {
     if (!schedules || schedules.length === 0) {
       return [];
     }
 
-    return schedules.map((s) => {
-      // --- LOGIKA WARNA BARU BERDASARKAN INTERVAL ---
-      // type_interval sudah berupa string huruf kecil ("weekly") dari data JSON.
-      const intervalType = s.monitoring_interval.type_interval;
+    // 1. Terapkan Filter Pencarian (Search Term)
+    const afterSearch = schedules.filter((s) => {
+      const searchLower = searchTerm.toLowerCase();
+      const intervalType = s.monitoring_interval.type_interval.toLowerCase();
+      const machineName = s.data_mesin.name.toLowerCase();
+      const unit = s.unit.toLowerCase();
 
-      // Menggunakan intervalType (huruf kecil) untuk mencari warna
-      // Jika tidak ditemukan (misalnya untuk "3 Months", jika data JSON-nya "3 months"),
-      // maka akan digunakan fallback, tetapi ini bergantung pada konsistensi data.
+      return intervalType.includes(searchLower) || machineName.includes(searchLower) || unit.includes(searchLower);
+    });
+
+    // 2. Terapkan Filter Lanjutan (Advanced Filters)
+    const afterAdvancedFilters = afterSearch.filter((s) => {
+      // Filter Range Tanggal
+      if (filterStartDate) {
+        const scheduleStart = new Date(s.tgl_start);
+        // Bersihkan waktu (setHours(0, 0, 0, 0)) untuk perbandingan tanggal yang akurat
+        scheduleStart.setHours(0, 0, 0, 0);
+
+        const filterStart = new Date(filterStartDate);
+        filterStart.setHours(0, 0, 0, 0);
+
+        // Jika Tanggal Mulai Schedule LEBIH AWAL dari filter yang dipilih, hapus (return false)
+        if (scheduleStart < filterStart) {
+          return false;
+        }
+      }
+
+      if (filterEndDate) {
+        const scheduleEnd = new Date(s.tgl_end);
+        // Bersihkan waktu (setHours(0, 0, 0, 0))
+        scheduleEnd.setHours(0, 0, 0, 0);
+
+        const filterEnd = new Date(filterEndDate);
+        // Atur filterEndDate ke 23:59:59 untuk inklusivitas tanggal penuh
+        filterEnd.setHours(23, 59, 59, 999);
+
+        // Jika Tanggal Akhir Schedule LEBIH LAMBAT dari filter yang dipilih, hapus (return false)
+        if (scheduleEnd > filterEnd) {
+          return false;
+        }
+      }
+
+      // Filter Unit
+      if (selectedUnit.length > 0) {
+        if (!selectedUnit.includes(s.unit)) {
+          return false;
+        }
+      }
+
+      // Filter Machine
+      if (selectedMachine.length > 0) {
+        if (!selectedMachine.includes(s.data_mesin.name)) {
+          return false;
+        }
+      }
+
+      // 💡 FILTER INTERVAL BARU
+      if (selectedInterval.length > 0) {
+        // Catatan: type_interval di data Anda sudah berupa string huruf kecil ("weekly", "3 month")
+        if (!selectedInterval.includes(s.monitoring_interval.type_interval)) {
+          return false;
+        }
+      }
+
+      return true; // Lulus semua filter
+    });
+
+    return afterAdvancedFilters;
+  }, [
+    schedules,
+    searchTerm,
+    filterStartDate,
+    filterEndDate,
+    selectedStatus, // Pastikan ini ada di state Anda
+    selectedUnit,
+    selectedMachine,
+    selectedInterval,
+  ]);
+
+  // Ganti [schedules] di dependency array lama Anda dengan [filteredSchedules]
+  // Anda juga perlu menambahkan filterStartDate dan filterEndDate ke dependency array
+  const calendarEvents: FullCalendarEvent[] = useMemo(() => {
+    // 💡 Ganti schedules dengan filteredSchedules
+    if (!filteredSchedules || filteredSchedules.length === 0) {
+      return [];
+    }
+
+    return filteredSchedules.map((s) => {
+      // --- LOGIKA WARNA BARU BERDASARKAN INTERVAL ---
+      const intervalType = s.monitoring_interval.type_interval;
       const hexColor = INTERVAL_HEX_COLOR_MAP[intervalType] || INTERVAL_HEX_COLOR_MAP.default;
 
       // ... (Logika Tanggal Akhir yang Sudah Diperbaiki) ...
@@ -2477,8 +2583,9 @@ const MonitoringMaintenance: React.FC = () => {
         borderColor: hexColor,
         extendedProps: s,
       };
+      // 💡 Dependency array harus mencakup semua data yang mempengaruhi event creation
     });
-  }, [schedules]);
+  }, [filteredSchedules, INTERVAL_HEX_COLOR_MAP, addOneDayToStringRobust]);
 
   const isStep1Complete = addForm.startDate !== null && addForm.endDate !== null;
   const isStep2Complete = addForm.selectedUnits.length > 0;
@@ -2490,7 +2597,7 @@ const MonitoringMaintenance: React.FC = () => {
       <div className={`flex h-screen font-sans antialiased bg-blue-50`}>
         <Sidebar />
 
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-y-auto">
           <PageHeader
             mainTitle="Moninoring Maintenance"
             mainTitleHighlight="Management"
@@ -2556,7 +2663,7 @@ const MonitoringMaintenance: React.FC = () => {
               <AnimatePresence mode="wait">
                 <motion.div key={viewMode} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
                   {/* Filter Section - Tampilkan selalu ketika ada data */}
-                  <motion.div layout className="mb-8 bg-white rounded-2xl shadow-md p-5 border border-blue-100">
+                  <motion.div layout className="mb-8 bg-white rounded-2xl shadow-md p-5 border border-blue-100 z-50">
                     <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-4 md:space-y-0 relative">
                       <div className="flex-1 relative">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
@@ -2594,6 +2701,61 @@ const MonitoringMaintenance: React.FC = () => {
                           className="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full"
                         >
                           {/* Date Range Filter */}
+                          <div className="flex items-center space-x-2 bg-white p-2.5 rounded-lg border border-blue-200 shadow-sm relative z-50">
+                            {/* 💡 Tambahkan relative z-50 pada wadah luar untuk konteks stacking tertinggi */}
+                            <Calendar className="text-gray-500 text-base" />
+
+                            {/* Start Date Picker (Start Date Filter) */}
+                            <DatePicker
+                              selected={filterStartDate}
+                              onChange={(date: Date | null) => setFilterStartDate(date)}
+                              selectsStart
+                              startDate={filterStartDate}
+                              endDate={filterEndDate}
+                              placeholderText="Start Date"
+                              className="w-24 focus:outline-none bg-transparent text-sm text-gray-800 placeholder-gray-400"
+                              dateFormat="dd/MM/yyyy"
+                              isClearable
+                              aria-label="Start Date"
+                              popperPlacement="bottom-start"
+                              popperClassName="z-50"
+                            />
+                            <span className="text-gray-400">-</span>
+
+                            {/* End Date Picker (End Date Filter) */}
+                            <DatePicker
+                              selected={filterEndDate}
+                              onChange={(date: Date | null) => setFilterEndDate(date)}
+                              selectsEnd
+                              startDate={filterStartDate}
+                              endDate={filterEndDate}
+                              minDate={filterStartDate || undefined}
+                              placeholderText="End Date"
+                              className="w-24 focus:outline-none bg-transparent text-sm text-gray-800 placeholder-gray-400"
+                              dateFormat="dd/MM/yyyy"
+                              isClearable
+                              aria-label="End Date"
+                              popperPlacement="bottom-end"
+                              popperClassName="z-50"
+                            />
+                            {(filterStartDate || filterEndDate) && (
+                              <motion.button
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                                onClick={() => {
+                                  setFilterStartDate(null);
+                                  setFilterEndDate(null);
+                                }}
+                                className="p-1 rounded-full text-gray-400 hover:bg-gray-100 transition-colors"
+                                title="Clear Dates"
+                                aria-label="Clear date range"
+                              >
+                                <X className="text-base" />
+                              </motion.button>
+                            )}
+                          </div>
+
+                          {/* Date Range Filter
                           <div className="flex items-center space-x-2 bg-white p-2.5 rounded-lg border border-blue-200 shadow-sm">
                             <Calendar className="text-gray-500 text-base" />
                             <DatePicker
@@ -2637,9 +2799,9 @@ const MonitoringMaintenance: React.FC = () => {
                                 <X className="text-base" />
                               </motion.button>
                             )}
-                          </div>
+                          </div> */}
 
-                          {/* Status Filter Dropdown */}
+                          {/* Status Filter Dropdown
                           <div ref={statusFilterDropdownRef} className="relative w-full">
                             <button
                               type="button"
@@ -2687,6 +2849,66 @@ const MonitoringMaintenance: React.FC = () => {
                                         className="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500 transition duration-150 ease-in-out"
                                         checked={selectedStatus.includes(option.value)}
                                         onChange={(e) => handleStatusCheckboxChange(option.value, e.target.checked)}
+                                      />
+                                      <span className="ml-2 text-gray-800 text-sm">{option.label}</span>
+                                    </label>
+                                  ))}
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div> */}
+
+                          {/* 💡 INTERVAL FILTER DROPDOWN BARU */}
+                          <div ref={intervalFilterDropdownRef} className="relative w-full z-50">
+                            <button
+                              type="button"
+                              className="interval-filter-toggle w-full border border-blue-200 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 bg-white text-sm text-left flex justify-between items-center transition-all duration-200 shadow-sm cursor-pointer"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowIntervalFilterDropdown(!showIntervalFilterDropdown);
+                              }}
+                              aria-expanded={showIntervalFilterDropdown}
+                              aria-haspopup="true"
+                              aria-label="Filter by Interval"
+                            >
+                              <span>{selectedInterval.length > 0 ? (selectedInterval.length === intervalOptions.length ? "All Intervals" : `Selected (${selectedInterval.length})`) : "All Intervals"}</span>
+                              <ChevronDown className={`transform transition-transform ${showIntervalFilterDropdown ? "rotate-180" : "rotate-0"} text-gray-500 text-base`} />
+                            </button>
+                            <AnimatePresence>
+                              {showIntervalFilterDropdown && (
+                                <motion.div
+                                  initial={{ opacity: 0, y: 5, height: 0 }}
+                                  animate={{ opacity: 1, y: 0, height: "auto" }}
+                                  exit={{ opacity: 0, y: 5, height: 0 }}
+                                  transition={{ duration: 0.15 }}
+                                  className="absolute top-full left-0 right-0 mt-2 bg-white border border-blue-200 rounded-lg shadow-lg z-50 max-h-56 overflow-y-auto custom-scrollbar"
+                                  role="listbox"
+                                >
+                                  {/* Select All */}
+                                  <label className="flex items-center p-2.5 hover:bg-blue-50 cursor-pointer border-b border-blue-50" role="option">
+                                    <input
+                                      type="checkbox"
+                                      className="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500 transition duration-150 ease-in-out"
+                                      checked={selectedInterval.length === intervalOptions.length && intervalOptions.length > 0}
+                                      onChange={(e) => {
+                                        if (e.target.checked) {
+                                          setSelectedInterval(intervalOptions.map((opt) => opt.value));
+                                        } else {
+                                          setSelectedInterval([]);
+                                        }
+                                      }}
+                                    />
+                                    <span className="ml-2 text-gray-800 font-semibold text-sm">Select All</span>
+                                  </label>
+
+                                  {/* Individual Options */}
+                                  {intervalOptions.map((option) => (
+                                    <label key={option.value} className="flex items-center p-2.5 hover:bg-blue-50 cursor-pointer" role="option">
+                                      <input
+                                        type="checkbox"
+                                        className="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500 transition duration-150 ease-in-out"
+                                        checked={selectedInterval.includes(option.value)}
+                                        onChange={(e) => handleIntervalCheckboxChange(option.value, e.target.checked)}
                                       />
                                       <span className="ml-2 text-gray-800 text-sm">{option.label}</span>
                                     </label>
@@ -2813,12 +3035,12 @@ const MonitoringMaintenance: React.FC = () => {
                       )}
                     </AnimatePresence>
                   </motion.div>
-                  
+
                   {/* View Modes */}
 
                   {viewMode === "calendar" && (
                     <div className="px-4 py-4 md:px-8 md:py-6">
-                      <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100 mb-6">
+                      <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100 mb-6 z-0">
                         <FullCalendar
                           // Plugins yang digunakan
                           plugins={[dayGridPlugin, interactionPlugin]}

@@ -261,6 +261,8 @@ const DetailMonitoringMaintenance: React.FC = () => {
   const [modalTitle, setModalTitle] = useState("");
   const [isSuccess, setIsSuccess] = useState(true);
 
+  const [searchTerm, setSearchTerm] = useState<string>("");
+
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{
     type: "approve" | "feedback" | "reject" | "edit";
@@ -1098,7 +1100,8 @@ const DetailMonitoringMaintenance: React.FC = () => {
     }));
   };
 
-  const handleSaveMachineResults = async () => {
+  const handleSaveMachineResults = async (itemIdToSave?: number) => {
+    // ... (kode awal tetap sama untuk validasi awal)
     if (!machineDetail || !monitoringResults || !id) return;
 
     setIsSaving(true);
@@ -1106,7 +1109,10 @@ const DetailMonitoringMaintenance: React.FC = () => {
       let isValid = true;
       const pendingItems: { item: string }[] = [];
 
-      monitoringResults.itemResults.forEach((itemResult) => {
+      // 📝 Validasi: Periksa hanya item yang akan disimpan (atau semua jika itemIdToSave tidak ada)
+      const itemsToValidate = itemIdToSave ? monitoringResults.itemResults.filter((r) => r.itemId === itemIdToSave) : monitoringResults.itemResults;
+
+      itemsToValidate.forEach((itemResult) => {
         const originalItem = machineDetail.items.find((i) => i.id === itemResult.itemId);
         if (originalItem && (itemResult.result === "" || itemResult.status === "Pending")) {
           isValid = false;
@@ -1119,8 +1125,11 @@ const DetailMonitoringMaintenance: React.FC = () => {
         return;
       }
 
+      // 📝 Filter item yang akan diproses: hanya item yang ditentukan atau semua item
+      const resultsToSave = itemIdToSave ? monitoringResults.itemResults.filter((r) => r.itemId === itemIdToSave) : monitoringResults.itemResults;
+
       // Prepare data for backend - INCLUDE id_monitoring_activities
-      const activitiesToSave = monitoringResults.itemResults.map((itemResult) => {
+      const activitiesToSave = resultsToSave.map((itemResult) => {
         // Cari activity yang sudah ada berdasarkan id_item_mesin
         const existingActivity = scheduleData?.monitoring_activities?.find((act: any) => act.id_item_mesin === itemResult.itemId);
 
@@ -1148,6 +1157,7 @@ const DetailMonitoringMaintenance: React.FC = () => {
         }
       });
 
+      // ... (Logika pemisahan CREATE dan UPDATE tetap sama)
       console.log("📦 Data yang akan dikirim ke backend:", activitiesToSave);
 
       // Pisahkan antara CREATE dan UPDATE
@@ -1170,16 +1180,21 @@ const DetailMonitoringMaintenance: React.FC = () => {
         await updateMonitoringActivity(activitiesToUpdate);
       }
 
-      // Update local state
+      // ... (Logika update state lokal tetap sama)
       setMonitoringResults((prevResults) => {
+        // ... (logika history dan isSaved tetap sama)
         if (!prevResults) return null;
 
         const updatedActivityHistory = [...prevResults.activityHistory];
         const timestamp = new Date().toLocaleString();
 
         // Tentukan jenis aksi berdasarkan isSaved
+        // Catatan: isSaved akan berubah menjadi true jika ini adalah submission pertama.
+        // Jika Anda hanya menyimpan satu item, isSaved mungkin menjadi true meskipun item lain belum diisi.
         const actionType = prevResults.isSaved ? "edit" : "submission";
-        const actionDescription = prevResults.isSaved ? `${currentUserRole.name} mengedit hasil monitoring.` : `${currentUserRole.name} mengisi hasil monitoring.`;
+        const actionDescription = itemIdToSave
+          ? `${currentUserRole.name} ${prevResults.isSaved ? "mengedit" : "mengisi"} hasil monitoring item ${machineDetail.items.find((i) => i.id === itemIdToSave)?.name}`
+          : `${currentUserRole.name} ${prevResults.isSaved ? "mengedit" : "mengisi"} semua hasil monitoring.`;
 
         updatedActivityHistory.push({
           type: actionType,
@@ -1196,12 +1211,18 @@ const DetailMonitoringMaintenance: React.FC = () => {
         };
       });
 
-      await loadMachineDetail();
+      // ... (Kode untuk loadMachineDetail dan showModal tetap sama)
+      // await loadMachineDetail();
 
-      const actionMessage = monitoringResults.isSaved ? `Hasil monitoring untuk ${machineDetail.name} berhasil diupdate!` : `Hasil monitoring untuk ${machineDetail.name} berhasil disimpan!`;
+      const actionMessage = itemIdToSave
+        ? `Hasil monitoring item ${machineDetail.items.find((i) => i.id === itemIdToSave)?.name} berhasil disimpan/diupdate!`
+        : monitoringResults.isSaved
+        ? `Hasil monitoring untuk ${machineDetail.name} berhasil diupdate!`
+        : `Hasil monitoring untuk ${machineDetail.name} berhasil disimpan!`;
 
       showModal("Success!", actionMessage, true);
     } catch (err) {
+      // ... (Penanganan Error tetap sama)
       const actionMessage = monitoringResults.isSaved ? "Gagal mengupdate hasil monitoring. Silakan coba lagi." : "Gagal menyimpan hasil monitoring. Silakan coba lagi.";
 
       showModal("Error!", actionMessage, false);
@@ -1426,6 +1447,26 @@ const DetailMonitoringMaintenance: React.FC = () => {
     loadMachineDetail();
   }, [loadMachineDetail]);
 
+  const filteredMachineItems = useMemo(() => {
+    // Pastikan machineDetail dan items sudah terisi
+    if (!machineDetail || !machineDetail.items) {
+      return [];
+    }
+
+    const query = searchTerm.toLowerCase().trim();
+
+    if (!query) {
+      // Jika kolom pencarian kosong, tampilkan semua item
+      return machineDetail.items;
+    }
+
+    // Filter array items di dalam machineDetail
+    return machineDetail.items.filter((item) => {
+      // Hanya mencari berdasarkan item.name (item_mesin)
+      return item.name.toLowerCase().includes(query);
+    });
+  }, [machineDetail, searchTerm]); // Dependensi: machineDetail dan searchTerm
+
   if (isLoading) {
     return (
       <div className="flex h-screen font-sans antialiased bg-blue-50 text-gray-900">
@@ -1565,6 +1606,16 @@ const DetailMonitoringMaintenance: React.FC = () => {
 
           <div className="space-y-6">
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.2 }} className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+              <div className="mb-4">
+                <input
+                  type="text"
+                  placeholder="Cari item monitoring berdasarkan nama..."
+                  value={searchTerm} // ⬅️ Gunakan state searchTerm
+                  onChange={(e) => setSearchTerm(e.target.value)} // ⬅️ Update state
+                  className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150"
+                />
+              </div>
+
               <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
@@ -1584,12 +1635,30 @@ const DetailMonitoringMaintenance: React.FC = () => {
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Catatan
                       </th>
+                      {/* 🆕 KOLOM BARU UNTUK AKSI */}
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Aksi
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {machineDetail.items.map((item) => {
+                    {filteredMachineItems.map((item) => {
                       const currentResult = monitoringResults.itemResults.find((i) => i.itemId === item.id);
                       const inputType = getInputType(item);
+
+                      const isItemReadyToSave = currentResult && currentResult.result !== "" && currentResult.status !== "Pending";
+
+                      const isStep1ActionTaken = monitoringResults?.approvalStatus?.step_1 && monitoringResults.approvalStatus.step_1 !== "Pending";
+
+                      const isItemDisabled =
+                        !isEditable ||
+                        isSaving ||
+                        !isItemReadyToSave || // Tambahan validasi item
+                        (isStep1Approver && isAllApprovalStepsCompleted());
+
+                      const approverCompletedText = "All Steps Completed";
+
+                      const globalDisabledCondition = !isEditable || isStep1ActionTaken;
 
                       return (
                         <tr key={item.id}>
@@ -1604,7 +1673,7 @@ const DetailMonitoringMaintenance: React.FC = () => {
                                 className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md disabled:bg-gray-100 disabled:cursor-not-allowed"
                                 value={currentResult?.result || ""}
                                 onChange={(e) => handleResultChange(item.id, e.target.value, "visual")}
-                                disabled={!isEditable}
+                                disabled={globalDisabledCondition}
                               >
                                 <option value="">Pilih</option>
                                 <option value="MS">MS</option>
@@ -1616,7 +1685,7 @@ const DetailMonitoringMaintenance: React.FC = () => {
                                 step="0.01"
                                 value={currentResult?.result as string}
                                 onChange={(e) => handleResultChange(item.id, e.target.value, "numeric", item.min, item.max)}
-                                disabled={!isEditable}
+                                disabled={globalDisabledCondition}
                                 className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700 text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                                 placeholder="Input result"
                               />
@@ -1630,44 +1699,60 @@ const DetailMonitoringMaintenance: React.FC = () => {
                               rows={1}
                               value={currentResult?.remarks}
                               onChange={(e) => handleRemarksChange(item.id, e.target.value)}
-                              disabled={!isEditable}
+                              disabled={globalDisabledCondition}
                               className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white text-gray-700 text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                               placeholder="Tambahkan catatan..."
                             />
                           </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm relative">
+                            <motion.button
+                             
+                              whileHover={{ scale: isEditable ? 1.05 : 1 }}
+                              whileTap={{ scale: isEditable ? 0.95 : 1 }}                   
+                              onClick={
+                                isStep1Approver ? () => handleEditByApprover(1) : () => handleSaveMachineResults(item.id) 
+                              }
+                              disabled={!isEditable || isSaving || isStep1ActionTaken || (isStep1Approver && isAllApprovalStepsCompleted())}
+                              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold flex items-center disabled:opacity-50 disabled:cursor-not-allowed relative group"
+                            >
+                              {isSaving ? (
+                                <>
+                                  <Hourglass className="animate-spin mr-1 h-4 w-4" />
+                                  Saving...
+                                </>
+                              ) : (
+                                <>
+                                  <Save className="mr-1 h-4 w-4" />
+                                  {isStep1Approver ? (isAllApprovalStepsCompleted() ? approverCompletedText : "Save & Edit") : "Simpan Item"}
+                                </>
+                              )}
+                            </motion.button>
+
+                            {isStep1Approver && isAllApprovalStepsCompleted() && (
+                              <div className="absolute bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded py-1 px-2 whitespace-nowrap z-10">Semua step approval sudah selesai. Tidak dapat melakukan edit.</div>
+                            )}
+                          </td>
                         </tr>
                       );
                     })}
+                    {filteredMachineItems.length === 0 && searchTerm && (
+                      <tr>
+                        <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+                          Tidak ada item mesin yang cocok dengan kata kunci "{searchTerm}".
+                        </td>
+                      </tr>
+                    )}
+                    {filteredMachineItems.length === 0 && !searchTerm && (
+                      <tr>
+                        <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+                          Tidak ada data item monitoring yang tersedia.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
 
-              <div className="flex justify-end mt-6 relative">
-                <motion.button
-                  whileHover={{ scale: isEditable ? 1.05 : 1 }}
-                  whileTap={{ scale: isEditable ? 0.95 : 1 }}
-                  onClick={isStep1Approver ? () => handleEditByApprover(1) : handleSaveMachineResults}
-                  disabled={!isEditable || isSaving || (isStep1Approver && isAllApprovalStepsCompleted())}
-                  className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold flex items-center disabled:opacity-50 disabled:cursor-not-allowed relative group"
-                >
-                  {isSaving ? (
-                    <>
-                      <Hourglass className="animate-spin mr-2 h-5 w-5" />
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="mr-2 h-5 w-5" />
-                      {isStep1Approver ? (isAllApprovalStepsCompleted() ? "All Steps Completed" : "Save & Mark as Edited") : "Save Monitoring"}
-                    </>
-                  )}
-                </motion.button>
-
-                {/* Tooltip untuk menjelaskan mengapa tombol disabled */}
-                {isStep1Approver && isAllApprovalStepsCompleted() && (
-                  <div className="absolute bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded py-1 px-2 whitespace-nowrap">Semua step approval sudah selesai. Tidak dapat melakukan edit.</div>
-                )}
-              </div>
               <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm mt-8">
                 <div className="flex items-center space-x-4 mb-4 border-b border-gray-200">
                   <motion.button

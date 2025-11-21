@@ -1125,6 +1125,13 @@ export interface MonitoringInterval {
   updated_at: string;
 }
 
+// Buat interface untuk response API
+export interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data: T;
+}
+
 export interface ItemMesin {
   id: number;
   mesin_id: number;
@@ -3924,8 +3931,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     [fetchWithAuth]
   );
 
-  // Di AuthContext.tsx - perbaiki updateMonitoringActivity
-  // Di AuthContext.tsx - perbaiki updateMonitoringActivity
   const updateMonitoringActivity = useCallback(
     async (activities: MonitoringActivityUpdateRequest[]): Promise<MonitoringActivityResponse[]> => {
       try {
